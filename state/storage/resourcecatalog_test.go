@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -48,10 +49,11 @@ func (s *resourceCatalogSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *resourceCatalogSuite) assertPut(c *gc.C, md5hash, sha256hash string) string {
+func (s *resourceCatalogSuite) assertPut(c *gc.C, expectedNew bool, md5hash, sha256hash string) string {
 	rh := &storage.ResourceHash{md5hash, sha256hash}
-	id, path, err := s.rCatalog.Put(rh)
+	id, path, isNew, err := s.rCatalog.Put(rh)
 	c.Assert(err, gc.IsNil)
+	c.Assert(isNew, gc.Equals, expectedNew)
 	c.Assert(id, gc.Not(gc.Equals), "")
 	c.Assert(path, gc.Not(gc.Equals), "")
 	s.assertGet(c, rh, id)
@@ -78,13 +80,13 @@ func (s *resourceCatalogSuite) assertRefCount(c *gc.C, id string, expected int64
 }
 
 func (s *resourceCatalogSuite) TestPut(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
 	s.assertRefCount(c, id, 1)
 }
 
 func (s *resourceCatalogSuite) TestPutSameHashesIncRefCount(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
-	s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
+	s.assertPut(c, false, "md5foo", "sha256foo")
 	s.assertRefCount(c, id, 2)
 }
 
@@ -98,14 +100,15 @@ func (s *resourceCatalogSuite) TestGet(c *gc.C) {
 		MD5Hash:    "md5foo",
 		SHA256Hash: "sha256foo",
 	}
-	id, path, err := s.rCatalog.Put(rh)
+	id, path, isNew, err := s.rCatalog.Put(rh)
 	c.Assert(err, gc.IsNil)
+	c.Assert(isNew, jc.IsTrue)
 	c.Assert(path, gc.Not(gc.Equals), "")
 	s.assertGet(c, rh, id)
 }
 
 func (s *resourceCatalogSuite) TestRemoveOnlyRecord(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
 	err := s.rCatalog.Remove(id)
 	c.Assert(err, gc.IsNil)
 	_, err = s.rCatalog.Get(id)
@@ -113,8 +116,8 @@ func (s *resourceCatalogSuite) TestRemoveOnlyRecord(c *gc.C) {
 }
 
 func (s *resourceCatalogSuite) TestRemoveDecRefCount(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
-	s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
+	s.assertPut(c, false, "md5foo", "sha256foo")
 	s.assertRefCount(c, id, 2)
 	err := s.rCatalog.Remove(id)
 	c.Assert(err, gc.IsNil)
@@ -128,8 +131,8 @@ func (s *resourceCatalogSuite) TestRemoveDecRefCount(c *gc.C) {
 }
 
 func (s *resourceCatalogSuite) TestRemoveLastCopy(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
-	s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
+	s.assertPut(c, false, "md5foo", "sha256foo")
 	s.assertRefCount(c, id, 2)
 	err := s.rCatalog.Remove(id)
 	c.Assert(err, gc.IsNil)
@@ -148,13 +151,14 @@ func (s *resourceCatalogSuite) TestRemoveNonExistent(c *gc.C) {
 func (s *resourceCatalogSuite) TestPutNewResourceRace(c *gc.C) {
 	var firstId string
 	beforeFuncs := []func(){
-		func() { firstId = s.assertPut(c, "md5foo", "sha256foo") },
+		func() { firstId = s.assertPut(c, true, "md5foo", "sha256foo") },
 	}
 	defer statetxn.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
 	rh := &storage.ResourceHash{"md5foo", "sha256foo"}
-	id, _, err := s.rCatalog.Put(rh)
+	id, _, isNew, err := s.rCatalog.Put(rh)
 	c.Assert(err, gc.IsNil)
 	c.Assert(id, gc.Equals, firstId)
+	c.Assert(isNew, jc.IsFalse)
 	r, err := s.rCatalog.Get(id)
 	c.Assert(err, gc.IsNil)
 	s.assertRefCount(c, id, 2)
@@ -163,8 +167,8 @@ func (s *resourceCatalogSuite) TestPutNewResourceRace(c *gc.C) {
 }
 
 func (s *resourceCatalogSuite) TestDeleteResourceRace(c *gc.C) {
-	id := s.assertPut(c, "md5foo", "sha256foo")
-	s.assertPut(c, "md5foo", "sha256foo")
+	id := s.assertPut(c, true, "md5foo", "sha256foo")
+	s.assertPut(c, false, "md5foo", "sha256foo")
 	beforeFuncs := []func(){
 		func() {
 			err := s.rCatalog.Remove(id)

@@ -93,15 +93,16 @@ func (rc *resourceCatalog) Get(id string) (*Resource, error) {
 }
 
 // Put is defined on the ResourceCatalog interface.
-func (rc *resourceCatalog) Put(rh *ResourceHash) (id, path string, err error) {
+func (rc *resourceCatalog) Put(rh *ResourceHash) (id, path string, isNew bool, err error) {
 	txns := func(attempt int) (ops []txn.Op, err error) {
-		id, path, ops, err = rc.resourceIncRefOps(rh)
+		id, path, isNew, ops, err = rc.resourceIncRefOps(rh)
 		return ops, err
 	}
 	if err = rc.txnRunner.Run(txns); err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
-	return id, path, nil
+
+	return id, path, isNew, nil
 }
 
 // Remove is defined on the ResourceCatalog interface.
@@ -119,26 +120,26 @@ func checksumMatch(rh *ResourceHash) bson.D {
 	return bson.D{{"md5hash", rh.MD5Hash}, {"sha256hash", rh.SHA256Hash}}
 }
 
-func (rc *resourceCatalog) resourceIncRefOps(rh *ResourceHash) (string, string, []txn.Op, error) {
+func (rc *resourceCatalog) resourceIncRefOps(rh *ResourceHash) (id, path string, isNew bool, ops []txn.Op, err error) {
 	var doc resourceDoc
 	exists := false
 	checksumMatchTerm := checksumMatch(rh)
-	err := rc.collection.Find(checksumMatchTerm).One(&doc)
+	err = rc.collection.Find(checksumMatchTerm).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
-		return "", "", nil, err
+		return "", "", false, nil, err
 	} else if err == nil {
 		exists = true
 	}
 	if !exists {
 		doc := newResourceDoc(rh)
-		return doc.Id, doc.Path, []txn.Op{{
+		return doc.Id, doc.Path, true, []txn.Op{{
 			C:      rc.collection.Name,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
 			Insert: doc,
 		}}, nil
 	}
-	return doc.Id, doc.Path, []txn.Op{{
+	return doc.Id, doc.Path, false, []txn.Op{{
 		C:      rc.collection.Name,
 		Id:     doc.Id,
 		Assert: checksumMatchTerm,

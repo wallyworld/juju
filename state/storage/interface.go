@@ -27,9 +27,10 @@ type ResourceCatalog interface {
 	// Get fetches a Resource with the given id.
 	Get(id string) (*Resource, error)
 
-	// Put ensures a Resource entry exists for the given ResourceHash, returning the id and path.
+	// Put ensures a Resource entry exists for the given ResourceHash, returning the id, path,
+	// and a flag indicating if this is a new record.
 	// If the Resource exists, its reference count is incremented, otherwise a new entry is created.
-	Put(rh *ResourceHash) (id, path string, err error)
+	Put(rh *ResourceHash) (id, path string, isNew bool, err error)
 
 	// Remove decrements the reference count for a Resource with the given id, deleting it
 	// if the reference count reaches zero.
