@@ -19,6 +19,7 @@ var _ = gc.Suite(&resourceCatalogSuite{})
 type resourceCatalogSuite struct {
 	testing.BaseSuite
 	testing.MgoSuite
+	txnRunner  statetxn.TransactionRunner
 	rCatalog   storage.ResourceCatalog
 	collection *mgo.Collection
 }
@@ -38,8 +39,8 @@ func (s *resourceCatalogSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	db := s.Session.DB("juju")
 	s.collection = db.C("resourceCatalog")
-	txnRunner := statetxn.NewRunner(txn.NewRunner(db.C("txns")))
-	s.rCatalog = storage.NewResourceCatalog(s.collection, txnRunner)
+	s.txnRunner = statetxn.NewRunner(txn.NewRunner(db.C("txns")))
+	s.rCatalog = storage.NewResourceCatalog(s.collection, s.txnRunner)
 }
 
 func (s *resourceCatalogSuite) TearDownTest(c *gc.C) {
@@ -141,5 +142,38 @@ func (s *resourceCatalogSuite) TestRemoveLastCopy(c *gc.C) {
 
 func (s *resourceCatalogSuite) TestRemoveNonExistent(c *gc.C) {
 	err := s.rCatalog.Remove(bson.NewObjectId().Hex())
+	c.Assert(err, gc.ErrorMatches, `resource with id ".*" not found`)
+}
+
+func (s *resourceCatalogSuite) TestPutNewResourceRace(c *gc.C) {
+	var firstId string
+	beforeFuncs := []func(){
+		func() { firstId = s.assertPut(c, "md5foo", "sha256foo") },
+	}
+	defer statetxn.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
+	rh := &storage.ResourceHash{"md5foo", "sha256foo"}
+	id, _, err := s.rCatalog.Put(rh)
+	c.Assert(err, gc.IsNil)
+	c.Assert(id, gc.Equals, firstId)
+	r, err := s.rCatalog.Get(id)
+	c.Assert(err, gc.IsNil)
+	s.assertRefCount(c, id, 2)
+	c.Assert(r.MD5Hash, gc.Equals, "md5foo")
+	c.Assert(r.SHA256Hash, gc.Equals, "sha256foo")
+}
+
+func (s *resourceCatalogSuite) TestDeleteResourceRace(c *gc.C) {
+	id := s.assertPut(c, "md5foo", "sha256foo")
+	s.assertPut(c, "md5foo", "sha256foo")
+	beforeFuncs := []func(){
+		func() {
+			err := s.rCatalog.Remove(id)
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	defer statetxn.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
+	err := s.rCatalog.Remove(id)
+	c.Assert(err, gc.IsNil)
+	_, err = s.rCatalog.Get(id)
 	c.Assert(err, gc.ErrorMatches, `resource with id ".*" not found`)
 }
