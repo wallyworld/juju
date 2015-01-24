@@ -4,11 +4,10 @@
 package filter
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -93,10 +92,10 @@ type filter struct {
 	upgradeFrom      serviceCharm
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
-	relations        []int
+	relations        set.Ints
 	actionsPending   []string
 	nextAction       *hook.Info
-	storageInstances []string
+	storageIds       set.Strings
 
 	// meterStatusCode and meterStatusInfo reflect the meter status values of the unit.
 	meterStatusCode string
@@ -130,6 +129,8 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		didSetCharm:       make(chan struct{}),
 		clearResolved:     make(chan struct{}),
 		didClearResolved:  make(chan struct{}),
+		relations:         make(set.Ints),
+		storageIds:        make(set.Strings),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -469,17 +470,17 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outAction <- f.nextAction:
 			f.nextAction = f.getNextAction()
 			filterLogger.Debugf("sent action event")
-		case f.outRelations <- f.relations:
+		case f.outRelations <- f.relations.SortedValues():
 			filterLogger.Debugf("sent relations event")
 			f.outRelations = nil
-			f.relations = nil
+			f.relations = make(set.Ints)
 		case f.outMeterStatus <- nothing:
 			filterLogger.Debugf("sent meter status change event")
 			f.outMeterStatus = nil
-		case f.outStorage <- f.storageInstances:
+		case f.outStorage <- f.storageIds.SortedValues():
 			filterLogger.Debugf("sent storage event")
 			f.outStorage = nil
-			f.storageInstances = nil
+			f.storageIds = make(set.Strings)
 
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
@@ -650,34 +651,20 @@ func (f *filter) upgradeChanged() (err error) {
 
 // relationsChanged responds to service relation changes.
 func (f *filter) relationsChanged(ids []int) {
-outer:
 	for _, id := range ids {
-		for _, existing := range f.relations {
-			if id == existing {
-				continue outer
-			}
-		}
-		f.relations = append(f.relations, id)
+		f.relations.Add(id)
 	}
 	if len(f.relations) != 0 {
-		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
 	}
 }
 
 // storageChanged responds to storage instance changes.
 func (f *filter) storageChanged(ids []string) {
-outer:
 	for _, id := range ids {
-		for _, existing := range f.storageInstances {
-			if id == existing {
-				continue outer
-			}
-		}
-		f.storageInstances = append(f.storageInstances, id)
+		f.storageIds.Add(id)
 	}
-	if len(f.storageInstances) != 0 {
-		sort.Strings(f.storageInstances)
+	if len(f.storageIds) != 0 {
 		f.outStorage = f.outStorageOn
 	}
 }

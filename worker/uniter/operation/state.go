@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/hook"
@@ -29,6 +30,10 @@ const (
 
 	// Upgrade indicates that the uniter is upgrading the charm.
 	Upgrade Kind = "upgrade"
+
+	// StorageChanged indicates that the uniter is responding to
+	// changes in storage instances.
+	StorageChanged = "storage-changed"
 
 	// Continue indicates that the uniter should run ModeContinue
 	// to determine the next operation.
@@ -84,6 +89,15 @@ type State struct {
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
 	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
+
+	// StorageIds holds the storage instance IDs relevant to the current
+	// operation. If Kind is Continue, RunHook, or StorageChanged, StorageIds
+	// contains the IDs of changed storage instances.
+	StorageIds set.Strings `yaml:"storage-ids,omitempty"`
+
+	// AttachedStorage records the storage instance IDs that have been recorded
+	// as attached.
+	AttachedStorage set.Strings `yaml:"attached-storage,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.
@@ -92,6 +106,7 @@ func (st State) validate() (err error) {
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
+	hasStorage := st.StorageIds != nil
 	switch st.Kind {
 	case Install:
 		if hasHook {
@@ -111,6 +126,10 @@ func (st State) validate() (err error) {
 			return errors.New("unexpected charm URL")
 		} else if !hasActionId {
 			return errors.New("missing action id")
+		}
+	case StorageChanged:
+		if !hasStorage {
+			return errors.New("missing storage ids")
 		}
 	case RunHook:
 		if hasActionId {
@@ -145,11 +164,12 @@ func (st State) CollectedMetricsAt() time.Time {
 
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
-	Kind     Kind
-	Step     Step
-	Hook     *hook.Info
-	ActionId *string
-	CharmURL *charm.URL
+	Kind       Kind
+	Step       Step
+	Hook       *hook.Info
+	ActionId   *string
+	CharmURL   *charm.URL
+	StorageIds set.Strings
 }
 
 func (change stateChange) apply(state State) *State {
@@ -158,6 +178,7 @@ func (change stateChange) apply(state State) *State {
 	state.Hook = change.Hook
 	state.ActionId = change.ActionId
 	state.CharmURL = change.CharmURL
+	state.StorageIds = change.StorageIds
 	return &state
 }
 

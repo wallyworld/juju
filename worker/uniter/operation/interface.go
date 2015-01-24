@@ -6,6 +6,7 @@ package operation
 import (
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
@@ -73,6 +74,8 @@ type Factory interface {
 	// indicated relation context, and pass the results back over the supplied
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
+
+	NewStorageChanged(storageIds set.Strings) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.

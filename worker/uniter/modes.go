@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -57,6 +58,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			if !opState.Started {
 				return ModeStarting, nil
 			}
+		case hooks.StorageAttached, hooks.StorageDetached:
+			if len(opState.StorageIds) > 0 {
+				return ModeStorageChanged, nil
+			}
 		}
 		if !u.ranConfigChanged {
 			return ModeConfigChanged, nil
@@ -78,6 +83,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 		return ModeContinue, nil
+	case operation.StorageChanged:
+		// The StorageChanged operation was interrupted, and failed to
+		// get committed. We can simply run the operation again.
+		return ModeStorageChanged, nil
 	case operation.RunAction:
 		// TODO(fwereade): we *should* handle interrupted actions, and make sure
 		// they're marked as failed, but that's not for now.
@@ -133,6 +142,18 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	u.f.DiscardConfigEvent()
 	err = u.runHook(hook.Info{Kind: hooks.ConfigChanged})
 	if err != nil {
+		return nil, err
+	}
+	return ModeContinue, nil
+}
+
+// ModeStorageChanged runs the StorageChanged operation, which will queue
+// storage-attached or storage-detached hooks if there are any relevant
+// changes in storage.
+func ModeStorageChanged(u *Uniter) (next Mode, err error) {
+	defer modeContext("ModeStorageChanged", &err)()
+	opState := u.operationState()
+	if err := u.storageChanged(opState.StorageIds); err != nil {
 		return nil, err
 	}
 	return ModeContinue, nil
@@ -232,8 +253,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
 	defer stopHooks("relation", u.relations.StopHooks)
-	u.storage.StartHooks()
-	defer stopHooks("storage", u.storage.StopHooks)
 
 	select {
 	case <-u.f.UnitDying():
@@ -274,11 +293,10 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.StorageEvents():
-			if err := u.storage.Update(ids); err != nil {
+			if err := u.storageChanged(set.NewStrings(ids...)); err != nil {
 				return nil, err
 			}
-			continue
-		case hi = <-u.storage.Hooks():
+			return ModeContinue, nil
 		}
 		if err := u.runHook(hi); err != nil {
 			return nil, err
@@ -298,9 +316,6 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.relations.SetDying(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := u.storage.SetDying(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	for {
 		if len(u.relations.GetInfo()) == 0 {
 			return ModeStopping, nil
@@ -314,7 +329,6 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		case info := <-u.f.ActionEvents():
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relations.Hooks():
-		case hi = <-u.storage.Hooks():
 		}
 		if err := u.runHook(hi); err != nil {
 			return nil, err

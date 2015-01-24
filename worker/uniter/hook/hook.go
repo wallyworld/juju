@@ -27,6 +27,10 @@ type Info struct {
 	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
+	// StorageId is the ID of the storage instance that triggered the hook.
+	// StorageId is only set when Kind indicates a storage hook.
+	StorageId string `yaml:"storage-id,omitempty"`
+
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
@@ -34,10 +38,6 @@ type Info struct {
 	// ActionId is the state State.actions ID of the Action document to
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
-
-	// StorageId is the ID of the storage instance that triggered the hook.
-	// StorageId is only set when Kind indicates a storage hook.
-	StorageId string `yaml:"storage-id,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.

@@ -5,9 +5,11 @@ package operation
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
@@ -44,6 +46,12 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	if rh.info.Kind.IsStorage() {
+		// TODO(axw) add utility function to juju/names for extracting
+		// storage name from ID.
+		storageName := rh.info.StorageId[:strings.IndexRune(rh.info.StorageId, '/')]
+		name = fmt.Sprintf("%s-%s", storageName, name)
+	}
 	rnr, err := rh.runnerFactory.NewHookRunner(rh.info)
 	if err != nil {
 		return nil, err
@@ -51,9 +59,10 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	rh.name = name
 	rh.runner = rnr
 	return stateChange{
-		Kind: RunHook,
-		Step: Pending,
-		Hook: &rh.info,
+		Kind:       RunHook,
+		Step:       Pending,
+		Hook:       &rh.info,
+		StorageIds: state.StorageIds,
 	}.apply(state), nil
 }
 
@@ -95,9 +104,10 @@ func (rh *runHook) Execute(state State) (*State, error) {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}
 	return stateChange{
-		Kind: RunHook,
-		Step: step,
-		Hook: &rh.info,
+		Kind:       RunHook,
+		Step:       step,
+		Hook:       &rh.info,
+		StorageIds: state.StorageIds,
 	}.apply(state), err
 }
 
@@ -118,6 +128,23 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.CollectMetrics:
 		newState.CollectMetricsTime = time.Now().Unix()
+	}
+	if rh.info.Kind.IsStorage() {
+		// We need to update AttachedStorage and StorageIds in the
+		// operation state, so we can continue firing storage hooks
+		// for the remaining storage changes.
+		switch rh.info.Kind {
+		case hooks.StorageAttached:
+			if newState.AttachedStorage == nil {
+				newState.AttachedStorage = set.NewStrings(rh.info.StorageId)
+			} else {
+				newState.AttachedStorage.Add(rh.info.StorageId)
+			}
+		case hooks.StorageDetached:
+			newState.AttachedStorage.Remove(rh.info.StorageId)
+		}
+		state.StorageIds.Remove(rh.info.StorageId)
+		newState.StorageIds = state.StorageIds
 	}
 	return newState, nil
 }
