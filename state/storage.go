@@ -388,12 +388,32 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 				charmMeta.Name, name,
 			)
 		}
-		if cons.Pool != "" {
-			conf, err := st.EnvironConfig()
-			if err != nil {
-				return errors.Trace(err)
+		conf, err := st.EnvironConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		envType := conf.Type()
+		if cons.Pool == "" {
+			kind := storage.StorageKindUnknown
+			switch charmStorage.Type {
+			case charm.StorageBlock:
+				kind = storage.StorageKindBlock
+			case charm.StorageFilesystem:
+				kind = storage.StorageKindFilesystem
 			}
-			envType := conf.Type()
+			defaultPool, ok := storage.DefaultPool(envType, kind)
+			if ok {
+				logger.Infof("no storage pool specified, using default pool %q", defaultPool)
+				cons.Pool = defaultPool
+			} else {
+				return errors.Errorf(
+					"no storage pool specifed and no default available for storage kind %q for %q storage",
+					charmStorage.Type,
+					name,
+				)
+			}
+		}
+		if cons.Pool != "" {
 			// Ensure the pool type is supported by the environment.
 			pm := pool.NewPoolManager(NewStateSettings(st))
 			p, err := pm.Get(cons.Pool)

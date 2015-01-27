@@ -9,4 +9,6 @@ import (
 
 func init() {
 	storage.RegisterProvider(LoopProviderType, &loopProvider{})
+
+	storage.RegisterDefaultPool("local", storage.StorageKindBlock, LoopPool)
 }

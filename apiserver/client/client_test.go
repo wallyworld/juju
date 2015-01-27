@@ -1430,6 +1430,14 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	// Create a default pool for block devices.
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("block", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("dummy", provider.LoopProviderType)
+	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "block")
+
 	s.testClientServiceDeployWithStorage(c, true)
 }
 
@@ -1494,7 +1502,7 @@ func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C)
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
-	_, err := pm.Create("foo", provider.LoopProviderType, map[string]interface{}{})
+	_, err := pm.Create("foo", storage.ProviderType("ebs"), map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.makeMockCharmStore()
 	curl, _ := addCharm(c, "storage-block")
@@ -1513,7 +1521,7 @@ func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C)
 	)
 	c.Assert(
 		err, gc.ErrorMatches,
-		`.*pool "foo" uses storage provider "loop" which is not supported for environments of type "dummy"`)
+		`.*pool "foo" uses storage provider "ebs" which is not supported for environments of type "dummy"`)
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {

@@ -21,8 +21,8 @@ var defaultLoopPools = map[string]map[string]interface{}{
 }
 
 var defaultEBSPools = map[string]map[string]interface{}{
-	"ebs":     map[string]interface{}{},
-	"ebs-ssd": map[string]interface{}{"volume-type": "gp2"},
+	ec2storage.EBSPool:    map[string]interface{}{},
+	ec2storage.EBSSSDPool: map[string]interface{}{"volume-type": "gp2"},
 }
 
 func addDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
