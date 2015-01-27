@@ -54,6 +54,12 @@ type Provider interface {
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
 	ValidateConfig(*Config) error
+
+	// TranslateUserOptions possibly translates values in the
+	// supplied options from a user friendly value to the equivalent
+	// provider specific value.
+	// eg for EBS providers, "magnetic" will be translated to "standard".
+	TranslateUserOptions(map[string]interface{}) map[string]interface{}
 }
 
 // VolumeSource provides an interface for creating, destroying and

@@ -85,6 +85,7 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 			Name: "0", Size: 1234,
 		}, {
 			Name: "1", Size: 4321,
+			Options: map[string]interface{}{"volume-type": "standard", "iops": 1234},
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,6 +110,8 @@ func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	}, {
 		VolumeSize: 5,
 		DeviceName: "/dev/sdf2",
+		VolumeType: "standard",
+		IOPS:       1234,
 	}})
 	c.Assert(blockDeviceInfo, gc.DeepEquals, []storage.BlockDevice{{
 		Name:       "0",

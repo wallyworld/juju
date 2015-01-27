@@ -74,6 +74,11 @@ type BlockDeviceParams struct {
 	storageInstance string
 
 	Size uint64 `bson:"size"`
+
+	// Pool is the name of the storage pool (ebs, ceph, custompool, ...)
+	// that must provide the storage, or "" if the default pool should be
+	// used.
+	Pool string
 }
 
 // BlockDeviceInfo describes information about a block device.

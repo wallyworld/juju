@@ -4,10 +4,14 @@
 package ec2
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
+	providerstorage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/storage"
 )
 
@@ -88,7 +92,16 @@ func getBlockDeviceMappings(
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
 			DeviceName: requestDeviceName,
-			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
+			// TODO(axw) DeleteOnTermination
+		}
+		if v, ok := params.Options[providerstorage.VolumeType]; ok && v != "" {
+			mapping.VolumeType = fmt.Sprintf("%v", v)
+		}
+		if v, ok := params.Options[providerstorage.IOPS]; ok && v != "" {
+			mapping.IOPS, err = strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
+			}
 		}
 		volume := storage.BlockDevice{
 			Name:       params.Name,
