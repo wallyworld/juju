@@ -6,6 +6,7 @@ package operation
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
@@ -95,5 +96,17 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 		sendResponse:  sendResponse,
 		callbacks:     f.callbacks,
 		runnerFactory: f.runnerFactory,
+	}, nil
+}
+
+// NewStorageChanged is part of the Factory interface.
+func (f *factory) NewStorageChanged(storageIds set.Strings) (Operation, error) {
+	for id := range storageIds {
+		if !names.IsValidStorage(id) {
+			return nil, errors.Errorf("invalid storage id %q", id)
+		}
+	}
+	return &storageChanged{
+		storageIds: storageIds,
 	}, nil
 }

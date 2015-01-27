@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -191,7 +192,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
-
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
@@ -369,6 +369,17 @@ func (u *Uniter) skipHook(hi hook.Info) (err error) {
 		return err
 	}
 	return u.operationExecutor.Skip(op)
+}
+
+// storageChanged executes an operation that compares the reportedly changed
+// storage instances to the persistent local state, and queues zero or more
+// storage hooks.
+func (u *Uniter) storageChanged(storageIds set.Strings) (err error) {
+	op, err := u.operationFactory.NewStorageChanged(storageIds)
+	if err != nil {
+		return err
+	}
+	return u.operationExecutor.Run(op)
 }
 
 // fixDeployer replaces the uniter's git-based charm deployer with a manifest-

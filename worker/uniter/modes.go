@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -57,6 +58,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			if !opState.Started {
 				return ModeStarting, nil
 			}
+		case hooks.StorageAttached, hooks.StorageDetached:
+			if len(opState.StorageIds) > 0 {
+				return ModeStorageChanged, nil
+			}
 		}
 		if !u.ranConfigChanged {
 			return ModeConfigChanged, nil
@@ -78,6 +83,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 		return ModeContinue, nil
+	case operation.StorageChanged:
+		// The StorageChanged operation was interrupted, and failed to
+		// get committed. We can simply run the operation again.
+		return ModeStorageChanged, nil
 	case operation.RunAction:
 		// TODO(fwereade): we *should* handle interrupted actions, and make sure
 		// they're marked as failed, but that's not for now.
@@ -133,6 +142,18 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	u.f.DiscardConfigEvent()
 	err = u.runHook(hook.Info{Kind: hooks.ConfigChanged})
 	if err != nil {
+		return nil, err
+	}
+	return ModeContinue, nil
+}
+
+// ModeStorageChanged runs the StorageChanged operation, which will queue
+// storage-attached or storage-detached hooks if there are any relevant
+// changes in storage.
+func ModeStorageChanged(u *Uniter) (next Mode, err error) {
+	defer modeContext("ModeStorageChanged", &err)()
+	opState := u.operationState()
+	if err := u.storageChanged(opState.StorageIds); err != nil {
 		return nil, err
 	}
 	return ModeContinue, nil
@@ -205,9 +226,20 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * service configuration changes
 // * charm upgrade requests
 // * relation changes
+// * storage changes
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
+	stopHooks := func(kind string, stop func() error) {
+		if e := stop(); e != nil {
+			if err == nil {
+				err = e
+			} else {
+				logger.Errorf("error while stopping %s hooks: %v", kind, e)
+			}
+		}
+	}
+
 	opState := u.operationState()
 	if opState.Kind != operation.Continue {
 		return nil, errors.Errorf("insane uniter state: %#v", opState)
@@ -220,15 +252,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
-	defer func() {
-		if e := u.relations.StopHooks(); e != nil {
-			if err == nil {
-				err = e
-			} else {
-				logger.Errorf("error while stopping hooks: %v", e)
-			}
-		}
-	}()
+	defer stopHooks("relation", u.relations.StopHooks)
 
 	select {
 	case <-u.f.UnitDying():
@@ -268,6 +292,11 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			continue
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
+		case ids := <-u.f.StorageEvents():
+			if err := u.storageChanged(set.NewStrings(ids...)); err != nil {
+				return nil, err
+			}
+			return ModeContinue, nil
 		}
 		if err := u.runHook(hi); err != nil {
 			return nil, err
@@ -275,8 +304,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	}
 }
 
-// modeAbideDyingLoop handles the proper termination of all relations in
-// response to a Dying unit.
+// modeAbideDyingLoop handles the proper termination of all subordinates,
+// relations and storage instances in response to a Dying unit.
 func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.unit.Refresh(); err != nil {
 		return nil, err

@@ -24,8 +24,12 @@ type Info struct {
 	RelationId int `yaml:"relation-id,omitempty"`
 
 	// RemoteUnit is the name of the unit that triggered the hook. It is only
-	// set when Kind inicates a relation hook other than relation-broken.
+	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
+
+	// StorageId is the ID of the storage instance that triggered the hook.
+	// StorageId is only set when Kind indicates a storage hook.
+	StorageId string `yaml:"storage-id,omitempty"`
 
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
@@ -34,9 +38,6 @@ type Info struct {
 	// ActionId is the state State.actions ID of the Action document to
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
-
-	// StorageId is the id of the storage instance relevant to the hook.
-	StorageId string `yaml:"storage-id,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -57,6 +58,9 @@ func (hi Info) Validate() error {
 	case hooks.StorageAttached, hooks.StorageDetached:
 		// TODO: stop checking feature flag once storage has graduated.
 		if featureflag.Enabled(storage.FeatureFlag) {
+			if !names.IsValidStorage(hi.StorageId) {
+				return fmt.Errorf("storage id %q cannot be parsed as a storage tag", hi.StorageId)
+			}
 			return nil
 		}
 	}

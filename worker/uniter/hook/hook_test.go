@@ -53,8 +53,18 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
-	{hook.Info{Kind: hooks.StorageAttached}, ""},
-	{hook.Info{Kind: hooks.StorageDetached}, ""},
+	{
+		hook.Info{Kind: hooks.StorageAttached}, `storage id "" cannot be parsed as a storage tag`,
+	},
+	{
+		hook.Info{Kind: hooks.StorageDetached}, `storage id "" cannot be parsed as a storage tag`,
+	},
+	{
+		hook.Info{
+			Kind:      hooks.StorageAttached,
+			StorageId: "block/123",
+		}, "",
+	},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {
