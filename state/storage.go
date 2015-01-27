@@ -413,22 +413,20 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 				)
 			}
 		}
-		if cons.Pool != "" {
-			// Ensure the pool type is supported by the environment.
-			pm := pool.NewPoolManager(NewStateSettings(st))
-			p, err := pm.Get(cons.Pool)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			providerType := p.Type()
-			if !storage.IsProviderSupported(envType, providerType) {
-				return errors.Errorf(
-					"pool %q uses storage provider %q which is not supported for environments of type %q",
-					cons.Pool,
-					providerType,
-					envType,
-				)
-			}
+		// Ensure the pool type is supported by the environment.
+		pm := pool.NewPoolManager(NewStateSettings(st))
+		p, err := pm.Get(cons.Pool)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		providerType := p.Type()
+		if !storage.IsProviderSupported(envType, providerType) {
+			return errors.Errorf(
+				"pool %q uses storage provider %q which is not supported for environments of type %q",
+				cons.Pool,
+				providerType,
+				envType,
+			)
 		}
 		if cons.Count < uint64(charmStorage.CountMin) {
 			return errors.Errorf(
