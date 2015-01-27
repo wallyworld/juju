@@ -48,15 +48,32 @@ func (s *storageChanged) Execute(state State) (*State, error) {
 // the changed storage instances. Commit does not update AttachedStorage
 // in state; this is done when the storage hook is committed.
 func (s *storageChanged) Commit(state State) (*State, error) {
-	id, kind, _ := s.oneChange(state)
-	change := &stateChange{
-		Kind: RunHook,
-		Step: Queued,
-		Hook: &hook.Info{
-			Kind:      kind,
-			StorageId: id,
-		},
-		StorageIds: state.StorageIds,
+	id, kind, ok := s.oneChange(state)
+	var change *stateChange
+	if !ok {
+		// None of the storage instances have actually
+		// changed, so clear out StorageIds now.
+		change = &stateChange{
+			Kind: Continue,
+			Step: Done,
+			Hook: &hook.Info{
+				Kind: hooks.StorageAttached,
+				// TODO(axw) determine what the appropriate
+				// course of action is here. For now, this
+				// works.
+				StorageId: "fake/0",
+			},
+		}
+	} else {
+		change = &stateChange{
+			Kind: RunHook,
+			Step: Queued,
+			Hook: &hook.Info{
+				Kind:      kind,
+				StorageId: id,
+			},
+			StorageIds: state.StorageIds,
+		}
 	}
 	return change.apply(state), nil
 }

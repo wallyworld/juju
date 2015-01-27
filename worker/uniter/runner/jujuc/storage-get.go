@@ -14,7 +14,7 @@ type StorageGetCommand struct {
 	cmd.CommandBase
 	ctx               Context
 	storageInstanceId string
-	keys              []string
+	key               string
 	out               cmd.Output
 }
 
@@ -28,25 +28,27 @@ When no <key> is supplied, all keys values are printed.
 `
 	return &cmd.Info{
 		Name:    "storage-get",
-		Args:    "<storageInstanceId> <key> [<key>]*",
+		Args:    "<key> [<key>]*",
 		Purpose: "print information for storage instance with specified id",
 		Doc:     doc,
 	}
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
+	sV := newStorageIdValue(c.ctx, &c.storageInstanceId)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	f.Var(sV, "s", "specify a storage instance by id")
 }
 
 func (c *StorageGetCommand) Init(args []string) error {
-	if len(args) < 1 {
+	if c.storageInstanceId == "" {
 		return errors.New("no storage instance specified")
 	}
-	if len(args) < 2 {
-		return errors.New("no attribute keys specified")
+	key, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return err
 	}
-	c.storageInstanceId = args[0]
-	c.keys = args[1:]
+	c.key = key
 	return nil
 }
 
@@ -55,23 +57,15 @@ func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return nil
 	}
-	values := make(map[string]interface{})
-	var singleValue interface{}
-	for _, key := range c.keys {
-		switch key {
-		case "kind":
-			values[key] = storageInstance.Kind
-		case "location":
-			values[key] = storageInstance.Location
-		default:
-			return errors.Errorf("invalid storage instance key %q", key)
-		}
-		singleValue = values[key]
+	values := map[string]interface{}{
+		"kind":     storageInstance.Kind,
+		"location": storageInstance.Location,
 	}
-	// For single values with smart formatting, we want just the value printed,
-	// not "key: value".
-	if len(c.keys) == 1 && c.out.Name() == "smart" {
-		return c.out.Write(ctx, singleValue)
+	if c.key == "" {
+		return c.out.Write(ctx, values)
 	}
-	return c.out.Write(ctx, values)
+	if value, ok := values[c.key]; ok {
+		return c.out.Write(ctx, value)
+	}
+	return errors.Errorf("invalid storage attribute %q", c.key)
 }

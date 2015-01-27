@@ -68,10 +68,16 @@ func (s *StorageAPI) getOneUnitStorageInstances(canAccess common.AuthFunc, unitT
 			result.Instances = nil
 			break
 		}
+		info, err := stateStorageInstance.Info()
+		if err != nil {
+			result.Error = common.ServerError(err)
+			result.Instances = nil
+			break
+		}
 		storageInstance := storage.StorageInstance{
 			stateStorageInstance.Id(),
 			storage.StorageKind(stateStorageInstance.Kind()),
-			"", //TODO - add Location
+			info.Location,
 		}
 		result.Instances = append(result.Instances, storageInstance)
 	}

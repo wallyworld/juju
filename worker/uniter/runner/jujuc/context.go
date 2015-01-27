@@ -185,3 +185,37 @@ func (v *relationIdValue) Set(value string) error {
 	v.value = value
 	return nil
 }
+
+// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
+// ids in ctx.
+func newStorageIdValue(ctx Context, result *string) *storageIdValue {
+	v := &storageIdValue{result: result, ctx: ctx}
+	id := ""
+	if s, found := ctx.HookStorageInstance(); found {
+		id = s.Id
+	}
+	*result = id
+	return v
+}
+
+// storageIdValue implements gnuflag.Value for use in storage commands.
+type storageIdValue struct {
+	result *string
+	ctx    Context
+}
+
+// String returns the current value.
+func (v *storageIdValue) String() string {
+	return *v.result
+}
+
+// Set interprets value as a storage id, if possible, and returns an error
+// if it is not known to the system. The parsed storage id will be written
+// to v.result.
+func (v *storageIdValue) Set(value string) error {
+	if _, found := v.ctx.StorageInstance(value); !found {
+		return fmt.Errorf("unknown storage id")
+	}
+	*v.result = value
+	return nil
+}
