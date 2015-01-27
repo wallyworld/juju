@@ -5,8 +5,10 @@ package upgrades_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	ec2storage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/state"
@@ -22,6 +24,8 @@ var _ = gc.Suite(&defaultStoragePoolsSuite{})
 
 //TODO - better tests
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	err := upgrades.AddDefaultStoragePools(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	settings := state.NewStateSettings(s.State)
