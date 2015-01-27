@@ -10,6 +10,9 @@ import (
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 )
 
 type StorageStateSuite struct {
@@ -24,6 +27,12 @@ func (s *StorageStateSuite) SetUpTest(c *gc.C) {
 	// This suite is all about storage, so enable the feature by default.
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	// Create a default pool for block devices.
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("block", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
@@ -55,22 +64,25 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
 	}
 	assertErr(nil, `.*no constraints specified for store.*`)
 
-	storage := map[string]state.StorageConstraints{
+	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("", 1024, 1),
 	}
-	assertErr(storage, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
-	storage["multi2up"] = makeStorageCons("", 1024, 2)
-	storage["multi1to10"] = makeStorageCons("", 1024, 11)
-	assertErr(storage, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
-	storage["multi1to10"] = makeStorageCons("ebs", 1024, 10)
-	assertErr(storage, `cannot add service "storage-block2": reading pool "ebs": settings not found`)
-	storage["multi1to10"] = makeStorageCons("", 1024, 10)
-	_, err := addService(storage)
+	assertErr(storageCons, `cannot add service "storage-block2": no storage pool specifed and no default available for storage kind "block" .*`)
+	storage.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
+	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
+	storageCons["multi2up"] = makeStorageCons("", 1024, 2)
+	storageCons["multi1to10"] = makeStorageCons("", 1024, 11)
+	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
+	storageCons["multi1to10"] = makeStorageCons("ebs", 1024, 10)
+	assertErr(storageCons, `cannot add service "storage-block2": reading pool "ebs": settings not found`)
+	storageCons["multi1to10"] = makeStorageCons("", 1024, 10)
+	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
+	storage.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
 	// Each unit added to the service will create storage instances
 	// to satisfy the service's storage constraints.
 	ch := s.AddTestingCharm(c, "storage-block2")
@@ -97,6 +109,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) TestRemoveUnit(c *gc.C) {
+	storage.RegisterDefaultPool("someprovider", storage.StorageKindBlock, "block")
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),

@@ -19,6 +19,9 @@ const (
 	LoopProviderType     = storage.ProviderType("loop")
 	HostLoopProviderType = storage.ProviderType("hostloop")
 
+	// OOTB Storage pools.
+	LoopPool = "loop"
+
 	// Config attributes
 	LoopDataDir = "data-dir" // top level directory where loop devices are created.
 	LoopSubDir  = "sub-dir"  // optional subdirectory for loop devices.

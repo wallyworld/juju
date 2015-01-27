@@ -15,7 +15,12 @@ import (
 //TODO - add tests
 
 const (
+	// Provider types.
 	EBSProviderType = storage.ProviderType("ebs")
+
+	// OOTB Storage pools.
+	EBSPool    = "ebs"
+	EBSSSDPool = "ebs-ssd"
 
 	// Config attributes
 
