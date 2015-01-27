@@ -33,7 +33,7 @@ const (
 	Encrypted = "encrypted"
 
 	// The Availability Zone in which to create the volume.
-	AvailabilityZone = "availability-zone"
+	availabilityZone = "availability-zone"
 )
 
 // loopProviders create volume sources which use loop devices.
@@ -50,9 +50,9 @@ var validConfigOptions = set.NewStrings(
 // ValidateConfig is defined on the Provider interface.
 func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 	// TODO - check valid values as well as attr names
-	if _, ok := providerConfig.Attrs()[AvailabilityZone]; ok {
+	if _, ok := providerConfig.Attrs()[availabilityZone]; ok {
 		return errors.Errorf(
-			"%q cannot be specified as a pool option as it needs to match the deployed instance", AvailabilityZone,
+			"%q cannot be specified as a pool option as it needs to match the deployed instance", availabilityZone,
 		)
 	}
 	for attr := range providerConfig.Attrs() {
@@ -63,7 +63,7 @@ func (e *ebsProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
-func (lp *ebsProvider) TranslateUserOptions(userOptions map[string]interface{}) map[string]interface{} {
+func TranslateUserEBSOptions(userOptions map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range userOptions {
 		if k == VolumeType {

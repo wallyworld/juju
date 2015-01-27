@@ -7,8 +7,11 @@ package storage
 
 import (
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 )
 
 func init() {
 	storage.RegisterProvider(EBSProviderType, &ebsProvider{})
+	storage.RegisterEnvironStorageProviders("ec2", EBSProviderType)
+	storage.RegisterEnvironStorageProviders("ec2", provider.LoopProviderType)
 }

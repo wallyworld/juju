@@ -94,10 +94,12 @@ func getBlockDeviceMappings(
 			DeviceName: requestDeviceName,
 			// TODO(axw) DeleteOnTermination
 		}
-		if v, ok := params.Options[providerstorage.VolumeType]; ok && v != "" {
+		// Translate user values for storage provider parameters.
+		options := providerstorage.TranslateUserEBSOptions(params.Options)
+		if v, ok := options[providerstorage.VolumeType]; ok && v != "" {
 			mapping.VolumeType = fmt.Sprintf("%v", v)
 		}
-		if v, ok := params.Options[providerstorage.IOPS]; ok && v != "" {
+		if v, ok := options[providerstorage.IOPS]; ok && v != "" {
 			mapping.IOPS, err = strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)

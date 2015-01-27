@@ -4,20 +4,28 @@
 package upgrades
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/agent"
 	ec2storage "github.com/juju/juju/provider/ec2/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 )
+
+var defaultLoopPools = map[string]map[string]interface{}{
+	"loop": map[string]interface{}{},
+}
 
 var defaultEBSPools = map[string]map[string]interface{}{
 	"ebs":     map[string]interface{}{},
 	"ebs-ssd": map[string]interface{}{"volume-type": "gp2"},
 }
 
-func addDefaultStoragePools(st *state.State) error {
+func addDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
 	settings := state.NewStateSettings(st)
 	pm := pool.NewPoolManager(settings)
 
@@ -26,7 +34,12 @@ func addDefaultStoragePools(st *state.State) error {
 			return err
 		}
 	}
-	return nil
+
+	// Register the default loop pool.
+	cfg := map[string]interface{}{
+		provider.LoopDataDir: filepath.Join(agentConfig.DataDir(), "storage", "block", "loop"),
+	}
+	return addDefaultPool(pm, "loop", provider.LoopProviderType, cfg)
 }
 
 func addDefaultPool(pm pool.PoolManager, name string, providerType storage.ProviderType, attrs map[string]interface{}) error {

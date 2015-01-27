@@ -554,11 +554,7 @@ func deviceOptions(st *state.State, poolName string) (map[string]interface{}, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, err := storage.StorageProvider(p.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return provider.TranslateUserOptions(p.Config()), nil
+	return p.Config(), nil
 }
 
 // blockDevicesToState converts a slice of storage.BlockDevice to a mapping

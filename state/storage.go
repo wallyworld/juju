@@ -7,13 +7,15 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
 )
 
 // StorageInstance represents the state of a unit or service-wide storage
@@ -387,10 +389,26 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 			)
 		}
 		if cons.Pool != "" {
-			// TODO(axw) when we support pools, we should invert the test;
-			// the caller should carry out the logic for determining the
-			// default pool and so on.
-			return errors.Errorf("storage pools are not implemented")
+			conf, err := st.EnvironConfig()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			envType := conf.Type()
+			// Ensure the pool type is supported by the environment.
+			pm := pool.NewPoolManager(NewStateSettings(st))
+			p, err := pm.Get(cons.Pool)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			providerType := p.Type()
+			if !storage.IsProviderSupported(envType, providerType) {
+				return errors.Errorf(
+					"pool %q uses storage provider %q which is not supported for environments of type %q",
+					cons.Pool,
+					providerType,
+					envType,
+				)
+			}
 		}
 		if cons.Count < uint64(charmStorage.CountMin) {
 			return errors.Errorf(

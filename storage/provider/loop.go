@@ -38,11 +38,6 @@ func (lp *loopProvider) ValidateConfig(providerConfig *storage.Config) error {
 	return nil
 }
 
-func (lp *loopProvider) TranslateUserOptions(userOptions map[string]interface{}) map[string]interface{} {
-	// No translation for loop provider options.
-	return userOptions
-}
-
 // VolumeSource is defined on the Provider interface.
 func (lp *loopProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
 	if err := lp.ValidateConfig(providerConfig); err != nil {
