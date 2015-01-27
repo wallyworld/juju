@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -725,6 +727,9 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("loop", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
 		Series:            "quantal",
@@ -732,7 +737,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Constraints:       cons,
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
-		BlockDevices:      []state.BlockDeviceParams{{Size: 1000}, {Size: 2000}},
+		BlockDevices:      []state.BlockDeviceParams{{Size: 1000}, {Size: 2000, Pool: "loop"}},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -746,6 +751,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
+	fmt.Println(result.Results[1].Result)
 	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -759,7 +765,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				Volumes:     []storage.VolumeParams{{Name: "0", Size: 1000}, {Name: "1", Size: 2000}},
+				Volumes: []storage.VolumeParams{
+					{Name: "0", Size: 1000}, {Name: "1", Size: 2000, Options: map[string]interface{}{"foo": "bar"}},
+				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},

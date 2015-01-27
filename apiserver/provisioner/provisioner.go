@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
 )
 
 func init() {
@@ -360,19 +361,19 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = getProvisioningInfo(machine)
+			result.Results[i].Result, err = p.getProvisioningInfo(machine)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
+func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	cons, err := m.Constraints()
 	if err != nil {
 		return nil, err
 	}
-	volumes, err := machineVolumeParams(m)
+	volumes, err := p.machineVolumeParams(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -516,7 +517,7 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
 // provisioned with and attached to the machine. The client should ignore
 // parameters that it does not know how to handle.
-func machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
+func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
 	blockDevices, err := m.BlockDevices()
 	if err != nil {
 		return nil, err
@@ -530,16 +531,30 @@ func machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
 		if !ok {
 			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
 		}
+		var options map[string]interface{}
+		if params.Pool != "" {
+			options, err = deviceOptions(p.st, params.Pool)
+			if err != nil {
+				return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
+			}
+		}
 		allParams[i] = storage.VolumeParams{
 			dev.Name(),
 			params.Size,
-			// TODO(axw) when pools are implemented,
-			// set Options here.
-			nil,
+			options,
 			"", // no instance ID yet
 		}
 	}
 	return allParams, nil
+}
+
+func deviceOptions(st *state.State, poolName string) (map[string]interface{}, error) {
+	pm := pool.NewPoolManager(state.NewStateSettings(st))
+	p, err := pm.Get(poolName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p.Config(), nil
 }
 
 // blockDevicesToState converts a slice of storage.BlockDevice to a mapping

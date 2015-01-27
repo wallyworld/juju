@@ -40,6 +40,8 @@ import (
 	"github.com/juju/juju/state/presence"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -1465,6 +1467,53 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 	} else {
 		c.Assert(storageConstraintsOut, gc.HasLen, 0)
 	}
+}
+
+func (s *clientSuite) TestClientServiceDeployWithInvalidStoragePool(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.makeMockCharmStore()
+	curl, _ := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "foo",
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, gc.ErrorMatches, `.*reading pool "foo": settings not found`)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithUnsupportedStoragePool(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("foo", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.makeMockCharmStore()
+	curl, _ := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Pool:  "foo",
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err = s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(
+		err, gc.ErrorMatches,
+		`.*pool "foo" uses storage provider "loop" which is not supported for environments of type "dummy"`)
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {

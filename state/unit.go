@@ -1346,6 +1346,10 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
+	storageCons, err := u.StorageConstraints()
+	if err != nil {
+		return err
+	}
 	var blockDeviceParams []BlockDeviceParams
 	for _, storageInstance := range storageInstances {
 		// TODO(axw) consult storage provider to see if we need to request
@@ -1354,6 +1358,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		blockDeviceParams = append(blockDeviceParams, BlockDeviceParams{
 			storageInstance: storageInstance.Id(),
 			Size:            storageInstanceParams.Size,
+			Pool:            storageCons[storageInstance.StorageName()].Pool,
 		})
 	}
 	template := MachineTemplate{
