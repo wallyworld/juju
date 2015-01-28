@@ -28,6 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Show retrieves information about desired storage instances.
 func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
 	found := params.StorageShowResults{}
 	entities := make([]params.Entity, len(tags))
@@ -39,6 +40,30 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 	}
 	all := []params.StorageInstance{}
 	allErr := params.ErrorResults{}
+	for _, result := range found.Results {
+		if result.Error.Error != nil {
+			allErr.Results = append(allErr.Results, result.Error)
+			continue
+		}
+		all = append(all, result.Result)
+	}
+	return all, allErr.Combine()
+}
+
+// PoolList lists pools according to a given filter.
+// If no filter was provided, this will return a list
+// of all pools.
+func (c *Client) PoolList(types, names []string) ([]params.PoolInstance, error) {
+	args := params.PoolListFilter{
+		Names: names,
+		Types: types,
+	}
+	found := params.PoolListResults{}
+	if err := c.facade.FacadeCall("PoolList", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	allErr := params.ErrorResults{}
+	all := []params.PoolInstance{}
 	for _, result := range found.Results {
 		if result.Error.Error != nil {
 			allErr.Results = append(allErr.Results, result.Error)

@@ -33,3 +33,28 @@ type StorageShowResult struct {
 type StorageListResult struct {
 	Instances []StorageInstance
 }
+
+// PoolInstance holds data for a pool instance.
+type PoolInstance struct {
+	Name   string
+	Type   string
+	Traits map[string]interface{}
+}
+
+// PoolListFilter holds a filter for pool list API call.
+type PoolListFilter struct {
+	Names []string
+	Types []string
+}
+
+// PoolListResults holds a collection of pool instances.
+type PoolListResults struct {
+	Results []PoolListResult
+}
+
+// PoolListResult holds information about a pool instance
+// or error related to its retrieval.
+type PoolListResult struct {
+	Result PoolInstance
+	Error  ErrorResult
+}

@@ -4,13 +4,17 @@
 package storage
 
 import (
-	"github.com/juju/names"
+	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/utils/set"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/pool"
 )
 
 func init() {
@@ -112,4 +116,55 @@ func (api *API) getStorageInstance(si state.StorageInstance) (params.StorageInst
 		TotalSize:     totalSize,
 		AvailableSize: availableSize,
 	}, nil
+}
+
+var getPoolManager = func(psm pool.SettingsManager) pool.PoolManager {
+	return pool.NewPoolManager(psm)
+}
+
+func (a *API) PoolList(filter params.PoolListFilter) (params.PoolListResults, error) {
+	settings := a.storage.StateSettings()
+	poolManager := getPoolManager(settings)
+
+	all, err := poolManager.List()
+	if err != nil {
+		return params.PoolListResults{}, err
+	}
+	results := []params.PoolListResult{}
+	// Convert to sets as easier to deal with
+	typeSet := set.NewStrings(filter.Types...)
+	nameSet := set.NewStrings(filter.Names...)
+	for _, apool := range all {
+		if one, k := filterPoolInstance(typeSet, nameSet, apool); k {
+			results = append(results,
+				params.PoolListResult{Result: one})
+		}
+	}
+	return params.PoolListResults{Results: results}, nil
+}
+
+func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.PoolInstance, bool) {
+	keep := func(aSet set.Strings, value string) bool {
+		if len(aSet) > 0 {
+			return aSet.Contains(value)
+		}
+		return true
+	}
+
+	empty := params.PoolInstance{}
+	// filter by name
+	if !keep(nameSet, apool.Name()) {
+		return empty, false
+	}
+	// filter by type
+	poolType := fmt.Sprintf("%v", apool.Type())
+	if !keep(typeSet, poolType) {
+		return empty, false
+	}
+	one := params.PoolInstance{
+		Name:   apool.Name(),
+		Type:   poolType,
+		Traits: apool.Config(),
+	}
+	return one, true
 }
