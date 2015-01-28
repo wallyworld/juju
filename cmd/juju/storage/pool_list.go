@@ -26,7 +26,7 @@ options:
 -e, --environment (= "")
    juju environment to operate in
 -o, --output (= "")
-   specify an output
+   specify an output file
 --format (= yaml)
    specify output format (json|tabular|yaml)
 <pool type>
