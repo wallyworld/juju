@@ -17,7 +17,7 @@ import (
 
 type PoolListSuite struct {
 	SubStorageSuite
-	mockAPI *mockListAPI
+	mockAPI *mockPoolListAPI
 }
 
 var _ = gc.Suite(&PoolListSuite{})
@@ -25,7 +25,7 @@ var _ = gc.Suite(&PoolListSuite{})
 func (s *PoolListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockListAPI{}
+	s.mockAPI = &mockPoolListAPI{}
 	s.PatchValue(storage.GetPoolListAPI, func(c *storage.PoolListCommand) (storage.PoolListAPI, error) {
 		return s.mockAPI, nil
 	})
@@ -111,14 +111,14 @@ func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string)
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-type mockListAPI struct {
+type mockPoolListAPI struct {
 }
 
-func (s mockListAPI) Close() error {
+func (s mockPoolListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) PoolList(types []string, names []string) ([]params.PoolInstance, error) {
+func (s mockPoolListAPI) PoolList(types []string, names []string) ([]params.PoolInstance, error) {
 	results := make([]params.PoolInstance, len(types)+len(names))
 	var index int
 	addInstance := func(aname, atype string) {

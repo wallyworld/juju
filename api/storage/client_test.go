@@ -70,7 +70,7 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *storageMockSuite) TestList(c *gc.C) {
+func (s *storageMockSuite) TestPoolList(c *gc.C) {
 	var called bool
 	want := 3
 

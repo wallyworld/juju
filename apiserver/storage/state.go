@@ -24,3 +24,8 @@ func (s stateShim) StorageInstance(id string) (state.StorageInstance, error) {
 func (s stateShim) StateSettings() *state.StateSettings {
 	return state.NewStateSettings(s.state)
 }
+
+// StateSettings creates state.StateSettings
+func (s stateShim) AllStorageInstances() ([]state.StorageInstance, error) {
+	return s.state.AllStorageInstances()
+}

@@ -65,7 +65,6 @@ func (s *poolSuite) TestList(c *gc.C) {
 	c.Assert(pools.Results, gc.HasLen, 1)
 	one := pools.Results[0]
 	c.Assert(one.Error.Error, gc.IsNil)
-	c.Assert(one.Result.Traits, gc.DeepEquals, poolAttrs)
 	c.Assert(one.Result.Name, gc.Equals, "testpool")
 	c.Assert(one.Result.Type, gc.Equals, "loop")
 }
@@ -79,16 +78,6 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 	pools, err := s.api.PoolList(params.PoolListFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools.Results, gc.HasLen, 2)
-
-	all := pools.Results
-	poolCfgs := make(map[string]map[string]interface{})
-	for _, p := range all {
-		poolCfgs[p.Result.Name] = p.Result.Traits
-	}
-	c.Assert(poolCfgs, jc.DeepEquals, map[string]map[string]interface{}{
-		"testpool":  {"name": "testpool", "type": "loop", "foo": "bar"},
-		"testpool2": {"name": "testpool2", "type": "loop", "foo2": "bar2"},
-	})
 }
 
 func (s *poolSuite) TestListByName(c *gc.C) {
