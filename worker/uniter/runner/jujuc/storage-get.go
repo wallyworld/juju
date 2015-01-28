@@ -28,7 +28,7 @@ When no <key> is supplied, all keys values are printed.
 `
 	return &cmd.Info{
 		Name:    "storage-get",
-		Args:    "<key> [<key>]*",
+		Args:    "[<key>]",
 		Purpose: "print information for storage instance with specified id",
 		Doc:     doc,
 	}
@@ -58,7 +58,7 @@ func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	values := map[string]interface{}{
-		"kind":     storageInstance.Kind,
+		"kind":     storageInstance.Kind.String(),
 		"location": storageInstance.Location,
 	}
 	if c.key == "" {

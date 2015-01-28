@@ -5,6 +5,7 @@ package diskformatter_test
 
 import (
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/names"
@@ -67,17 +68,17 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 
 	blockDeviceStorageInstanceResults := []params.StorageInstanceResult{{
 		Result: storage.StorageInstance{
-			Id:   "needs-a-filesystem",
+			Id:   "needs-a-filesystem/0",
 			Kind: storage.StorageKindFilesystem,
 		},
 	}, {
 		Result: storage.StorageInstance{
-			Id:   "already-has-a-filesystem",
+			Id:   "already-has-a-filesystem/0",
 			Kind: storage.StorageKindFilesystem,
 		},
 	}, {
 		Result: storage.StorageInstance{
-			Id:   "doesnt-need-a-filesystem",
+			Id:   "doesnt-need-a-filesystem/0",
 			Kind: storage.StorageKindBlock,
 		},
 	}, {
@@ -111,8 +112,10 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
+	testing.PatchExecutableAsEchoArgs(c, s, "mount")
+	storageDir := c.MkDir()
 
-	w := diskformatter.NewWorker(accessor)
+	w := diskformatter.NewWorker(storageDir, accessor)
 	accessor.changes <- ids
 	done := make(chan struct{})
 	go func() {
@@ -144,7 +147,7 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
 				Result: storage.StorageInstance{
-					Id:   "needs-a-filesystem",
+					Id:   "needs-a-filesystem/0",
 					Kind: storage.StorageKindFilesystem,
 				},
 			}}}, nil
@@ -152,10 +155,14 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
-	formatter := diskformatter.NewDiskFormatter(accessor)
+	testing.PatchExecutableAsEchoArgs(c, s, "mount")
+	storageDir := c.MkDir()
+
+	formatter := diskformatter.NewDiskFormatter(storageDir, accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
 	testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
+	testing.AssertEchoArgs(c, "mount", "/dev/disk/by-label/dev0-label", filepath.Join(storageDir, "needs-a-filesystem/0"))
 }
 
 func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
@@ -164,7 +171,7 @@ func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
 			return params.BlockDeviceResults{}, errors.New("BlockDevice failed")
 		},
 	}
-	formatter := diskformatter.NewDiskFormatter(accessor)
+	formatter := diskformatter.NewDiskFormatter(c.MkDir(), accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.ErrorMatches, "cannot get block devices: BlockDevice failed")
 }
@@ -180,7 +187,7 @@ func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) 
 			return params.StorageInstanceResults{}, errors.New("BlockDeviceStorageInstance failed")
 		},
 	}
-	formatter := diskformatter.NewDiskFormatter(accessor)
+	formatter := diskformatter.NewDiskFormatter(c.MkDir(), accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.ErrorMatches, "cannot get assigned storage instances: BlockDeviceStorageInstance failed")
 }
@@ -195,7 +202,7 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
 				Result: storage.StorageInstance{
-					Id:   "needs-a-filesystem",
+					Id:   "needs-a-filesystem/0",
 					Kind: storage.StorageKindFilesystem,
 				},
 			}}}, nil
@@ -203,7 +210,7 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	}
 	// Failure to create a filesystem should not cause the handler to error.
 	testing.PatchExecutableThrowError(c, s, "mkfs.ext4", 1)
-	formatter := diskformatter.NewDiskFormatter(accessor)
+	formatter := diskformatter.NewDiskFormatter(c.MkDir(), accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
 }
@@ -236,4 +243,12 @@ func (m *mockBlockDeviceAccessor) BlockDevices(tags []names.DiskTag) (params.Blo
 
 func (m *mockBlockDeviceAccessor) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 	return m.blockDeviceStorageInstances(tags)
+}
+
+func (m *mockBlockDeviceAccessor) SetMountPoints(mountPoints map[names.StorageTag]string) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, 0, len(mountPoints)),
+	}
+	// TODO(axw) store and check args.
+	return results, nil
 }

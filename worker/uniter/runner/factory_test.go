@@ -276,6 +276,14 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
 
 	unit := s.AddUnit(c, service)
+	storageInstances, err := unit.StorageInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(storageInstances, gc.HasLen, 1)
+	err = s.State.SetStorageInstanceInfo(storageInstances[0].Id(), state.StorageInstanceInfo{
+		Location: "rightbehindyou",
+	})
+	c.Assert(err, gc.IsNil)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +310,9 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	ctx := rnr.Context()
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
 	s.AssertStorageContext(c, ctx, storage.StorageInstance{
-		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
+		Id:       "data/0",
+		Kind:     storage.StorageKindBlock,
+		Location: "rightbehindyou"},
 	)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
