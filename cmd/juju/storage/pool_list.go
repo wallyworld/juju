@@ -84,7 +84,7 @@ func (c *PoolListCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	result, err := api.PoolList(c.Type, c.Name)
+	result, err := api.ListPools(c.Type, c.Name)
 	if err != nil {
 		return err
 	}
@@ -99,14 +99,14 @@ var (
 // PoolListAPI defines the API methods that the storage commands use.
 type PoolListAPI interface {
 	Close() error
-	PoolList(types, names []string) ([]params.PoolInstance, error)
+	ListPools(types, names []string) ([]params.StoragePool, error)
 }
 
 func (c *PoolListCommand) getPoolListAPI() (PoolListAPI, error) {
 	return c.NewStorageAPI()
 }
 
-func (c *PoolListCommand) convertFromAPIPools(all []params.PoolInstance) []PoolInfo {
+func (c *PoolListCommand) convertFromAPIPools(all []params.StoragePool) []PoolInfo {
 	var output []PoolInfo
 	for _, one := range all {
 		outInfo := PoolInfo{

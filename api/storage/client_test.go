@@ -70,7 +70,7 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *storageMockSuite) TestPoolList(c *gc.C) {
+func (s *storageMockSuite) TestListPools(c *gc.C) {
 	var called bool
 	want := 3
 
@@ -83,23 +83,22 @@ func (s *storageMockSuite) TestPoolList(c *gc.C) {
 			called = true
 			c.Check(objType, gc.Equals, "Storage")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "PoolList")
+			c.Check(request, gc.Equals, "ListPools")
 
-			args, ok := a.(params.PoolListFilter)
+			args, ok := a.(params.StoragePoolFilter)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Names, gc.HasLen, 2)
 			c.Assert(args.Types, gc.HasLen, 1)
 
-			if results, k := result.(*params.PoolListResults); k {
-				instances := make([]params.PoolListResult, want)
+			if results, k := result.(*params.StoragePoolsResult); k {
+				instances := make([]params.StoragePool, want)
 				for i := 0; i < want; i++ {
-					instances[i] = params.PoolListResult{
-						Result: params.PoolInstance{
-							Name: fmt.Sprintf("name%v", i),
-							Type: fmt.Sprintf("type%v", i),
-						}}
+					instances[i] = params.StoragePool{
+						Name: fmt.Sprintf("name%v", i),
+						Type: fmt.Sprintf("type%v", i),
+					}
 				}
-				results.Results = instances
+				results.Pools = instances
 			}
 
 			return nil
@@ -107,7 +106,7 @@ func (s *storageMockSuite) TestPoolList(c *gc.C) {
 	storageClient := storage.NewClient(apiCaller)
 	names := []string{"a", "b"}
 	types := []string{"1"}
-	found, err := storageClient.PoolList(types, names)
+	found, err := storageClient.ListPools(types, names)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, want)
 	c.Assert(called, jc.IsTrue)

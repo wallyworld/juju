@@ -60,13 +60,12 @@ func (s *poolSuite) createSettings(c *gc.C) {
 
 func (s *poolSuite) TestList(c *gc.C) {
 	s.createSettings(c)
-	pools, err := s.api.PoolList(params.PoolListFilter{})
+	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	one := pools.Results[0]
-	c.Assert(one.Error.Error, gc.IsNil)
-	c.Assert(one.Result.Name, gc.Equals, "testpool")
-	c.Assert(one.Result.Type, gc.Equals, "loop")
+	c.Assert(pools.Pools, gc.HasLen, 1)
+	one := pools.Pools[0]
+	c.Assert(one.Name, gc.Equals, "testpool")
+	c.Assert(one.Type, gc.Equals, "loop")
 }
 
 func (s *poolSuite) TestListManyResults(c *gc.C) {
@@ -75,9 +74,9 @@ func (s *poolSuite) TestListManyResults(c *gc.C) {
 		"name": "testpool2", "type": "loop", "foo2": "bar2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.PoolList(params.PoolListFilter{})
+	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 2)
+	c.Assert(pools.Pools, gc.HasLen, 2)
 }
 
 func (s *poolSuite) TestListByName(c *gc.C) {
@@ -87,10 +86,10 @@ func (s *poolSuite) TestListByName(c *gc.C) {
 		"name": tstName, "type": "loop", "foo2": "bar2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.PoolList(params.PoolListFilter{Names: []string{tstName}})
+	pools, err := s.api.ListPools(params.StoragePoolFilter{Names: []string{tstName}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Result.Name, gc.DeepEquals, tstName)
+	c.Assert(pools.Pools, gc.HasLen, 1)
+	c.Assert(pools.Pools[0].Name, gc.DeepEquals, tstName)
 }
 
 func (s *poolSuite) TestListByType(c *gc.C) {
@@ -100,14 +99,14 @@ func (s *poolSuite) TestListByType(c *gc.C) {
 		"name": "testpool2", "type": tstType, "foo2": "bar2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	pools, err := s.api.PoolList(params.PoolListFilter{Types: []string{tstType}})
+	pools, err := s.api.ListPools(params.StoragePoolFilter{Types: []string{tstType}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 1)
-	c.Assert(pools.Results[0].Result.Type, gc.DeepEquals, tstType)
+	c.Assert(pools.Pools, gc.HasLen, 1)
+	c.Assert(pools.Pools[0].Type, gc.DeepEquals, tstType)
 }
 
 func (s *poolSuite) TestListNoPools(c *gc.C) {
-	pools, err := s.api.PoolList(params.PoolListFilter{})
+	pools, err := s.api.ListPools(params.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools.Results, gc.HasLen, 0)
+	c.Assert(pools.Pools, gc.HasLen, 0)
 }

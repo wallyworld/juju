@@ -52,9 +52,9 @@ func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
 	c.Assert(found, gc.HasLen, 0)
 }
 
-func (s *apiStorageSuite) TestPoolList(c *gc.C) {
+func (s *apiStorageSuite) TestListPools(c *gc.C) {
 	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
-	found, err := s.storageClient.PoolList(nil, nil)
+	found, err := s.storageClient.ListPools(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 0)
 }
@@ -90,7 +90,7 @@ func runPoolList(c *gc.C, args []string) *cmd.Context {
 	return context
 }
 
-func (s *cmdStorageSuite) TestPoolListCmdStack(c *gc.C) {
+func (s *cmdStorageSuite) TestListPoolsCmdStack(c *gc.C) {
 	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
 	context := runPoolList(c, []string{""})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)

@@ -50,28 +50,19 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 	return all, allErr.Combine()
 }
 
-// PoolList lists pools according to a given filter.
+// ListPools lists pools according to a given filter.
 // If no filter was provided, this will return a list
 // of all pools.
-func (c *Client) PoolList(types, names []string) ([]params.PoolInstance, error) {
-	args := params.PoolListFilter{
+func (c *Client) ListPools(types, names []string) ([]params.StoragePool, error) {
+	args := params.StoragePoolFilter{
 		Names: names,
 		Types: types,
 	}
-	found := params.PoolListResults{}
-	if err := c.facade.FacadeCall("PoolList", args, &found); err != nil {
+	found := params.StoragePoolsResult{}
+	if err := c.facade.FacadeCall("ListPools", args, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	allErr := params.ErrorResults{}
-	all := []params.PoolInstance{}
-	for _, result := range found.Results {
-		if result.Error.Error != nil {
-			allErr.Results = append(allErr.Results, result.Error)
-			continue
-		}
-		all = append(all, result.Result)
-	}
-	return all, allErr.Combine()
+	return found.Pools, nil
 }
 
 func (c *Client) List() ([]params.StorageInstance, error) {

@@ -122,28 +122,27 @@ var getPoolManager = func(psm pool.SettingsManager) pool.PoolManager {
 	return pool.NewPoolManager(psm)
 }
 
-func (a *API) PoolList(filter params.PoolListFilter) (params.PoolListResults, error) {
+func (a *API) ListPools(filter params.StoragePoolFilter) (params.StoragePoolsResult, error) {
 	settings := a.storage.StateSettings()
 	poolManager := getPoolManager(settings)
 
 	all, err := poolManager.List()
 	if err != nil {
-		return params.PoolListResults{}, err
+		return params.StoragePoolsResult{}, err
 	}
-	results := []params.PoolListResult{}
+	results := []params.StoragePool{}
 	// Convert to sets as easier to deal with
 	typeSet := set.NewStrings(filter.Types...)
 	nameSet := set.NewStrings(filter.Names...)
 	for _, apool := range all {
 		if one, k := filterPoolInstance(typeSet, nameSet, apool); k {
-			results = append(results,
-				params.PoolListResult{Result: one})
+			results = append(results, one)
 		}
 	}
-	return params.PoolListResults{Results: results}, nil
+	return params.StoragePoolsResult{Pools: results}, nil
 }
 
-func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.PoolInstance, bool) {
+func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.StoragePool, bool) {
 	keep := func(aSet set.Strings, value string) bool {
 		if len(aSet) > 0 {
 			return aSet.Contains(value)
@@ -151,7 +150,7 @@ func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.P
 		return true
 	}
 
-	empty := params.PoolInstance{}
+	empty := params.StoragePool{}
 	// filter by name
 	if !keep(nameSet, apool.Name()) {
 		return empty, false
@@ -161,7 +160,7 @@ func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.P
 	if !keep(typeSet, poolType) {
 		return empty, false
 	}
-	one := params.PoolInstance{
+	one := params.StoragePool{
 		Name:   apool.Name(),
 		Type:   poolType,
 		Traits: apool.Config(),

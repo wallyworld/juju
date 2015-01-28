@@ -118,8 +118,8 @@ func (s mockPoolListAPI) Close() error {
 	return nil
 }
 
-func (s mockPoolListAPI) PoolList(types []string, names []string) ([]params.PoolInstance, error) {
-	results := make([]params.PoolInstance, len(types)+len(names))
+func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.StoragePool, error) {
+	results := make([]params.StoragePool, len(types)+len(names))
 	var index int
 	addInstance := func(aname, atype string) {
 		results[index] = createTestPoolInstance(aname, atype)
@@ -134,8 +134,8 @@ func (s mockPoolListAPI) PoolList(types []string, names []string) ([]params.Pool
 	return results, nil
 }
 
-func createTestPoolInstance(aname, atype string) params.PoolInstance {
-	return params.PoolInstance{
+func createTestPoolInstance(aname, atype string) params.StoragePool {
+	return params.StoragePool{
 		Name:   aname,
 		Type:   atype,
 		Traits: map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
