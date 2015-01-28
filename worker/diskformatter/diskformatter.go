@@ -9,7 +9,9 @@ package diskformatter
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -34,22 +36,25 @@ type BlockDeviceAccessor interface {
 	WatchBlockDevices() (watcher.StringsWatcher, error)
 	BlockDevices([]names.DiskTag) (params.BlockDeviceResults, error)
 	BlockDeviceStorageInstances([]names.DiskTag) (params.StorageInstanceResults, error)
+	SetMountPoints(map[names.StorageTag]string) (params.ErrorResults, error)
 }
 
 // NewWorker returns a new worker that creates filesystems on block devices
 // assigned to this unit's storage instances.
 func NewWorker(
+	storageDir string,
 	accessor BlockDeviceAccessor,
 ) worker.Worker {
-	return worker.NewStringsWorker(newDiskFormatter(accessor))
+	return worker.NewStringsWorker(newDiskFormatter(storageDir, accessor))
 }
 
-func newDiskFormatter(accessor BlockDeviceAccessor) worker.StringsWatchHandler {
-	return &diskFormatter{accessor}
+func newDiskFormatter(storageDir string, accessor BlockDeviceAccessor) worker.StringsWatchHandler {
+	return &diskFormatter{storageDir, accessor}
 }
 
 type diskFormatter struct {
-	accessor BlockDeviceAccessor
+	storageDir string
+	accessor   BlockDeviceAccessor
 }
 
 func (f *diskFormatter) SetUp() (watcher.StringsWatcher, error) {
@@ -85,6 +90,7 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 		return errors.Annotate(err, "cannot get assigned storage instances")
 	}
 
+	mountPoints := make(map[names.StorageTag]string)
 	for i, result := range results.Results {
 		if result.Error != nil {
 			logger.Errorf(
@@ -93,13 +99,15 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 			)
 			continue
 		}
-		if blockDevices[i].FilesystemType != "" {
-			logger.Debugf("block device %q already has a filesystem", blockDevices[i].Name)
-			continue
-		}
 		storageInstance := result.Result
 		if storageInstance.Kind != storage.StorageKindFilesystem {
 			logger.Debugf("storage instance %q does not need a filesystem", storageInstance.Id)
+			continue
+		}
+		if storageInstance.Location != "" {
+			// TODO(axw) we need to ensure the mount point
+			// is still there, and remount if needed.
+			logger.Debugf("storage instance %q is already mounted at %q", storageInstance.Location)
 			continue
 		}
 		devicePath, err := storage.BlockDevicePath(blockDevices[i])
@@ -107,12 +115,29 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 			logger.Errorf("cannot get path for block device %q: %v", blockDevices[i].Name, err)
 			continue
 		}
-		if err := createFilesystem(devicePath); err != nil {
-			logger.Errorf("failed to create filesystem on block device %q: %v", blockDevices[i].Name, err)
+		if blockDevices[i].FilesystemType == "" {
+			if err := createFilesystem(devicePath); err != nil {
+				logger.Errorf("failed to create filesystem on block device %q: %v", blockDevices[i].Name, err)
+				continue
+			}
+		}
+		// Mount the block device and set the location.
+		// TODO(axw) use the location in the charm if specified.
+		location := filepath.Join(f.storageDir, filepath.FromSlash(storageInstance.Id))
+		if err := mount(devicePath, location); err != nil {
+			logger.Errorf("failed to mount block device %q: %v", blockDevices[i].Name, err)
 			continue
 		}
+		mountPoints[names.NewStorageTag(storageInstance.Id)] = location
 	}
 
+	if len(mountPoints) > 0 {
+		results, err := f.accessor.SetMountPoints(mountPoints)
+		if err != nil {
+			return err
+		}
+		return results.Combine()
+	}
 	return nil
 }
 
@@ -149,6 +174,17 @@ func maybeCreateFilesystem(path string) error {
 	output, err := exec.Command(mkfscmd, path).CombinedOutput()
 	if err != nil {
 		return errors.Annotatef(err, "%s failed (%q)", mkfscmd, bytes.TrimSpace(output))
+	}
+	return nil
+}
+
+func mount(device, path string) error {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return errors.Annotate(err, "creating mount point")
+	}
+	output, err := exec.Command("mount", device, path).CombinedOutput()
+	if err != nil {
+		return errors.Annotatef(err, "mount failed (%q)", bytes.TrimSpace(output))
 	}
 	return nil
 }

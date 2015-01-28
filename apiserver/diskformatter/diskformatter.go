@@ -143,6 +143,33 @@ func (a *DiskFormatterAPI) BlockDeviceStorageInstances(args params.Entities) (pa
 	return result, nil
 }
 
+func (a *DiskFormatterAPI) SetMountPoints(args params.StorageMountPoints) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.StorageMountPoints)),
+	}
+	canAccess, err := a.getAuthFunc()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	one := func(arg params.StorageMountPoint) error {
+		storageTag, err := names.ParseStorageTag(arg.StorageTag)
+		if err != nil {
+			return common.ErrPerm
+		}
+		storageInstance, err := a.st.StorageInstance(storageTag.Id())
+		if err != nil || !canAccess(storageInstance.Owner()) {
+			return common.ErrPerm
+		}
+		info := state.StorageInstanceInfo{arg.MountPoint}
+		return a.st.SetStorageInstanceInfo(storageTag.Id(), info)
+	}
+	for i, arg := range args.StorageMountPoints {
+		err := one(arg)
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
 func (a *DiskFormatterAPI) oneBlockDevice(tag string, canAccess common.AuthFunc) (state.BlockDevice, state.StorageInstance, error) {
 	diskTag, err := names.ParseDiskTag(tag)
 	if err != nil {

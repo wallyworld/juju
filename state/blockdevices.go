@@ -315,22 +315,28 @@ func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map
 		}
 		storageId, ok := dev.StorageInstance()
 		if ok {
-			storageInstanceInfo := &StorageInstanceInfo{
-				// Especially not this.
-				Location: "/dev/" + info.DeviceName,
+			storageInstance, err := st.StorageInstance(storageId)
+			if err != nil {
+				return err
 			}
-			ops = append(ops, txn.Op{
-				C:  storageInstancesC,
-				Id: storageId,
-				Assert: bson.D{
-					{"info", bson.D{{"$exists", false}}},
-					{"params", bson.D{{"$exists", true}}},
-				},
-				Update: bson.D{
-					{"$set", bson.D{{"info", &storageInstanceInfo}}},
-					{"$unset", bson.D{{"params", nil}}},
-				},
-			})
+			if storageInstance.Kind() == StorageKindBlock {
+				storageInstanceInfo := &StorageInstanceInfo{
+					// Especially not this.
+					Location: "/dev/" + info.DeviceName,
+				}
+				ops = append(ops, txn.Op{
+					C:  storageInstancesC,
+					Id: storageId,
+					Assert: bson.D{
+						{"info", bson.D{{"$exists", false}}},
+						{"params", bson.D{{"$exists", true}}},
+					},
+					Update: bson.D{
+						{"$set", bson.D{{"info", &storageInstanceInfo}}},
+						{"$unset", bson.D{{"params", nil}}},
+					},
+				})
+			}
 		}
 	}
 	if err := st.runTransaction(ops); err != nil {

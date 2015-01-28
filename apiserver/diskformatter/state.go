@@ -14,6 +14,7 @@ type stateInterface interface {
 	WatchUnitMachineBlockDevices(names.UnitTag) (watcher.StringsWatcher, error)
 	BlockDevice(name string) (state.BlockDevice, error)
 	StorageInstance(id string) (state.StorageInstance, error)
+	SetStorageInstanceInfo(id string, info state.StorageInstanceInfo) error
 }
 
 var getState = func(st *state.State) stateInterface {

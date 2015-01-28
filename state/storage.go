@@ -203,6 +203,22 @@ func (st *State) StorageInstance(id string) (StorageInstance, error) {
 	return &s, nil
 }
 
+func (st *State) SetStorageInstanceInfo(storageId string, info StorageInstanceInfo) error {
+	ops := []txn.Op{{
+		C:  storageInstancesC,
+		Id: storageId,
+		Assert: bson.D{
+			{"info", bson.D{{"$exists", false}}},
+			{"params", bson.D{{"$exists", true}}},
+		},
+		Update: bson.D{
+			{"$set", bson.D{{"info", &info}}},
+			{"$unset", bson.D{{"params", nil}}},
+		},
+	}}
+	return st.runTransaction(ops)
+}
+
 func createStorageInstanceOps(
 	st *State,
 	ownerTag names.Tag,

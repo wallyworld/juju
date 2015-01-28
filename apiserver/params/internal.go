@@ -858,3 +858,12 @@ type UnitStorageInstances struct {
 type UnitStorageInstancesResults struct {
 	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
 }
+
+type StorageMountPoint struct {
+	StorageTag string `json:"storage"`
+	MountPoint string `json:"mountpoint"`
+}
+
+type StorageMountPoints struct {
+	StorageMountPoints []StorageMountPoint `json:"storagemountpoints"`
+}

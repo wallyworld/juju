@@ -22,11 +22,11 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 	return &StorageAccessor{facade}
 }
 
-// StorageInstances returns the storage instances for a unit.
-func (sa *StorageAccessor) StorageInstances(unitTag names.Tag) ([]storage.StorageInstance, error) {
+// UnitStorageInstances returns the storage instances for a unit.
+func (sa *StorageAccessor) UnitStorageInstances(unitTag names.Tag) ([]storage.StorageInstance, error) {
 	if sa.facade.BestAPIVersion() < 2 {
-		// StorageInstances() was introduced in UniterAPIV2.
-		return nil, errors.NotImplementedf("StorageInstances() (need V2+)")
+		// UnitStorageInstances was introduced in UniterAPIV2.
+		return nil, errors.NotImplementedf("UnitStorageInstances (need V2+)")
 	}
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -46,4 +46,27 @@ func (sa *StorageAccessor) StorageInstances(unitTag names.Tag) ([]storage.Storag
 		return nil, storageInstances.Error
 	}
 	return storageInstances.Instances, nil
+}
+
+// StorageInstances returns the storage instances with the specified tags.
+func (sa *StorageAccessor) StorageInstances(tags []names.StorageTag) ([]params.StorageInstanceResult, error) {
+	if sa.facade.BestAPIVersion() < 2 {
+		// StorageInstances was introduced in UniterAPIV2.
+		return nil, errors.NotImplementedf("StorageInstances (need V2+)")
+	}
+	args := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		args.Entities[i].Tag = tag.String()
+	}
+	var results params.StorageInstanceResults
+	err := sa.facade.FacadeCall("StorageInstances", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(tags) {
+		panic(errors.Errorf("expected %d results, got %d", len(tags), len(results.Results)))
+	}
+	return results.Results, nil
 }

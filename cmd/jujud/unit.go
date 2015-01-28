@@ -196,7 +196,8 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 			if err != nil {
 				return nil, err
 			}
-			return diskformatter.NewWorker(api), nil
+			storageDir := filepath.Join(dataDir, "storage")
+			return diskformatter.NewWorker(storageDir, api), nil
 		})
 	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil
