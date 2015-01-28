@@ -55,6 +55,7 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -896,6 +897,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
 				return worker.NewSimpleWorker(workerLoop), nil
+			})
+			// TODO - we do this here because upgrade no longer handle new installs.
+			// Fix this once we sort out what to do.
+			a.startWorkerAfterUpgrade(runner, "storage pools", func() (worker.Worker, error) {
+				addDefaultPools := func(_ <-chan struct{}) error {
+					return upgrades.AddDefaultStoragePools(st, agentConfig)
+				}
+				return worker.NewSimpleWorker(addDefaultPools), nil
 			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))

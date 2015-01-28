@@ -25,7 +25,11 @@ var defaultEBSPools = map[string]map[string]interface{}{
 	ec2storage.EBSSSDPool: map[string]interface{}{"volume-type": "gp2"},
 }
 
-func addDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
+var ensureStorage = AddDefaultStoragePools
+
+// TODO - only exported so we can call from machine agent pending agreeing
+// on how to solve change in upgrade behaviour.
+func AddDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
 	settings := state.NewStateSettings(st)
 	pm := pool.NewPoolManager(settings)
 
