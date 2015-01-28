@@ -34,7 +34,7 @@ func (s *uniterV2Suite) SetUpTest(c *gc.C) {
 	s.uniter = uniterAPIV2
 }
 
-func (s *uniterV2Suite) TestStorageInstances(c *gc.C) {
+func (s *uniterV2Suite) TestUnitStorageInstances(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
 	sCons := map[string]state.StorageConstraints{
@@ -46,15 +46,23 @@ func (s *uniterV2Suite) TestStorageInstances(c *gc.C) {
 		Service: service,
 	})
 
+	storageIds, err := unit.StorageInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(storageIds, gc.HasLen, 1)
+	err = s.State.SetStorageInstanceInfo(storageIds[0].Id(), state.StorageInstanceInfo{
+		Location: "rightbehindyou",
+	})
+	c.Assert(err, gc.IsNil)
+
 	password, err := utils.RandomPassword()
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	instances, err := uniter.StorageInstances(unit.Tag())
+	instances, err := uniter.UnitStorageInstances(unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []storage.StorageInstance{
-		{Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
+		{Id: "data/0", Kind: storage.StorageKindBlock, Location: "rightbehindyou"},
 	})
 }

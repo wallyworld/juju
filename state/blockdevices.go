@@ -306,6 +306,38 @@ func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map
 				{"$unset", bson.D{{"params", nil}}},
 			},
 		})
+		// TODO(axw) nasty hack, don't do this IRL. This updates the
+		// StorageInstanceInfo when we've created the volume that
+		// backs it.
+		dev, err := st.BlockDevice(name)
+		if err != nil {
+			return err
+		}
+		storageId, ok := dev.StorageInstance()
+		if ok {
+			storageInstance, err := st.StorageInstance(storageId)
+			if err != nil {
+				return err
+			}
+			if storageInstance.Kind() == StorageKindBlock {
+				storageInstanceInfo := &StorageInstanceInfo{
+					// Especially not this.
+					Location: "/dev/" + info.DeviceName,
+				}
+				ops = append(ops, txn.Op{
+					C:  storageInstancesC,
+					Id: storageId,
+					Assert: bson.D{
+						{"info", bson.D{{"$exists", false}}},
+						{"params", bson.D{{"$exists", true}}},
+					},
+					Update: bson.D{
+						{"$set", bson.D{{"info", &storageInstanceInfo}}},
+						{"$unset", bson.D{{"params", nil}}},
+					},
+				})
+			}
+		}
 	}
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Errorf("cannot set provisioned block device info: already provisioned")

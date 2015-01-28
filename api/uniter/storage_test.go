@@ -49,7 +49,7 @@ func (s *storageSuite) TestStorageInstances(c *gc.C) {
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	instances, err := st.StorageInstances(names.NewUnitTag("mysql/0"))
+	instances, err := st.UnitStorageInstances(names.NewUnitTag("mysql/0"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
 	c.Assert(instances, gc.DeepEquals, storageInstances[0].Instances)
@@ -63,7 +63,7 @@ func (s *storageSuite) TestStorageInstanceResultCountMismatch(c *gc.C) {
 		return nil
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	c.Assert(func() { st.StorageInstances(names.NewUnitTag("mysql/0")) }, gc.PanicMatches, "expected 1 result, got 2")
+	c.Assert(func() { st.UnitStorageInstances(names.NewUnitTag("mysql/0")) }, gc.PanicMatches, "expected 1 result, got 2")
 }
 
 func (s *storageSuite) TestAPIErrors(c *gc.C) {
@@ -71,6 +71,6 @@ func (s *storageSuite) TestAPIErrors(c *gc.C) {
 		return errors.New("bad")
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := st.StorageInstances(names.NewUnitTag("mysql/0"))
+	_, err := st.UnitStorageInstances(names.NewUnitTag("mysql/0"))
 	c.Check(err, gc.ErrorMatches, "bad")
 }

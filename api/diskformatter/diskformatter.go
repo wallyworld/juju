@@ -88,3 +88,22 @@ func (st *State) BlockDeviceStorageInstances(tags []names.DiskTag) (params.Stora
 	}
 	return results, nil
 }
+
+func (st *State) SetMountPoints(mountPoints map[names.StorageTag]string) (params.ErrorResults, error) {
+	var results params.ErrorResults
+	args := params.StorageMountPoints{
+		StorageMountPoints: make([]params.StorageMountPoint, 0, len(mountPoints)),
+	}
+	for tag, mountPoint := range mountPoints {
+		arg := params.StorageMountPoint{tag.String(), mountPoint}
+		args.StorageMountPoints = append(args.StorageMountPoints, arg)
+	}
+	err := st.facade.FacadeCall("SetMountPoints", args, &results)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if len(results.Results) != len(mountPoints) {
+		panic(errors.Errorf("expected %d results, got %d", len(mountPoints), len(results.Results)))
+	}
+	return results, nil
+}

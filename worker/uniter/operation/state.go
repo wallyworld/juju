@@ -106,7 +106,6 @@ func (st State) validate() (err error) {
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
-	hasStorage := st.StorageIds != nil
 	switch st.Kind {
 	case Install:
 		if hasHook {
@@ -128,9 +127,6 @@ func (st State) validate() (err error) {
 			return errors.New("missing action id")
 		}
 	case StorageChanged:
-		if !hasStorage {
-			return errors.New("missing storage ids")
-		}
 	case RunHook:
 		if hasActionId {
 			return errors.New("unexpected action id")

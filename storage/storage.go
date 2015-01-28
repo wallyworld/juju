@@ -35,4 +35,9 @@ type StorageInstance struct {
 
 	// Location is the location relevant to the datastore (block device, filesystem).
 	Location string `yaml:"location" json:"location"`
+
+	// RequestedLocation is the desired location specified by the charm.
+	// TODO(axw) this needs to go when we redo the model; this should go
+	// on FilesystemParams.
+	RequestedLocation string `yaml:"requested-location" json:"requested-location"`
 }

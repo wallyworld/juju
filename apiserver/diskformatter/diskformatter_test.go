@@ -86,7 +86,7 @@ func (s *DiskFormatterSuite) TestBlockDevices(c *gc.C) {
 			attached: false,
 		},
 	}
-	s.st.storageInstances = map[string]state.StorageInstance{
+	s.st.storageInstances = map[string]*mockStorageInstance{
 		"storage/0": &mockStorageInstance{owner: s.tag},
 		"storage/1": &mockStorageInstance{owner: names.NewServiceTag("mysql")},
 	}
@@ -139,11 +139,10 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 		"1": &mockBlockDevice{
 			name:            "1",
 			storageInstance: "storage/1",
-			info:            &state.BlockDeviceInfo{},
 			attached:        true,
 		},
 	}
-	s.st.storageInstances = map[string]state.StorageInstance{
+	s.st.storageInstances = map[string]*mockStorageInstance{
 		"storage/0": &mockStorageInstance{
 			id:    "storage/0",
 			owner: s.tag,
@@ -153,6 +152,9 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 			id:    "storage/1",
 			owner: s.tag,
 			kind:  state.StorageKindFilesystem,
+			params: &state.StorageInstanceParams{
+				Location: "/srv",
+			},
 		},
 	}
 
@@ -167,8 +169,9 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 				Kind: storage.StorageKindBlock,
 			}},
 			{Result: storage.StorageInstance{
-				Id:   "storage/1",
-				Kind: storage.StorageKindFilesystem,
+				Id:                "storage/1",
+				Kind:              storage.StorageKindFilesystem,
+				RequestedLocation: "/srv",
 			}},
 		},
 	})
@@ -187,7 +190,7 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 type mockState struct {
 	calls            []string
 	devices          map[string]state.BlockDevice
-	storageInstances map[string]state.StorageInstance
+	storageInstances map[string]*mockStorageInstance
 
 	unitTags           []names.UnitTag
 	blockDeviceNames   []string
@@ -220,6 +223,20 @@ func (st *mockState) StorageInstance(id string) (state.StorageInstance, error) {
 	return storageInstance, nil
 }
 
+func (st *mockState) SetStorageInstanceInfo(id string, info state.StorageInstanceInfo) error {
+	st.calls = append(st.calls, "SetStorageInstanceInfo")
+	st.storageInstanceIds = append(st.storageInstanceIds, id)
+	storageInstance, ok := st.storageInstances[id]
+	if !ok {
+		return errors.NotFoundf("storage instance %q", id)
+	}
+	if storageInstance.info != nil {
+		return errors.Errorf("storage instance %q already provisioned", id)
+	}
+	storageInstance.info = &info
+	return nil
+}
+
 type mockBlockDevice struct {
 	state.BlockDevice
 	name            string
@@ -249,19 +266,35 @@ func (d *mockBlockDevice) StorageInstance() (string, bool) {
 
 type mockStorageInstance struct {
 	state.StorageInstance
-	id    string
-	owner names.Tag
-	kind  state.StorageKind
+	id     string
+	owner  names.Tag
+	kind   state.StorageKind
+	info   *state.StorageInstanceInfo
+	params *state.StorageInstanceParams
 }
 
-func (d *mockStorageInstance) Id() string {
-	return d.id
+func (s *mockStorageInstance) Id() string {
+	return s.id
 }
 
-func (d *mockStorageInstance) Owner() names.Tag {
-	return d.owner
+func (s *mockStorageInstance) Owner() names.Tag {
+	return s.owner
 }
 
-func (d *mockStorageInstance) Kind() state.StorageKind {
-	return d.kind
+func (s *mockStorageInstance) Kind() state.StorageKind {
+	return s.kind
+}
+
+func (s *mockStorageInstance) Info() (state.StorageInstanceInfo, error) {
+	if s.info == nil {
+		return state.StorageInstanceInfo{}, errors.NotProvisionedf("storage instance %q", s.id)
+	}
+	return *s.info, nil
+}
+
+func (s *mockStorageInstance) Params() (state.StorageInstanceParams, bool) {
+	if s.params == nil {
+		return state.StorageInstanceParams{}, false
+	}
+	return *s.params, true
 }

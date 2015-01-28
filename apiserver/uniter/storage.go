@@ -68,12 +68,57 @@ func (s *StorageAPI) getOneUnitStorageInstances(canAccess common.AuthFunc, unitT
 			result.Instances = nil
 			break
 		}
+		info, err := stateStorageInstance.Info()
+		if err != nil {
+			result.Error = common.ServerError(err)
+			result.Instances = nil
+			break
+		}
 		storageInstance := storage.StorageInstance{
 			stateStorageInstance.Id(),
 			storage.StorageKind(stateStorageInstance.Kind()),
-			"", //TODO - add Location
+			info.Location,
+			"",
 		}
 		result.Instances = append(result.Instances, storageInstance)
 	}
 	return result
+}
+
+// StorageInstances returns the storage instances with the specified tags.
+func (s *StorageAPI) StorageInstances(args params.Entities) (params.StorageInstanceResults, error) {
+	canAccess, err := s.accessUnit()
+	if err != nil {
+		return params.StorageInstanceResults{}, err
+	}
+	result := params.StorageInstanceResults{
+		Results: make([]params.StorageInstanceResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		storageInstance, err := s.getOneStorageInstance(canAccess, entity.Tag)
+		result.Results[i].Result = storageInstance
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *StorageAPI) getOneStorageInstance(canAccess common.AuthFunc, tag string) (storage.StorageInstance, error) {
+	storageTag, err := names.ParseStorageTag(tag)
+	if err != nil {
+		return storage.StorageInstance{}, common.ErrPerm
+	}
+	stateStorageInstance, err := s.st.StorageInstance(storageTag.Id())
+	if err != nil || !canAccess(stateStorageInstance.Owner()) {
+		return storage.StorageInstance{}, common.ErrPerm
+	}
+	info, err := stateStorageInstance.Info()
+	if err != nil {
+		return storage.StorageInstance{}, err
+	}
+	return storage.StorageInstance{
+		stateStorageInstance.Id(),
+		storage.StorageKind(stateStorageInstance.Kind()),
+		info.Location,
+		"",
+	}, nil
 }

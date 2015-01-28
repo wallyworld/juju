@@ -119,6 +119,7 @@ func (c *Context) StorageInstance(storageId string) (*storage.StorageInstance, b
 		"1234",
 		storage.StorageKindBlock,
 		"/dev/sda",
+		"location",
 	}, true
 }
 
@@ -127,6 +128,7 @@ func (c *Context) HookStorageInstance() (*storage.StorageInstance, bool) {
 		"1234",
 		storage.StorageKindBlock,
 		"/dev/sda",
+		"location",
 	}, true
 }
 
