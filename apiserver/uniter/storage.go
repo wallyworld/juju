@@ -78,6 +78,7 @@ func (s *StorageAPI) getOneUnitStorageInstances(canAccess common.AuthFunc, unitT
 			stateStorageInstance.Id(),
 			storage.StorageKind(stateStorageInstance.Kind()),
 			info.Location,
+			"",
 		}
 		result.Instances = append(result.Instances, storageInstance)
 	}
@@ -118,5 +119,6 @@ func (s *StorageAPI) getOneStorageInstance(canAccess common.AuthFunc, tag string
 		stateStorageInstance.Id(),
 		storage.StorageKind(stateStorageInstance.Kind()),
 		info.Location,
+		"",
 	}, nil
 }

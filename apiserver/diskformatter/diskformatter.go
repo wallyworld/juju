@@ -223,10 +223,20 @@ func storageStorageInstance(st state.StorageInstance) (storage.StorageInstance, 
 	if st == nil {
 		return storage.StorageInstance{}, nil
 	}
+	var actualLocation string
+	var requestedLocation string
+	info, err := st.Info()
+	if err == nil {
+		actualLocation = info.Location
+	}
+	if params, ok := st.Params(); ok {
+		requestedLocation = params.Location
+	}
 	return storage.StorageInstance{
 		st.Id(),
 		storageStorageKind(st.Kind()),
-		"", // TODO(wallyworld) Location
+		actualLocation,
+		requestedLocation,
 	}, nil
 }
 

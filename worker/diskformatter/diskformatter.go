@@ -107,7 +107,7 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 		if storageInstance.Location != "" {
 			// TODO(axw) we need to ensure the mount point
 			// is still there, and remount if needed.
-			logger.Debugf("storage instance %q is already mounted at %q", storageInstance.Location)
+			logger.Debugf("storage instance %q is already mounted at %q", storageInstance.Id, storageInstance.Location)
 			continue
 		}
 		devicePath, err := storage.BlockDevicePath(blockDevices[i])
@@ -122,8 +122,11 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 			}
 		}
 		// Mount the block device and set the location.
-		// TODO(axw) use the location in the charm if specified.
-		location := filepath.Join(f.storageDir, filepath.FromSlash(storageInstance.Id))
+		// TODO(axw) vet requested location?
+		location := storageInstance.RequestedLocation
+		if location == "" {
+			location = filepath.Join(f.storageDir, filepath.FromSlash(storageInstance.Id))
+		}
 		if err := mount(devicePath, location); err != nil {
 			logger.Errorf("failed to mount block device %q: %v", blockDevices[i].Name, err)
 			continue
