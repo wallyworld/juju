@@ -738,7 +738,9 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Volumes     []storage.VolumeParams
+	// TODO - need to model multiple provider types and volumes
+	ProviderType storage.ProviderType
+	Volumes      []storage.VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

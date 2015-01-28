@@ -26,6 +26,9 @@ type VolumeParams struct {
 	// as defined in a storage pool.
 	Options map[string]interface{}
 
+	// The provider type for this volume.
+	VolumeType ProviderType
+
 	// Instance is the ID of the instance that the volume should be attached
 	// to initially. This will only be empty if the instance is not yet
 	// provisioned, in which case the parameters refer to a volume that is

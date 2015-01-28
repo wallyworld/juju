@@ -31,6 +31,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -80,6 +81,7 @@ import (
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
+	storageworker "github.com/juju/juju/worker/storage"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -640,6 +642,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				return nil, errors.Trace(err)
 			}
 			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+		})
+		runner.StartWorker("storageprovisioner", func() (worker.Worker, error) {
+			// TODO - this is yucky, we pass in a machine facade so we can get its provisionig info.
+			// This is done so the any volumes specified on the machine that are not setup in the
+			// cloud eg loop devices can be provisioned.
+			provisionerapi := apiprovisioner.NewState(st)
+			machine, err := provisionerapi.Machine(agentConfig.Tag().(names.MachineTag))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return storageworker.NewStorageProvisioner(st.Environment(), machine, agentConfig), nil
 		})
 	}
 
