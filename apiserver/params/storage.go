@@ -40,8 +40,8 @@ type StoragePool struct {
 	Name string
 	// Type is the type of storage provider this pool represents, eg "loop", "ebs.
 	Type string
-	// Traits are the pool's configuration attributes.
-	Traits map[string]interface{}
+	// Config are the pool's configuration attributes.
+	Config map[string]interface{}
 }
 
 // StoragePoolFilter holds a filter for pool API call.

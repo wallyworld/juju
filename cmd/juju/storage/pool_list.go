@@ -73,7 +73,7 @@ func (c *PoolListCommand) SetFlags(f *gnuflag.FlagSet) {
 type PoolInfo struct {
 	Name   string                 `yaml:"name" json:"name"`
 	Type   string                 `yaml:"type" json:"type"`
-	Traits map[string]interface{} `yaml:"characteristics,omitempty" json:"characteristics,omitempty"`
+	Config map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
 }
 
 // Run implements Command.Run.
@@ -112,7 +112,7 @@ func (c *PoolListCommand) convertFromAPIPools(all []params.StoragePool) []PoolIn
 		outInfo := PoolInfo{
 			Name:   one.Name,
 			Type:   one.Type,
-			Traits: one.Traits,
+			Config: one.Config,
 		}
 		output = append(output, outInfo)
 	}
@@ -134,11 +134,11 @@ func (c *PoolListCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "TYPE\tNAME\tCHARACTERISTICS\n")
+	fmt.Fprintf(tw, "TYPE\tNAME\tCONFIG\n")
 	for _, pool := range pools {
-		traits := make([]string, len(pool.Traits))
+		traits := make([]string, len(pool.Config))
 		var i int
-		for key, value := range pool.Traits {
+		for key, value := range pool.Config {
 			traits[i] = fmt.Sprintf("%v=%v", key, value)
 			i++
 		}

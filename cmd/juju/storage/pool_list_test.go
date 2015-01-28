@@ -43,25 +43,25 @@ func (s *PoolListSuite) TestPoolList(c *gc.C) {
 		// Default format is yaml
 		`- name: testName
   type: a
-  characteristics:
+  config:
     one: true
     three: maybe
     two: well
 - name: testName
   type: b
-  characteristics:
+  config:
     one: true
     three: maybe
     two: well
 - name: xyz
   type: testType
-  characteristics:
+  config:
     one: true
     three: maybe
     two: well
 - name: abc
   type: testType
-  characteristics:
+  config:
     one: true
     three: maybe
     two: well
@@ -77,13 +77,13 @@ func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 			"--format", "json"},
 		`[`+
 			`{"name":"testName","type":"a",`+
-			`"characteristics":{"one":true,"three":"maybe","two":"well"}},`+
+			`"config":{"one":true,"three":"maybe","two":"well"}},`+
 			`{"name":"testName","type":"b",`+
-			`"characteristics":{"one":true,"three":"maybe","two":"well"}},`+
+			`"config":{"one":true,"three":"maybe","two":"well"}},`+
 			`{"name":"xyz","type":"testType",`+
-			`"characteristics":{"one":true,"three":"maybe","two":"well"}},`+
+			`"config":{"one":true,"three":"maybe","two":"well"}},`+
 			`{"name":"abc","type":"testType",`+
-			`"characteristics":{"one":true,"three":"maybe","two":"well"}}`+
+			`"config":{"one":true,"three":"maybe","two":"well"}}`+
 			"]\n",
 	)
 }
@@ -94,7 +94,7 @@ func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 		[]string{"--type", "a", "--type", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
-		"TYPE      NAME      CHARACTERISTICS\n"+
+		"TYPE      NAME      CONFIG\n"+
 			"a         testName  one=true,two=well,three=maybe\n"+
 			"b         testName  one=true,two=well,three=maybe\n"+
 			"testType  xyz       one=true,two=well,three=maybe\n"+
@@ -138,6 +138,6 @@ func createTestPoolInstance(aname, atype string) params.StoragePool {
 	return params.StoragePool{
 		Name:   aname,
 		Type:   atype,
-		Traits: map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
+		Config: map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
 	}
 }

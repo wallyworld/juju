@@ -163,7 +163,7 @@ func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.S
 	one := params.StoragePool{
 		Name:   apool.Name(),
 		Type:   poolType,
-		Traits: apool.Config(),
+		Config: apool.Config(),
 	}
 	return one, true
 }
