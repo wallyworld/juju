@@ -27,7 +27,7 @@ var _ = gc.Suite(&defaultStoragePoolsSuite{})
 func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	err := upgrades.AddDefaultStoragePools(s.State, &mockAgentConfig{dataDir: s.DataDir()})
+	err := upgrades.EnsureStorage(s.State, &mockAgentConfig{dataDir: s.DataDir()})
 	c.Assert(err, jc.ErrorIsNil)
 	settings := state.NewStateSettings(s.State)
 	pm := pool.NewPoolManager(settings)

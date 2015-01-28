@@ -1241,7 +1241,10 @@ func isZoneConstrainedError(err error) bool {
 			// if the AZ does not have a default subnet. Until we have proper
 			// support for networks, we'll skip over these.
 			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		case "VolumeTypeNotAvailableInZone":
+			return true
 		}
+
 	}
 	return false
 }
