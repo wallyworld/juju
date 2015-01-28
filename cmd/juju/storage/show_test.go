@@ -18,7 +18,7 @@ import (
 
 type ShowSuite struct {
 	SubStorageSuite
-	mockAPI *mockStorageAPI
+	mockAPI *mockShowAPI
 }
 
 var _ = gc.Suite(&ShowSuite{})
@@ -26,7 +26,7 @@ var _ = gc.Suite(&ShowSuite{})
 func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockStorageAPI{}
+	s.mockAPI = &mockShowAPI{}
 	s.PatchValue(storage.GetStorageShowAPI, func(c *storage.ShowCommand) (storage.StorageShowAPI, error) {
 		return s.mockAPI, nil
 	})
@@ -42,9 +42,10 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		c,
 		[]string{"shared-fs/0"},
 		// Default format is yaml
-		`- storage-tag: storage-shared-fs-0
-  storage-name: storage-name
-  owner-tag: unitTag
+		`
+shared-fs/0:
+  storage: shared-fs
+  owner: postgresql/0
   location: witty
   available-size: 30
   total-size: 100
@@ -52,7 +53,7 @@ func (s *ShowSuite) TestShow(c *gc.C) {
   - tests
   - well
   - maybe
-`,
+`[1:],
 	)
 }
 
@@ -60,7 +61,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`[{"storage-tag":"storage-shared-fs-0","storage-name":"storage-name","owner-tag":"unitTag","location":"witty","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}]
+		`{"shared-fs/0":{"storage":"shared-fs","owner":"postgresql/0","location":"witty","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}}
 `,
 	)
 }
@@ -69,9 +70,10 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
-		`- storage-tag: storage-shared-fs-0
-  storage-name: storage-name
-  owner-tag: unitTag
+		`
+db-dir/1000:
+  storage: db-dir
+  owner: postgresql/0
   location: witty
   available-size: 30
   total-size: 100
@@ -79,9 +81,9 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
   - tests
   - well
   - maybe
-- storage-tag: storage-db-dir-1000
-  storage-name: storage-name
-  owner-tag: unitTag
+shared-fs/0:
+  storage: shared-fs
+  owner: postgresql/0
   location: witty
   available-size: 30
   total-size: 100
@@ -89,7 +91,7 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
   - tests
   - well
   - maybe
-`,
+`[1:],
 	)
 }
 
@@ -101,24 +103,27 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 	c.Assert(obtained, gc.Equals, expected)
 }
 
-type mockStorageAPI struct {
+type mockShowAPI struct {
 }
 
-func (s mockStorageAPI) Close() error {
+func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockStorageAPI) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
 	results := make([]params.StorageInstance, len(tags))
+
+	location := "witty"
+	availableSize := uint64(30)
+	totalSize := uint64(100)
 
 	for i, tag := range tags {
 		results[i] = params.StorageInstance{
 			StorageTag:    tag.String(),
-			StorageName:   "storage-name",
-			OwnerTag:      "unitTag",
-			Location:      "witty",
-			AvailableSize: 30,
-			TotalSize:     100,
+			OwnerTag:      "unit-postgresql-0",
+			Location:      &location,
+			AvailableSize: &availableSize,
+			TotalSize:     &totalSize,
 			Tags:          []string{"tests", "well", "maybe"},
 		}
 	}

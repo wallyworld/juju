@@ -5,9 +5,12 @@ package storage
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/storage"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -37,6 +40,7 @@ func NewSuperCommand() cmd.Command {
 				Purpose:     storageCmdPurpose,
 			})}
 	storagecmd.Register(envcmd.Wrap(&ShowCommand{}))
+	storagecmd.Register(envcmd.Wrap(&ListCommand{}))
 	return &storagecmd
 }
 
@@ -54,4 +58,44 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 		return nil, err
 	}
 	return storage.NewClient(root), nil
+}
+
+// StorageInfo defines the serialization behaviour of the storage information.
+type StorageInfo struct {
+	StorageName   string   `yaml:"storage" json:"storage"`
+	Owner         string   `yaml:"owner" json:"owner"`
+	Location      *string  `yaml:"location,omitempty" json:"location,omitempty,omitempty"`
+	AvailableSize *uint64  `yaml:"available-size,omitempty" json:"available-size,omitempty"`
+	TotalSize     *uint64  `yaml:"total-size,omitempty" json:"total-size,omitempty"`
+	Tags          []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+}
+
+// formatStorageInfo takes a set of StorageInstances and creates a
+// mapping from storage instance ID to information structures.
+func formatStorageInfo(all []params.StorageInstance) (map[string]StorageInfo, error) {
+	output := make(map[string]StorageInfo)
+	for _, one := range all {
+		storageTag, err := names.ParseStorageTag(one.StorageTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid storage tag")
+		}
+		ownerTag, err := names.ParseTag(one.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotate(err, "invalid owner tag")
+		}
+		storageName, err := names.StorageName(storageTag.Id())
+		if err != nil {
+			panic(err) // impossible
+		}
+		// TODO format size nicely (fraction with MGTPEZY suffix, depending on size).
+		output[storageTag.Id()] = StorageInfo{
+			StorageName:   storageName,
+			Location:      one.Location,
+			Owner:         ownerTag.Id(),
+			AvailableSize: one.AvailableSize,
+			TotalSize:     one.TotalSize,
+			Tags:          one.Tags,
+		}
+	}
+	return output, nil
 }

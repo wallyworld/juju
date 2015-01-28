@@ -7,13 +7,9 @@ import "github.com/juju/juju/state"
 
 type storageAccess interface {
 	StorageInstance(id string) (state.StorageInstance, error)
+	AllStorageInstances() ([]state.StorageInstance, error)
 }
 
 type stateShim struct {
-	state *state.State
-}
-
-// StorageInstance calls state to get information about storage instance
-func (s stateShim) StorageInstance(id string) (state.StorageInstance, error) {
-	return s.state.StorageInstance(id)
+	*state.State
 }

@@ -21,10 +21,6 @@ var getState = func(st *state.State) storageAccess {
 	return stateShim{st}
 }
 
-type StorageAPI interface {
-	Show(entities params.Entities) (params.StorageShowResults, error)
-}
-
 // API implements the storage interface and is the concrete
 // implementation of the api end point.
 type API struct {
@@ -56,6 +52,23 @@ func (api *API) Show(entities params.Entities) (params.StorageShowResults, error
 	return params.StorageShowResults{Results: all}, nil
 }
 
+func (api *API) List() (params.StorageListResult, error) {
+	stateInstances, err := api.storage.AllStorageInstances()
+	if err != nil {
+		return params.StorageListResult{}, err
+	}
+	paramsInstances := make([]params.StorageInstance, len(stateInstances))
+	for i, stateInst := range stateInstances {
+		paramsInst, err := api.getStorageInstance(stateInst)
+		if err != nil {
+			err = errors.Annotatef(err, "getting storage instance %q", stateInst.Id())
+			return params.StorageListResult{}, err
+		}
+		paramsInstances[i] = paramsInst
+	}
+	return params.StorageListResult{paramsInstances}, nil
+}
+
 func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult {
 	aTag, err := names.ParseTag(tag)
 	if err != nil {
@@ -71,15 +84,32 @@ func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult
 				Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag))},
 		}
 	}
-	return params.StorageShowResult{Result: api.getStorageInstance(stateInstance)}
+	paramsStorageInstance, err := api.getStorageInstance(stateInstance)
+	if err != nil {
+		return params.StorageShowResult{
+			Error: params.ErrorResult{
+				Error: common.ServerError(errors.Annotatef(err, "getting %v", tag))},
+		}
+	}
+	return params.StorageShowResult{Result: paramsStorageInstance}
 }
 
-func (api *API) getStorageInstance(si state.StorageInstance) params.StorageInstance {
-	return params.StorageInstance{
-		OwnerTag:    si.Owner().String(),
-		StorageTag:  si.Tag().String(),
-		StorageName: si.StorageName(),
-		Location:    "",
-		TotalSize:   0,
+func (api *API) getStorageInstance(si state.StorageInstance) (params.StorageInstance, error) {
+	var location *string
+	var totalSize *uint64
+	var availableSize *uint64
+	info, err := si.Info()
+	if err == nil {
+		location = &info.Location
+		// TODO(axw) total/avail size.
+	} else if !errors.IsNotProvisioned(err) {
+		return params.StorageInstance{}, err
 	}
+	return params.StorageInstance{
+		OwnerTag:      si.Owner().String(),
+		StorageTag:    si.Tag().String(),
+		Location:      location,
+		TotalSize:     totalSize,
+		AvailableSize: availableSize,
+	}, nil
 }
