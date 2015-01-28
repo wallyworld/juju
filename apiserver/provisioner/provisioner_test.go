@@ -766,7 +766,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []storage.VolumeParams{
-					{Name: "0", Size: 1000}, {Name: "1", Size: 2000, Options: map[string]interface{}{"foo": "bar"}},
+					{Name: "0", Size: 1000},
+					{Name: "1", Size: 2000, VolumeType: provider.LoopProviderType, Options: map[string]interface{}{"foo": "bar"}},
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},

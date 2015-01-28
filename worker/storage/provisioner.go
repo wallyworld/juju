@@ -23,6 +23,8 @@ var logger = loggo.GetLogger("juju.storage.provisioner")
 
 var _ Provisioner = (*storageProvisioner)(nil)
 
+// TODO - add tests
+
 // Provisioner represents a running storage provisioner worker.
 type Provisioner interface {
 	worker.Worker
