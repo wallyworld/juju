@@ -27,7 +27,7 @@ type VolumeParams struct {
 	Options map[string]interface{}
 
 	// The provider type for this volume.
-	VolumeType ProviderType
+	Provider ProviderType
 
 	// Instance is the ID of the instance that the volume should be attached
 	// to initially. This will only be empty if the instance is not yet

@@ -23,8 +23,6 @@ var logger = loggo.GetLogger("juju.storage.provisioner")
 
 var _ Provisioner = (*storageProvisioner)(nil)
 
-// TODO - add tests
-
 // Provisioner represents a running storage provisioner worker.
 type Provisioner interface {
 	worker.Worker
@@ -104,7 +102,7 @@ func (p *storageProvisioner) loop() error {
 
 func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volumes []corestorage.VolumeParams) error {
 	// TODO - do not assume all volumes are same provider type
-	if len(volumes) == 0 || volumes[0].VolumeType != provider.LoopProviderType {
+	if len(volumes) == 0 || volumes[0].Provider != provider.LoopProviderType {
 		return nil
 	}
 	// TODO - get config from pool

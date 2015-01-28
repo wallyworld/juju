@@ -533,11 +533,9 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.Volume
 		}
 		var options map[string]interface{}
 		var providerType storage.ProviderType
-		if params.Pool != "" {
-			providerType, options, err = deviceOptions(p.st, params.Pool)
-			if err != nil {
-				return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
-			}
+		providerType, options, err = deviceOptions(p.st, params.Pool)
+		if err != nil {
+			return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
 		}
 		allParams[i] = storage.VolumeParams{
 			dev.Name(),
@@ -554,7 +552,7 @@ func deviceOptions(st *state.State, poolName string) (storage.ProviderType, map[
 	pm := pool.NewPoolManager(state.NewStateSettings(st))
 	p, err := pm.Get(poolName)
 	if err != nil {
-		return storage.ProviderType(""), nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 	return p.Type(), p.Config(), nil
 }

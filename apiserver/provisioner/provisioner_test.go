@@ -737,7 +737,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Constraints:       cons,
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
-		BlockDevices:      []state.BlockDeviceParams{{Size: 1000}, {Size: 2000, Pool: "loop"}},
+		BlockDevices:      []state.BlockDeviceParams{{Size: 1000, Pool: "loop"}, {Size: 2000, Pool: "loop"}},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -751,8 +751,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	}}
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(result.Results[1].Result)
-	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
@@ -766,8 +765,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				Volumes: []storage.VolumeParams{
-					{Name: "0", Size: 1000},
-					{Name: "1", Size: 2000, VolumeType: provider.LoopProviderType, Options: map[string]interface{}{"foo": "bar"}},
+					{Name: "0", Size: 1000, Provider: provider.LoopProviderType, Options: map[string]interface{}{"foo": "bar"}},
+					{Name: "1", Size: 2000, Provider: provider.LoopProviderType, Options: map[string]interface{}{"foo": "bar"}},
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
