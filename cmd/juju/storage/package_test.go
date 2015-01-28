@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/testing"
@@ -18,22 +17,6 @@ import (
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
-}
-
-type BaseStorageSuite struct {
-	jujutesting.FakeJujuHomeSuite
-
-	command *storage.Command
-}
-
-func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-
-	s.command = storage.NewSuperCommand().(*storage.Command)
-}
-
-func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 type SubStorageSuite struct {

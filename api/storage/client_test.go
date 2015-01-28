@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -65,5 +67,47 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 	c.Assert(found, gc.HasLen, 2)
 	c.Assert(expected.Contains(found[0].StorageTag), jc.IsTrue)
 	c.Assert(expected.Contains(found[1].StorageTag), jc.IsTrue)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestListPools(c *gc.C) {
+	var called bool
+	want := 3
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListPools")
+
+			args, ok := a.(params.StoragePoolFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Names, gc.HasLen, 2)
+			c.Assert(args.Types, gc.HasLen, 1)
+
+			if results, k := result.(*params.StoragePoolsResult); k {
+				instances := make([]params.StoragePool, want)
+				for i := 0; i < want; i++ {
+					instances[i] = params.StoragePool{
+						Name: fmt.Sprintf("name%v", i),
+						Type: fmt.Sprintf("type%v", i),
+					}
+				}
+				results.Pools = instances
+			}
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	names := []string{"a", "b"}
+	types := []string{"1"}
+	found, err := storageClient.ListPools(types, names)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, want)
 	c.Assert(called, jc.IsTrue)
 }

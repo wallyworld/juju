@@ -28,6 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// Show retrieves information about desired storage instances.
 func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
 	found := params.StorageShowResults{}
 	entities := make([]params.Entity, len(tags))
@@ -47,6 +48,21 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 		all = append(all, result.Result)
 	}
 	return all, allErr.Combine()
+}
+
+// ListPools lists pools according to a given filter.
+// If no filter was provided, this will return a list
+// of all pools.
+func (c *Client) ListPools(types, names []string) ([]params.StoragePool, error) {
+	args := params.StoragePoolFilter{
+		Names: names,
+		Types: types,
+	}
+	found := params.StoragePoolsResult{}
+	if err := c.facade.FacadeCall("ListPools", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Pools, nil
 }
 
 func (c *Client) List() ([]params.StorageInstance, error) {

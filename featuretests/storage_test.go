@@ -52,6 +52,13 @@ func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
 	c.Assert(found, gc.HasLen, 0)
 }
 
+func (s *apiStorageSuite) TestListPools(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
+	found, err := s.storageClient.ListPools(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 0)
+}
+
 type cmdStorageSuite struct {
 	jujutesting.RepoSuite
 }
@@ -74,5 +81,19 @@ func (s *cmdStorageSuite) TestStorageShowCmdStack(c *gc.C) {
 	context := runShow(c, []string{"shared-fs/0"})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func runPoolList(c *gc.C, args []string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestListPoolsCmdStack(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
+	context := runPoolList(c, []string{""})
+	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
+	expected := "[]"
 	c.Assert(obtained, gc.Equals, expected)
 }

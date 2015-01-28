@@ -23,6 +23,8 @@ options:
    juju environment to operate in
 -o, --output (= "")
    specify an output file
+--format (= yaml)
+   specify output format (json|yaml)
 [space separated storage ids]
 `
 
