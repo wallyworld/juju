@@ -532,29 +532,29 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.Volume
 			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
 		}
 		var options map[string]interface{}
-		if params.Pool != "" {
-			options, err = deviceOptions(p.st, params.Pool)
-			if err != nil {
-				return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
-			}
+		var providerType storage.ProviderType
+		providerType, options, err = deviceOptions(p.st, params.Pool)
+		if err != nil {
+			return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
 		}
 		allParams[i] = storage.VolumeParams{
 			dev.Name(),
 			params.Size,
 			options,
+			providerType,
 			"", // no instance ID yet
 		}
 	}
 	return allParams, nil
 }
 
-func deviceOptions(st *state.State, poolName string) (map[string]interface{}, error) {
+func deviceOptions(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pm := pool.NewPoolManager(state.NewStateSettings(st))
 	p, err := pm.Get(poolName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
-	return p.Config(), nil
+	return p.Type(), p.Config(), nil
 }
 
 // blockDevicesToState converts a slice of storage.BlockDevice to a mapping

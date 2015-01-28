@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/storage"
+	storageprovider "github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -37,6 +39,9 @@ var providerInstance = &environProvider{}
 
 func init() {
 	environs.RegisterProvider(provider.Local, providerInstance)
+
+	storage.RegisterEnvironStorageProviders(provider.Local, storageprovider.LoopProviderType)
+	storage.RegisterDefaultPool(provider.Local, storage.StorageKindBlock, storageprovider.LoopPool)
 }
 
 var userCurrent = user.Current
