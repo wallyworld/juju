@@ -57,17 +57,6 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
-// StorageInfo defines the serialization behaviour of the storage information.
-type StorageInfo struct {
-	StorageTag    string   `yaml:"storage-tag" json:"storage-tag"`
-	StorageName   string   `yaml:"storage-name" json:"storage-name"`
-	OwnerTag      string   `yaml:"owner-tag" json:"owner-tag"`
-	Location      string   `yaml:"location,omitempty" json:"location,omitempty"`
-	AvailableSize uint64   `yaml:"available-size" json:"available-size"`
-	TotalSize     uint64   `yaml:"total-size" json:"total-size"`
-	Tags          []string `yaml:"tags,omitempty" json:"tags,omitempty"`
-}
-
 // Run implements Command.Run.
 func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := getStorageShowAPI(c)
@@ -80,7 +69,10 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	output := c.apiStoragesToInstanceSlice(result)
+	output, err := formatStorageInfo(result)
+	if err != nil {
+		return err
+	}
 	return c.out.Write(ctx, output)
 }
 
@@ -104,21 +96,4 @@ type StorageShowAPI interface {
 
 func (c *ShowCommand) getStorageShowAPI() (StorageShowAPI, error) {
 	return c.NewStorageAPI()
-}
-
-func (c *ShowCommand) apiStoragesToInstanceSlice(all []params.StorageInstance) []StorageInfo {
-	var output []StorageInfo
-	for _, one := range all {
-		outInfo := StorageInfo{
-			StorageTag:    one.StorageTag,
-			StorageName:   one.StorageName,
-			Location:      one.Location,
-			OwnerTag:      one.OwnerTag,
-			AvailableSize: one.AvailableSize,
-			TotalSize:     one.TotalSize,
-			Tags:          one.Tags,
-		}
-		output = append(output, outInfo)
-	}
-	return output
 }

@@ -5,12 +5,15 @@ package params
 
 // StorageInstance holds data for a storage instance.
 type StorageInstance struct {
-	StorageTag    string
-	OwnerTag      string
-	Location      string
-	StorageName   string
-	AvailableSize uint64
-	TotalSize     uint64
+	StorageTag string
+	OwnerTag   string
+
+	// Using pointers below to make values nullable.
+	// Nil values are unknown/unavailable.
+
+	Location      *string
+	AvailableSize *uint64
+	TotalSize     *uint64
 	Tags          []string
 }
 
@@ -24,4 +27,9 @@ type StorageShowResults struct {
 type StorageShowResult struct {
 	Result StorageInstance
 	Error  ErrorResult
+}
+
+// StorageListResult holds information about storage instances.
+type StorageListResult struct {
+	Instances []StorageInstance
 }

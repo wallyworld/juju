@@ -48,3 +48,11 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 	}
 	return all, allErr.Combine()
 }
+
+func (c *Client) List() ([]params.StorageInstance, error) {
+	result := params.StorageListResult{}
+	if err := c.facade.FacadeCall("List", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.Instances, nil
+}
