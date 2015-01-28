@@ -22,7 +22,7 @@ options:
 -e, --environment (= "")
    juju environment to operate in
 -o, --output (= "")
-   specify an output
+   specify an output file
 [space separated storage ids]
 `
 

@@ -17,7 +17,7 @@ options:
 -e, --environment (= "")
    juju environment to operate in
 -o, --output (= "")
-   specify an output
+   specify an output file
 `
 
 // ListCommand attempts to release storage instance.
@@ -35,7 +35,7 @@ func (c *ListCommand) Init(args []string) (err error) {
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "lists storage instance",
+		Purpose: "lists storage instances",
 		Doc:     ListCommandDoc,
 	}
 }
