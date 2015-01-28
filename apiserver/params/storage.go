@@ -36,14 +36,19 @@ type StorageListResult struct {
 
 // StoragePool holds data for a pool instance.
 type StoragePool struct {
-	Name   string
-	Type   string
+	// Name is the pool's name.
+	Name string
+	// Type is the type of storage provider this pool represents, eg "loop", "ebs.
+	Type string
+	// Traits are the pool's configuration attributes.
 	Traits map[string]interface{}
 }
 
 // StoragePoolFilter holds a filter for pool API call.
 type StoragePoolFilter struct {
+	// Names are pool's names to filter on.
 	Names []string
+	// Types are pool's storage provider type to filter on.
 	Types []string
 }
 
