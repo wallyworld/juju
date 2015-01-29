@@ -40,8 +40,21 @@ var providerInstance = &environProvider{}
 func init() {
 	environs.RegisterProvider(provider.Local, providerInstance)
 
-	storage.RegisterEnvironStorageProviders(provider.Local, storageprovider.LoopProviderType)
-	storage.RegisterDefaultPool(provider.Local, storage.StorageKindBlock, storageprovider.LoopPool)
+	storage.RegisterEnvironStorageProviders(
+		provider.Local,
+		storageprovider.LoopProviderType,
+		storageprovider.RootfsProviderType,
+	)
+	storage.RegisterDefaultPool(
+		provider.Local,
+		storage.StorageKindBlock,
+		storageprovider.LoopPool,
+	)
+	storage.RegisterDefaultPool(
+		provider.Local,
+		storage.StorageKindFilesystem,
+		storageprovider.RootfsPool,
+	)
 }
 
 var userCurrent = user.Current

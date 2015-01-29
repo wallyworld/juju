@@ -167,6 +167,9 @@ type StorageInstanceInfo struct {
 	// Location is the location of the storage
 	// instance, e.g. the mount point.
 	Location string `bson:"location"`
+
+	// Size is the actual size of the storage instance, in MiB.
+	Size uint64 `bson:"size"`
 }
 
 // StorageInstanceParams records parameters for provisioning a new
@@ -175,6 +178,7 @@ type StorageInstanceParams struct {
 	Size     uint64 `bson:"size"`
 	Location string `bson:"location,omitempty"`
 	ReadOnly bool   `bson:"read-only"`
+	Pool     string `bson:"pool"`
 }
 
 // newStorageInstanceId returns a unique storage instance name. The name
@@ -274,6 +278,7 @@ func createStorageInstanceOps(
 			Size:     t.cons.Size,
 			Location: t.meta.Location,
 			ReadOnly: t.meta.ReadOnly,
+			Pool:     t.cons.Pool,
 		}
 
 		owner := ownerTag.String()

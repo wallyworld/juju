@@ -795,6 +795,19 @@ type SetMachineBlockDevices struct {
 	MachineBlockDevices []MachineBlockDevices
 }
 
+// MachineFilesystems holds a machine tag and the filesystems present
+// on that machine.
+type MachineFilesystems struct {
+	Machine     string
+	Filesystems []storage.Filesystem
+}
+
+// SetMachineFilesystems holds the arguments for recording the filesystems
+// present on a set of machines.
+type SetMachineFilesystems struct {
+	MachineFilesystems []MachineFilesystems
+}
+
 // BlockDeviceResult holds the result of an API call to retrieve details
 // of a block device.
 type BlockDeviceResult struct {
@@ -846,6 +859,20 @@ type StorageInstanceResult struct {
 // of multiple storage instances.
 type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
+}
+
+// StorageParamsResult holds the result of an API call to retrieve parameters
+// for a machine's unprovisioned storage instances.
+type StorageParamsResult struct {
+	Volumes     []storage.VolumeParams     `json:"volumes"`
+	Filesystems []storage.FilesystemParams `json:"filesystems"`
+	Error       *Error                     `json:"error,omitempty"`
+}
+
+// StorageParamsResults holds the result of an API call to retrieve parameters
+// for multiple machines' unprovisioned storage instances.
+type StorageParamsResults struct {
+	Results []StorageParamsResult `json:"results,omitempty"`
 }
 
 // UnitStorageInstances holds the storage instances for a given unit.

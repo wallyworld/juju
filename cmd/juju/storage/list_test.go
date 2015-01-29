@@ -43,9 +43,9 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 [Storage]   
-ID          OWNER        LOCATION  SIZE      
-db-dir/1000 postgresql/0 /srv/data 1024      
-shared-fs/0 transcode/0  /srv      (unknown) 
+ID          OWNER        SIZE      LOCATION  
+db-dir/1000 postgresql/0 1.0GiB    /srv/data 
+shared-fs/0 transcode/0  (unknown) /srv      
 
 `[1:],
 	)

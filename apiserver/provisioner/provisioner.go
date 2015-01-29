@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
 	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
@@ -525,30 +528,82 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.Volume
 	if len(blockDevices) == 0 {
 		return nil, nil
 	}
-	allParams := make([]storage.VolumeParams, len(blockDevices))
-	for i, dev := range blockDevices {
+	instanceId, err := m.InstanceId()
+	if err != nil && !errors.IsNotProvisioned(err) {
+		return nil, err
+	}
+	allParams := make([]storage.VolumeParams, 0, len(blockDevices))
+	for _, dev := range blockDevices {
 		params, ok := dev.Params()
 		if !ok {
-			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
+			continue
 		}
 		var options map[string]interface{}
 		var providerType storage.ProviderType
-		providerType, options, err = deviceOptions(p.st, params.Pool)
+		providerType, options, err = poolConfig(p.st, params.Pool)
 		if err != nil {
 			return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
 		}
-		allParams[i] = storage.VolumeParams{
+		allParams = append(allParams, storage.VolumeParams{
 			dev.Name(),
 			params.Size,
 			options,
 			providerType,
-			"", // no instance ID yet
-		}
+			instanceId,
+		})
 	}
 	return allParams, nil
 }
 
-func deviceOptions(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+// machineFilesystemParams retrieves FilesystemParams for the filesystems that
+// should be provisioned with and attached to the machine. The client should
+// ignore parameters that it does not know how to handle.
+func (p *ProvisionerAPI) machineFilesystemParams(m *state.Machine) ([]storage.FilesystemParams, error) {
+	var allStorageInstances []state.StorageInstance
+	units, err := m.Units()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := m.InstanceId(); err != nil {
+		// even return on IsNotProvisioned, this should not be
+		// called for unprovisioned machines.
+		return nil, err
+	}
+	for _, u := range units {
+		storageInstances, err := u.StorageInstances()
+		if err != nil {
+			return nil, err
+		}
+		for _, si := range storageInstances {
+			if si.Kind() == state.StorageKindFilesystem {
+				allStorageInstances = append(allStorageInstances, si)
+			}
+		}
+	}
+	allParams := make([]storage.FilesystemParams, 0, len(allStorageInstances))
+	for _, si := range allStorageInstances {
+		params, ok := si.Params()
+		if !ok {
+			continue
+		}
+		var options map[string]interface{}
+		var providerType storage.ProviderType
+		providerType, options, err = poolConfig(p.st, params.Pool)
+		if err != nil {
+			return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
+		}
+		allParams = append(allParams, storage.FilesystemParams{
+			si.Id(), // HACK
+			params.Size,
+			params.Location,
+			options,
+			providerType,
+		})
+	}
+	return allParams, nil
+}
+
+func poolConfig(st *state.State, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pm := pool.NewPoolManager(state.NewStateSettings(st))
 	p, err := pm.Get(poolName)
 	if err != nil {
@@ -760,11 +815,82 @@ func (p *ProvisionerAPI) SetProvisionedBlockDevices(args params.SetMachineBlockD
 		} else {
 			var devices map[string]state.BlockDeviceInfo
 			devices, err = blockDevicesToState(arg.BlockDevices)
-			if err != nil {
+			if err == nil {
 				err = state.DemoSetProvisionedBlockDeviceInfo(p.st, tag.Id(), devices)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// DEMO ONLY - NOT PRODUCTION
+func (p *ProvisionerAPI) SetProvisionedFilesystems(args params.SetMachineFilesystems) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.MachineFilesystems)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	one := func(tag string, filesystems []storage.Filesystem) error {
+		machineTag, err := names.ParseMachineTag(tag)
+		if err != nil || !canAccess(machineTag) {
+			return common.ErrPerm
+		}
+		for _, fs := range filesystems {
+			info := state.StorageInstanceInfo{
+				Location: fs.Location,
+				Size:     fs.Size,
+			}
+			if err := p.st.SetStorageInstanceInfo(fs.Name, info); err != nil {
+				return errors.Annotatef(err, "setting storage info for %q", fs.Name)
+			}
+		}
+		return nil
+	}
+	for i, arg := range args.MachineFilesystems {
+		err := one(arg.Machine, arg.Filesystems)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// DEMO ONLY - NOT PRODUCTION
+func (p *ProvisionerAPI) MachineStorageParams(args params.Entities) (params.StorageParamsResults, error) {
+	results := params.StorageParamsResults{
+		Results: make([]params.StorageParamsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return params.StorageParamsResults{}, err
+	}
+	one := func(entity params.Entity) ([]storage.VolumeParams, []storage.FilesystemParams, error) {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			return nil, nil, common.ErrPerm
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			return nil, nil, common.ErrPerm
+		}
+		volumes, err := p.machineVolumeParams(machine)
+		if err != nil {
+			return nil, nil, err
+		}
+		filesystems, err := p.machineFilesystemParams(machine)
+		if err != nil {
+			return nil, nil, err
+		}
+		return volumes, filesystems, nil
+	}
+	for i, entity := range args.Entities {
+		volumes, filesystems, err := one(entity)
+		if err == nil {
+			results.Results[i].Volumes = volumes
+			results.Results[i].Filesystems = filesystems
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 )
 
@@ -34,7 +35,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 	sort.Strings(byStorageId(storageIds))
 
 	p("[Storage]")
-	p("ID\tOWNER\tLOCATION\tSIZE")
+	p("ID\tOWNER\tSIZE\tLOCATION")
 	for _, storageId := range storageIds {
 		// TODO we should be listing attachments here,
 		// not storage instances. This needs to change
@@ -48,9 +49,9 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		}
 		totalSize := "(unknown)"
 		if info.TotalSize != nil {
-			totalSize = fmt.Sprint(*info.TotalSize)
+			totalSize = humanize.IBytes(*info.TotalSize * humanize.MiByte)
 		}
-		p(storageId, info.Owner, location, totalSize)
+		p(storageId, info.Owner, totalSize, location)
 	}
 	tw.Flush()
 

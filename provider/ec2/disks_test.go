@@ -82,10 +82,15 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	mapping, blockDeviceInfo, err := ec2.GetBlockDeviceMappings(
 		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
-			Name: "0", Size: 1234,
+			Provider: "ebs",
+			Name:     "0", Size: 1234,
 		}, {
-			Name: "1", Size: 4321,
+			Provider: "ebs",
+			Name:     "1", Size: 4321,
 			Options: map[string]interface{}{"volume-type": "standard", "iops": 1234},
+		}, {
+			// this should be ignored
+			Provider: "summink",
 		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)

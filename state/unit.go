@@ -1352,13 +1352,18 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	}
 	var blockDeviceParams []BlockDeviceParams
 	for _, storageInstance := range storageInstances {
+		pool := storageCons[storageInstance.StorageName()].Pool
+		// HACK HACK HACK
+		if pool == "rootfs" || pool == "tmpfs" {
+			continue
+		}
 		// TODO(axw) consult storage provider to see if we need to request
 		// a block device for the storage instance.
 		storageInstanceParams, _ := storageInstance.Params()
 		blockDeviceParams = append(blockDeviceParams, BlockDeviceParams{
 			storageInstance: storageInstance.Id(),
 			Size:            storageInstanceParams.Size,
-			Pool:            storageCons[storageInstance.StorageName()].Pool,
+			Pool:            pool,
 		})
 	}
 	template := MachineTemplate{
