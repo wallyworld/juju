@@ -44,6 +44,7 @@ func init() {
 		provider.Local,
 		storageprovider.LoopProviderType,
 		storageprovider.RootfsProviderType,
+		storageprovider.TmpfsProviderType,
 	)
 	storage.RegisterDefaultPool(
 		provider.Local,
