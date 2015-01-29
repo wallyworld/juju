@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,9 +18,13 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
 	"github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
+
+var tstType = "tsttype"
 
 type apiStorageSuite struct {
 	jujutesting.JujuConnSuite
@@ -37,6 +42,10 @@ func (s *apiStorageSuite) SetUpTest(c *gc.C) {
 
 	s.storageClient = storage.NewClient(conn)
 	c.Assert(s.storageClient, gc.NotNil)
+
+	//register a new storage provider
+	tstProviderType := jujustorage.ProviderType(tstType)
+	jujustorage.RegisterEnvironStorageProviders("dummy", tstProviderType)
 }
 
 func (s *apiStorageSuite) TearDownTest(c *gc.C) {
@@ -59,6 +68,27 @@ func (s *apiStorageSuite) TestListPools(c *gc.C) {
 	c.Assert(found, gc.HasLen, 0)
 }
 
+func (s *apiStorageSuite) TestCreatePool(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
+	pname := "pname"
+	pcfg := map[string]interface{}{"just": "checking"}
+
+	err := s.storageClient.CreatePool(pname, tstType, pcfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertPoolByName(c, s.State, pname)
+}
+
+func assertPoolByName(c *gc.C, st *state.State, pname string) {
+	stsetts := state.NewStateSettings(st)
+	poolManager := pool.NewPoolManager(stsetts)
+
+	found, err := poolManager.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0].Name(), gc.DeepEquals, pname)
+}
+
 type cmdStorageSuite struct {
 	jujutesting.RepoSuite
 }
@@ -68,6 +98,10 @@ var _ = gc.Suite(&cmdStorageSuite{})
 func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.Storage)
+
+	//register a new storage provider
+	tstProviderType := jujustorage.ProviderType(tstType)
+	jujustorage.RegisterEnvironStorageProviders("dummy", tstProviderType)
 }
 
 func runShow(c *gc.C, args []string) *cmd.Context {
@@ -96,4 +130,21 @@ func (s *cmdStorageSuite) TestListPoolsCmdStack(c *gc.C) {
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := "[]"
 	c.Assert(obtained, gc.Equals, expected)
+}
+
+func runPoolCreate(c *gc.C, args []string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestCreatePoolCmdStack(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakePool or similar is available
+	pname := "ftPool"
+	context := runPoolCreate(c, []string{"-t", tstType, pname, "smth=one"})
+	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
+	expected := ""
+	c.Assert(obtained, gc.Equals, expected)
+
+	assertPoolByName(c, s.State, pname)
 }

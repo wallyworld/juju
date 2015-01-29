@@ -28,6 +28,7 @@ func NewPoolSuperCommand() cmd.Command {
 			Purpose:     poolCmdPurpose,
 		})}
 	poolcmd.Register(envcmd.Wrap(&PoolListCommand{}))
+	poolcmd.Register(envcmd.Wrap(&PoolCreateCommand{}))
 	return &poolcmd
 }
 

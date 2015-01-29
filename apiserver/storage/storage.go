@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
 )
 
@@ -167,4 +168,34 @@ func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.S
 		Config: apool.Config(),
 	}
 	return one, true
+}
+
+func (a *API) CreatePool(p params.StoragePool) error {
+	providerT := storage.ProviderType(p.Type)
+	if err := checkProviderTypeSupported(a, providerT); err != nil {
+		return errors.Trace(err)
+	}
+
+	settings := a.storage.StateSettings()
+	poolManager := getPoolManager(settings)
+
+	_, err := poolManager.Create(p.Name, providerT, p.Config)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+var checkProviderTypeSupported = (*API).checkProviderTypeSupported
+
+func (a *API) checkProviderTypeSupported(providerT storage.ProviderType) error {
+	cfg, err := a.storage.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	envT := cfg.Type()
+	if !storage.IsProviderSupported(envT, providerT) {
+		return fmt.Errorf("provider type %v is not supported for %v", providerT, envT)
+	}
+	return nil
 }

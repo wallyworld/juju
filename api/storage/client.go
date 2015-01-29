@@ -72,3 +72,13 @@ func (c *Client) List() ([]params.StorageInstance, error) {
 	}
 	return result.Instances, nil
 }
+
+// CreatePool creates or defines specified pool
+func (c *Client) CreatePool(pname, ptype string, pconfig map[string]interface{}) error {
+	args := params.StoragePool{
+		Name:   pname,
+		Type:   ptype,
+		Config: pconfig,
+	}
+	return c.facade.FacadeCall("CreatePool", args, nil)
+}

@@ -3,12 +3,16 @@
 
 package storage
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+)
 
 type storageAccess interface {
 	StorageInstance(id string) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StateSettings() *state.StateSettings
+	EnvironConfig() (*config.Config, error)
 }
 
 type stateShim struct {
@@ -28,4 +32,9 @@ func (s stateShim) StateSettings() *state.StateSettings {
 // StateSettings creates state.StateSettings
 func (s stateShim) AllStorageInstances() ([]state.StorageInstance, error) {
 	return s.state.AllStorageInstances()
+}
+
+// EnvironConfig gets environment config
+func (s stateShim) EnvironConfig() (*config.Config, error) {
+	return s.state.EnvironConfig()
 }
