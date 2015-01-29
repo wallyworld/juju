@@ -84,7 +84,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		}
 		logger.Warningf("ignoring unknown storage constraint %q", field)
 	}
-	if cons.Count == 0 && cons.Size > 0 {
+	if cons.Count == 0 {
 		cons.Count = 1
 	}
 	return cons, nil

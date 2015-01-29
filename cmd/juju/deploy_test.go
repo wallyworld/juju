@@ -22,6 +22,9 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -211,8 +214,15 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
+	// Create a default pool for block devices.
+	pm := pool.NewPoolManager(state.NewStateSettings(s.State))
+	_, err := pm.Create("block", provider.LoopProviderType, map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	storage.RegisterEnvironStorageProviders("dummy", provider.LoopProviderType)
+	storage.RegisterDefaultPool("dummy", storage.StorageKindBlock, "block")
+
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
-	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
+	err = runDeploy(c, "local:storage-block", "--storage", "data=1G")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	service, _ := s.AssertService(c, "storage-block", curl, 1, 0)

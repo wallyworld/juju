@@ -23,6 +23,10 @@ func (p *mockProvider) VolumeSource(*config.Config, *storage.Config) (storage.Vo
 	return nil, errors.New("not implemented")
 }
 
+func (p *mockProvider) FilesystemSource(*config.Config, *storage.Config) (storage.FilesystemSource, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (p *mockProvider) ValidateConfig(*storage.Config) error {
 	return nil
 }

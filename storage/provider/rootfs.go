@@ -21,7 +21,7 @@ const (
 	RootfsStorageDir = "storage-dir"
 )
 
-// rootfsProviders create volume sources which use loop devices.
+// rootfsProviders create volume sources which mount filesystems.
 type rootfsProvider struct {
 	run RunCommandFn
 }

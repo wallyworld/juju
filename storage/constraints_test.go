@@ -24,10 +24,15 @@ func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "pool,", storage.Constraints{
-		Pool: "pool",
+		Pool:  "pool",
+		Count: 1,
 	})
-	s.testParse(c, "", storage.Constraints{})
-	s.testParse(c, ",", storage.Constraints{})
+	s.testParse(c, "", storage.Constraints{
+		Count: 1,
+	})
+	s.testParse(c, ",", storage.Constraints{
+		Count: 1,
+	})
 	s.testParse(c, "1M", storage.Constraints{
 		Size:  1,
 		Count: 1,
@@ -59,7 +64,8 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 		Size:  1,
 	})
 	s.testParse(c, "p,anyoldjunk", storage.Constraints{
-		Pool: "p",
+		Pool:  "p",
+		Count: 1,
 	})
 }
 
