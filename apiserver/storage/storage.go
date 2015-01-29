@@ -170,15 +170,16 @@ func filterPoolInstance(typeSet, nameSet set.Strings, apool pool.Pool) (params.S
 }
 
 func (a *API) CreatePool(p params.StoragePool) error {
-	providerT := storage.ProviderType(p.Type)
-	if err := checkProviderTypeSupported(a, providerT); err != nil {
+	// TODO(anastasiamac 2015-01-29) move to business logic layer
+	providerType := storage.ProviderType(p.Type)
+	if err := checkProviderTypeSupported(a, providerType); err != nil {
 		return errors.Trace(err)
 	}
 
 	settings := a.storage.StateSettings()
 	poolManager := getPoolManager(settings)
 
-	_, err := poolManager.Create(p.Name, providerT, p.Config)
+	_, err := poolManager.Create(p.Name, providerType, p.Config)
 	if err != nil {
 		return err
 	}
@@ -187,14 +188,14 @@ func (a *API) CreatePool(p params.StoragePool) error {
 
 var checkProviderTypeSupported = (*API).checkProviderTypeSupported
 
-func (a *API) checkProviderTypeSupported(providerT storage.ProviderType) error {
+func (a *API) checkProviderTypeSupported(providerType storage.ProviderType) error {
 	cfg, err := a.storage.EnvironConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	envT := cfg.Type()
-	if !storage.IsProviderSupported(envT, providerT) {
-		return fmt.Errorf("provider type %v is not supported for %v", providerT, envT)
+	if !storage.IsProviderSupported(envT, providerType) {
+		return fmt.Errorf("provider type %v is not supported for %v", providerType, envT)
 	}
 	return nil
 }
