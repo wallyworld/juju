@@ -848,6 +848,19 @@ type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
 }
 
+// StorageParamsResult holds the result of an API call to retrieve parameters
+// for a machine's unprovisioned storage instances.
+type StorageParamsResult struct {
+	Volumes []storage.VolumeParams `json:"volumes"`
+	Error   *Error                 `json:"error,omitempty"`
+}
+
+// StorageParamsResults holds the result of an API call to retrieve parameters
+// for multiple machines' unprovisioned storage instances.
+type StorageParamsResults struct {
+	Results []StorageParamsResult `json:"results,omitempty"`
+}
+
 // UnitStorageInstances holds the storage instances for a given unit.
 type UnitStorageInstances struct {
 	Instances []storage.StorageInstance `json:"instances,omitempty"`

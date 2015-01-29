@@ -768,3 +768,33 @@ func (p *ProvisionerAPI) SetProvisionedBlockDevices(args params.SetMachineBlockD
 	}
 	return result, nil
 }
+
+// DEMO ONLY - NOT PRODUCTION
+func (p *ProvisionerAPI) MachineStorageParams(args params.Entities) (params.StorageParamsResults, error) {
+	results := params.StorageParamsResults{
+		Results: make([]params.StorageParamsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return params.StorageParamsResults{}, err
+	}
+	one := func(entity params.Entity) ([]storage.VolumeParams, error) {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			return nil, common.ErrPerm
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err != nil {
+			return nil, common.ErrPerm
+		}
+		return p.machineVolumeParams(machine)
+	}
+	for i, entity := range args.Entities {
+		volumes, err := one(entity)
+		if err == nil {
+			results.Results[i].Volumes = volumes
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}

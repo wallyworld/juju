@@ -77,9 +77,12 @@ func getBlockDeviceMappings(
 	// many there are and how big each one is. We also need to
 	// unmap ephemeral0 in cloud-init.
 
-	volumes := make([]storage.BlockDevice, len(args.Volumes))
+	volumes := make([]storage.BlockDevice, 0, len(args.Volumes))
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
-	for i, params := range args.Volumes {
+	for _, params := range args.Volumes {
+		if params.Provider != providerstorage.EBSProviderType {
+			continue
+		}
 		// Check minimum constraints can be satisfied.
 		if err := validateVolumeParams(params); err != nil {
 			return nil, nil, errors.Annotate(err, "invalid volume parameters")
@@ -113,7 +116,7 @@ func getBlockDeviceMappings(
 			// been created, which will create the volumes too.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
-		volumes[i] = volume
+		volumes = append(volumes, volume)
 	}
 	return blockDeviceMappings, volumes, nil
 }

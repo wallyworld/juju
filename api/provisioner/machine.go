@@ -343,3 +343,21 @@ func (m *Machine) SetProvisionedBlockDevices(devices []storage.BlockDevice) erro
 	}
 	return results.OneError()
 }
+
+// DEMO ONLY - NOT PRODUCTION
+func (m *Machine) StorageParams() ([]storage.VolumeParams, error) {
+	var results params.StorageParamsResults
+	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
+	err := m.st.facade.FacadeCall("MachineStorageParams", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Volumes, nil
+}
