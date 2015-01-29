@@ -102,8 +102,6 @@ func (s *storageMockSuite) TestListPools(c *gc.C) {
 			}
 
 			return nil
-			//	"github.com/juju/juju/apiserver/params"
-
 		})
 	storageClient := storage.NewClient(apiCaller)
 	names := []string{"a", "b"}

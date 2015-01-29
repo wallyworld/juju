@@ -43,6 +43,8 @@ options:
 type PoolCreateCommand struct {
 	PoolCommandBase
 	pname string
+	// TODO(anastasiamac 2015-01-29) type will need to become optional
+	// if type is unspecified, use the environment's default provider type
 	ptype string
 	pcfg  map[string]interface{}
 }
