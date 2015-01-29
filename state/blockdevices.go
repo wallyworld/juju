@@ -283,6 +283,10 @@ func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error)
 	return ops, errors.Trace(iter.Close())
 }
 
+// DEMO ONLY
+
+var DemoSetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
+
 // setProvisionedBlockDeviceInfo sets the initial info for newly
 // provisioned block devices. If non-empty, machineId must be the
 // machine ID associated with the block devices.

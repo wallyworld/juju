@@ -125,7 +125,7 @@ func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volu
 		return err
 	}
 	logger.Infof("block devices created: %v", blockDevices)
-	return p.machine.SetMachineBlockDevices(blockDevices)
+	return p.machine.SetProvisionedBlockDevices(blockDevices)
 }
 
 func (p *storageProvisioner) Create(
