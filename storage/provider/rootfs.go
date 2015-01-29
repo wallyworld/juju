@@ -21,7 +21,8 @@ const (
 	RootfsStorageDir = "storage-dir"
 )
 
-// rootfsProviders create volume sources which mount filesystems.
+// rootfsProvider implements a storage.Provider, providing "filesystems"
+// backed by directories on the root filesystem.
 type rootfsProvider struct {
 	run RunCommandFn
 }
