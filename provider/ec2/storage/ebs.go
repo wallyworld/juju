@@ -91,6 +91,10 @@ func (e *ebsProvider) VolumeSource(environConfig *config.Config, providerConfig 
 	panic("not implemented")
 }
 
+func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	return nil, errors.NotSupportedf("filesystems")
+}
+
 type ebsVolueSoucre struct {
 }
 

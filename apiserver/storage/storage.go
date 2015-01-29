@@ -105,7 +105,8 @@ func (api *API) getStorageInstance(si state.StorageInstance) (params.StorageInst
 	info, err := si.Info()
 	if err == nil {
 		location = &info.Location
-		// TODO(axw) total/avail size.
+		totalSize = &info.Size
+		// TODO(axw) avail size?
 	} else if !errors.IsNotProvisioned(err) {
 		return params.StorageInstance{}, err
 	}

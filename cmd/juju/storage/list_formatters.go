@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 )
 
@@ -48,7 +49,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		}
 		totalSize := "(unknown)"
 		if info.TotalSize != nil {
-			totalSize = fmt.Sprint(*info.TotalSize)
+			totalSize = humanize.IBytes(*info.TotalSize * humanize.MiByte)
 		}
 		p(storageId, info.Owner, totalSize, location)
 	}

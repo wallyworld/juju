@@ -39,7 +39,16 @@ func AddDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
 		}
 	}
 
+	// Register the "rootfs" pool.
+	if err := addDefaultPool(pm, provider.RootfsPool, provider.RootfsProviderType, map[string]interface{}{}); err != nil {
+		return err
+	}
+
 	// Register the default loop pool.
+	//
+	// TODO(axw) this is broken. The data-dir cannot be encoded in the config, because the loop
+	// provider operates on different machines. It's not necessarily true that each machine
+	// has the same data-dir path.
 	cfg := map[string]interface{}{
 		provider.LoopDataDir: filepath.Join(agentConfig.DataDir(), "storage", "block", "loop"),
 	}

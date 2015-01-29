@@ -28,8 +28,11 @@ var _ Provisioner = (*storageProvisioner)(nil)
 type Provisioner interface {
 	worker.Worker
 
-	// Create makes the specified volumes using a storage provider of a given type.
-	Create(*config.Config, *corestorage.Config, corestorage.ProviderType, []corestorage.VolumeParams) ([]corestorage.BlockDevice, error)
+	// Create creates volumes using a storage provider of a given type, with the specified parameters.
+	CreateVolumes(*config.Config, *corestorage.Config, corestorage.ProviderType, []corestorage.VolumeParams) ([]corestorage.BlockDevice, error)
+
+	// Create creates filesystems using a storage provider of a given type, with the specified parameters.
+	CreateFilesystems(*config.Config, *corestorage.Config, corestorage.ProviderType, []corestorage.FilesystemParams) ([]corestorage.Filesystem, error)
 }
 
 type storageProvisioner struct {
@@ -89,15 +92,18 @@ func (p *storageProvisioner) loop() error {
 		case <-p.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.C:
-			volumes, err := p.machine.StorageParams()
+			volumes, filesystems, err := p.machine.StorageParams()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			logger.Debugf("volumes: %+v", volumes)
+			logger.Debugf("filesystems: %+v", filesystems)
 			if err := p.provisionVolumes(environConfig, volumes); err != nil {
 				return errors.Trace(err)
 			}
-			// TODO(axw) create filesystems too.
+			if err := p.provisionFilesystems(environConfig, filesystems); err != nil {
+				return errors.Trace(err)
+			}
 			timer.Reset(10 * time.Second)
 		}
 	}
@@ -127,7 +133,7 @@ func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volu
 		logger.Infof("creating %q volumes with parameters %v", providerType, volumes)
 
 		// Create the volumes.
-		blockDevices, err := p.Create(environConfig, providerCfg, providerType, volumes)
+		blockDevices, err := p.CreateVolumes(environConfig, providerCfg, providerType, volumes)
 		if err != nil {
 			logger.Errorf("cannot create specified volumes: %v", err)
 			return err
@@ -140,7 +146,44 @@ func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volu
 	return nil
 }
 
-func (p *storageProvisioner) Create(
+func (p *storageProvisioner) provisionFilesystems(environConfig *config.Config, filesystems []corestorage.FilesystemParams) error {
+	if len(filesystems) == 0 {
+		return nil
+	}
+	byProvider := make(map[corestorage.ProviderType][]corestorage.FilesystemParams)
+	for _, fs := range filesystems {
+		byProvider[fs.Provider] = append(byProvider[fs.Provider], fs)
+	}
+	for providerType, filesystems := range byProvider {
+		// TODO(axw) should we instead record the pool name on the
+		// filesystem params, and then group filesystems by pool when creating?
+		cfg := map[string]interface{}{}
+		if providerType == provider.RootfsProviderType {
+			cfg[provider.RootfsStorageDir] = filepath.Join(p.agentConfig.DataDir(), "storage", "fs")
+		}
+		poolName := string(providerType) // TODO(axw) use pool name ...
+		providerCfg, err := corestorage.NewConfig(poolName, providerType, cfg)
+		if err != nil {
+			logger.Errorf("invalid provider config: %v", err)
+			return err
+		}
+		logger.Infof("creating %q filesystems with parameters %v", providerType, filesystems)
+
+		// Create the filesystems.
+		filesystems, err := p.CreateFilesystems(environConfig, providerCfg, providerType, filesystems)
+		if err != nil {
+			logger.Errorf("cannot create specified filesystems: %v", err)
+			return err
+		}
+		logger.Infof("filesystems created: %v", filesystems)
+		if err := p.machine.SetProvisionedFilesystems(filesystems); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (p *storageProvisioner) CreateVolumes(
 	envCfg *config.Config, providerCfg *corestorage.Config, providerType corestorage.ProviderType, volumes []corestorage.VolumeParams,
 ) ([]corestorage.BlockDevice, error) {
 
@@ -153,4 +196,19 @@ func (p *storageProvisioner) Create(
 		return nil, errors.Trace(err)
 	}
 	return source.CreateVolumes(volumes)
+}
+
+func (p *storageProvisioner) CreateFilesystems(
+	envCfg *config.Config, providerCfg *corestorage.Config, providerType corestorage.ProviderType, filesystems []corestorage.FilesystemParams,
+) ([]corestorage.Filesystem, error) {
+
+	provider, err := corestorage.StorageProvider(providerType)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	source, err := provider.FilesystemSource(envCfg, providerCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return source.CreateFilesystems(filesystems)
 }

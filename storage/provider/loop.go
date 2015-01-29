@@ -67,6 +67,10 @@ func (lp *loopProvider) VolumeSource(environConfig *config.Config, providerConfi
 	}, nil
 }
 
+func (lp *loopProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	return nil, errors.NotSupportedf("filesystems")
+}
+
 // blockDevicePlus contains a reference to the BlockDevice that most
 // of storage works with in addition to other information that is
 // useful to the internal implementation of loopVolumeSource.

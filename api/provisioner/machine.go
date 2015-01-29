@@ -345,19 +345,35 @@ func (m *Machine) SetProvisionedBlockDevices(devices []storage.BlockDevice) erro
 }
 
 // DEMO ONLY - NOT PRODUCTION
-func (m *Machine) StorageParams() ([]storage.VolumeParams, error) {
+func (m *Machine) SetProvisionedFilesystems(filesystems []storage.Filesystem) error {
+	args := params.SetMachineFilesystems{
+		MachineFilesystems: []params.MachineFilesystems{{
+			Machine:     m.Tag().String(),
+			Filesystems: filesystems,
+		}},
+	}
+	var results params.ErrorResults
+	err := m.st.facade.FacadeCall("SetProvisionedFilesystems", args, &results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}
+
+// DEMO ONLY - NOT PRODUCTION
+func (m *Machine) StorageParams() ([]storage.VolumeParams, []storage.FilesystemParams, error) {
 	var results params.StorageParamsResults
 	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
 	err := m.st.facade.FacadeCall("MachineStorageParams", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, nil, result.Error
 	}
-	return result.Volumes, nil
+	return result.Volumes, result.Filesystems, nil
 }

@@ -36,6 +36,24 @@ type VolumeParams struct {
 	Instance instance.Id
 }
 
+type FilesystemParams struct {
+	// Name is a unique name assigned by Juju for the requested filesystem.
+	Name string
+
+	// Size is the minimum size of the filesystem in MiB.
+	Size uint64
+
+	// HACK. This should be on the attachment params.
+	Location string
+
+	// Options is a set of provider-specific options for storage creation,
+	// as defined in a storage pool.
+	Options map[string]interface{}
+
+	// The provider type for this volume.
+	Provider ProviderType
+}
+
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
 type ProviderType string
 
@@ -49,10 +67,13 @@ type Provider interface {
 	// satisfying errors.IsNotSupported.
 	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
-	// TODO(axw) define filesystem source. If the user requests a
-	// filesystem and that can be provided first-class, it should be
-	// done that way. Otherwise we create a volume and then manage a
-	// filesystem on that.
+	// FilesystemSource returns a FilesystemSource given the
+	// specified cloud and storage provider configurations.
+	//
+	// If the storage provider does not support creating filesystems
+	// as a first-class primitive, then FilesystemSource must return
+	// an error satisfying errors.IsNotSupported.
+	FilesystemSource(environConfig *config.Config, providerConfig *Config) (FilesystemSource, error)
 
 	// ValidateConfig validates the provided storage provider config,
 	// returning an error if it is invalid.
@@ -106,4 +127,21 @@ type VolumeSource interface {
 	// are detachable, and reject attempts to attach/detach on
 	// that basis.
 	DetachVolumes(volIds []string, instId []instance.Id) error
+}
+
+// FilesystemSource provides an interface for creating, destroying and
+// describing filesystems in the environment. A FilesystemSource is
+// configured in a particular way, and corresponds to a storage "pool".
+type FilesystemSource interface {
+	// CreateFilesystems creates filesystems with the specified size, in MiB.
+	CreateFilesystems(params []FilesystemParams) ([]Filesystem, error)
+}
+
+type Filesystem struct {
+	Name string
+	Size uint64
+
+	// This is dumb, we should be storing this information on an
+	// attachment, to support shared filesystems.
+	Location string
 }

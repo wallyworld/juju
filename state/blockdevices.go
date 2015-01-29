@@ -327,6 +327,7 @@ func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map
 				storageInstanceInfo := &StorageInstanceInfo{
 					// Especially not this.
 					Location: "/dev/" + info.DeviceName,
+					Size:     info.Size,
 				}
 				ops = append(ops, txn.Op{
 					C:  storageInstancesC,

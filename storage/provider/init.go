@@ -15,10 +15,8 @@ import (
 var logger = loggo.GetLogger("juju.storage.provider")
 
 func init() {
-
 	storage.RegisterProvider(LoopProviderType, &loopProvider{RunCmdFn()})
-
-	storage.RegisterDefaultPool("local", storage.StorageKindBlock, LoopPool)
+	storage.RegisterProvider(RootfsProviderType, &rootfsProvider{RunCmdFn()})
 }
 
 // RunCmdFn returns a function which will run a command and return the
