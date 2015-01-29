@@ -331,6 +331,10 @@ lxc.network.mtu = 4321
 
 
 lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = unconfined
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 ` + strings.Join(extraLines, "\n") + "\n"
 
 	lxcConfContents, err := ioutil.ReadFile(configPath)
@@ -377,6 +381,10 @@ lxc.network.name = em1
 lxc.network.mtu = 4321
 
 
+
+lxc.aa_profile = unconfined
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 lxc.rootfs = /foo/bar
 
   # just comment  
@@ -484,7 +492,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 lxc.foo = bar # stays here
 # Network configuration
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
 lxc.network.flags = up # all the rest..
 lxc.network.link = br0 # ..is kept...
 lxc.network.type = veth # ..as it is.
@@ -496,7 +504,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 		output: `
 lxc.foo = bar # stays here
 # Network configuration
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # all the rest..
 lxc.network.link = br0 # ..is kept...
@@ -513,7 +521,7 @@ lxc.foo = bar # stays here
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # first up
 lxc.network.link = br0
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
 lxc.network.type = vlan
 lxc.network.flags = up # all the rest..
 lxc.network.link = br1 # ...is kept...
@@ -524,7 +532,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 		output: `
 lxc.foo = bar # stays here
 # Network configuration
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # first up
 lxc.network.link = br0
@@ -929,6 +937,10 @@ lxc.network.mtu = 4321
 
 lxc.start.auto = 1
 lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
+
+lxc.aa_profile = unconfined
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
 `
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)

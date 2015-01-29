@@ -313,6 +313,9 @@ func (manager *containerManager) CreateContainer(
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
+	if err := allowLoopbackBlockDevices(name, manager.logdir); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to configure the container for loopback devices")
+	}
 	// Update the network settings inside the run-time config of the
 	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
 	networkConfig := generateNetworkConfig(network)
@@ -723,6 +726,15 @@ func mountHostLogDir(name, logDir string) error {
 		"lxc.mount.entry = %s var/log/juju none defaults,bind 0 0\n",
 		logDir)
 	return appendToContainerConfig(name, line)
+}
+
+func allowLoopbackBlockDevices(name, logDir string) error {
+	const allowLoopDevicesCfg = `
+lxc.aa_profile = unconfined
+lxc.cgroup.devices.allow = b 7:* rwm
+lxc.cgroup.devices.allow = c 10:237 rwm
+`
+	return appendToContainerConfig(name, allowLoopDevicesCfg)
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
