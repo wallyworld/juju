@@ -739,3 +739,32 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	}
 	return result, nil
 }
+
+// DEMO ONLY - NOT PRODUCTION
+func (p *ProvisionerAPI) SetProvisionedBlockDevices(args params.SetMachineBlockDevices) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.MachineBlockDevices)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.MachineBlockDevices {
+		tag, err := names.ParseMachineTag(arg.Machine)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			err = common.ErrPerm
+		} else {
+			var devices map[string]state.BlockDeviceInfo
+			devices, err = blockDevicesToState(arg.BlockDevices)
+			if err != nil {
+				err = state.DemoSetProvisionedBlockDeviceInfo(p.st, tag.Id(), devices)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

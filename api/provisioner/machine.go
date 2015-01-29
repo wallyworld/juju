@@ -327,3 +327,19 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
+
+// DEMO ONLY - NOT PRODUCTION
+func (m *Machine) SetProvisionedBlockDevices(devices []storage.BlockDevice) error {
+	args := params.SetMachineBlockDevices{
+		MachineBlockDevices: []params.MachineBlockDevices{{
+			Machine:      m.Tag().String(),
+			BlockDevices: devices,
+		}},
+	}
+	var results params.ErrorResults
+	err := m.st.facade.FacadeCall("SetProvisionedBlockDevices", args, &results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}

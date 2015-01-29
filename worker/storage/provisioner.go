@@ -124,9 +124,8 @@ func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volu
 		logger.Errorf("cannot create specified volumes: %v", err)
 		return err
 	}
-	// TODO - write block device info to state
 	logger.Infof("block devices created: %v", blockDevices)
-	return nil
+	return p.machine.SetProvisionedBlockDevices(blockDevices)
 }
 
 func (p *storageProvisioner) Create(
