@@ -93,7 +93,7 @@ func (p *storageProvisioner) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Infof("volumes: %+v", volumes)
+			logger.Debugf("volumes: %+v", volumes)
 			if err := p.provisionVolumes(environConfig, volumes); err != nil {
 				return errors.Trace(err)
 			}
@@ -134,7 +134,7 @@ func (p *storageProvisioner) provisionVolumes(environConfig *config.Config, volu
 		}
 		logger.Infof("block devices created: %v", blockDevices)
 		if err := p.machine.SetProvisionedBlockDevices(blockDevices); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil

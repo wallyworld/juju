@@ -525,11 +525,15 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.Volume
 	if len(blockDevices) == 0 {
 		return nil, nil
 	}
-	allParams := make([]storage.VolumeParams, len(blockDevices))
-	for i, dev := range blockDevices {
+	instanceId, err := m.InstanceId()
+	if err != nil && !errors.IsNotProvisioned(err) {
+		return nil, err
+	}
+	allParams := make([]storage.VolumeParams, 0, len(blockDevices))
+	for _, dev := range blockDevices {
 		params, ok := dev.Params()
 		if !ok {
-			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
+			continue
 		}
 		var options map[string]interface{}
 		var providerType storage.ProviderType
@@ -537,13 +541,13 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]storage.Volume
 		if err != nil {
 			return nil, errors.Errorf("cannot get options for pool %q", params.Pool)
 		}
-		allParams[i] = storage.VolumeParams{
+		allParams = append(allParams, storage.VolumeParams{
 			dev.Name(),
 			params.Size,
 			options,
 			providerType,
-			"", // no instance ID yet
-		}
+			instanceId,
+		})
 	}
 	return allParams, nil
 }
@@ -760,7 +764,7 @@ func (p *ProvisionerAPI) SetProvisionedBlockDevices(args params.SetMachineBlockD
 		} else {
 			var devices map[string]state.BlockDeviceInfo
 			devices, err = blockDevicesToState(arg.BlockDevices)
-			if err != nil {
+			if err == nil {
 				err = state.DemoSetProvisionedBlockDeviceInfo(p.st, tag.Id(), devices)
 			}
 		}

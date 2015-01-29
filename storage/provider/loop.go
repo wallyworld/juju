@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -57,7 +58,7 @@ func (lp *loopProvider) VolumeSource(environConfig *config.Config, providerConfi
 		return nil, err
 	}
 	dataDir, _ := providerConfig.ValueString(LoopDataDir)
-	subDir, _ := providerConfig.ValueString(LoopDataDir)
+	subDir, _ := providerConfig.ValueString(LoopSubDir)
 	return &loopVolumeSource{
 		dataDir,
 		subDir,
@@ -89,14 +90,16 @@ var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 
 func (lvs *loopVolumeSource) rootDeviceDir() string {
 	dirParts := []string{lvs.dataDir}
-	dirParts = append(dirParts, strings.Split(lvs.subDir, "/")...)
+	if lvs.subDir != "" {
+		dirParts = append(dirParts, lvs.subDir)
+	}
 	return filepath.Join(dirParts...)
 }
 
 func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.BlockDevice, error) {
 
-	blockDevices := make([]storage.BlockDevice, len(args))
-	for idx, arg := range args {
+	blockDevices := make([]storage.BlockDevice, 0, len(args))
+	for _, arg := range args {
 
 		nextDevNum, err := findAvailableDeviceNumber(lvs.runCmd)
 		if err != nil {
@@ -114,16 +117,22 @@ func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]stora
 			return nil, errors.Annotate(err, "could not create block file")
 		}
 
-		deviceName, err := attachToBlockDevice(lvs.runCmd, filePath)
+		devicePath, err := attachToBlockDevice(lvs.runCmd, filePath)
 
 		// If we ran out of loop devices, create another.
 		if err == NoLoopDeviceErr {
 			if err = createLoopDevice(lvs.runCmd, nextDevNum); err != nil {
+				os.Remove(filePath)
 				return nil, errors.Annotate(err, "could not create loop device")
 			}
-			deviceName, err = attachToBlockDevice(lvs.runCmd, filePath)
+			devicePath, err = attachToBlockDevice(lvs.runCmd, filePath)
+		}
+		if err != nil {
+			os.Remove(filePath)
+			return nil, errors.Annotate(err, "could not create loop device")
 		}
 
+		deviceName := devicePath[len("/dev/"):]
 		blockDevice := storage.BlockDevice{
 			Name:       arg.Name,
 			ProviderId: id,
@@ -131,7 +140,7 @@ func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]stora
 			Size:       arg.Size,
 			InUse:      false,
 		}
-		blockDevices[idx] = blockDevice
+		blockDevices = append(blockDevices, blockDevice)
 		lvs.volIdToBlockDevice[id] = blockDevicePlus{blockDevice, filePath}
 	}
 
@@ -198,7 +207,7 @@ func attachToBlockDevice(run RunCommandFn, filePath string) (loopDeviceName stri
 	if err != nil && strings.Contains(err.Error(), "could not find any free loop device") {
 		return "", NoLoopDeviceErr
 	}
-	return stdout, err
+	return strings.TrimSpace(stdout), err
 }
 
 func detachBlockDevice(run RunCommandFn, devicePath string) error {
