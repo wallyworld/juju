@@ -39,8 +39,11 @@ func AddDefaultStoragePools(st *state.State, agentConfig agent.Config) error {
 		}
 	}
 
-	// Register the "rootfs" pool.
+	// Register the "rootfs" and "tmpfs" pool.
 	if err := addDefaultPool(pm, provider.RootfsPool, provider.RootfsProviderType, map[string]interface{}{}); err != nil {
+		return err
+	}
+	if err := addDefaultPool(pm, provider.TmpfsPool, provider.TmpfsProviderType, map[string]interface{}{}); err != nil {
 		return err
 	}
 

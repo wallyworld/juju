@@ -6,8 +6,6 @@ package provider
 import (
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 
@@ -74,18 +72,11 @@ func (s *rootfsSource) CreateFilesystems(args []storage.FilesystemParams) ([]sto
 		if err := os.MkdirAll(location, 0755); err != nil {
 			return nil, errors.Annotate(err, "could not create directory")
 		}
-		dfOutput, err := s.run("df", "--output=size", location)
+		sizeInMiB, err := calculateSize(s.run, location)
 		if err != nil {
 			os.Remove(location)
 			return nil, errors.Annotate(err, "getting size")
 		}
-		lines := strings.SplitN(dfOutput, "\n", 2)
-		blocks, err := strconv.ParseUint(strings.TrimSpace(lines[1]), 10, 64)
-		if err != nil {
-			os.Remove(location)
-			return nil, errors.Annotate(err, "getting size")
-		}
-		sizeInMiB := blocks / 1024
 		if sizeInMiB < arg.Size {
 			os.Remove(location)
 			return nil, errors.Annotatef(err, "filesystem is not big enough (%dM < %dM)", sizeInMiB, arg.Size)

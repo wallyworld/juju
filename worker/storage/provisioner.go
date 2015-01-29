@@ -158,8 +158,11 @@ func (p *storageProvisioner) provisionFilesystems(environConfig *config.Config, 
 		// TODO(axw) should we instead record the pool name on the
 		// filesystem params, and then group filesystems by pool when creating?
 		cfg := map[string]interface{}{}
-		if providerType == provider.RootfsProviderType {
+		switch providerType {
+		case provider.RootfsProviderType:
 			cfg[provider.RootfsStorageDir] = filepath.Join(p.agentConfig.DataDir(), "storage", "fs")
+		case provider.TmpfsProviderType:
+			cfg[provider.TmpfsStorageDir] = filepath.Join(p.agentConfig.DataDir(), "storage", "fs")
 		}
 		poolName := string(providerType) // TODO(axw) use pool name ...
 		providerCfg, err := corestorage.NewConfig(poolName, providerType, cfg)
