@@ -10,6 +10,7 @@ import (
 )
 
 var expectedPoolCommmandNames = []string{
+	"create",
 	"help",
 	"list",
 }

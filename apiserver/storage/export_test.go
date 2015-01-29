@@ -4,5 +4,6 @@
 package storage
 
 var (
-	GetPoolManager = &getPoolManager
+	GetPoolManager             = &getPoolManager
+	CheckProviderTypeSupported = &checkProviderTypeSupported
 )

@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/set"
 )
 
 type storageMockSuite struct {
@@ -102,6 +102,8 @@ func (s *storageMockSuite) TestListPools(c *gc.C) {
 			}
 
 			return nil
+			//	"github.com/juju/juju/apiserver/params"
+
 		})
 	storageClient := storage.NewClient(apiCaller)
 	names := []string{"a", "b"}
@@ -109,5 +111,39 @@ func (s *storageMockSuite) TestListPools(c *gc.C) {
 	found, err := storageClient.ListPools(types, names)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, want)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *storageMockSuite) TestCreatePool(c *gc.C) {
+	var called bool
+	poolName := "poolName"
+	poolType := "poolType"
+	poolConfig := map[string]interface{}{
+		"test": "one",
+		"pass": true,
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CreatePool")
+
+			args, ok := a.(params.StoragePool)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Name, gc.DeepEquals, poolName)
+			c.Assert(args.Type, gc.DeepEquals, poolType)
+			c.Assert(args.Config, gc.DeepEquals, poolConfig)
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	err := storageClient.CreatePool(poolName, poolType, poolConfig)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
