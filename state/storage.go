@@ -477,6 +477,10 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 				charmMeta.Name, name, charmStorage.CountMax, cons.Count,
 			)
 		}
+		// TODO - use charm min size when available
+		if cons.Size == 0 {
+			cons.Size = 1024
+		}
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
