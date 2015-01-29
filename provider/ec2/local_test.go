@@ -893,11 +893,14 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
-			Size: 512, // round up to 1GiB
+			Size:     512, // round up to 1GiB
+			Provider: "ebs",
 		}, {
-			Size: 1024, // 1GiB exactly
+			Size:     1024, // 1GiB exactly
+			Provider: "ebs",
 		}, {
-			Size: 1025, // round up to 2GiB
+			Size:     1025, // round up to 2GiB
+			Provider: "ebs",
 		}},
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
