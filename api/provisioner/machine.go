@@ -327,3 +327,20 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 func (m *Machine) SupportsNoContainers() error {
 	return m.SetSupportedContainers([]instance.ContainerType{}...)
 }
+
+// DEMO ONLY - NOT PRODUCTION
+// This duplicates api on diskmanager. Need to consolidate.
+func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	args := params.SetMachineBlockDevices{
+		MachineBlockDevices: []params.MachineBlockDevices{{
+			Machine:      m.Tag().String(),
+			BlockDevices: devices,
+		}},
+	}
+	var results params.ErrorResults
+	err := m.st.facade.FacadeCall("SetMachineBlockDevices", args, &results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}

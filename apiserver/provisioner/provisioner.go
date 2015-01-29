@@ -739,3 +739,50 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	}
 	return result, nil
 }
+
+// DEMO ONLY - NOT PRODUCTION
+// This duplicates api on diskmanager. Need to consolidate.
+func (p *ProvisionerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevices) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.MachineBlockDevices)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.MachineBlockDevices {
+		tag, err := names.ParseMachineTag(arg.Machine)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			err = common.ErrPerm
+		} else {
+			m, err := p.st.Machine(tag.Id())
+			if err != nil {
+				result.Results[i].Error = common.ServerError(common.ErrPerm)
+				continue
+			}
+			err = m.SetMachineBlockDevices(stateBlockDeviceInfo(arg.BlockDevices)...)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo {
+	result := make([]state.BlockDeviceInfo, len(devices))
+	for i, dev := range devices {
+		result[i] = state.BlockDeviceInfo{
+			dev.DeviceName,
+			dev.Label,
+			dev.UUID,
+			dev.Serial,
+			dev.Size,
+			dev.FilesystemType,
+			dev.InUse,
+		}
+	}
+	return result
+}
