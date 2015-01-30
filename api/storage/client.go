@@ -82,3 +82,15 @@ func (c *Client) CreatePool(pname, ptype string, pconfig map[string]interface{})
 	}
 	return c.facade.FacadeCall("CreatePool", args, nil)
 }
+
+// ListVolumes lists volumes according to a given filter.
+// If no filter was provided, this will return a list
+// of all volumes.
+func (c *Client) ListVolumes(machines []string) ([]params.StorageDisk, error) {
+	args := params.StorageVolumeFilter{Machines: machines}
+	found := params.StorageVolumesResult{}
+	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Disks, nil
+}

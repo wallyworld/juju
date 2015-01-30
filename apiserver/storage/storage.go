@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/volume"
 )
 
 func init() {
@@ -199,4 +200,65 @@ func (a *API) checkProviderTypeSupported(providerType storage.ProviderType) erro
 		return fmt.Errorf("provider type %v is not supported for %v", providerType, envT)
 	}
 	return nil
+}
+
+var getVolumeManager = func(vs volume.VolumeState) volume.VolumeManager {
+	return volume.NewVolumeManager(vs)
+}
+
+func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolumesResult, error) {
+	volumeManager := getVolumeManager(a.storage)
+
+	all, err := volumeManager.List()
+	if err != nil {
+		return params.StorageVolumesResult{}, err
+	}
+	results := []params.StorageDisk{}
+	// Convert to sets as easier to deal with
+	machineSet := set.NewStrings(filter.Machines...)
+	for _, disk := range all {
+		if one, k := filterDisk(machineSet, disk); k {
+			results = append(results, one)
+		}
+	}
+	return params.StorageVolumesResult{Disks: results}, nil
+}
+
+// filterDisk returns converted Disk and boolean indicating
+// if disk contains attachments that match filter
+func filterDisk(machineSet set.Strings, disk volume.Disk) (params.StorageDisk, bool) {
+	attachments := []params.StorageAttachment{}
+	for _, attachment := range disk.Attachments() {
+		if one, k := filterAttachment(machineSet, attachment); k {
+			attachments = append(attachments, one)
+		}
+	}
+	// it's possible that there will be no attachments on this disk
+	// that match the filter. This disk will be filtered out too then :D
+	return params.StorageDisk{Attachments: attachments}, len(attachments) > 0
+}
+
+func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.StorageAttachment, bool) {
+	if len(machineSet) > 0 {
+		empty := params.StorageAttachment{}
+		// filter by machine
+		if !machineSet.Contains(attachment.Machine()) {
+			return empty, false
+		}
+	}
+	one := params.StorageAttachment{
+		Tag:         attachment.Tag().String(),
+		MachineId:   attachment.Machine(),
+		DeviceName:  attachment.DeviceName(),
+		UUID:        attachment.UUID(),
+		Label:       attachment.Label(),
+		Size:        attachment.Size(),
+		StorageId:   attachment.Storage(),
+		Assigned:    attachment.Assigned(),
+		Attached:    attachment.Attached(),
+		InUse:       attachment.InUse(),
+		FSType:      attachment.FilesystemType(),
+		Provisioned: attachment.Provisioned(),
+	}
+	return one, true
 }
