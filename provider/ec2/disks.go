@@ -21,8 +21,16 @@ const (
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
 
-	// volumeSizeMaxMiB is the maximum disk size (in mebibytes) for EBS volumes.
-	volumeSizeMaxMiB = 1024 * 1024 // 1024 GiB
+	// provisionedIopsvolumeSizeMinGiB is the minimum disk size (in gibibytes)
+	// for provisioned IOPS EBS volumes.
+	provisionedIopsvolumeSizeMinGiB = 10 // 10 GiB
+
+	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for EBS volumes.
+	volumeSizeMaxGiB = 1024 // 1024 GiB
+
+	// maxProvisionedIopsSizeRatio is the maximum allowed ratio of IOPS to
+	// size (in GiB), for provisioend IOPS volumes.
+	maxProvisionedIopsSizeRatio = 30
 )
 
 // getBlockDeviceMappings translates a StartInstanceParams into
@@ -83,18 +91,9 @@ func getBlockDeviceMappings(
 		if params.Provider != providerstorage.EBSProviderType {
 			continue
 		}
-		// Check minimum constraints can be satisfied.
-		if err := validateVolumeParams(params); err != nil {
-			return nil, nil, errors.Annotate(err, "invalid volume parameters")
-		}
-		requestDeviceName, actualDeviceName, err := nextDeviceName()
-		if err != nil {
-			// Can't allocate any more volumes.
-			return nil, nil, err
-		}
+
 		mapping := ec2.BlockDeviceMapping{
 			VolumeSize: int64(mibToGib(params.Size)),
-			DeviceName: requestDeviceName,
 			// TODO(axw) DeleteOnTermination
 		}
 		// Translate user values for storage provider parameters.
@@ -103,11 +102,25 @@ func getBlockDeviceMappings(
 			mapping.VolumeType = fmt.Sprintf("%v", v)
 		}
 		if v, ok := options[providerstorage.IOPS]; ok && v != "" {
-			mapping.IOPS, err = strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
+			// TODO(axw) use juju/schema for typed attributes.
+			var err error
+			mapping.IOPS, err = strconv.ParseInt(fmt.Sprint(v), 10, 64)
 			if err != nil {
 				return nil, nil, errors.Annotatef(err, "invalid iops value %v, expected integer", v)
 			}
 		}
+
+		// Check mapping is valid (minus the device name).
+		if err := validateBlockDeviceMapping(mapping); err != nil {
+			return nil, nil, errors.Annotate(err, "invalid volume parameters")
+		}
+		requestDeviceName, actualDeviceName, err := nextDeviceName()
+		if err != nil {
+			// Can't allocate any more volumes.
+			return nil, nil, err
+		}
+		mapping.DeviceName = requestDeviceName
+
 		volume := storage.BlockDevice{
 			Name:       params.Name,
 			DeviceName: actualDeviceName,
@@ -121,10 +134,32 @@ func getBlockDeviceMappings(
 	return blockDeviceMappings, volumes, nil
 }
 
-// validateVolumParams validates the volume parameters.
-func validateVolumeParams(params storage.VolumeParams) error {
-	if params.Size > volumeSizeMaxMiB {
-		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMaxMiB)
+// validateBlockDeviceMapping validates a block device mapping,
+// excluding the device name.
+func validateBlockDeviceMapping(m ec2.BlockDeviceMapping) error {
+	if m.VolumeSize > volumeSizeMaxGiB {
+		return errors.Errorf("%d GiB exceeds the maximum of %d GiB", m.VolumeSize, volumeSizeMaxGiB)
+	}
+	if m.VolumeType == "io1" {
+		if m.VolumeSize < provisionedIopsvolumeSizeMinGiB {
+			return errors.Errorf(
+				"volume size is %d GiB, must be at least %d GiB for provisioned IOPS",
+				m.VolumeSize,
+				provisionedIopsvolumeSizeMinGiB,
+			)
+		}
+	}
+	if m.IOPS > 0 {
+		if m.VolumeType != "io1" {
+			return errors.Errorf("IOPS specified, but volume type is %q", m.VolumeType)
+		}
+		minSize := m.IOPS / maxProvisionedIopsSizeRatio
+		if m.VolumeSize < minSize {
+			return errors.Errorf(
+				"volume size is %d GiB, must be at least %d GiB to support %d IOPS",
+				m.VolumeSize, minSize, m.IOPS,
+			)
+		}
 	}
 	return nil
 }
