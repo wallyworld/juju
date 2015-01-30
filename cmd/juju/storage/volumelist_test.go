@@ -39,16 +39,15 @@ func runVolumeList(c *gc.C, args []string) (*cmd.Context, error) {
 func (s *VolumeListSuite) TestVolumeListEmpty(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{},
+		[]string{"--format", "yaml"},
 		"[]\n",
 	)
 }
 
-func (s *VolumeListSuite) TestVolumeList(c *gc.C) {
+func (s *VolumeListSuite) TestVolumeListYaml(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"a"},
-		// Default format is yaml
+		[]string{"a", "--format", "yaml"},
 		"- attachments:\n"+
 			"  - volume: disktag\n"+
 			"    storage: storagetag\n"+
@@ -77,7 +76,8 @@ func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 func (s *VolumeListSuite) TestVolumeListTabular(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"a", "--format", "tabular"},
+		[]string{"a"},
+		// Default format is tabular
 		`VOLUME   ATTACHED  MACHINE  DEVICE NAME  SIZE
 disktag  true      a        testdevice   17876
 
