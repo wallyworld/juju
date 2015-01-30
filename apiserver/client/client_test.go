@@ -1468,6 +1468,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 	if expectConstraints {
 		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
 			"data": state.StorageConstraints{
+				Pool:  "block",
 				Count: 1,
 				Size:  1024,
 			},

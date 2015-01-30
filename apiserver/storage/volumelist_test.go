@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/volume"
 )
 
@@ -20,7 +21,6 @@ type volumeSuite struct {
 	jujutesting.JujuConnSuite
 
 	volumeManager volume.VolumeManager
-	machine       *state.Machine
 
 	api        *storage.API
 	authorizer testing.FakeAuthorizer
@@ -43,55 +43,54 @@ func (s *volumeSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(storage.GetVolumeManager, func(vs volume.VolumeState) volume.VolumeManager {
 		return s.volumeManager
 	})
-
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
 }
 
-func (s *volumeSuite) createBlockDevicesOnMachine(c *gc.C, machine *state.Machine, deviceNames []string) {
-	devices := make([]state.BlockDeviceInfo, len(deviceNames))
-	for i, dName := range deviceNames {
-		devices[i] = state.BlockDeviceInfo{DeviceName: dName}
+func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
+	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
+}
+
+func (s *volumeSuite) createUnitForTest(c *gc.C) string {
+	jujustorage.RegisterDefaultPool("someprovider", jujustorage.StorageKindBlock, "block")
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 1024, 1),
 	}
-	err := machine.SetMachineBlockDevices(devices...)
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	devices, err := machine.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 1)
+
+	return machineId
 }
 
 func (s *volumeSuite) TestVolumeList(c *gc.C) {
-	dName := "sda"
-	s.createBlockDevicesOnMachine(c, s.machine, []string{dName})
-
+	s.createUnitForTest(c)
 	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes.Disks, gc.HasLen, 1)
 	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 1)
-	one := volumes.Disks[0].Attachments[0]
-	c.Assert(one.DeviceName, gc.Equals, dName)
-}
-
-func (s *volumeSuite) TestVolumeListManyResults(c *gc.C) {
-	s.createBlockDevicesOnMachine(c, s.machine, []string{"one", "two"})
-
-	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumes.Disks, gc.HasLen, 1)
-	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 2)
 }
 
 func (s *volumeSuite) TestVolumeListByMachine(c *gc.C) {
-	tstName := "fluff"
-	s.createBlockDevicesOnMachine(c, s.machine, []string{tstName, "two"})
+	m1 := s.createUnitForTest(c)
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	s.createBlockDevicesOnMachine(c, machine, []string{"123"})
-
-	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{Machines: []string{s.machine.Id()}})
+	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{Machines: []string{m1}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes.Disks, gc.HasLen, 1)
-	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 2)
-	c.Assert(volumes.Disks[0].Attachments[0].DeviceName, gc.DeepEquals, tstName)
+	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 1)
+
+	none, err := s.api.ListVolumes(params.StorageVolumeFilter{Machines: []string{"blah"}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(none.Disks, gc.HasLen, 0)
 }
 
 func (s *volumeSuite) TestVolumeListNoVolumes(c *gc.C) {

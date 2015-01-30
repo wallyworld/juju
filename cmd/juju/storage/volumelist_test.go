@@ -51,7 +51,7 @@ func (s *VolumeListSuite) TestVolumeList(c *gc.C) {
 		// Default format is yaml
 		"- attachments:\n"+
 			"  - volume: disktag\n"+
-			"    storage: storageId\n"+
+			"    storage: storagetag\n"+
 			"    assigned: true\n"+
 			"    machine: a\n"+
 			"    attached: true\n"+
@@ -69,7 +69,7 @@ func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
 		[]string{"a", "--format", "json"},
-		`[{"Attachments":[{"volume":"disktag","storage":"storageId",`+
+		`[{"Attachments":[{"volume":"disktag","storage":"storagetag",`+
 			`"assigned":true,"machine":"a","attached":true,`+
 			`"device-name":"testdevice","uuid":"testUUID",`+
 			`"label":"testlabel","size":17876,"in-use":true,`+
@@ -121,9 +121,9 @@ func createTestDiskInstance(amachine string) params.StorageDisk {
 func createTestAttachmentInstance(amachine string) params.VolumeAttachment {
 	return params.VolumeAttachment{
 		Volume:      "disktag",
-		StorageId:   "storageId",
+		Storage:     "storagetag",
 		Assigned:    true,
-		MachineId:   amachine,
+		Machine:     amachine,
 		Attached:    true,
 		DeviceName:  "testdevice",
 		UUID:        "testUUID",

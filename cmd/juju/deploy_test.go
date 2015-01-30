@@ -231,6 +231,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
+			Pool:  "block",
 			Count: 1,
 			Size:  1024,
 		},
