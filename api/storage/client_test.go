@@ -175,7 +175,6 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 						Attached:    true,
 						DeviceName:  fmt.Sprintf("deviceName%v", i),
 						Size:        1,
-						InUse:       true,
 						FSType:      fmt.Sprintf("fstype%v", i),
 						Provisioned: true,
 					}

@@ -74,7 +74,6 @@ type AttachmentInfo struct {
 	Attached    bool   `yaml:"attached" json:"attached"`
 	DeviceName  string `yaml:"device-name" json:"device-name"`
 	Size        uint64 `yaml:"size" json:"size"`
-	InUse       bool   `yaml:"in-use" json:"in-use"`
 	FSType      string `yaml:"file-system-type" json:"file-system-type"`
 	Provisioned bool   `yaml:"provisioned" json:"provisioned"`
 }
@@ -130,7 +129,6 @@ func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachm
 			Attached:    one.Attached,
 			DeviceName:  one.DeviceName,
 			Size:        one.Size,
-			InUse:       one.InUse,
 			FSType:      one.FSType,
 			Provisioned: one.Provisioned,
 		}

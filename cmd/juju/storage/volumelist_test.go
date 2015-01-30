@@ -57,7 +57,6 @@ func (s *VolumeListSuite) TestVolumeList(c *gc.C) {
 			"    attached: true\n"+
 			"    device-name: testdevice\n"+
 			"    size: 17876\n"+
-			"    in-use: true\n"+
 			"    file-system-type: fstype\n"+
 			"    provisioned: true\n",
 	)
@@ -69,7 +68,7 @@ func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 		[]string{"a", "--format", "json"},
 		`[{"Attachments":[{"volume":"disktag","storage":"storagetag",`+
 			`"assigned":true,"machine":"a","attached":true,`+
-			`"device-name":"testdevice","size":17876,"in-use":true,`+
+			`"device-name":"testdevice","size":17876,`+
 			`"file-system-type":"fstype","provisioned":true}]}`+
 			"]\n",
 	)
@@ -125,7 +124,6 @@ func createTestAttachmentInstance(amachine string) params.VolumeAttachment {
 		Attached:    true,
 		DeviceName:  "testdevice",
 		Size:        17876,
-		InUse:       true,
 		FSType:      "fstype",
 		Provisioned: true,
 	}
