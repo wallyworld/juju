@@ -165,7 +165,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 			c.Assert(args.Machines, gc.HasLen, 2)
 
 			if results, k := result.(*params.StorageVolumesResult); k {
-				disks := make([]params.StorageDisk, len(args.Machines))
+				volumes := make([]params.StorageVolume, len(args.Machines))
 				for i, m := range args.Machines {
 					attachment := params.VolumeAttachment{
 						Volume:      fmt.Sprintf("tag%v", i),
@@ -178,11 +178,11 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 						FileSystem:  fmt.Sprintf("fstype%v", i),
 						Provisioned: true,
 					}
-					disks[i] = params.StorageDisk{
+					volumes[i] = params.StorageVolume{
 						Attachments: []params.VolumeAttachment{attachment},
 					}
 				}
-				results.Disks = disks
+				results.Volumes = volumes
 			}
 
 			return nil

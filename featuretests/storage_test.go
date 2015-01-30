@@ -242,7 +242,7 @@ func runVolumeList(c *gc.C, args []string) *cmd.Context {
 func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 	createUnitForTest(c, &s.RepoSuite.JujuConnSuite)
 
-	context := runVolumeList(c, []string{})
+	context := runVolumeList(c, []string{"--format", "yaml"})
 
 	expected := "" +
 		"- attachments:\n" +

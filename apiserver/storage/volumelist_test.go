@@ -76,8 +76,8 @@ func (s *volumeSuite) TestVolumeList(c *gc.C) {
 	s.createUnitForTest(c)
 	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumes.Disks, gc.HasLen, 1)
-	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 1)
+	c.Assert(volumes.Volumes, gc.HasLen, 1)
+	c.Assert(volumes.Volumes[0].Attachments, gc.HasLen, 1)
 }
 
 func (s *volumeSuite) TestVolumeListByMachine(c *gc.C) {
@@ -85,16 +85,16 @@ func (s *volumeSuite) TestVolumeListByMachine(c *gc.C) {
 
 	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{Machines: []string{m1}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumes.Disks, gc.HasLen, 1)
-	c.Assert(volumes.Disks[0].Attachments, gc.HasLen, 1)
+	c.Assert(volumes.Volumes, gc.HasLen, 1)
+	c.Assert(volumes.Volumes[0].Attachments, gc.HasLen, 1)
 
 	none, err := s.api.ListVolumes(params.StorageVolumeFilter{Machines: []string{"blah"}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(none.Disks, gc.HasLen, 0)
+	c.Assert(none.Volumes, gc.HasLen, 0)
 }
 
 func (s *volumeSuite) TestVolumeListNoVolumes(c *gc.C) {
 	volumes, err := s.api.ListVolumes(params.StorageVolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumes.Disks, gc.HasLen, 0)
+	c.Assert(volumes.Volumes, gc.HasLen, 0)
 }

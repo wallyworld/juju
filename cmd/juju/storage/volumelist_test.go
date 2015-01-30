@@ -100,16 +100,16 @@ func (s mockVolumeListAPI) Close() error {
 	return nil
 }
 
-func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.StorageDisk, error) {
-	results := make([]params.StorageDisk, len(machines))
+func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.StorageVolume, error) {
+	results := make([]params.StorageVolume, len(machines))
 	for i, amachine := range machines {
-		results[i] = createTestDiskInstance(amachine)
+		results[i] = createTestVolumeInstance(amachine)
 	}
 	return results, nil
 }
 
-func createTestDiskInstance(amachine string) params.StorageDisk {
-	return params.StorageDisk{
+func createTestVolumeInstance(amachine string) params.StorageVolume {
+	return params.StorageVolume{
 		Attachments: []params.VolumeAttachment{
 			createTestAttachmentInstance(amachine),
 		},

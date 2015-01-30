@@ -61,8 +61,8 @@ func (c *VolumeListCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-// DiskInfo defines the serialization behaviour of the storage volume (disk) information.
-type DiskInfo struct {
+// VolumeInfo defines the serialization behaviour of the storage volume (currently, disk) information.
+type VolumeInfo struct {
 	Attachments []AttachmentInfo `yaml:"attachments" json:"attachments `
 }
 
@@ -101,17 +101,17 @@ var (
 // VolumeListAPI defines the API methods that the volume list command use.
 type VolumeListAPI interface {
 	Close() error
-	ListVolumes(machines []string) ([]params.StorageDisk, error)
+	ListVolumes(machines []string) ([]params.StorageVolume, error)
 }
 
 func (c *VolumeListCommand) getVolumeListAPI() (VolumeListAPI, error) {
 	return c.NewStorageAPI()
 }
 
-func (c *VolumeListCommand) convertFromAPIDisks(all []params.StorageDisk) []DiskInfo {
-	result := make([]DiskInfo, len(all))
+func (c *VolumeListCommand) convertFromAPIDisks(all []params.StorageVolume) []VolumeInfo {
+	result := make([]VolumeInfo, len(all))
 	for i, one := range all {
-		result[i] = DiskInfo{
+		result[i] = VolumeInfo{
 			Attachments: c.convertFromAPIAttachments(one.Attachments),
 		}
 	}
@@ -137,7 +137,7 @@ func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachm
 }
 
 func (c *VolumeListCommand) formatTabular(value interface{}) ([]byte, error) {
-	disks, valueConverted := value.([]DiskInfo)
+	disks, valueConverted := value.([]VolumeInfo)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", disks, value)
 	}

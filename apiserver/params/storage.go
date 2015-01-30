@@ -58,7 +58,7 @@ type StoragePoolsResult struct {
 }
 
 // StorageVolume holds data for a storage volume
-type StorageDisk struct {
+type StorageVolume struct {
 	Attachments []VolumeAttachment
 }
 
@@ -85,5 +85,5 @@ type StorageVolumeFilter struct {
 
 // StorageVolumesResult holds a collection of volumes.
 type StorageVolumesResult struct {
-	Disks []StorageDisk
+	Volumes []StorageVolume
 }

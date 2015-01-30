@@ -5,8 +5,8 @@ package volume
 
 import "github.com/juju/names"
 
-// Disk
-type Disk interface {
+// Volume
+type Volume interface {
 	// TODO(anastasiamac 2015-01-30 add name and persisted parameters
 	// when model is decided
 	Attachments() []Attachment
@@ -14,8 +14,8 @@ type Disk interface {
 
 // Attachment is a block device
 type Attachment interface {
-	// Volume returns the tag for the disk.
-	Volume() names.DiskTag
+	// Disk returns the tag for the disk.
+	Disk() names.DiskTag
 
 	// AttachmentName returns the unique name of the attachment.
 	AttachmentName() string
@@ -52,5 +52,5 @@ type Attachment interface {
 // A VolumeManager provides access to storage volumes.
 type VolumeManager interface {
 	// List returns disks from state.
-	List() ([]Disk, error)
+	List() ([]Volume, error)
 }

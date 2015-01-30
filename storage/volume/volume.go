@@ -26,7 +26,7 @@ type VolumeState interface {
 }
 
 // List is defined on VolumeManager interface.
-func (pm *volumeManager) List() ([]Disk, error) {
+func (pm *volumeManager) List() ([]Volume, error) {
 	devices, err := pm.vst.AllBlockDevices()
 	if err != nil {
 		return nil, errors.Annotate(err, "listing block devices")
@@ -39,22 +39,22 @@ func (pm *volumeManager) List() ([]Disk, error) {
 		attachments[i] = pm.constructAttachment(d)
 	}
 	// TODO(anastasiamac 2015-01-30) since volumes don't really exist yet,
-	// only return one disk for now
-	volumes := make([]Disk, 1)
-	volumes[0] = &disk{attachments: attachments}
+	// only return one volume for now
+	volumes := make([]Volume, 1)
+	volumes[0] = &volume{attachments: attachments}
 	return volumes, nil
 }
 
-var _ Disk = (*disk)(nil)
+var _ Volume = (*volume)(nil)
 
-type disk struct {
+type volume struct {
 	attachments []Attachment
 	// TODO(anastasiamac 2015-01-30 add name and persisted parameters
 	// when model is decided
 }
 
-// Attachments implements Disk.Attachments
-func (v *disk) Attachments() []Attachment {
+// Attachments implements Volume.Attachments
+func (v *volume) Attachments() []Attachment {
 	return v.attachments
 }
 
@@ -76,8 +76,8 @@ type attachment struct {
 	provisioned bool
 }
 
-// Volume implements Attachment.Volume
-func (a *attachment) Volume() names.DiskTag {
+// Disk implements Attachment.Disk
+func (a *attachment) Disk() names.DiskTag {
 	return a.diskTag
 }
 

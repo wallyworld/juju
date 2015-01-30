@@ -218,34 +218,32 @@ func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolu
 		// No volumes in the system
 		return params.StorageVolumesResult{}, nil
 	}
-	results := []params.StorageDisk{}
+	results := []params.StorageVolume{}
 	// Convert to sets as easier to deal with
 	machineSet := set.NewStrings(filter.Machines...)
 	for _, disk := range all {
-		if one, k := filterDisk(machineSet, disk); k {
+		if one, k := filterVolume(machineSet, disk); k {
 			results = append(results, one)
 		}
 	}
-	return params.StorageVolumesResult{Disks: results}, nil
+	return params.StorageVolumesResult{Volumes: results}, nil
 }
 
-// filterDisk returns converted Disk and boolean indicating
-// if disk contains attachments that match filter
-func filterDisk(machineSet set.Strings, disk volume.Disk) (params.StorageDisk, bool) {
+// filterVolume returns converted Volume and boolean indicating
+// if Volume contains attachments that match filter
+func filterVolume(machineSet set.Strings, disk volume.Volume) (params.StorageVolume, bool) {
 	attachments := []params.VolumeAttachment{}
 	for _, attachment := range disk.Attachments() {
 		if one, k := filterAttachment(machineSet, attachment); k {
 			attachments = append(attachments, one)
 		}
 	}
-	// It's possible that there will be no attachments on this disk
-	// that match the filter. This disk will be filtered out too then :D
 	filterOff := machineSet.IsEmpty()
 	// 1. when filter on, check length > attachments may have been filtered out;
 	// 2. when filter off, return true > is unattached volume.
 	// TODO(anastasiamac 2015-01-30) This needs tests when can
 	// create unattached volumes.
-	return params.StorageDisk{Attachments: attachments}, filterOff || len(attachments) > 0
+	return params.StorageVolume{Attachments: attachments}, filterOff || len(attachments) > 0
 }
 
 func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.VolumeAttachment, bool) {
@@ -257,7 +255,7 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 		}
 	}
 	one := params.VolumeAttachment{
-		Volume:      attachment.Volume().String(),
+		Volume:      attachment.Disk().String(),
 		Machine:     names.NewMachineTag(attachment.Machine()).String(),
 		DeviceName:  attachment.DeviceName(),
 		Size:        attachment.Size(),
