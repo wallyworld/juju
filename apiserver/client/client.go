@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
+	storageprovider "github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/version"
 )
 
@@ -322,6 +323,10 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	var storageConstraints map[string]storage.Constraints
 	if featureflag.Enabled(storage.FeatureFlag) {
+		storageConstraints = args.Storage
+		if storageConstraints == nil {
+			storageConstraints = make(map[string]storage.Constraints)
+		}
 		// Validate the storage parameters against the charm metadata,
 		// and ensure there are no conflicting parameters.
 		if err := validateCharmStorage(args, ch); err != nil {
@@ -342,15 +347,26 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 					store,
 				)
 			}
-			// TODO(axw) when storage pools, providers etc. are implemented,
-			// and we have a "loop" storage provider, we should create minimal
-			// constraints with the "loop" pool here.
-			return errors.Errorf(
-				"no constraints specified for charm storage %q, loop not implemented",
-				store,
-			)
+			if charmStorage.CountMin <= 0 {
+				continue
+			}
+			if charmStorage.Type == charm.StorageBlock {
+				// TODO(axw) clarify what the rules are for "block" kind when
+				// no constraints are specified. For "filesystem" we use rootfs.
+				return errors.Errorf(
+					"no constraints specified for block charm storage %q",
+					store,
+				)
+			}
+			storageConstraints[store] = storage.Constraints{
+				// TODO(axw) move the RootfsPool constant to the top-level
+				// "storage" package. It's a special, ever-present,
+				// unilaterally supported pool/provider that is to be
+				// used when no constraints are specified.
+				Pool:  storageprovider.RootfsPool,
+				Count: uint64(charmStorage.CountMin),
+			}
 		}
-		storageConstraints = args.Storage
 	}
 
 	var settings charm.Settings

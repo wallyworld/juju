@@ -408,12 +408,12 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 	return doc.Constraints, nil
 }
 
-func validateStorageConstraints(st *State, cons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+func validateStorageConstraints(st *State, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if !featureflag.Enabled(storage.FeatureFlag) {
 		return nil
 	}
-	for name, cons := range cons {
+	for name, cons := range allCons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {
 			return errors.Errorf("charm %q has no store called %q", charmMeta.Name, name)
@@ -479,13 +479,18 @@ func validateStorageConstraints(st *State, cons map[string]StorageConstraints, c
 		}
 		// TODO - use charm min size when available
 		if cons.Size == 0 {
+			// TODO(axw) this doesn't really belong in a validation
+			// method. We should separate setting defaults from
+			// validating, the latter of which should be non-modifying.
 			cons.Size = 1024
 		}
+		// Replace in case pool or size were updated.
+		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
 	for name := range charmMeta.Storage {
-		if _, ok := cons[name]; !ok {
+		if _, ok := allCons[name]; !ok {
 			return errors.Errorf("no constraints specified for store %q", name)
 		}
 	}

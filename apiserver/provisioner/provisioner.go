@@ -575,6 +575,12 @@ func (p *ProvisionerAPI) machineFilesystemParams(m *state.Machine) ([]storage.Fi
 			return nil, err
 		}
 		for _, si := range storageInstances {
+			if len(si.BlockDeviceNames()) > 0 {
+				// HACK
+				// ignore storage instances with block devices;
+				// they will be handled by the diskformatter.
+				continue
+			}
 			if si.Kind() == state.StorageKindFilesystem {
 				allStorageInstances = append(allStorageInstances, si)
 			}
