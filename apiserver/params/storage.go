@@ -72,8 +72,6 @@ type VolumeAttachment struct {
 	Machine     string
 	Attached    bool
 	DeviceName  string
-	UUID        string
-	Label       string
 	Size        uint64
 	InUse       bool
 	FSType      string

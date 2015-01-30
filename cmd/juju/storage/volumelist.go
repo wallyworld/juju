@@ -73,8 +73,6 @@ type AttachmentInfo struct {
 	Machine     string `yaml:"machine" json:"machine"`
 	Attached    bool   `yaml:"attached" json:"attached"`
 	DeviceName  string `yaml:"device-name" json:"device-name"`
-	UUID        string `yaml:"uuid" json:"uuid"`
-	Label       string `yaml:"label" json:"label"`
 	Size        uint64 `yaml:"size" json:"size"`
 	InUse       bool   `yaml:"in-use" json:"in-use"`
 	FSType      string `yaml:"file-system-type" json:"file-system-type"`
@@ -131,8 +129,6 @@ func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachm
 			Machine:     one.Machine,
 			Attached:    one.Attached,
 			DeviceName:  one.DeviceName,
-			UUID:        one.UUID,
-			Label:       one.Label,
 			Size:        one.Size,
 			InUse:       one.InUse,
 			FSType:      one.FSType,
@@ -157,16 +153,14 @@ func (c *VolumeListCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "VOLUME\tATTACHED\tMACHINE\tDEVICE NAME\tUUID\tLABEL\tSIZE\n")
+	fmt.Fprintf(tw, "VOLUME\tATTACHED\tMACHINE\tDEVICE NAME\tSIZE\n")
 	for _, disk := range disks {
 		for _, attachment := range disk.Attachments {
-			fmt.Fprintf(tw, "%s\t%t\t%s\t%s\t%s\t%s\t%d\n",
+			fmt.Fprintf(tw, "%s\t%t\t%s\t%s\t%d\n",
 				attachment.Volume,
 				attachment.Attached,
 				attachment.Machine,
 				attachment.DeviceName,
-				attachment.UUID,
-				attachment.Label,
 				attachment.Size,
 			)
 		}

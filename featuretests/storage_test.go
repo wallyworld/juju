@@ -252,8 +252,6 @@ func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 		"    machine: machine-0\n" +
 		"    attached: false\n" +
 		"    device-name: \"\"\n" +
-		"    uuid: \"\"\n" +
-		"    label: \"\"\n" +
 		"    size: 0\n" +
 		"    in-use: false\n" +
 		"    file-system-type: \"\"\n" +

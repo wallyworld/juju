@@ -250,8 +250,6 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 		Volume:      attachment.Volume().String(),
 		Machine:     names.NewMachineTag(attachment.Machine()).String(),
 		DeviceName:  attachment.DeviceName(),
-		UUID:        attachment.UUID(),
-		Label:       attachment.Label(),
 		Size:        attachment.Size(),
 		Storage:     names.NewStorageTag(attachment.Storage()).String(),
 		Assigned:    attachment.Assigned(),
