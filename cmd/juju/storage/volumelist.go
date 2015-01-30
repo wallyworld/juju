@@ -121,7 +121,7 @@ func (c *VolumeListCommand) convertFromAPIDisks(all []params.StorageDisk) []Disk
 	return result
 }
 
-func (c *VolumeListCommand) convertFromAPIAttachments(all []params.StorageAttachment) []AttachmentInfo {
+func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachment) []AttachmentInfo {
 	result := make([]AttachmentInfo, len(all))
 	for i, one := range all {
 		result[i] = AttachmentInfo{

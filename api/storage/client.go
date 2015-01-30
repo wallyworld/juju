@@ -87,6 +87,8 @@ func (c *Client) CreatePool(pname, ptype string, pconfig map[string]interface{})
 // If no filter was provided, this will return a list
 // of all volumes.
 func (c *Client) ListVolumes(machines []string) ([]params.StorageDisk, error) {
+	// TODO(2015-01-30 anastasiamac/axw) we may want to just auto-create Volumes
+	// from discovered block devices if there are no matching provider-created Volumes.
 	args := params.StorageVolumeFilter{Machines: machines}
 	found := params.StorageVolumesResult{}
 	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {

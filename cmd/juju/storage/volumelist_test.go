@@ -113,13 +113,13 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.StorageDisk,
 
 func createTestDiskInstance(amachine string) params.StorageDisk {
 	return params.StorageDisk{
-		Attachments: []params.StorageAttachment{
+		Attachments: []params.VolumeAttachment{
 			createTestAttachmentInstance(amachine),
 		},
 	}
 }
-func createTestAttachmentInstance(amachine string) params.StorageAttachment {
-	return params.StorageAttachment{
+func createTestAttachmentInstance(amachine string) params.VolumeAttachment {
+	return params.VolumeAttachment{
 		Tag:         "tag",
 		StorageId:   "storageId",
 		Assigned:    true,

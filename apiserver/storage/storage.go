@@ -227,7 +227,7 @@ func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolu
 // filterDisk returns converted Disk and boolean indicating
 // if disk contains attachments that match filter
 func filterDisk(machineSet set.Strings, disk volume.Disk) (params.StorageDisk, bool) {
-	attachments := []params.StorageAttachment{}
+	attachments := []params.VolumeAttachment{}
 	for _, attachment := range disk.Attachments() {
 		if one, k := filterAttachment(machineSet, attachment); k {
 			attachments = append(attachments, one)
@@ -238,15 +238,15 @@ func filterDisk(machineSet set.Strings, disk volume.Disk) (params.StorageDisk, b
 	return params.StorageDisk{Attachments: attachments}, len(attachments) > 0
 }
 
-func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.StorageAttachment, bool) {
+func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.VolumeAttachment, bool) {
 	if len(machineSet) > 0 {
-		empty := params.StorageAttachment{}
+		empty := params.VolumeAttachment{}
 		// filter by machine
 		if !machineSet.Contains(attachment.Machine()) {
 			return empty, false
 		}
 	}
-	one := params.StorageAttachment{
+	one := params.VolumeAttachment{
 		Tag:         attachment.Tag().String(),
 		MachineId:   attachment.Machine(),
 		DeviceName:  attachment.DeviceName(),

@@ -59,11 +59,11 @@ type StoragePoolsResult struct {
 
 // StorageVolume holds data for a storage volume
 type StorageDisk struct {
-	Attachments []StorageAttachment
+	Attachments []VolumeAttachment
 }
 
-// StorageAttachment holds storage attachment data
-type StorageAttachment struct {
+// VolumeAttachment holds storage attachment data
+type VolumeAttachment struct {
 	Tag         string
 	StorageId   string
 	Assigned    bool
