@@ -483,8 +483,9 @@ func validateStorageConstraints(st *State, allCons map[string]StorageConstraints
 			// method. We should separate setting defaults from
 			// validating, the latter of which should be non-modifying.
 			cons.Size = 1024
-			allCons[name] = cons
 		}
+		// Replace in case pool or size were updated.
+		allCons[name] = cons
 	}
 	// Ensure all stores have constraints specified. Defaults should have
 	// been set by this point, if the user didn't specify constraints.
