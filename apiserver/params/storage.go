@@ -64,7 +64,7 @@ type StorageDisk struct {
 
 // VolumeAttachment holds storage attachment data
 type VolumeAttachment struct {
-	Tag         string
+	Volume      string
 	StorageId   string
 	Assigned    bool
 	MachineId   string

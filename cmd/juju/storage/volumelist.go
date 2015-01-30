@@ -67,7 +67,7 @@ type DiskInfo struct {
 }
 
 type AttachmentInfo struct {
-	Tag         string `yaml:"tag" json:"tag"`
+	Volume      string `yaml:"volume" json:"volume"`
 	StorageId   string `yaml:"storage" json:"storage"`
 	Assigned    bool   `yaml:"assigned" json:"assigned"`
 	MachineId   string `yaml:"machine" json:"machine"`
@@ -125,7 +125,7 @@ func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachm
 	result := make([]AttachmentInfo, len(all))
 	for i, one := range all {
 		result[i] = AttachmentInfo{
-			Tag:         one.Tag,
+			Volume:      one.Volume,
 			StorageId:   one.StorageId,
 			Assigned:    one.Assigned,
 			MachineId:   one.MachineId,
@@ -157,11 +157,11 @@ func (c *VolumeListCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "TAG\tATTACHED\tMACHINE\tDEVICE NAME\tUUID\tLABEL\tSIZE\n")
+	fmt.Fprintf(tw, "VOLUME\tATTACHED\tMACHINE\tDEVICE NAME\tUUID\tLABEL\tSIZE\n")
 	for _, disk := range disks {
 		for _, attachment := range disk.Attachments {
 			fmt.Fprintf(tw, "%s\t%t\t%s\t%s\t%s\t%s\t%d\n",
-				attachment.Tag,
+				attachment.Volume,
 				attachment.Attached,
 				attachment.MachineId,
 				attachment.DeviceName,

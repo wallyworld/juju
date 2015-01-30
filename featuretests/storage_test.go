@@ -187,7 +187,7 @@ func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 
 	expected := "" +
 		"- attachments:\n" +
-		"  - tag: disk-0\n" +
+		"  - volume: disk-0\n" +
 		"    storage: \"\"\n" +
 		"    assigned: false\n" +
 		"    machine: \"0\"\n" +

@@ -14,8 +14,8 @@ type Disk interface {
 
 // Attachment is a block device
 type Attachment interface {
-	// Tag returns the tag for the attachment.
-	Tag() names.Tag
+	// Volume returns the tag for the disk.
+	Volume() names.DiskTag
 
 	// AttachmentName returns the unique name of the attachment.
 	AttachmentName() string

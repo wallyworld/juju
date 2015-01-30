@@ -247,7 +247,7 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 		}
 	}
 	one := params.VolumeAttachment{
-		Tag:         attachment.Tag().String(),
+		Volume:      attachment.Volume().String(),
 		MachineId:   attachment.Machine(),
 		DeviceName:  attachment.DeviceName(),
 		UUID:        attachment.UUID(),

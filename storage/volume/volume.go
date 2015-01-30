@@ -58,7 +58,7 @@ func (v *disk) Attachments() []Attachment {
 var _ Attachment = (*attachment)(nil)
 
 type attachment struct {
-	tag         names.Tag
+	diskTag     names.DiskTag
 	name        string
 	storageId   string
 	assigned    bool
@@ -73,9 +73,9 @@ type attachment struct {
 	provisioned bool
 }
 
-// Tag implements Attachment.Tag
-func (a *attachment) Tag() names.Tag {
-	return a.tag
+// Volume implements Attachment.Volume
+func (a *attachment) Volume() names.DiskTag {
+	return a.diskTag
 }
 
 // AttachmentName implements Attachment.AttachmentName
@@ -139,8 +139,14 @@ func (a *attachment) Provisioned() bool {
 }
 
 func (vm *volumeManager) constructAttachment(d state.BlockDevice) Attachment {
+	dTag, ok := d.Tag().(names.DiskTag)
+	if !ok {
+		// (axw 2015-01-30) it will always be a DiskTag
+		panic("tag should always be a disk tag")
+	}
+
 	result := &attachment{
-		tag:       d.Tag(),
+		diskTag:   dTag,
 		name:      d.Name(),
 		machineId: d.Machine(),
 		attached:  d.Attached(),

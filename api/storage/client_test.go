@@ -168,7 +168,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 				disks := make([]params.StorageDisk, len(args.Machines))
 				for i, m := range args.Machines {
 					attachment := params.VolumeAttachment{
-						Tag:         fmt.Sprintf("tag%v", i),
+						Volume:      fmt.Sprintf("tag%v", i),
 						StorageId:   fmt.Sprintf("storage%v", i),
 						Assigned:    true,
 						MachineId:   m,

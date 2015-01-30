@@ -50,7 +50,7 @@ func (s *VolumeListSuite) TestVolumeList(c *gc.C) {
 		[]string{"a"},
 		// Default format is yaml
 		"- attachments:\n"+
-			"  - tag: tag\n"+
+			"  - volume: disktag\n"+
 			"    storage: storageId\n"+
 			"    assigned: true\n"+
 			"    machine: a\n"+
@@ -69,7 +69,7 @@ func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
 		[]string{"a", "--format", "json"},
-		`[{"Attachments":[{"tag":"tag","storage":"storageId",`+
+		`[{"Attachments":[{"volume":"disktag","storage":"storageId",`+
 			`"assigned":true,"machine":"a","attached":true,`+
 			`"device-name":"testdevice","uuid":"testUUID",`+
 			`"label":"testlabel","size":17876,"in-use":true,`+
@@ -82,8 +82,8 @@ func (s *VolumeListSuite) TestVolumeListTabular(c *gc.C) {
 	s.assertValidList(
 		c,
 		[]string{"a", "--format", "tabular"},
-		"TAG  ATTACHED  MACHINE  DEVICE NAME  UUID      LABEL      SIZE\n"+
-			"tag  true      a        testdevice   testUUID  testlabel  17876\n"+
+		"VOLUME   ATTACHED  MACHINE  DEVICE NAME  UUID      LABEL      SIZE\n"+
+			"disktag  true      a        testdevice   testUUID  testlabel  17876\n"+
 			"\n",
 	)
 }
@@ -120,7 +120,7 @@ func createTestDiskInstance(amachine string) params.StorageDisk {
 }
 func createTestAttachmentInstance(amachine string) params.VolumeAttachment {
 	return params.VolumeAttachment{
-		Tag:         "tag",
+		Volume:      "disktag",
 		StorageId:   "storageId",
 		Assigned:    true,
 		MachineId:   amachine,
