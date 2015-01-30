@@ -403,3 +403,21 @@ func blockDevicesSame(a, b BlockDeviceInfo) bool {
 	}
 	return a.DeviceName != "" && a.DeviceName == b.DeviceName
 }
+
+// AllBlockDevices returns all block devices in the environment.
+func (st *State) AllBlockDevices() ([]BlockDevice, error) {
+	deviceCollection, closer := st.getCollection(blockDevicesC)
+	defer closer()
+
+	docs := []blockDeviceDoc{}
+	err := deviceCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all block devices")
+	}
+
+	devices := make([]BlockDevice, len(docs))
+	for i, doc := range docs {
+		devices[i] = &blockDevice{doc}
+	}
+	return devices, nil
+}

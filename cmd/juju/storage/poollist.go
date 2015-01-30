@@ -29,8 +29,10 @@ options:
    specify an output file
 --format (= yaml)
    specify output format (json|tabular|yaml)
-<pool type>
-<pool name>
+--type
+   pool type
+--name
+   pool name
 
 `
 

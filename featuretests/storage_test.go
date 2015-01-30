@@ -89,6 +89,25 @@ func assertPoolByName(c *gc.C, st *state.State, pname string) {
 	c.Assert(found[0].Name(), gc.DeepEquals, pname)
 }
 
+func (s *apiStorageSuite) TestListVolumes(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	bdi := state.BlockDeviceInfo{DeviceName: "nice"}
+	err = machine.SetMachineBlockDevices(bdi)
+	c.Assert(err, jc.ErrorIsNil)
+
+	found, err := s.storageClient.ListVolumes(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0].Attachments, gc.HasLen, 1)
+}
+
+func (s *apiStorageSuite) TestListVolumesEmpty(c *gc.C) {
+	found, err := s.storageClient.ListVolumes(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 0)
+}
+
 type cmdStorageSuite struct {
 	jujutesting.RepoSuite
 }
@@ -147,4 +166,39 @@ func (s *cmdStorageSuite) TestCreatePoolCmdStack(c *gc.C) {
 	c.Assert(obtained, gc.Equals, expected)
 
 	assertPoolByName(c, s.State, pname)
+}
+
+func runVolumeList(c *gc.C, args []string) *cmd.Context {
+	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.VolumeListCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	return context
+}
+
+func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
+	dname := "ftPool"
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	bdi := state.BlockDeviceInfo{DeviceName: dname}
+	err = machine.SetMachineBlockDevices(bdi)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context := runVolumeList(c, []string{})
+
+	expected := "" +
+		"- attachments:\n" +
+		"  - tag: disk-0\n" +
+		"    storage: \"\"\n" +
+		"    assigned: false\n" +
+		"    machine: \"0\"\n" +
+		"    attached: true\n" +
+		"    device-name: ftPool\n" +
+		"    uuid: \"\"\n" +
+		"    label: \"\"\n" +
+		"    size: 0\n" +
+		"    in-use: false\n" +
+		"    file-system-type: \"\"\n" +
+		"    provisioned: true\n"
+
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }

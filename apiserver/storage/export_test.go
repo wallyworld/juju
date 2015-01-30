@@ -6,4 +6,5 @@ package storage
 var (
 	GetPoolManager             = &getPoolManager
 	CheckProviderTypeSupported = &checkProviderTypeSupported
+	GetVolumeManager           = &getVolumeManager
 )
