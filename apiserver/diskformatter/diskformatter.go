@@ -160,9 +160,17 @@ func (a *DiskFormatterAPI) SetMountPoints(args params.StorageMountPoints) (param
 		if err != nil || !canAccess(storageInstance.Owner()) {
 			return common.ErrPerm
 		}
+		blockDevice, err := a.st.BlockDevice(storageInstance.BlockDeviceNames()[0])
+		if err != nil {
+			return err
+		}
+		blockDeviceInfo, err := blockDevice.Info()
+		if err != nil {
+			return err
+		}
 		info := state.StorageInstanceInfo{
-			Location: arg.MountPoint,
-			// TODO(axw) size
+			arg.MountPoint,
+			blockDeviceInfo.Size,
 		}
 		return a.st.SetStorageInstanceInfo(storageTag.Id(), info)
 	}
