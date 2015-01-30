@@ -253,7 +253,7 @@ func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 		"    attached: false\n" +
 		"    device-name: \"\"\n" +
 		"    size: 0\n" +
-		"    file-system-type: \"\"\n" +
+		"    file-system: \"\"\n" +
 		"    provisioned: false\n"
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }

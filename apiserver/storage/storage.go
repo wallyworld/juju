@@ -254,7 +254,7 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 		Storage:     names.NewStorageTag(attachment.Storage()).String(),
 		Assigned:    attachment.Assigned(),
 		Attached:    attachment.Attached(),
-		FSType:      attachment.FilesystemType(),
+		FileSystem:  attachment.FilesystemType(),
 		Provisioned: attachment.Provisioned(),
 	}
 	return one, true
