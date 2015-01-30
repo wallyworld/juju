@@ -43,3 +43,10 @@ func (s *VolumeSuite) TestList(c *gc.C) {
 	attachment := oneDisk.Attachments()[0]
 	c.Assert(attachment.DeviceName(), gc.DeepEquals, dName)
 }
+
+func (s *VolumeSuite) TestEmptyList(c *gc.C) {
+	all, err := s.vm.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.IsNil)
+	c.Assert(all, gc.HasLen, 0)
+}

@@ -213,6 +213,11 @@ func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolu
 	if err != nil {
 		return params.StorageVolumesResult{}, err
 	}
+
+	if len(all) < 1 {
+		// No volumes in the system
+		return params.StorageVolumesResult{}, nil
+	}
 	results := []params.StorageDisk{}
 	// Convert to sets as easier to deal with
 	machineSet := set.NewStrings(filter.Machines...)
@@ -233,9 +238,14 @@ func filterDisk(machineSet set.Strings, disk volume.Disk) (params.StorageDisk, b
 			attachments = append(attachments, one)
 		}
 	}
-	// it's possible that there will be no attachments on this disk
+	// It's possible that there will be no attachments on this disk
 	// that match the filter. This disk will be filtered out too then :D
-	return params.StorageDisk{Attachments: attachments}, len(attachments) > 0
+	filterOff := machineSet.IsEmpty()
+	// 1. when filter on, check length > attachments may have been filtered out;
+	// 2. when filter off, return true > is unattached volume.
+	// TODO(anastasiamac 2015-01-30) This needs tests when can
+	// create unattached volumes.
+	return params.StorageDisk{Attachments: attachments}, filterOff || len(attachments) > 0
 }
 
 func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.VolumeAttachment, bool) {

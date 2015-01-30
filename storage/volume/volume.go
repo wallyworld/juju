@@ -31,6 +31,9 @@ func (pm *volumeManager) List() ([]Disk, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "listing block devices")
 	}
+	if len(devices) < 1 {
+		return nil, nil
+	}
 	attachments := make([]Attachment, len(devices))
 	for i, d := range devices {
 		attachments[i] = pm.constructAttachment(d)
