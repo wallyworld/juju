@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -41,25 +42,25 @@ func (s *PoolListSuite) TestPoolList(c *gc.C) {
 		c,
 		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
 		// Default format is yaml
-		`- name: testName
-  type: a
-  config:
-    one: true
-    three: maybe
-    two: well
-- name: testName
-  type: b
-  config:
-    one: true
-    three: maybe
-    two: well
-- name: xyz
+		`abc:
   type: testType
   config:
     one: true
     three: maybe
     two: well
-- name: abc
+testName0:
+  type: a
+  config:
+    one: true
+    three: maybe
+    two: well
+testName1:
+  type: b
+  config:
+    one: true
+    three: maybe
+    two: well
+xyz:
   type: testType
   config:
     one: true
@@ -75,16 +76,8 @@ func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 		[]string{"--type", "a", "--type", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "json"},
-		`[`+
-			`{"name":"testName","type":"a",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"testName","type":"b",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"xyz","type":"testType",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"abc","type":"testType",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}}`+
-			"]\n",
+		`{"abc":{"type":"testType","config":{"one":true,"three":"maybe","two":"well"}},"testName0":{"type":"a","config":{"one":true,"three":"maybe","two":"well"}},"testName1":{"type":"b","config":{"one":true,"three":"maybe","two":"well"}},"xyz":{"type":"testType","config":{"one":true,"three":"maybe","two":"well"}}}
+`,
 	)
 }
 
@@ -94,13 +87,14 @@ func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 		[]string{"--type", "a", "--type", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
-		"TYPE      NAME      CONFIG\n"+
-			"a         testName  one=true,two=well,three=maybe\n"+
-			"b         testName  one=true,two=well,three=maybe\n"+
-			"testType  xyz       one=true,two=well,three=maybe\n"+
-			"testType  abc       one=true,two=well,three=maybe\n"+
-			"\n",
-	)
+		`
+NAME       TYPE      CONFIG                         
+abc        testType  one=true,two=well,three=maybe  
+testName0  a         one=true,two=well,three=maybe  
+testName1  b         one=true,two=well,three=maybe  
+xyz        testType  one=true,two=well,three=maybe  
+
+`[1:])
 }
 
 func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string) {
@@ -125,8 +119,8 @@ func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.Sto
 		results[index] = createTestPoolInstance(aname, atype)
 		index++
 	}
-	for _, atype := range types {
-		addInstance("testName", atype)
+	for i, atype := range types {
+		addInstance(fmt.Sprintf("testName%v", i), atype)
 	}
 	for _, aname := range names {
 		addInstance(aname, "testType")
