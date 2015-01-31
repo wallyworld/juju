@@ -214,7 +214,7 @@ func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolu
 		return params.StorageVolumesResult{}, err
 	}
 
-	if len(all) < 1 {
+	if len(all) == 0 {
 		// No volumes in the system
 		return params.StorageVolumesResult{}, nil
 	}
