@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/pool"
+	"github.com/juju/juju/storage/volume"
 )
 
 func init() {
@@ -199,4 +200,70 @@ func (a *API) checkProviderTypeSupported(providerType storage.ProviderType) erro
 		return fmt.Errorf("provider type %v is not supported for %v", providerType, envT)
 	}
 	return nil
+}
+
+var getVolumeManager = func(vs volume.VolumeState) volume.VolumeManager {
+	return volume.NewVolumeManager(vs)
+}
+
+func (a *API) ListVolumes(filter params.StorageVolumeFilter) (params.StorageVolumesResult, error) {
+	volumeManager := getVolumeManager(a.storage)
+
+	all, err := volumeManager.List()
+	if err != nil {
+		return params.StorageVolumesResult{}, err
+	}
+
+	if len(all) == 0 {
+		// No volumes in the system
+		return params.StorageVolumesResult{}, nil
+	}
+	results := []params.StorageVolume{}
+	// Convert to sets as easier to deal with
+	machineSet := set.NewStrings(filter.Machines...)
+	for _, disk := range all {
+		if one, k := filterVolume(machineSet, disk); k {
+			results = append(results, one)
+		}
+	}
+	return params.StorageVolumesResult{Volumes: results}, nil
+}
+
+// filterVolume returns converted Volume and boolean indicating
+// if Volume contains attachments that match filter
+func filterVolume(machineSet set.Strings, disk volume.Volume) (params.StorageVolume, bool) {
+	attachments := []params.VolumeAttachment{}
+	for _, attachment := range disk.Attachments() {
+		if one, k := filterAttachment(machineSet, attachment); k {
+			attachments = append(attachments, one)
+		}
+	}
+	filterOff := machineSet.IsEmpty()
+	// 1. when filter on, check length > attachments may have been filtered out;
+	// 2. when filter off, return true > is unattached volume.
+	// TODO(anastasiamac 2015-01-30) This needs tests when can
+	// create unattached volumes.
+	return params.StorageVolume{Attachments: attachments}, filterOff || len(attachments) > 0
+}
+
+func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (params.VolumeAttachment, bool) {
+	if len(machineSet) > 0 {
+		empty := params.VolumeAttachment{}
+		// filter by machine
+		if !machineSet.Contains(attachment.Machine()) {
+			return empty, false
+		}
+	}
+	one := params.VolumeAttachment{
+		Volume:      attachment.Disk().String(),
+		Machine:     names.NewMachineTag(attachment.Machine()).String(),
+		DeviceName:  attachment.DeviceName(),
+		Size:        attachment.Size(),
+		Storage:     names.NewStorageTag(attachment.Storage()).String(),
+		Assigned:    attachment.Assigned(),
+		Attached:    attachment.Attached(),
+		FileSystem:  attachment.FilesystemType(),
+		Provisioned: attachment.Provisioned(),
+	}
+	return one, true
 }

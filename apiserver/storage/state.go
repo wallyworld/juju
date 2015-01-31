@@ -13,6 +13,7 @@ type storageAccess interface {
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StateSettings() *state.StateSettings
 	EnvironConfig() (*config.Config, error)
+	AllBlockDevices() ([]state.BlockDevice, error)
 }
 
 type stateShim struct {
@@ -37,4 +38,9 @@ func (s stateShim) AllStorageInstances() ([]state.StorageInstance, error) {
 // EnvironConfig gets environment config
 func (s stateShim) EnvironConfig() (*config.Config, error) {
 	return s.state.EnvironConfig()
+}
+
+// AllBlockDevices gets environment block devices
+func (s stateShim) AllBlockDevices() ([]state.BlockDevice, error) {
+	return s.state.AllBlockDevices()
 }

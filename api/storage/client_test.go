@@ -145,3 +145,51 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *storageMockSuite) TestListVolumes(c *gc.C) {
+	var called bool
+	machines := []string{"one", "two"}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListVolumes")
+
+			args, ok := a.(params.StorageVolumeFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Machines, gc.HasLen, 2)
+
+			if results, k := result.(*params.StorageVolumesResult); k {
+				volumes := make([]params.StorageVolume, len(args.Machines))
+				for i, m := range args.Machines {
+					attachment := params.VolumeAttachment{
+						Volume:      fmt.Sprintf("tag%v", i),
+						Storage:     fmt.Sprintf("storage%v", i),
+						Assigned:    true,
+						Machine:     m,
+						Attached:    true,
+						DeviceName:  fmt.Sprintf("deviceName%v", i),
+						Size:        1,
+						FileSystem:  fmt.Sprintf("fstype%v", i),
+						Provisioned: true,
+					}
+					volumes[i] = params.StorageVolume{
+						Attachments: []params.VolumeAttachment{attachment},
+					}
+				}
+				results.Volumes = volumes
+			}
+
+			return nil
+		})
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListVolumes(machines)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, len(machines))
+	c.Assert(called, jc.IsTrue)
+}

@@ -56,3 +56,34 @@ type StoragePoolFilter struct {
 type StoragePoolsResult struct {
 	Pools []StoragePool
 }
+
+// StorageVolume holds data for a storage volume
+type StorageVolume struct {
+	Attachments []VolumeAttachment
+}
+
+// VolumeAttachment holds storage attachment data
+type VolumeAttachment struct {
+	Volume string
+	// Storage is string representation of names.StorageTag
+	Storage  string
+	Assigned bool
+	// Machine is string representation of names.MachineTag
+	Machine     string
+	Attached    bool
+	DeviceName  string
+	Size        uint64
+	FileSystem  string
+	Provisioned bool
+}
+
+// StorageVolumeFilter holds a filter for volume API call.
+type StorageVolumeFilter struct {
+	// Machines are machines' ids to filter on.
+	Machines []string
+}
+
+// StorageVolumesResult holds a collection of volumes.
+type StorageVolumesResult struct {
+	Volumes []StorageVolume
+}

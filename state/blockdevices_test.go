@@ -277,3 +277,18 @@ func (s *BlockDevicesSuite) TestMachineWatchBlockDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertOneChange("3")
 }
+
+func (s *BlockDevicesSuite) TestAllBlockDevices(c *gc.C) {
+	dName := "sda"
+	sda := state.BlockDeviceInfo{DeviceName: dName}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, jc.ErrorIsNil)
+
+	all, err := s.State.AllBlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	oneDevice := all[0]
+	info, err := oneDevice.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.DeviceName, gc.DeepEquals, dName)
+}
