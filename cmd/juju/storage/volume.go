@@ -78,10 +78,7 @@ func formatAttachmentInfo(all []params.VolumeAttachment) (map[string]AttachmentI
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid storage tag")
 		}
-		storageName, err := names.StorageName(storageTag.Id())
-		if err != nil {
-			panic(err) // impossible
-		}
+		storageName, _ := names.StorageName(storageTag.Id())
 		machineTag, err := names.ParseTag(one.Machine)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid machine tag")
