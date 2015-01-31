@@ -33,13 +33,13 @@ func formatPoolListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
+	p("NAME\tTYPE\tCONFIG")
+
 	poolNames := make([]string, 0, len(pools))
 	for name := range pools {
 		poolNames = append(poolNames, name)
 	}
 	sort.Strings(byPoolName(poolNames))
-
-	p("NAME\tTYPE\tCONFIG")
 	for _, name := range poolNames {
 		pool := pools[name]
 		traits := make([]string, len(pool.Config))
