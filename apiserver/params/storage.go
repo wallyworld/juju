@@ -72,7 +72,7 @@ type VolumeAttachment struct {
 	Machine     string
 	Attached    bool
 	DeviceName  string
-	Size        uint64
+	Size        *uint64
 	FileSystem  string
 	Provisioned bool
 }

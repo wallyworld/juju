@@ -166,6 +166,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 
 			if results, k := result.(*params.StorageVolumesResult); k {
 				volumes := make([]params.StorageVolume, len(args.Machines))
+				tstSize := uint64(1024)
 				for i, m := range args.Machines {
 					attachment := params.VolumeAttachment{
 						Volume:      fmt.Sprintf("tag%v", i),
@@ -174,7 +175,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 						Machine:     m,
 						Attached:    true,
 						DeviceName:  fmt.Sprintf("deviceName%v", i),
-						Size:        1,
+						Size:        &tstSize,
 						FileSystem:  fmt.Sprintf("fstype%v", i),
 						Provisioned: true,
 					}

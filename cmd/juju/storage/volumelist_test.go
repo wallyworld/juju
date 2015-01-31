@@ -47,41 +47,42 @@ func (s *VolumeListSuite) TestVolumeListEmpty(c *gc.C) {
 func (s *VolumeListSuite) TestVolumeListYaml(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"a", "--format", "yaml"},
-		"- attachments:\n"+
-			"  - volume: disktag\n"+
-			"    storage: storagetag\n"+
-			"    assigned: true\n"+
-			"    machine: a\n"+
-			"    attached: true\n"+
-			"    device-name: testdevice\n"+
-			"    size: 17876\n"+
-			"    file-system: fstype\n"+
-			"    provisioned: true\n",
+		[]string{"2", "--format", "yaml"},
+		`
+- attachments:
+    disktag:
+      storage: shared-fs
+      assigned: true
+      machine: "2"
+      attached: true
+      device-name: testdevice
+      size: 1024
+      file-system: fstype
+      provisioned: true
+`[1:],
 	)
 }
 
 func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"a", "--format", "json"},
-		`[{"Attachments":[{"volume":"disktag","storage":"storagetag",`+
-			`"assigned":true,"machine":"a","attached":true,`+
-			`"device-name":"testdevice","size":17876,`+
-			`"file-system":"fstype","provisioned":true}]}`+
-			"]\n",
+		[]string{"2", "--format", "json"},
+		`
+[{"Attachments":{"disktag":{"storage":"shared-fs","assigned":true,"machine":"2","attached":true,"device-name":"testdevice","size":1024,"file-system":"fstype","provisioned":true}}}]
+`[1:],
 	)
 }
 
 func (s *VolumeListSuite) TestVolumeListTabular(c *gc.C) {
 	s.assertValidList(
 		c,
-		[]string{"a"},
+		[]string{"2"},
 		// Default format is tabular
-		`VOLUME   ATTACHED  MACHINE  DEVICE NAME  SIZE
-disktag  true      a        testdevice   17876
+		`
+VOLUME   ATTACHED  MACHINE  DEVICE NAME  SIZE    
+disktag  true      2        testdevice   1.0GiB  
 
-`,
+`[1:],
 	)
 }
 
@@ -116,14 +117,15 @@ func createTestVolumeInstance(amachine string) params.StorageVolume {
 	}
 }
 func createTestAttachmentInstance(amachine string) params.VolumeAttachment {
+	size := uint64(1024)
 	return params.VolumeAttachment{
 		Volume:      "disktag",
-		Storage:     "storagetag",
+		Storage:     "storage-shared-fs-0",
 		Assigned:    true,
-		Machine:     amachine,
+		Machine:     "machine-" + amachine,
 		Attached:    true,
 		DeviceName:  "testdevice",
-		Size:        17876,
+		Size:        &size,
 		FileSystem:  "fstype",
 		Provisioned: true,
 	}
