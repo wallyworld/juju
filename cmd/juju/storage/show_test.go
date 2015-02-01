@@ -57,6 +57,11 @@ postgresql/0:
 	)
 }
 
+func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
+	_, err := runShow(c, []string{"foo"})
+	c.Assert(err, gc.ErrorMatches, ".*invalid storage id foo.*")
+}
+
 func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,

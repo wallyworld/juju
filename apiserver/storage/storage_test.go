@@ -43,3 +43,14 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error.Error(), gc.Matches, ".*permission denied*")
 }
+
+func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakeStorage or similar is available
+	storageTag := "foo"
+	entity := params.Entity{Tag: storageTag}
+
+	found, err := s.api.Show(params.Entities{Entities: []params.Entity{entity}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error.Error.Error(), gc.Matches, ".*permission denied*")
+}
