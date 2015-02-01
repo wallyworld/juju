@@ -56,20 +56,39 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 		c,
 		[]string{"--format", "yaml"},
 		`
-db-dir/1000:
-  storage: db-dir
-  owner: postgresql/0
-  location: /srv/data
-  available-size: 1
-  total-size: 1024
-  tags:
-  - tests
-  - well
-  - maybe
-shared-fs/0:
-  storage: shared-fs
-  owner: transcode/0
-  location: /srv
+postgresql/0:
+  db-dir/1000:
+    storage: db-dir
+    location: /srv/data
+    available-size: 1
+    total-size: 1024
+    tags:
+    - tests
+    - well
+    - maybe
+transcode/0:
+  shared-fs/0:
+    storage: shared-fs
+    location: /srv
+`[1:],
+	)
+}
+
+func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
+	s.mockAPI.lexicalChaos = true
+	s.assertValidList(
+		c,
+		nil,
+		// Default format is tabular
+		`
+[Storage]   
+ID          OWNER        SIZE      LOCATION  
+db-dir/1000 postgresql/0 1.0GiB    /srv/data 
+db-dir/1000 transcode    (unknown) /srv      
+db-dir/1000 transcode/0  (unknown) /srv      
+shared-fs/0 transcode/0  (unknown) /srv      
+shared-fs/5 transcode/0  (unknown) /srv      
+
 `[1:],
 	)
 }
@@ -83,6 +102,7 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expected string) {
 }
 
 type mockListAPI struct {
+	lexicalChaos bool
 }
 
 func (s mockListAPI) Close() error {
@@ -108,5 +128,25 @@ func (s mockListAPI) List() ([]params.StorageInstance, error) {
 		Tags:          []string{"tests", "well", "maybe"},
 	}}
 
+	if s.lexicalChaos {
+		last := params.StorageInstance{
+			StorageTag: "storage-shared-fs-5",
+			OwnerTag:   "unit-transcode-0",
+			Location:   &tcLocation,
+		}
+		second := params.StorageInstance{
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "unit-transcode-0",
+			Location:   &tcLocation,
+		}
+		first := params.StorageInstance{
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "service-transcode",
+			Location:   &tcLocation,
+		}
+		results = append(results, last)
+		results = append(results, second)
+		results = append(results, first)
+	}
 	return results, nil
 }

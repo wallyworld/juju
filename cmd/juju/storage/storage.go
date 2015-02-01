@@ -65,7 +65,6 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
 	StorageName   string   `yaml:"storage" json:"storage"`
-	Owner         string   `yaml:"owner" json:"owner"`
 	Location      *string  `yaml:"location,omitempty" json:"location,omitempty,omitempty"`
 	AvailableSize *uint64  `yaml:"available-size,omitempty" json:"available-size,omitempty"`
 	TotalSize     *uint64  `yaml:"total-size,omitempty" json:"total-size,omitempty"`
@@ -74,8 +73,8 @@ type StorageInfo struct {
 
 // formatStorageInfo takes a set of StorageInstances and creates a
 // mapping from storage instance ID to information structures.
-func formatStorageInfo(all []params.StorageInstance) (map[string]StorageInfo, error) {
-	output := make(map[string]StorageInfo)
+func formatStorageInfo(all []params.StorageInstance) (map[string]map[string]StorageInfo, error) {
+	output := make(map[string]map[string]StorageInfo)
 	for _, one := range all {
 		storageTag, err := names.ParseStorageTag(one.StorageTag)
 		if err != nil {
@@ -90,14 +89,21 @@ func formatStorageInfo(all []params.StorageInstance) (map[string]StorageInfo, er
 			panic(err) // impossible
 		}
 		// TODO format size nicely (fraction with MGTPEZY suffix, depending on size).
-		output[storageTag.Id()] = StorageInfo{
+		si := StorageInfo{
 			StorageName:   storageName,
 			Location:      one.Location,
-			Owner:         ownerTag.Id(),
 			AvailableSize: one.AvailableSize,
 			TotalSize:     one.TotalSize,
 			Tags:          one.Tags,
 		}
+		owner := ownerTag.Id()
+		ownerColl := output[owner]
+
+		if len(ownerColl) == 0 {
+			ownerColl = map[string]StorageInfo{}
+			output[owner] = ownerColl
+		}
+		ownerColl[storageTag.Id()] = si
 	}
 	return output, nil
 }
