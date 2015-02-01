@@ -67,7 +67,11 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	result, err := api.Show(c.getStorageTags())
+	tags, err := c.getStorageTags()
+	if err != nil {
+		return err
+	}
+	result, err := api.Show(tags)
 	if err != nil {
 		return err
 	}
@@ -78,12 +82,15 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output)
 }
 
-func (c *ShowCommand) getStorageTags() []names.StorageTag {
+func (c *ShowCommand) getStorageTags() ([]names.StorageTag, error) {
 	tags := make([]names.StorageTag, len(c.ids))
 	for i, id := range c.ids {
+		if !names.IsValidStorage(id) {
+			return nil, errors.Errorf("invalid storage id %v", id)
+		}
 		tags[i] = names.NewStorageTag(id)
 	}
-	return tags
+	return tags, nil
 }
 
 var (
