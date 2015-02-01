@@ -4,12 +4,7 @@
 package storage
 
 import (
-	"bytes"
-	"fmt"
-	"text/tabwriter"
-
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -57,25 +52,8 @@ func (c *VolumeListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": c.formatTabular,
+		"tabular": formatVolumeListTabular,
 	})
-}
-
-// VolumeInfo defines the serialization behaviour of the storage volume (currently, disk) information.
-type VolumeInfo struct {
-	Attachments []AttachmentInfo `yaml:"attachments" json:"attachments `
-}
-
-type AttachmentInfo struct {
-	Volume      string `yaml:"volume" json:"volume"`
-	Storage     string `yaml:"storage" json:"storage"`
-	Assigned    bool   `yaml:"assigned" json:"assigned"`
-	Machine     string `yaml:"machine" json:"machine"`
-	Attached    bool   `yaml:"attached" json:"attached"`
-	DeviceName  string `yaml:"device-name" json:"device-name"`
-	Size        uint64 `yaml:"size" json:"size"`
-	FileSystem  string `yaml:"file-system" json:"file-system"`
-	Provisioned bool   `yaml:"provisioned" json:"provisioned"`
 }
 
 // Run implements Command.Run.
@@ -90,7 +68,10 @@ func (c *VolumeListCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	output := c.convertFromAPIDisks(result)
+	output, err := formatVolumeInfo(result)
+	if err != nil {
+		return err
+	}
 	return c.out.Write(ctx, output)
 }
 
@@ -106,63 +87,4 @@ type VolumeListAPI interface {
 
 func (c *VolumeListCommand) getVolumeListAPI() (VolumeListAPI, error) {
 	return c.NewStorageAPI()
-}
-
-func (c *VolumeListCommand) convertFromAPIDisks(all []params.StorageVolume) []VolumeInfo {
-	result := make([]VolumeInfo, len(all))
-	for i, one := range all {
-		result[i] = VolumeInfo{
-			Attachments: c.convertFromAPIAttachments(one.Attachments),
-		}
-	}
-	return result
-}
-
-func (c *VolumeListCommand) convertFromAPIAttachments(all []params.VolumeAttachment) []AttachmentInfo {
-	result := make([]AttachmentInfo, len(all))
-	for i, one := range all {
-		result[i] = AttachmentInfo{
-			Volume:      one.Volume,
-			Storage:     one.Storage,
-			Assigned:    one.Assigned,
-			Machine:     one.Machine,
-			Attached:    one.Attached,
-			DeviceName:  one.DeviceName,
-			Size:        one.Size,
-			FileSystem:  one.FileSystem,
-			Provisioned: one.Provisioned,
-		}
-	}
-	return result
-}
-
-func (c *VolumeListCommand) formatTabular(value interface{}) ([]byte, error) {
-	disks, valueConverted := value.([]VolumeInfo)
-	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", disks, value)
-	}
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "VOLUME\tATTACHED\tMACHINE\tDEVICE NAME\tSIZE\n")
-	for _, disk := range disks {
-		for _, attachment := range disk.Attachments {
-			fmt.Fprintf(tw, "%s\t%t\t%s\t%s\t%d\n",
-				attachment.Volume,
-				attachment.Attached,
-				attachment.Machine,
-				attachment.DeviceName,
-				attachment.Size,
-			)
-		}
-	}
-	tw.Flush()
-	return out.Bytes(), nil
 }

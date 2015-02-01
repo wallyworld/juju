@@ -4,13 +4,7 @@
 package storage
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
-	"text/tabwriter"
-
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -67,15 +61,8 @@ func (c *PoolListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": c.formatTabular,
+		"tabular": formatPoolListTabular,
 	})
-}
-
-// PoolInfo defines the serialization behaviour of the storage pool information.
-type PoolInfo struct {
-	Name   string                 `yaml:"name" json:"name"`
-	Type   string                 `yaml:"type" json:"type"`
-	Config map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
 }
 
 // Run implements Command.Run.
@@ -90,7 +77,7 @@ func (c *PoolListCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	output := c.convertFromAPIPools(result)
+	output := formatPoolInfo(result)
 	return c.out.Write(ctx, output)
 }
 
@@ -106,47 +93,4 @@ type PoolListAPI interface {
 
 func (c *PoolListCommand) getPoolListAPI() (PoolListAPI, error) {
 	return c.NewStorageAPI()
-}
-
-func (c *PoolListCommand) convertFromAPIPools(all []params.StoragePool) []PoolInfo {
-	var output []PoolInfo
-	for _, one := range all {
-		outInfo := PoolInfo{
-			Name:   one.Name,
-			Type:   one.Type,
-			Config: one.Config,
-		}
-		output = append(output, outInfo)
-	}
-	return output
-}
-
-func (c *PoolListCommand) formatTabular(value interface{}) ([]byte, error) {
-	pools, valueConverted := value.([]PoolInfo)
-	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", pools, value)
-	}
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "TYPE\tNAME\tCONFIG\n")
-	for _, pool := range pools {
-		traits := make([]string, len(pool.Config))
-		var i int
-		for key, value := range pool.Config {
-			traits[i] = fmt.Sprintf("%v=%v", key, value)
-			i++
-		}
-
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", pool.Type, pool.Name, strings.Join(traits, ","))
-	}
-	tw.Flush()
-	return out.Bytes(), nil
 }

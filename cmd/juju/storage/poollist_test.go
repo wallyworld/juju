@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -41,30 +42,78 @@ func (s *PoolListSuite) TestPoolList(c *gc.C) {
 		c,
 		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
 		// Default format is yaml
-		`- name: testName
+		`abc:
+  type: testType
+  config:
+    one: true
+    three: maybe
+    two: well
+testName0:
   type: a
   config:
     one: true
     three: maybe
     two: well
-- name: testName
+testName1:
   type: b
   config:
     one: true
     three: maybe
     two: well
-- name: xyz
+xyz:
   type: testType
   config:
     one: true
     three: maybe
     two: well
-- name: abc
-  type: testType
+`,
+	)
+}
+
+func (s *PoolListSuite) TestPoolListNoType(c *gc.C) {
+	s.mockAPI.emptyType = true
+	s.assertValidList(
+		c,
+		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
+		// Default format is yaml
+		`abc:
   config:
     one: true
     three: maybe
     two: well
+testName0:
+  config:
+    one: true
+    three: maybe
+    two: well
+testName1:
+  config:
+    one: true
+    three: maybe
+    two: well
+xyz:
+  config:
+    one: true
+    three: maybe
+    two: well
+`,
+	)
+}
+
+func (s *PoolListSuite) TestPoolListNoCfg(c *gc.C) {
+	s.mockAPI.emptyConfig = true
+	s.assertValidList(
+		c,
+		[]string{"--type", "a", "--type", "b", "--name", "xyz", "--name", "abc"},
+		// Default format is yaml
+		`abc:
+  type: testType
+testName0:
+  type: a
+testName1:
+  type: b
+xyz:
+  type: testType
 `,
 	)
 }
@@ -75,16 +124,8 @@ func (s *PoolListSuite) TestPoolListJSON(c *gc.C) {
 		[]string{"--type", "a", "--type", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "json"},
-		`[`+
-			`{"name":"testName","type":"a",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"testName","type":"b",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"xyz","type":"testType",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}},`+
-			`{"name":"abc","type":"testType",`+
-			`"config":{"one":true,"three":"maybe","two":"well"}}`+
-			"]\n",
+		`{"abc":{"type":"testType","config":{"one":true,"three":"maybe","two":"well"}},"testName0":{"type":"a","config":{"one":true,"three":"maybe","two":"well"}},"testName1":{"type":"b","config":{"one":true,"three":"maybe","two":"well"}},"xyz":{"type":"testType","config":{"one":true,"three":"maybe","two":"well"}}}
+`,
 	)
 }
 
@@ -94,13 +135,28 @@ func (s *PoolListSuite) TestPoolListTabular(c *gc.C) {
 		[]string{"--type", "a", "--type", "b",
 			"--name", "xyz", "--name", "abc",
 			"--format", "tabular"},
-		"TYPE      NAME      CONFIG\n"+
-			"a         testName  one=true,two=well,three=maybe\n"+
-			"b         testName  one=true,two=well,three=maybe\n"+
-			"testType  xyz       one=true,two=well,three=maybe\n"+
-			"testType  abc       one=true,two=well,three=maybe\n"+
-			"\n",
-	)
+		`
+NAME       TYPE      CONFIG                         
+abc        testType  one=true,two=well,three=maybe  
+testName0  a         one=true,two=well,three=maybe  
+testName1  b         one=true,two=well,three=maybe  
+xyz        testType  one=true,two=well,three=maybe  
+
+`[1:])
+}
+
+func (s *PoolListSuite) TestPoolListTabularSorted(c *gc.C) {
+	s.assertValidList(
+		c,
+		[]string{"--name", "myaw", "--name", "xyz", "--name", "abc",
+			"--format", "tabular"},
+		`
+NAME  TYPE      CONFIG                         
+abc   testType  one=true,two=well,three=maybe  
+myaw  testType  one=true,two=well,three=maybe  
+xyz   testType  one=true,two=well,three=maybe  
+
+`[1:])
 }
 
 func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string) {
@@ -112,6 +168,7 @@ func (s *PoolListSuite) assertValidList(c *gc.C, args []string, expected string)
 }
 
 type mockPoolListAPI struct {
+	emptyConfig, emptyType bool
 }
 
 func (s mockPoolListAPI) Close() error {
@@ -122,11 +179,11 @@ func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.Sto
 	results := make([]params.StoragePool, len(types)+len(names))
 	var index int
 	addInstance := func(aname, atype string) {
-		results[index] = createTestPoolInstance(aname, atype)
+		results[index] = s.createTestPoolInstance(aname, atype)
 		index++
 	}
-	for _, atype := range types {
-		addInstance("testName", atype)
+	for i, atype := range types {
+		addInstance(fmt.Sprintf("testName%v", i), atype)
 	}
 	for _, aname := range names {
 		addInstance(aname, "testType")
@@ -134,10 +191,17 @@ func (s mockPoolListAPI) ListPools(types []string, names []string) ([]params.Sto
 	return results, nil
 }
 
-func createTestPoolInstance(aname, atype string) params.StoragePool {
+func (s mockPoolListAPI) createTestPoolInstance(aname, atype string) params.StoragePool {
+	if s.emptyType {
+		atype = ""
+	}
+	cfg := make(map[string]interface{})
+	if !s.emptyConfig {
+		cfg = map[string]interface{}{"one": true, "two": "well", "three": "maybe"}
+	}
 	return params.StoragePool{
 		Name:   aname,
 		Type:   atype,
-		Config: map[string]interface{}{"one": true, "two": "well", "three": "maybe"},
+		Config: cfg,
 	}
 }

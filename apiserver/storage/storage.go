@@ -254,11 +254,13 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 			return empty, false
 		}
 	}
+
+	size := attachment.Size()
 	one := params.VolumeAttachment{
 		Volume:      attachment.Disk().String(),
 		Machine:     names.NewMachineTag(attachment.Machine()).String(),
 		DeviceName:  attachment.DeviceName(),
-		Size:        attachment.Size(),
+		Size:        &size,
 		Storage:     names.NewStorageTag(attachment.Storage()).String(),
 		Assigned:    attachment.Assigned(),
 		Attached:    attachment.Attached(),

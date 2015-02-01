@@ -214,7 +214,7 @@ func runPoolList(c *gc.C, args []string) *cmd.Context {
 func (s *cmdStorageSuite) TestListPoolsCmdStack(c *gc.C) {
 	context := runPoolList(c, []string{""})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
-	expected := "- name: block  type: tsttype  config:    it: works"
+	expected := "block:  type: tsttype  config:    it: works"
 	c.Assert(obtained, gc.Equals, expected)
 }
 
@@ -244,16 +244,13 @@ func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 
 	context := runVolumeList(c, []string{"--format", "yaml"})
 
-	expected := "" +
-		"- attachments:\n" +
-		"  - volume: disk-0\n" +
-		"    storage: storage-data-0\n" +
-		"    assigned: true\n" +
-		"    machine: machine-0\n" +
-		"    attached: false\n" +
-		"    device-name: \"\"\n" +
-		"    size: 0\n" +
-		"    file-system: \"\"\n" +
-		"    provisioned: false\n"
+	expected := `
+- attachments:
+    disk-0:
+      storage: data
+      assigned: true
+      machine: "0"
+      size: 0
+`[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
