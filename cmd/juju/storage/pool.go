@@ -40,7 +40,7 @@ type PoolCommandBase struct {
 
 // PoolInfo defines the serialization behaviour of the storage pool information.
 type PoolInfo struct {
-	Type   string                 `yaml:"type" json:"type"`
+	Type   string                 `yaml:"type,omitempty" json:"type,omitempty"`
 	Config map[string]interface{} `yaml:"config,omitempty" json:"config,omitempty"`
 }
 

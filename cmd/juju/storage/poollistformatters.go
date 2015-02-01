@@ -39,7 +39,7 @@ func formatPoolListTabular(value interface{}) ([]byte, error) {
 	for name := range pools {
 		poolNames = append(poolNames, name)
 	}
-	sort.Strings(byPoolName(poolNames))
+	sort.Strings(poolNames)
 	for _, name := range poolNames {
 		pool := pools[name]
 		traits := make([]string, len(pool.Config))
@@ -53,18 +53,4 @@ func formatPoolListTabular(value interface{}) ([]byte, error) {
 	tw.Flush()
 
 	return out.Bytes(), nil
-}
-
-type byPoolName []string
-
-func (s byPoolName) Len() int {
-	return len(s)
-}
-
-func (s byPoolName) Swap(a, b int) {
-	s[a], s[b] = s[b], s[a]
-}
-
-func (s byPoolName) Less(a, b int) bool {
-	return s[a] < s[b]
 }

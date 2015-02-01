@@ -45,14 +45,14 @@ type VolumeInfo struct {
 }
 
 type AttachmentInfo struct {
-	Storage     string  `yaml:"storage" json:"storage"`
-	Assigned    bool    `yaml:"assigned" json:"assigned"`
-	Machine     string  `yaml:"machine" json:"machine"`
-	Attached    bool    `yaml:"attached" json:"attached"`
-	DeviceName  string  `yaml:"device-name" json:"device-name"`
-	Size        *uint64 `yaml:"size" json:"size"`
-	FileSystem  string  `yaml:"file-system" json:"file-system"`
-	Provisioned bool    `yaml:"provisioned" json:"provisioned"`
+	Storage     string  `yaml:"storage,omitempty" json:"storage,omitempty"`
+	Assigned    bool    `yaml:"assigned,omitempty" json:"assigned,omitempty"`
+	Machine     string  `yaml:"machine,omitempty" json:"machine,omitempty"`
+	Attached    bool    `yaml:"attached,omitempty" json:"attached,omitempty"`
+	DeviceName  string  `yaml:"device-name,omitempty" json:"device-name,omitempty"`
+	Size        *uint64 `yaml:"size,omitempty" json:"size,omitempty"`
+	FileSystem  string  `yaml:"file-system,omitempty" json:"file-system,omitempty"`
+	Provisioned bool    `yaml:"provisioned,omitempty" json:"provisioned,omitempty"`
 }
 
 func formatVolumeInfo(all []params.StorageVolume) ([]VolumeInfo, error) {

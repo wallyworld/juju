@@ -40,8 +40,7 @@ func formatVolumeListTabular(value interface{}) ([]byte, error) {
 		for tag := range oneVolume.Attachments {
 			volumeTags = append(volumeTags, tag)
 		}
-		sort.Strings(byVolumeTags(volumeTags))
-
+		sort.Strings(volumeTags)
 		for _, tag := range volumeTags {
 			attachment := oneVolume.Attachments[tag]
 			attachmentSize := "(unknown)"
@@ -54,18 +53,4 @@ func formatVolumeListTabular(value interface{}) ([]byte, error) {
 	tw.Flush()
 
 	return out.Bytes(), nil
-}
-
-type byVolumeTags []string
-
-func (s byVolumeTags) Len() int {
-	return len(s)
-}
-
-func (s byVolumeTags) Swap(a, b int) {
-	s[a], s[b] = s[b], s[a]
-}
-
-func (s byVolumeTags) Less(a, b int) bool {
-	return s[a] < s[b]
 }
