@@ -33,21 +33,44 @@ func formatVolumeListTabular(value interface{}) ([]byte, error) {
 		}
 		fmt.Fprintln(tw)
 	}
-	p("VOLUME\tATTACHED\tMACHINE\tDEVICE NAME\tSIZE")
+	p("MACHINE\tDEVICE NAME\tVOLUME\tATTACHED\tSIZE")
 
-	var volumeTags []string
 	for _, oneVolume := range volumes {
-		for tag := range oneVolume.Attachments {
-			volumeTags = append(volumeTags, tag)
+		var machines []string
+		for m := range oneVolume.Attachments {
+			machines = append(machines, m)
 		}
-		sort.Strings(volumeTags)
-		for _, tag := range volumeTags {
-			attachment := oneVolume.Attachments[tag]
-			attachmentSize := "(unknown)"
-			if attachment.Size != nil {
-				attachmentSize = humanize.IBytes(*attachment.Size * humanize.MiByte)
+		// Order by machines
+		sort.Strings(machines)
+		for _, aMachine := range machines {
+
+			devices := oneVolume.Attachments[aMachine]
+			var deviceNames []string
+			for d := range devices {
+				deviceNames = append(deviceNames, d)
 			}
-			p(tag, attachment.Attached, attachment.Machine, attachment.DeviceName, attachmentSize)
+			// then order by device names
+			sort.Strings(deviceNames)
+			for _, aDeviceName := range deviceNames {
+
+				volumeNames := devices[aDeviceName]
+				var orderedNames []string
+				for volumeName := range volumeNames {
+					orderedNames = append(orderedNames, volumeName)
+				}
+				// then order by volume name
+				sort.Strings(orderedNames)
+
+				for _, vname := range orderedNames {
+					attachment := volumeNames[vname]
+					attachmentSize := "(unknown)"
+					if attachment.Size != nil {
+						attachmentSize = humanize.IBytes(*attachment.Size * humanize.MiByte)
+					}
+					p(aMachine, aDeviceName, vname, attachment.Attached, attachmentSize)
+				}
+			}
+
 		}
 	}
 	tw.Flush()

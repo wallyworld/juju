@@ -17,15 +17,13 @@ type VolumeCommandBase struct {
 
 // VolumeInfo defines the serialization behaviour of the storage volume (currently, disk) information.
 type VolumeInfo struct {
-	Attachments map[string]AttachmentInfo
+	Attachments map[string]map[string]map[string]AttachmentInfo
 }
 
 type AttachmentInfo struct {
 	Storage     string  `yaml:"storage,omitempty" json:"storage,omitempty"`
 	Assigned    bool    `yaml:"assigned,omitempty" json:"assigned,omitempty"`
-	Machine     string  `yaml:"machine,omitempty" json:"machine,omitempty"`
 	Attached    bool    `yaml:"attached,omitempty" json:"attached,omitempty"`
-	DeviceName  string  `yaml:"device-name,omitempty" json:"device-name,omitempty"`
 	Size        *uint64 `yaml:"size,omitempty" json:"size,omitempty"`
 	FileSystem  string  `yaml:"file-system,omitempty" json:"file-system,omitempty"`
 	Provisioned bool    `yaml:"provisioned,omitempty" json:"provisioned,omitempty"`
@@ -45,8 +43,8 @@ func formatVolumeInfo(all []params.StorageVolume) ([]VolumeInfo, error) {
 	return result, nil
 }
 
-func formatAttachmentInfo(all []params.VolumeAttachment) (map[string]AttachmentInfo, error) {
-	result := make(map[string]AttachmentInfo)
+func formatAttachmentInfo(all []params.VolumeAttachment) (map[string]map[string]map[string]AttachmentInfo, error) {
+	result := map[string]map[string]map[string]AttachmentInfo{}
 	for _, one := range all {
 		// TODO (anastasiamac 2015-01-31) add similar logic for volume tags
 		// when available
@@ -54,25 +52,45 @@ func formatAttachmentInfo(all []params.VolumeAttachment) (map[string]AttachmentI
 		if one.Storage != "" {
 			storageTag, err := names.ParseStorageTag(one.Storage)
 			if err != nil {
-				return nil, errors.Annotate(err, "invalid storage tag")
+				return result, errors.Annotate(err, "invalid storage tag")
 			}
 			storageName, _ = names.StorageName(storageTag.Id())
 		}
+
 		machineTag, err := names.ParseTag(one.Machine)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid machine tag")
+			return result, errors.Annotate(err, "invalid machine tag")
 		}
+		machineId := machineTag.Id()
 
-		result[one.Volume] = AttachmentInfo{
+		deviceName := one.DeviceName
+		volumeName := one.Volume
+
+		ai := AttachmentInfo{
 			Storage:     storageName,
 			Assigned:    one.Assigned,
-			Machine:     machineTag.Id(),
 			Attached:    one.Attached,
-			DeviceName:  one.DeviceName,
 			Size:        one.Size,
 			FileSystem:  one.FileSystem,
 			Provisioned: one.Provisioned,
 		}
+
+		// group 1st by machine
+		machineColl, ok := result[machineId]
+		if !ok {
+			machineColl = map[string]map[string]AttachmentInfo{}
+			result[machineId] = machineColl
+		}
+
+		// then group by device name
+		deviceColl, ok := machineColl[deviceName]
+		if !ok {
+			deviceColl = map[string]AttachmentInfo{}
+			machineColl[deviceName] = deviceColl
+		}
+
+		// then group by volume name
+		deviceColl[volumeName] = ai
 	}
 	return result, nil
 }

@@ -57,15 +57,15 @@ func (s *VolumeListSuite) TestVolumeListYaml(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      size: 1024
-      file-system: fstype
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          attached: true
+          size: 1024
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -77,14 +77,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoProvisioned(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      size: 1024
-      file-system: fstype
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          attached: true
+          size: 1024
+          file-system: fstype
 `[1:],
 	)
 }
@@ -96,14 +96,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoFileSystem(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      size: 1024
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          attached: true
+          size: 1024
+          provisioned: true
 `[1:],
 	)
 }
@@ -115,14 +115,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoSize(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      file-system: fstype
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          attached: true
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -134,14 +134,15 @@ func (s *VolumeListSuite) TestVolumeListYamlNoDeviceName(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      attached: true
-      size: 1024
-      file-system: fstype
-      provisioned: true
+    "2":
+      "":
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          attached: true
+          size: 1024
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -153,14 +154,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoAttached(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      assigned: true
-      machine: "2"
-      device-name: testdevice
-      size: 1024
-      file-system: fstype
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          assigned: true
+          size: 1024
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -172,14 +173,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoAssigned(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      storage: shared-fs
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      size: 1024
-      file-system: fstype
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          storage: shared-fs
+          attached: true
+          size: 1024
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -191,14 +192,14 @@ func (s *VolumeListSuite) TestVolumeListYamlNoStorage(c *gc.C) {
 		[]string{"2", "--format", "yaml"},
 		`
 - attachments:
-    zdisktag:
-      assigned: true
-      machine: "2"
-      attached: true
-      device-name: testdevice
-      size: 1024
-      file-system: fstype
-      provisioned: true
+    "2":
+      testdevice:
+        zdisktag:
+          assigned: true
+          attached: true
+          size: 1024
+          file-system: fstype
+          provisioned: true
 `[1:],
 	)
 }
@@ -208,7 +209,7 @@ func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 		c,
 		[]string{"2", "--format", "json"},
 		`
-[{"Attachments":{"zdisktag":{"storage":"shared-fs","assigned":true,"machine":"2","attached":true,"device-name":"testdevice","size":1024,"file-system":"fstype","provisioned":true}}}]
+[{"Attachments":{"2":{"testdevice":{"zdisktag":{"storage":"shared-fs","assigned":true,"attached":true,"size":1024,"file-system":"fstype","provisioned":true}}}}}]
 `[1:],
 	)
 }
@@ -219,8 +220,8 @@ func (s *VolumeListSuite) TestVolumeListTabular(c *gc.C) {
 		[]string{"2"},
 		// Default format is tabular
 		`
-VOLUME    ATTACHED  MACHINE  DEVICE NAME  SIZE    
-zdisktag  true      2        testdevice   1.0GiB  
+MACHINE  DEVICE NAME  VOLUME    ATTACHED  SIZE    
+2        testdevice   zdisktag  true      1.0GiB  
 
 `[1:],
 	)
@@ -232,9 +233,42 @@ func (s *VolumeListSuite) TestVolumeListTabularSort(c *gc.C) {
 		[]string{"2", "3"},
 		// Default format is tabular
 		`
-VOLUME    ATTACHED  MACHINE  DEVICE NAME  SIZE    
-mdisktag  true      3        testdevice   1.0GiB  
-zdisktag  true      2        testdevice   1.0GiB  
+MACHINE  DEVICE NAME  VOLUME    ATTACHED  SIZE    
+2        testdevice   zdisktag  true      1.0GiB  
+3        testdevice   mdisktag  true      1.0GiB  
+
+`[1:],
+	)
+}
+
+func (s *VolumeListSuite) TestVolumeListTabularSortByMachine(c *gc.C) {
+	s.mockAPI.bulk = true
+	s.assertValidList(
+		c,
+		[]string{"2", "3"},
+		// Default format is tabular
+		`
+MACHINE  DEVICE NAME  VOLUME   ATTACHED  SIZE    
+0        xvda1        disk-0   false     1.0GiB  
+0        xvda3        disk-1   false     1.0GiB  
+0        xvdb         disk-2   false     1.0GiB  
+1        xvda1        disk-3   false     1.0GiB  
+1        xvda3        disk-4   false     1.0GiB  
+1        xvdb         disk-5   false     1.0GiB  
+2        loop0        disk-6   false     1.0GiB  
+2        xvda1        disk-8   false     1.0GiB  
+2        xvda3        disk-9   false     1.0GiB  
+2        xvdb         disk-10  false     1.0GiB  
+3        xvda1        disk-11  false     1.0GiB  
+3        xvda3        disk-12  false     1.0GiB  
+3        xvdb         disk-13  false     1.0GiB  
+3        xvdf1        disk-7   false     1.0GiB  
+4        xvda1        disk-14  false     1.0GiB  
+4        xvda3        disk-15  false     1.0GiB  
+4        xvdb         disk-16  false     1.0GiB  
+5        xvda1        disk-17  false     1.0GiB  
+5        xvda3        disk-18  false     1.0GiB  
+5        xvdb         disk-19  false     1.0GiB  
 
 `[1:],
 	)
@@ -252,6 +286,8 @@ type mockVolumeListAPI struct {
 	fillAssigned, fillAttached, fillDeviceName, fillSize, fillFileSystem, fillProvisioned, fillStorage bool
 	// TODO(anastasiamac 2015-02-01) ATM , this can only create
 	// multiple attachments per volume.
+
+	bulk bool
 }
 
 func (s mockVolumeListAPI) Close() error {
@@ -266,6 +302,12 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.StorageVolum
 }
 
 func (s mockVolumeListAPI) createTestVolumeInstance(machines []string) params.StorageVolume {
+	if s.bulk {
+		return params.StorageVolume{
+			Attachments: bulkCreateAttachmentsForSort(),
+		}
+	}
+
 	// want to have out-of-lexical order volume names for machines
 	prefix := map[string]string{
 		"0": "w",
@@ -281,7 +323,36 @@ func (s mockVolumeListAPI) createTestVolumeInstance(machines []string) params.St
 	return params.StorageVolume{
 		Attachments: attachments,
 	}
+
 }
+
+func bulkCreateAttachmentsForSort() []params.VolumeAttachment {
+	size := uint64(1024)
+	result := []params.VolumeAttachment{
+		{Volume: "disk-0", Assigned: true, Machine: "machine-0", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-1", Assigned: true, Machine: "machine-0", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-2", Assigned: true, Machine: "machine-0", DeviceName: "xvdb", Size: &size},
+		{Volume: "disk-3", Assigned: true, Machine: "machine-1", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-4", Assigned: true, Machine: "machine-1", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-5", Assigned: true, Machine: "machine-1", DeviceName: "xvdb", Size: &size},
+		{Volume: "disk-10", Assigned: true, Machine: "machine-2", DeviceName: "xvdb", Size: &size},
+		{Volume: "disk-6", Assigned: true, Machine: "machine-2", DeviceName: "loop0", Size: &size},
+		{Volume: "disk-8", Assigned: true, Machine: "machine-2", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-9", Assigned: true, Machine: "machine-2", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-11", Assigned: true, Machine: "machine-3", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-12", Assigned: true, Machine: "machine-3", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-13", Assigned: true, Machine: "machine-3", DeviceName: "xvdb", Size: &size},
+		{Volume: "disk-7", Assigned: true, Machine: "machine-3", DeviceName: "xvdf1", Size: &size},
+		{Volume: "disk-14", Assigned: true, Machine: "machine-4", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-15", Assigned: true, Machine: "machine-4", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-16", Assigned: true, Machine: "machine-4", DeviceName: "xvdb", Size: &size},
+		{Volume: "disk-17", Assigned: true, Machine: "machine-5", DeviceName: "xvda1", Size: &size},
+		{Volume: "disk-18", Assigned: true, Machine: "machine-5", DeviceName: "xvda3", Size: &size},
+		{Volume: "disk-19", Assigned: true, Machine: "machine-5", DeviceName: "xvdb", Size: &size},
+	}
+	return result
+}
+
 func (s mockVolumeListAPI) createTestAttachmentInstance(amachine, prefix string) params.VolumeAttachment {
 	result := params.VolumeAttachment{
 		Volume:  prefix + "disktag",
