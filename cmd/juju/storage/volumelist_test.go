@@ -30,7 +30,9 @@ func (s *VolumeListSuite) SetUpTest(c *gc.C) {
 		fillDeviceName:  true,
 		fillSize:        true,
 		fillFileSystem:  true,
-		fillProvisioned: true}
+		fillProvisioned: true,
+		fillStorage:     true,
+	}
 	s.PatchValue(storage.GetVolumeListAPI, func(c *storage.VolumeListCommand) (storage.VolumeListAPI, error) {
 		return s.mockAPI, nil
 	})
@@ -182,6 +184,25 @@ func (s *VolumeListSuite) TestVolumeListYamlNoAssigned(c *gc.C) {
 	)
 }
 
+func (s *VolumeListSuite) TestVolumeListYamlNoStorage(c *gc.C) {
+	s.mockAPI.fillStorage = false
+	s.assertValidList(
+		c,
+		[]string{"2", "--format", "yaml"},
+		`
+- attachments:
+    zdisktag:
+      assigned: true
+      machine: "2"
+      attached: true
+      device-name: testdevice
+      size: 1024
+      file-system: fstype
+      provisioned: true
+`[1:],
+	)
+}
+
 func (s *VolumeListSuite) TestVolumeListJSON(c *gc.C) {
 	s.assertValidList(
 		c,
@@ -228,8 +249,7 @@ func (s *VolumeListSuite) assertValidList(c *gc.C, args []string, expected strin
 }
 
 type mockVolumeListAPI struct {
-	fillAssigned, fillAttached, fillDeviceName, fillSize, fillFileSystem, fillProvisioned bool
-	//	fillAssigned, fillAttached, fillDeviceName, fillSize, fillFileSystem, fillProvisioned bool
+	fillAssigned, fillAttached, fillDeviceName, fillSize, fillFileSystem, fillProvisioned, fillStorage bool
 	// TODO(anastasiamac 2015-02-01) ATM , this can only create
 	// multiple attachments per volume.
 }
@@ -265,8 +285,10 @@ func (s mockVolumeListAPI) createTestVolumeInstance(machines []string) params.St
 func (s mockVolumeListAPI) createTestAttachmentInstance(amachine, prefix string) params.VolumeAttachment {
 	result := params.VolumeAttachment{
 		Volume:  prefix + "disktag",
-		Storage: "storage-shared-fs-0",
 		Machine: "machine-" + amachine,
+	}
+	if s.fillStorage {
+		result.Storage = "storage-shared-fs-0"
 	}
 	if s.fillAssigned {
 		result.Assigned = true
