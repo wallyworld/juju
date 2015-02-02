@@ -257,8 +257,8 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 
 	size := attachment.Size()
 
-	storageTag := names.StorageTagKind + "-unknown/0"
-	if names.IsValidStorage(attachment.Storage()) {
+	storageTag := ""
+	if attachment.Storage() != "" {
 		storageTag = names.NewStorageTag(attachment.Storage()).String()
 	}
 	one := params.VolumeAttachment{

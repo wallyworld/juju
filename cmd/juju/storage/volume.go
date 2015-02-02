@@ -74,11 +74,14 @@ func formatAttachmentInfo(all []params.VolumeAttachment) (map[string]AttachmentI
 	for _, one := range all {
 		// TODO (anastasiamac 2015-01-31) add similar logic for volume tags
 		// when available
-		storageTag, err := names.ParseStorageTag(one.Storage)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid storage tag")
+		storageName := ""
+		if one.Storage != "" {
+			storageTag, err := names.ParseStorageTag(one.Storage)
+			if err != nil {
+				return nil, errors.Annotate(err, "invalid storage tag")
+			}
+			storageName, _ = names.StorageName(storageTag.Id())
 		}
-		storageName, _ := names.StorageName(storageTag.Id())
 		machineTag, err := names.ParseTag(one.Machine)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid machine tag")
