@@ -14,7 +14,7 @@ import (
 
 // formatListTabular returns a tabular summary of storage instances.
 func formatListTabular(value interface{}) ([]byte, error) {
-	storageInfo, ok := value.(map[string]StorageInfo)
+	storageInfo, ok := value.(map[string]map[string]StorageInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", storageInfo, value)
 	}
@@ -27,31 +27,42 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		}
 		fmt.Fprintln(tw)
 	}
-
-	storageIds := make([]string, 0, len(storageInfo))
-	for storageId := range storageInfo {
-		storageIds = append(storageIds, storageId)
-	}
-	sort.Strings(byStorageId(storageIds))
-
 	p("[Storage]")
-	p("ID\tOWNER\tSIZE\tLOCATION")
-	for _, storageId := range storageIds {
-		// TODO we should be listing attachments here,
-		// not storage instances. This needs to change
-		// when the model does. For now we are assume
-		// all owners are units (which is currently the
-		// case.)
-		info := storageInfo[storageId]
-		location := "-"
-		if info.Location != nil {
-			location = *info.Location
+	p("OWNER\tID\tSIZE\tLOCATION")
+
+	// First sort by owners
+	owners := make([]string, 0, len(storageInfo))
+	for order := range storageInfo {
+		owners = append(owners, order)
+	}
+	sort.Strings(owners)
+	for _, owner := range owners {
+		all := storageInfo[owner]
+
+		// Then sort by storage ids
+		storageIds := make([]string, 0, len(all))
+		for anId := range all {
+			storageIds = append(storageIds, anId)
 		}
-		totalSize := "(unknown)"
-		if info.TotalSize != nil {
-			totalSize = humanize.IBytes(*info.TotalSize * humanize.MiByte)
+		sort.Strings(byStorageId(storageIds))
+
+		for _, storageId := range storageIds {
+			// TODO we should be listing attachments here,
+			// not storage instances. This needs to change
+			// when the model does. For now we are assume
+			// all owners are units (which is currently the
+			// case.)
+			info := all[storageId]
+			location := "-"
+			if info.Location != nil {
+				location = *info.Location
+			}
+			totalSize := "(unknown)"
+			if info.TotalSize != nil {
+				totalSize = humanize.IBytes(*info.TotalSize * humanize.MiByte)
+			}
+			p(owner, storageId, totalSize, location)
 		}
-		p(storageId, info.Owner, totalSize, location)
 	}
 	tw.Flush()
 

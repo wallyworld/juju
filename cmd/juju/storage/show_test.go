@@ -43,25 +43,30 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		[]string{"shared-fs/0"},
 		// Default format is yaml
 		`
-shared-fs/0:
-  storage: shared-fs
-  owner: postgresql/0
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
+postgresql/0:
+  shared-fs/0:
+    storage: shared-fs
+    location: witty
+    available-size: 30
+    total-size: 100
+    tags:
+    - tests
+    - well
+    - maybe
 `[1:],
 	)
+}
+
+func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
+	_, err := runShow(c, []string{"foo"})
+	c.Assert(err, gc.ErrorMatches, ".*invalid storage id foo.*")
 }
 
 func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"shared-fs/0":{"storage":"shared-fs","owner":"postgresql/0","location":"witty","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}}
+		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","location":"witty","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}}}
 `,
 	)
 }
@@ -71,26 +76,25 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
 		`
-db-dir/1000:
-  storage: db-dir
-  owner: postgresql/0
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
-shared-fs/0:
-  storage: shared-fs
-  owner: postgresql/0
-  location: witty
-  available-size: 30
-  total-size: 100
-  tags:
-  - tests
-  - well
-  - maybe
+postgresql/0:
+  db-dir/1000:
+    storage: db-dir
+    location: witty
+    available-size: 30
+    total-size: 100
+    tags:
+    - tests
+    - well
+    - maybe
+  shared-fs/0:
+    storage: shared-fs
+    location: witty
+    available-size: 30
+    total-size: 100
+    tags:
+    - tests
+    - well
+    - maybe
 `[1:],
 	)
 }
