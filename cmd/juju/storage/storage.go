@@ -97,9 +97,8 @@ func formatStorageInfo(all []params.StorageInstance) (map[string]map[string]Stor
 			Tags:          one.Tags,
 		}
 		owner := ownerTag.Id()
-		ownerColl := output[owner]
-
-		if len(ownerColl) == 0 {
+		ownerColl, ok := output[owner]
+		if !ok {
 			ownerColl = map[string]StorageInfo{}
 			output[owner] = ownerColl
 		}
