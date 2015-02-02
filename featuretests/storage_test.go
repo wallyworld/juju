@@ -226,7 +226,16 @@ func runPoolCreate(c *gc.C, args []string) *cmd.Context {
 
 func (s *cmdStorageSuite) TestCreatePoolCmdStack(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, []string{pname, tstType, "smth=one"})
+	context := runPoolCreate(c, []string{tstType, pname, "smth=one"})
+	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
+	expected := ""
+	c.Assert(obtained, gc.Equals, expected)
+	assertPoolByName(c, s.State, pname)
+}
+
+func (s *cmdStorageSuite) TestCreatePoolWithQuotesCmdStack(c *gc.C) {
+	pname := `"ftPool"`
+	context := runPoolCreate(c, []string{tstType, pname, "smth=one"})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)

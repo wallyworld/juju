@@ -52,19 +52,19 @@ type PoolCreateCommand struct {
 // Init implements Command.Init.
 func (c *PoolCreateCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no pool name specified")
+		return fmt.Errorf("no provider type for pool specified")
 	}
 
 	if len(args) == 1 {
-		return fmt.Errorf("no provider type for pool specified")
+		return fmt.Errorf("no pool name specified")
 	}
 
 	if len(args) == 2 {
 		return fmt.Errorf("no pool config specified")
 	}
 
-	c.pname = args[0]
-	c.ptype = args[1]
+	c.ptype = args[0]
+	c.pname = args[1]
 
 	options, err := keyvalues.Parse(args[2:], true)
 	if err != nil {
