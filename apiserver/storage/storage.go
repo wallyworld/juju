@@ -256,12 +256,17 @@ func filterAttachment(machineSet set.Strings, attachment volume.Attachment) (par
 	}
 
 	size := attachment.Size()
+
+	storageTag := names.StorageTagKind + "-unknown/0"
+	if names.IsValidStorage(attachment.Storage()) {
+		storageTag = names.NewStorageTag(attachment.Storage()).String()
+	}
 	one := params.VolumeAttachment{
 		Volume:      attachment.Disk().String(),
 		Machine:     names.NewMachineTag(attachment.Machine()).String(),
 		DeviceName:  attachment.DeviceName(),
 		Size:        &size,
-		Storage:     names.NewStorageTag(attachment.Storage()).String(),
+		Storage:     storageTag,
 		Assigned:    attachment.Assigned(),
 		Attached:    attachment.Attached(),
 		FileSystem:  attachment.FilesystemType(),
