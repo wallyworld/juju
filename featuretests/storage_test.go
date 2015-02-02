@@ -246,11 +246,12 @@ func (s *cmdStorageSuite) TestListVolumeCmdStack(c *gc.C) {
 
 	expected := `
 - attachments:
-    disk-0:
-      storage: data
-      assigned: true
-      machine: "0"
-      size: 0
+    "0":
+      "":
+        disk-0:
+          storage: data
+          assigned: true
+          size: 0
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
