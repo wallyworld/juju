@@ -51,21 +51,22 @@ type PoolCreateCommand struct {
 
 // Init implements Command.Init.
 func (c *PoolCreateCommand) Init(args []string) (err error) {
-	if c.ptype == "" {
-		return fmt.Errorf("no provider type for pool specified")
-	}
-
 	if len(args) == 0 {
 		return fmt.Errorf("no pool name specified")
 	}
 
 	if len(args) == 1 {
+		return fmt.Errorf("no provider type for pool specified")
+	}
+
+	if len(args) == 2 {
 		return fmt.Errorf("no pool config specified")
 	}
 
 	c.pname = args[0]
+	c.ptype = args[1]
 
-	options, err := keyvalues.Parse(args[1:], true)
+	options, err := keyvalues.Parse(args[2:], true)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (c *PoolCreateCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *PoolCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-pool",
 		Purpose: "create storage pool",
 		Doc:     PoolCreateCommandDoc,
 	}
@@ -89,8 +90,6 @@ func (c *PoolCreateCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *PoolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
-
-	f.StringVar(&c.ptype, "t", "", "provider type for storage pool")
 }
 
 // Run implements Command.Run.

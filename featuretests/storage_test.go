@@ -226,7 +226,7 @@ func runPoolCreate(c *gc.C, args []string) *cmd.Context {
 
 func (s *cmdStorageSuite) TestCreatePoolCmdStack(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, []string{"-t", tstType, pname, "smth=one"})
+	context := runPoolCreate(c, []string{pname, tstType, "smth=one"})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)

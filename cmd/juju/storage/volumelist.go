@@ -39,7 +39,7 @@ func (c *VolumeListCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *VolumeListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "list-volumes",
 		Purpose: "list storage volumes",
 		Doc:     VolumeListCommandDoc,
 	}
