@@ -28,7 +28,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("ID\tOWNER\tSIZE\tLOCATION")
+	p("OWNER\tID\tSIZE\tLOCATION")
 
 	// First sort by owners
 	owners := make([]string, 0, len(storageInfo))
@@ -61,7 +61,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 			if info.TotalSize != nil {
 				totalSize = humanize.IBytes(*info.TotalSize * humanize.MiByte)
 			}
-			p(storageId, owner, totalSize, location)
+			p(owner, storageId, totalSize, location)
 		}
 	}
 	tw.Flush()
