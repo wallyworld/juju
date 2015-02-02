@@ -35,23 +35,23 @@ func runPoolCreate(c *gc.C, args []string) (*cmd.Context, error) {
 	return testing.RunCommand(c, envcmd.Wrap(&storage.PoolCreateCommand{}), args...)
 }
 
-func (s *PoolCreateSuite) TestPoolCreateNameMandatory(c *gc.C) {
-	_, err := runPoolCreate(c, []string{"-t", "sunshine"})
-	c.Check(err, gc.ErrorMatches, "no pool name specified")
-}
-
 func (s *PoolCreateSuite) TestPoolCreateTypeMandatory(c *gc.C) {
-	_, err := runPoolCreate(c, []string{""})
+	_, err := runPoolCreate(c, nil)
 	c.Check(err, gc.ErrorMatches, "no provider type for pool specified")
 }
 
+func (s *PoolCreateSuite) TestPoolCreateNameMandatory(c *gc.C) {
+	_, err := runPoolCreate(c, []string{"sunshine"})
+	c.Check(err, gc.ErrorMatches, "no pool name specified")
+}
+
 func (s *PoolCreateSuite) TestPoolCreateConfigMandatory(c *gc.C) {
-	_, err := runPoolCreate(c, []string{"-t", "sunshine", "lollypop"})
+	_, err := runPoolCreate(c, []string{"sunshine", "lollypop"})
 	c.Check(err, gc.ErrorMatches, "no pool config specified")
 }
 
 func (s *PoolCreateSuite) TestPoolCreate(c *gc.C) {
-	_, err := runPoolCreate(c, []string{"-t", "sunshine", "lollypop", "something=too", "another=one"})
+	_, err := runPoolCreate(c, []string{"sunshine", "lollypop", "something=too", "another=one"})
 	c.Check(err, jc.ErrorIsNil)
 }
 
