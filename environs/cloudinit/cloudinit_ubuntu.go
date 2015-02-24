@@ -131,7 +131,6 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	}
 
 	AddAptCommands(
-		w.mcfg.Series,
 		w.mcfg.AptProxySettings,
 		w.mcfg.AptMirror,
 		w.conf,

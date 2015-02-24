@@ -9,7 +9,6 @@ import (
 	"net"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -186,7 +185,6 @@ const NonceFile = "nonce.txt"
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy and mirror settings if there are any.
 func AddAptCommands(
-	series string,
 	proxySettings proxy.Settings,
 	aptMirror string,
 	c *cloudinit.Config,
@@ -209,26 +207,15 @@ func AddAptCommands(
 	// If we're not doing an update, adding these packages is
 	// meaningless.
 	if addUpdateScripts {
-		requiredPackages := []string{
-			"curl",
-			"cpu-checker",
-			// TODO(axw) 2014-07-02 #1277359
-			// Don't install bridge-utils in cloud-init;
-			// leave it to the networker worker.
-			"bridge-utils",
-			"rsyslog-gnutls",
-			"cloud-utils",
-			"cloud-image-utils",
-		}
-
-		// The required packages need to come from the correct repo.
-		// For precise, that might require an explicit --target-release parameter.
-		// Even though GetPreparePackages() can work with a slice of packages, we
-		// process one at a time or else cloud init scripts can get messed up on MAAS.
-		for _, pkg := range requiredPackages {
-			aptGetInstallCommandArgs := apt.GetPreparePackages([]string{pkg}, series)[0]
-			c.AddPackage(strings.Join(aptGetInstallCommandArgs, " "))
-		}
+		c.AddPackage("curl")
+		c.AddPackage("cpu-checker")
+		// TODO(axw) 2014-07-02 #1277359
+		// Don't install bridge-utils in cloud-init;
+		// leave it to the networker worker.
+		c.AddPackage("bridge-utils")
+		c.AddPackage("rsyslog-gnutls")
+		c.AddPackage("cloud-utils")
+		c.AddPackage("cloud-image-utils")
 	}
 
 	// Write out the apt proxy settings
