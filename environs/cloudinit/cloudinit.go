@@ -223,9 +223,11 @@ func AddAptCommands(
 
 		// The required packages need to come from the correct repo.
 		// For precise, that might require an explicit --target-release parameter.
-		aptGetInstallCommandList := apt.GetPreparePackages(requiredPackages, series)
-		for _, cmds := range aptGetInstallCommandList {
-			c.AddPackage(strings.Join(cmds, " "))
+		// Even though GetPreparePackages() can work with a slice of packages, we
+		// process one at a time or else cloud init scripts can get messed up on MAAS.
+		for _, pkg := range requiredPackages {
+			aptGetInstallCommandArgs := apt.GetPreparePackages([]string{pkg}, series)[0]
+			c.AddPackage(strings.Join(aptGetInstallCommandArgs, " "))
 		}
 	}
 
