@@ -987,6 +987,11 @@ func (c *Config) PreferIPv6() bool {
 	return v
 }
 
+func (c *Config) ContainerMTU() int {
+	v, _ := c.defined["container-mtu"].(int)
+	return v
+}
+
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
@@ -1168,6 +1173,7 @@ var fields = schema.Fields{
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
 	"bootstrap-addresses-delay":  schema.ForceInt(),
+	"container-mtu":              schema.ForceInt(),
 	"test-mode":                  schema.Bool(),
 	"proxy-ssh":                  schema.Bool(),
 	LxcClone:                     schema.Bool(),
@@ -1225,6 +1231,7 @@ var alwaysOptional = schema.Defaults{
 	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 	PreventAllChangesKey:         DefaultPreventAllChanges,
+	"container-mtu":              -1,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1284,6 +1291,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
+		"container-mtu":              -1,
 		"proxy-ssh":                  true,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
@@ -1329,6 +1337,7 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
+	"container-mtu",
 	LxcClone,
 	"lxc-clone-aufs",
 	"syslog-port",

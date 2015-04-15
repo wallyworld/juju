@@ -243,6 +243,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
+	result.MTU = config.ContainerMTU()
 
 	return result, nil
 }

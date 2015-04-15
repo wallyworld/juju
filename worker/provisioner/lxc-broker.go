@@ -58,12 +58,18 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	machineId := args.MachineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		lxcLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice)
+	network := container.BridgeNetworkConfig(bridgeDevice, config.MTU)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -84,11 +90,6 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	args.MachineConfig.MachineContainerType = instance.LXC
 	args.MachineConfig.Tools = archTools[0]
 
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		lxcLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
-	}
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
 		config.ProviderType,

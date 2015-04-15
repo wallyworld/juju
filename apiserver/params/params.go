@@ -485,6 +485,7 @@ type ContainerConfig struct {
 	AptProxy                proxy.Settings
 	AptMirror               string
 	PreferIPv6              bool
+	MTU                     int
 	*UpdateBehavior
 }
 

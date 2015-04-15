@@ -14,16 +14,17 @@ const (
 type NetworkConfig struct {
 	NetworkType string
 	Device      string
+	MTU         int
 }
 
 // BridgeNetworkConfig returns a valid NetworkConfig to use the specified
 // device as a network bridge for the container.
-func BridgeNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{BridgeNetwork, device}
+func BridgeNetworkConfig(device string, MTU int) *NetworkConfig {
+	return &NetworkConfig{BridgeNetwork, device, MTU}
 }
 
 // PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
 // device as the network device for the container.
-func PhysicalNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{PhysicalNetwork, device}
+func PhysicalNetworkConfig(device string, MTU int) *NetworkConfig {
+	return &NetworkConfig{PhysicalNetwork, device, MTU}
 }

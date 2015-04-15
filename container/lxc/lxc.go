@@ -53,8 +53,8 @@ const (
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
-func DefaultNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig(DefaultLxcBridge)
+func DefaultNetworkConfig(MTU int) *container.NetworkConfig {
+	return container.BridgeNetworkConfig(DefaultLxcBridge, MTU)
 }
 
 // FsCommandOutput calls cmd.Output, this is used as an overloading point so
@@ -528,7 +528,7 @@ lxc.network.flags = up
 {{if gt .MTU 0}}lxc.network.mtu = {{.MTU}}{{end}}
 `
 
-func networkConfigTemplate(networkType, networkLink string) string {
+func networkConfigTemplate(networkType, networkLink string, MTU int) string {
 	type config struct {
 		Type string
 		Link string
@@ -545,12 +545,20 @@ func networkConfigTemplate(networkType, networkLink string) string {
 		return ""
 	}
 
-	primaryNIC, err := discoverHostNIC()
-	if err != nil {
-		logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
-	} else {
-		logger.Debugf("setting container network interface MTU to %d", primaryNIC.MTU)
-		values.MTU = primaryNIC.MTU
+	switch MTU {
+	case -1:
+		logger.Infof("not setting MTU for container")
+	case 0:
+		primaryNIC, err := discoverHostNIC()
+		if err != nil {
+			logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
+		} else {
+			logger.Debugf("setting container network interface MTU to %d", primaryNIC.MTU)
+			values.MTU = primaryNIC.MTU
+		}
+	default:
+		logger.Infof("setting MTU for container to %v", MTU)
+		values.MTU = MTU
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, values); err != nil {
@@ -597,16 +605,16 @@ func generateNetworkConfig(network *container.NetworkConfig) string {
 	var lxcConfig string
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
-		network = DefaultNetworkConfig()
+		network = DefaultNetworkConfig(network.MTU)
 	}
 	switch network.NetworkType {
 	case container.PhysicalNetwork:
-		lxcConfig = networkConfigTemplate("phys", network.Device)
+		lxcConfig = networkConfigTemplate("phys", network.Device, network.MTU)
 	default:
 		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
 	case container.BridgeNetwork:
-		lxcConfig = networkConfigTemplate("veth", network.Device)
+		lxcConfig = networkConfigTemplate("veth", network.Device, network.MTU)
 	}
 
 	return lxcConfig

@@ -49,6 +49,12 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	machineId := args.MachineConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		kvmLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	// TODO: Default to using the host network until we can configure.  Yes,
 	// this is using the LxcBridge value, we should put it in the api call for
 	// container config.
@@ -56,17 +62,11 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice)
+	network := container.BridgeNetworkConfig(bridgeDevice, config.MTU)
 
 	series := args.Tools.OneSeries()
 	args.MachineConfig.MachineContainerType = instance.KVM
 	args.MachineConfig.Tools = args.Tools[0]
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		kvmLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
-	}
 
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
