@@ -183,11 +183,20 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 		var err error
+		updateStatusChannel := func() <-chan time.Time {
+			return u.updateStatusAt(
+				time.Now(),
+				time.Unix(u.operationState().UpdateStatusTime, 0),
+				statusPollInterval,
+			)
+		}
+
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:             remotestate.NewAPIState(u.st),
-				LeadershipTracker: u.leadershipTracker,
-				UnitTag:           unitTag,
+				State:               remotestate.NewAPIState(u.st),
+				LeadershipTracker:   u.leadershipTracker,
+				UnitTag:             unitTag,
+				UpdateStatusChannel: updateStatusChannel,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -253,28 +262,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		// TODO(axw) move the channel to remotestate.
-		updateStatusChannel := func() <-chan time.Time {
-			return u.updateStatusAt(
-				time.Now(),
-				time.Unix(u.operationState().UpdateStatusTime, 0),
-				statusPollInterval,
-			)
-		}
-
 		var conflicted bool
 		var localState resolver.LocalState
 		for err == nil {
 			localState, err = resolver.Loop(resolver.LoopConfig{
-				Resolver:            uniterResolver,
-				Watcher:             watcher,
-				Executor:            u.operationExecutor,
-				Factory:             u.operationFactory,
-				UpdateStatusChannel: updateStatusChannel,
-				CharmURL:            charmURL,
-				Conflicted:          conflicted,
-				Dying:               u.tomb.Dying(),
-				OnIdle:              onIdle,
+				Resolver:   uniterResolver,
+				Watcher:    watcher,
+				Executor:   u.operationExecutor,
+				Factory:    u.operationFactory,
+				CharmURL:   charmURL,
+				Conflicted: conflicted,
+				Dying:      u.tomb.Dying(),
+				OnIdle:     onIdle,
 			})
 			switch cause := errors.Cause(err); cause {
 			case tomb.ErrDying:
@@ -437,9 +436,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.addCleanup(func() error {
-		// TODO(fwereade): RunListener returns no error on Close. This seems wrong.
-		u.runListener.Close()
-		return nil
+		return u.runListener.Close()
 	})
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if version.Current.OS != version.Windows {
@@ -570,16 +567,6 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 
 	defer func() {
 		after := u.operationState()
-
-		// Check that if we lose leadership as a result of this
-		// operation, we want to start getting leader settings events,
-		// or if we gain leadership we want to stop receiving those
-		// events.
-		if before.Leader != after.Leader {
-			// TODO(axw)
-			//u.f.WantLeaderSettingsEvents(before.Leader)
-		}
-
 		// Update availability based on started state & not upgrading.
 		upgrading := after.Kind == operation.RunHook && after.Hook != nil && after.Hook.Kind == hooks.UpgradeCharm
 		u.charmDirLocker.SetAvailable(after.Started && !after.Stopped && !upgrading)

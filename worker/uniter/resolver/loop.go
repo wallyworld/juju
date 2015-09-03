@@ -4,29 +4,24 @@
 package resolver
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
-	Resolver            Resolver
-	Watcher             remotestate.Watcher
-	Executor            operation.Executor
-	Factory             operation.Factory
-	UpdateStatusChannel func() <-chan time.Time
-	CharmURL            *charm.URL
-	Conflicted          bool
-	Dying               <-chan struct{}
-	OnIdle              func() error
+	Resolver   Resolver
+	Watcher    remotestate.Watcher
+	Executor   operation.Executor
+	Factory    operation.Factory
+	CharmURL   *charm.URL
+	Conflicted bool
+	Dying      <-chan struct{}
+	OnIdle     func() error
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -62,8 +57,6 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 		},
 	}
 	for {
-		// TODO(axw) move update status to the watcher.
-		updateStatus := cfg.UpdateStatusChannel()
 		rf.RemoteState = cfg.Watcher.Snapshot()
 		rf.LocalState.State = cfg.Executor.State()
 
@@ -99,15 +92,6 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 		case <-cfg.Dying:
 			return rf.LocalState, tomb.ErrDying
 		case <-cfg.Watcher.RemoteStateChanged():
-		case <-updateStatus:
-			// TODO(axw) move this to a resolver.
-			op, err := cfg.Factory.NewRunHook(hook.Info{Kind: hooks.UpdateStatus})
-			if err != nil {
-				return rf.LocalState, errors.Trace(err)
-			}
-			if err := cfg.Executor.Run(op); err != nil {
-				return rf.LocalState, errors.Trace(err)
-			}
 		}
 	}
 }
