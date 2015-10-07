@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -125,6 +126,10 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 	return env, nil
+}
+
+func (e *maasEnviron) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.EmptyCloudSpec
 }
 
 // Bootstrap is specified in the Environ interface.
