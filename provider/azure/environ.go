@@ -517,6 +517,14 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, lab
 	return azure.GetHostedServiceProperties(createdService.ServiceName, true)
 }
 
+func (e *azureEnviron) CloudConfig() simplestreams.CloudSpec {
+	region := e.getSnapshot().ecfg.location()
+	return simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: getEndpoint(region),
+	}
+}
+
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	env.archMutex.Lock()
