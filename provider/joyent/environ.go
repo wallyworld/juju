@@ -94,10 +94,12 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
 }
 
-func (e *joyentEnviron) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.CloudSpec{
-		Region:   e.ecfg.Region(),
-		Endpoint: e.ecfg.SdcUrl(),
+func (e *joyentEnviron) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{
+		{
+			Region:   e.ecfg.Region(),
+			Endpoint: e.ecfg.SdcUrl(),
+		},
 	}
 }
 

@@ -66,8 +66,8 @@ type manualEnviron struct {
 	ubuntuUserInitMutex sync.Mutex
 }
 
-func (e *manualEnviron) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.EmptyCloudSpec
+func (e *manualEnviron) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{simplestreams.EmptyCloudSpec}
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")

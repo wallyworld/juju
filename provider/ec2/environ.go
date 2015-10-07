@@ -443,10 +443,13 @@ func resourceName(tag names.Tag, envName string) string {
 	return fmt.Sprintf("juju-%s-%s", envName, tag)
 }
 
-func (e *environ) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.CloudSpec{
-		Region: e.ecfg().region(),
+func (e *environ) CloudConfig() []simplestreams.CloudSpec {
+	var result []simplestreams.CloudSpec
+	for r, _ := range allRegions {
+		cs, _ := e.cloudSpec(r)
+		result = append(result, cs)
 	}
+	return result
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -524,9 +527,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
+	sources, err := environs.ImageMetadataSources(e)
+	if err != nil {
+		return nil, err
+	}
 
 	series := args.Tools.OneSeries()
-	spec, err := findInstanceSpec(e, e.Config().ImageStream(), &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      series,
 		Arches:      arches,

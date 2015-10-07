@@ -212,7 +212,7 @@ type Environ interface {
 	state.Prechecker
 
 	// HACK!!! TODO(anastasiamac 2015-10-06) needs to be done better
-	CloudConfig() simplestreams.CloudSpec
+	CloudConfig() []simplestreams.CloudSpec
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.

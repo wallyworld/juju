@@ -34,8 +34,8 @@ type environ struct {
 	supportedArchitectures []string
 }
 
-func (e *environ) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.EmptyCloudSpec
+func (e *environ) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{simplestreams.EmptyCloudSpec}
 }
 
 func newEnviron(cfg *config.Config) (*environ, error) {

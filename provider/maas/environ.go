@@ -128,8 +128,8 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
-func (e *maasEnviron) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.EmptyCloudSpec
+func (e *maasEnviron) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{simplestreams.EmptyCloudSpec}
 }
 
 // Bootstrap is specified in the Environ interface.

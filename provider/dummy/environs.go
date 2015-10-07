@@ -675,9 +675,11 @@ func (e *environ) ecfg() *environConfig {
 	return ecfg
 }
 
-func (e *environ) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.CloudSpec{
-		Region: "dummy_region",
+func (e *environ) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{
+		{
+			Region: "dummy_region",
+		},
 	}
 }
 

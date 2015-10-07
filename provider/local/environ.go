@@ -65,8 +65,8 @@ type localEnviron struct {
 	containerManager container.Manager
 }
 
-func (e *localEnviron) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.EmptyCloudSpec
+func (e *localEnviron) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{simplestreams.EmptyCloudSpec}
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.

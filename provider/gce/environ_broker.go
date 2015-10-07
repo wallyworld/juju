@@ -111,9 +111,11 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
-func (e *environ) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.CloudSpec{
-		Region: e.ecfg.region(),
+func (e *environ) CloudConfig() []simplestreams.CloudSpec {
+	return []simplestreams.CloudSpec{
+		{
+			Region: e.ecfg.region(),
+		},
 	}
 }
 

@@ -174,15 +174,20 @@ func (api *API) retrievePublished() ([]*envmetadata.ImageMetadata, error) {
 		return nil, err
 	}
 
+	var result []*envmetadata.ImageMetadata
 	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
-	cons.CloudSpec = env.CloudConfig()
+	for _, cs := range env.CloudConfig() {
+		cons.CloudSpec = cs
 
-	metadata, _, err := envmetadata.Fetch(sources, cons, false)
-	if err != nil {
-		return nil, err
+		metadata, _, err := envmetadata.Fetch(sources, cons, false)
+		if err != nil {
+			//			return nil, err
+			continue
+		}
+		result = append(result, metadata...)
 	}
-	return metadata, nil
+	return result, nil
 }
 
 func (api *API) saveAll(published []*envmetadata.ImageMetadata) error {
