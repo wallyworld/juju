@@ -203,7 +203,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
-		err:    `image metadata for series \[trusty\], architectures \[arm\] not found`,
+		err:    `image metadata for series \[trusty\], arch \[arm\] not found`,
 	}, {
 		series: "raring",
 		arches: both,
