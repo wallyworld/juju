@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -43,7 +44,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/terminationworker"
-    "github.com/juju/juju/environs/simplestreams"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
