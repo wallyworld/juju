@@ -176,6 +176,8 @@ func (api *API) retrievePublished() ([]*envmetadata.ImageMetadata, error) {
 
 	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
+	cons.CloudSpec = env.CloudConfig()
+
 	metadata, _, err := envmetadata.Fetch(sources, cons, false)
 	if err != nil {
 		return nil, err
