@@ -1654,7 +1654,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
-			return nil, errors.Errorf("relation already exists")
+			return nil, errors.AlreadyExistsf("relation %v", key)
 		}
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
@@ -1730,6 +1730,15 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	}
 	if err = st.run(buildTxn); err == nil {
 		return &Relation{st, *doc}, nil
+	} else if errors.IsAlreadyExists(err) {
+		// If the relation already exists, we'll return it
+		// along with an AlreadyExists error to save an extra
+		// lookup by the caller to load it.
+		rel, err2 := st.KeyRelation(key)
+		if err2 != nil {
+			return nil, err2
+		}
+		return rel, err
 	}
 	return nil, errors.Trace(err)
 }

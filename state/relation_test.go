@@ -136,16 +136,18 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 
 	// Check we cannot re-add the same relation, regardless of endpoint ordering.
-	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
-	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	rel2, err := s.State.AddRelation(mysqlEP, wordpressEP)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+	c.Assert(rel, jc.DeepEquals, rel2)
+	rel2, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`)
+	c.Assert(rel, jc.DeepEquals, rel2)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
