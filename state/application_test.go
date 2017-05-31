@@ -1728,6 +1728,25 @@ func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
 	assertLife(c, machine, state.Dying)
 }
 
+func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	app := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetCharmURL(ch.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(app.Destroy(), gc.IsNil)
+	assertLife(c, app, state.Dying)
+
+	assertCleanupCount(c, s.State, 2)
+	_, err = state.AppStorageConstraints(app)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
