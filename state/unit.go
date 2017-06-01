@@ -362,9 +362,16 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
+// This method may be called twice if a unit has attached storage - the first
+// time will be to ensure the storage is detached; the second time to actually
+// destroy the unit.
 func (u *Unit) destroyOps() ([]txn.Op, error) {
-	if u.doc.Life != Alive {
-		return nil, errAlreadyDying
+
+	maybeSetDying := func(dyingOps []txn.Op) ([]txn.Op, error) {
+		if u.doc.Life != Alive {
+			return nil, errAlreadyDying
+		}
+		return dyingOps, nil
 	}
 
 	// Where possible, we'd like to be able to short-circuit unit destruction
@@ -398,9 +405,9 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}
 	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
-		return setDyingOps, nil
+		return maybeSetDying(setDyingOps)
 	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
-		return setDyingOps, nil
+		return maybeSetDying(setDyingOps)
 	}
 
 	// See if the unit agent has started running.
@@ -414,7 +421,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return nil, errors.Trace(agentErr)
 	}
 	if isAssigned && agentStatusInfo.Status != status.Allocating {
-		return setDyingOps, nil
+		return maybeSetDying(setDyingOps)
 	}
 	if agentStatusInfo.Status != status.Error && agentStatusInfo.Status != status.Allocating {
 		return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
@@ -425,7 +432,11 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		Id:     u.st.docID(agentStatusDocId),
 		Assert: bson.D{{"status", agentStatusInfo.Status}},
 	}
-	removeAsserts := append(isAliveDoc, bson.DocElem{
+	unitLifeAssert := isAliveDoc
+	if u.doc.Life != Alive {
+		unitLifeAssert = isDyingDoc
+	}
+	removeAsserts := append(unitLifeAssert, bson.DocElem{
 		"$and", []bson.D{
 			unitHasNoSubordinates,
 			unitHasNoStorageAttachments,

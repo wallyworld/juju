@@ -385,21 +385,32 @@ func (st *State) cleanupDyingUnit(name string) error {
 	}
 	// Mark storage attachments as dying, so that they are detached
 	// and removed from state, allowing the unit to terminate.
-	return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
-}
-
-func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
-	storageAttachments, err := st.UnitStorageAttachments(unitTag)
-	if err != nil {
+	if storageRemoved, err := st.cleanupUnitStorageAttachments(unit.UnitTag(), false); err != nil {
+		return err
+	} else if !storageRemoved {
+		return nil
+	}
+	// Now that storage has been taken care of, we need to destroy the unit.
+	if err := unit.Refresh(); err != nil {
 		return err
 	}
+	return unit.Destroy()
+}
+
+func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) (bool, error) {
+	storageAttachments, err := st.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return false, err
+	}
+	storageRemoved := false
 	for _, storageAttachment := range storageAttachments {
+		storageRemoved = true
 		storageTag := storageAttachment.StorageInstance()
 		err := st.DetachStorage(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			return err
+			return storageRemoved, err
 		}
 		if !remove {
 			continue
@@ -408,10 +419,10 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			return err
+			return storageRemoved, err
 		}
 	}
-	return nil
+	return storageRemoved, nil
 }
 
 // cleanupRemovedUnit takes care of all the final cleanup required when
@@ -600,7 +611,7 @@ func (st *State) obliterateUnit(unitName string) error {
 		return err
 	}
 	// Destroy and remove all storage attachments for the unit.
-	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true); err != nil {
+	if _, err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true); err != nil {
 		return errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 	}
 	for _, subName := range unit.SubordinateNames() {

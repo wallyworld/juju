@@ -1742,8 +1742,20 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	c.Assert(app.Destroy(), gc.IsNil)
 	assertLife(c, app, state.Dying)
 
-	assertCleanupCount(c, s.State, 2)
+	// application units cleanup
+	assertCleanupRuns(c, s.State)
+	// dyingUnit cleanup
+	assertCleanupRuns(c, s.State)
+	// removeUnit cleanup
+	assertCleanupRuns(c, s.State)
+	// charm cleanup
+	assertCleanupRuns(c, s.State)
+
 	_, err = state.AppStorageConstraints(app)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	settings := state.GetApplicationSettings(s.State, app)
+	err = settings.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

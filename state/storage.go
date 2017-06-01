@@ -890,6 +890,8 @@ func (st *State) DetachStorage(storage names.StorageTag, unit names.UnitTag) (er
 			C:      storageInstancesC,
 			Id:     si.doc.Id,
 			Assert: bson.D{ownerAssert},
+			// ????? detach storage - we need to remove the old owner ?????
+			Update: bson.D{{"$set", bson.D{{"owner", ""}}}},
 		})
 		ops = append(ops, detachStorageOps(storage, unit)...)
 		return ops, nil
@@ -903,6 +905,12 @@ func detachStorageOps(storage names.StorageTag, unit names.UnitTag) []txn.Op {
 		Id:     storageAttachmentId(unit.Id(), storage.Id()),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}, {
+		// ????? When we detach storage from a unit, why not decrement the attachment count ????
+		C:      unitsC,
+		Id:     unit.Id(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"storageattachmentcount", -1}}}},
 	}}
 	return ops
 }
