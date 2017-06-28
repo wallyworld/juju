@@ -15,11 +15,13 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
-type mockcloudSpecAPI struct {
+type mockCloudSpecAPI struct {
 	// TODO - implement when remaining firewaller tests become unit tests
 	cloudspec.CloudSpecAPI
 }
@@ -36,6 +38,7 @@ type mockState struct {
 	units          map[string]*mockUnit
 	machines       map[string]*mockMachine
 	relations      map[string]*mockRelation
+	controllerInfo map[string]*mockControllerInfo
 	subnetsWatcher *mockStringsWatcher
 }
 
@@ -47,7 +50,20 @@ func newMockState(modelUUID string) *mockState {
 		units:          make(map[string]*mockUnit),
 		machines:       make(map[string]*mockMachine),
 		remoteEntities: make(map[names.Tag]string),
+		controllerInfo: make(map[string]*mockControllerInfo),
 		subnetsWatcher: newMockStringsWatcher(),
+	}
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	return nil, errors.NotImplementedf("ControllerConfig")
+}
+
+func (st *mockState) ControllerInfo(modelUUID string) (state.ExternalController, error) {
+	if info, ok := st.controllerInfo[modelUUID]; !ok {
+		return nil, errors.NotFoundf("controller info for %v", modelUUID)
+	} else {
+		return info, nil
 	}
 }
 
@@ -182,6 +198,19 @@ func (a *mockApplication) AllUnits() (results []firewaller.Unit, err error) {
 		results = append(results, unit)
 	}
 	return results, a.NextErr()
+}
+
+type mockControllerInfo struct {
+	uuid string
+	info crossmodel.ControllerInfo
+}
+
+func (c *mockControllerInfo) Id() string {
+	return c.uuid
+}
+
+func (c *mockControllerInfo) ControllerInfo() crossmodel.ControllerInfo {
+	return c.info
 }
 
 type mockRelation struct {

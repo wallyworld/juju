@@ -2853,5 +2853,4 @@ func (w *relationIngressWatcher) loop() error {
 			return tomb.ErrDying
 		}
 	}
-	return nil
 }
