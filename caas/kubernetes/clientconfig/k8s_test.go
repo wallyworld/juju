@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caas_test
+package caas
 
 import (
 	"io/ioutil"
@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	caascfg "github.com/juju/juju/caas/clientconfig"
+	caascfg "github.com/juju/juju/caas/kubernetes/clientconfiglientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/testing"
 )
