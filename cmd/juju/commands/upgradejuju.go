@@ -593,7 +593,7 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 			context.chosen = newestNextStable
 		} else {
 			newestCurrent, found := context.tools.NewestCompatible(context.agent)
-			if found {
+			if found && newestCurrent.Compare(context.agent) > 0 {
 				logger.Debugf("found more recent current version %s", newestCurrent)
 				context.chosen = newestCurrent
 			} else {
