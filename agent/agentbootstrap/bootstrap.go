@@ -114,10 +114,17 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
+
+	var modelType state.ModelType
+	if args.ControllerCloud.Type == "kubernetes" {
+		modelType = state.ModelTypeCAAS
+	} else {
+		modelType = state.ModelTypeIAAS
+	}
 	ctlr, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
-			Type:                    state.ModelTypeIAAS,
+			Type:                    modelType,
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
 			Constraints:             args.ModelConstraints,
@@ -158,10 +165,12 @@ func InitializeState(
 	if err := st.SetStateServingInfo(ssi); err != nil {
 		return nil, nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
+
 	m, err := initBootstrapMachine(c, st, args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
+	// var m *state.Machine
 
 	// // Create the initial hosted model, with the model config passed to
 	// // bootstrap, which contains the UUID, name for the hosted model,
@@ -290,6 +299,12 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args InitializeStateParams) (*state.Machine, error) {
 	logger.Infof("initialising bootstrap machine with config: %+v", args)
 
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Criticalf("initBootstrapMachine.st.model ---> %q", model.Type())
+
 	jobs := make([]state.MachineJob, len(args.BootstrapMachineJobs))
 	for i, job := range args.BootstrapMachineJobs {
 		machineJob, err := machineJobFromParams(job)
@@ -313,7 +328,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 		Constraints:             args.BootstrapMachineConstraints,
 		InstanceId:              args.BootstrapMachineInstanceId,
 		HardwareCharacteristics: hardware,
-		Jobs:                    jobs,
+		Jobs: jobs,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")

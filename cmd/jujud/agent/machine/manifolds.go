@@ -71,12 +71,6 @@ import (
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/raftbackstop"
-	"github.com/juju/juju/worker/raft/raftclusterer"
-	"github.com/juju/juju/worker/raft/raftflag"
-	"github.com/juju/juju/worker/raft/raftforwarder"
-	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
@@ -90,6 +84,13 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
+
+	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftbackstop"
+	"github.com/juju/juju/worker/raft/raftclusterer"
+	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/worker/raft/rafttransport"
 )
 
 const (
@@ -240,7 +241,7 @@ type ManifoldsConfig struct {
 // various responsibilities of a machine agent.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
@@ -260,10 +261,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		}
 		return err
-	}
-	var externalUpdateProxyFunc func(proxy.Settings) error
-	if runtime.GOOS == "linux" {
-		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
@@ -501,6 +498,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
 			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
 		}),
+		// // // ????? why this is timing out !!!
 		// // We also run another clock updater to feed time updates into
 		// // the lease FSM.
 		// leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
@@ -533,15 +531,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		// The apiworkers manifold starts workers which rely on the
-		// machine agent's API connection but have not been converted
-		// to work directly under the dependency engine. It waits for
-		// upgrades to be finished before starting these workers.
-		apiWorkersName: ifNotMigrating(APIWorkersManifold(APIWorkersConfig{
-			APICallerName:   apiCallerName,
-			StartAPIWorkers: config.StartAPIWorkers,
-		})),
-
 		// The reboot manifold manages a worker which will reboot the
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
@@ -562,26 +551,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		// The diskmanager worker periodically lists block devices on the
-		// machine it runs on. This worker will be run on all Juju-managed
-		// machines (one per machine agent).
-		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
-		// The proxy config updater is a leaf worker that sets http/https/apt/etc
-		// proxy settings.
-		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:      proxyupdater.NewWorker,
-			ExternalUpdate:  externalUpdateProxyFunc,
-			InProcessUpdate: proxyconfig.DefaultConfig.Set,
-			RunFunc:         proxyupdater.RunWithStdIn,
-		})),
-
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the state server addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -595,14 +564,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 		})),
 
-		// The machiner Worker will wait for the identified machine to become
-		// Dying and make it Dead; or until the machine becomes Dead by other
-		// means. This worker needs to be launched after fanconfigurer
-		// so that it reports interfaces created by it.
-		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FanConfigurerName: fanConfigurerName,
+		// The apiworkers manifold starts workers which rely on the
+		// machine agent's API connection but have not been converted
+		// to work directly under the dependency engine. It waits for
+		// upgrades to be finished before starting these workers.
+		apiWorkersName: ifNotMigrating(APIWorkersManifold(APIWorkersConfig{
+			APICallerName:   apiCallerName,
+			StartAPIWorkers: config.StartAPIWorkers,
 		})),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -653,11 +621,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
-		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
@@ -846,6 +809,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
+
+		// The machiner Worker will wait for the identified machine to become
+		// Dying and make it Dead; or until the machine becomes Dead by other
+		// means. This worker needs to be launched after fanconfigurer
+		// so that it reports interfaces created by it.
+		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FanConfigurerName: fanConfigurerName,
+		})),
 	}
 	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
 		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
@@ -857,6 +830,64 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))
 	}
 	return manifolds
+}
+
+// IAASManifolds -
+func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	// agentConfig := config.Agent.CurrentConfig()
+	// machineTag := agentConfig.Tag().(names.MachineTag)
+	// controllerTag := agentConfig.Controller()
+
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
+	}
+
+	manifolds := dependency.Manifolds{
+		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:      proxyupdater.NewWorker,
+			ExternalUpdate:  externalUpdateProxyFunc,
+			InProcessUpdate: proxyconfig.DefaultConfig.Set,
+			RunFunc:         proxyupdater.RunWithStdIn,
+		})),
+
+		// The diskmanager worker periodically lists block devices on the
+		// machine it runs on. This worker will be run on all Juju-managed
+		// machines (one per machine agent).
+		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+	}
+	result := commonManifolds(config)
+	for name, manifold := range manifolds {
+		result[name] = manifold
+	}
+	return result
+}
+
+// CAASManifolds -
+func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	// agentConfig := config.Agent.CurrentConfig()
+	// machineTag := agentConfig.Tag().(names.MachineTag)
+	// controllerTag := agentConfig.Controller()
+
+	manifolds := dependency.Manifolds{}
+	result := commonManifolds(config)
+	for name, manifold := range manifolds {
+		result[name] = manifold
+	}
+	return result
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {
@@ -956,18 +987,18 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	globalClockUpdaterName        = "global-clock-updater"
-	// leaseClockUpdaterName         = "lease-clock-updater"
-	isPrimaryControllerFlagName = "is-primary-controller-flag"
-	isControllerFlagName        = "is-controller-flag"
-	logPrunerName               = "log-pruner"
-	txnPrunerName               = "transaction-pruner"
-	certificateWatcherName      = "certificate-watcher"
-	modelWorkerManagerName      = "model-worker-manager"
-	peergrouperName             = "peer-grouper"
-	restoreWatcherName          = "restore-watcher"
-	certificateUpdaterName      = "certificate-updater"
-	auditConfigUpdaterName      = "audit-config-updater"
-	leaseManagerName            = "lease-manager"
+	leaseClockUpdaterName         = "lease-clock-updater"
+	isPrimaryControllerFlagName   = "is-primary-controller-flag"
+	isControllerFlagName          = "is-controller-flag"
+	logPrunerName                 = "log-pruner"
+	txnPrunerName                 = "transaction-pruner"
+	certificateWatcherName        = "certificate-watcher"
+	modelWorkerManagerName        = "model-worker-manager"
+	peergrouperName               = "peer-grouper"
+	restoreWatcherName            = "restore-watcher"
+	certificateUpdaterName        = "certificate-updater"
+	auditConfigUpdaterName        = "audit-config-updater"
+	leaseManagerName              = "lease-manager"
 
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"

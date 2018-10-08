@@ -962,13 +962,17 @@ var apiCallRetryStrategy = retry.LimitTime(10*time.Second,
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
 	for a := retry.Start(apiCallRetryStrategy, s.clock); a.Next(); {
-		err := s.client.Call(rpc.Request{
+		r := rpc.Request{
 			Type:    facade,
 			Version: version,
 			Id:      id,
 			Action:  method,
-		}, args, response)
+		}
+		err := s.client.Call(r, args, response)
 		if params.ErrCode(err) != params.CodeRetry {
+			if err != nil {
+				logger.Errorf("----xxxxxx---> \n%#v, \nerr -> \n%v", r, err)
+			}
 			return errors.Trace(err)
 		}
 		if !a.More() {

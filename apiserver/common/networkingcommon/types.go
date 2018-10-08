@@ -287,6 +287,13 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
+	cloudSpec, err := configGetter.CloudSpec()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get cloudspec")
+	}
+	if cloudSpec.Type == "kubernetes" {
+		return nil, errors.NotSupportedf("caas model %q networking", modelConfig.Name())
+	}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")

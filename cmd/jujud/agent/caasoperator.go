@@ -136,7 +136,7 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 		logger.Errorf("reading initial agent config file: %v", err)
 		return errors.Trace(err)
 	}
-	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), "template-agent.conf")
+	templateFile := filepath.Join(agent.Dir(op.DataDir(), op.Tag()), TemplateAgentConfigFileName)
 	if err := copyFile(agent.ConfigPath(op.DataDir(), op.Tag()), templateFile); err != nil {
 		logger.Errorf("copying agent config file template: %v", err)
 		return errors.Trace(err)

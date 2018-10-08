@@ -18,14 +18,18 @@ RUN CGO_ENABLED=1 \
 # FROM scratch
 FROM ubuntu:bionic
 
-ARG JUJUD_DIR=/var/lib/juju/tools/machine-0
+# remove this later!!!
+RUN apt update && apt install -y \
+    iproute2
+
+ARG JUJUD_DIR=/opt/juju/tools/machine-0
 WORKDIR /var/lib/juju
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy our static executable
 COPY --from=builder /go/bin/jujud $JUJUD_DIR/
 
 EXPOSE 17070
 
 ENTRYPOINT ["sh", "-c"]
-CMD ["/var/lib/juju/tools/machine-0/jujud machine --data-dir /var/lib/juju --machine-id 0 --debug"]
+CMD ["/opt/juju/tools/machine-0/jujud machine --data-dir /var/lib/juju --machine-id 0 --debug"]

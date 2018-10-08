@@ -14,8 +14,9 @@ spec:
   - port: 17070
     targetPort: 17070
     name: api
-  clusterIP: None
+  # clusterIP: None
   selector:
     # role: mongo
     app: juju-controller
-  type: ClusterIP
+  # type: ClusterIP
+  type: LoadBalancer

@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"bytes"
@@ -26,8 +26,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	// agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -55,7 +56,7 @@ const adminUserName = "admin"
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
-	agentcmd.AgentConf
+	AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
 }
@@ -63,7 +64,7 @@ type BootstrapCommand struct {
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
-		AgentConf: agentcmd.NewAgentConf(""),
+		AgentConf: NewAgentConf(""),
 	}
 }
 
@@ -133,13 +134,38 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env, err := EnvironsNew(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: args.ControllerModelConfig,
-	})
+	// env, err := EnvironsNew(environs.OpenParams{
+	// 	Cloud:  cloudSpec,
+	// 	Config: args.ControllerModelConfig,
+	// })
+	// if err != nil {
+	// 	return errors.Annotate(err, "new environ")
+	// }
+
+	var env environs.GenericEnviron
+
+	p, err := environs.Provider(args.ControllerCloud.Type)
 	if err != nil {
-		return errors.Annotate(err, "new environ")
+		return errors.Trace(err)
 	}
+	if args.ControllerCloud.Type == "kubernetes" {
+		env, err = caas.Open(p, environs.OpenParams{
+			Cloud:  cloudSpec,
+			Config: args.ControllerModelConfig,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		env, err = environs.Open(p, environs.OpenParams{
+			Cloud:  cloudSpec,
+			Config: args.ControllerModelConfig,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	newConfigAttrs := make(map[string]interface{})
 
 	// // Check to see if a newer agent version has been requested
@@ -251,11 +277,29 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
-	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
+	// if args.ControllerCloud.Type == "kubernetes" {
+	// 	cfg, err := p.PrepareConfig(environs.PrepareConfigParams{
+	// 		Cloud:  cloudSpec,
+	// 		Config: args.ControllerModelConfig,
+	// 	})
+	// 	if err != nil {
+	// 		return errors.Trace(err)
+	// 	}
+	// 	args.ControllerModelConfig, err = cfg.Apply(newConfigAttrs)
+	// 	if err != nil {
+	// 		return errors.Annotate(err, "failed to update model config")
+	// 	}
+	// } else {
+	// 	args.ControllerModelConfig, err = env.Config().Apply(newConfigAttrs)
+	// 	if err != nil {
+	// 		return errors.Annotate(err, "failed to update model config")
+	// 	}
+	// }
+
+	args.ControllerModelConfig, err = env.Config().Apply(newConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
-	args.ControllerModelConfig = controllerModelCfg
 
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
@@ -342,6 +386,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
+	// return nil
 }
 
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {

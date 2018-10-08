@@ -39,3 +39,25 @@ func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, err
 	}
 	return env, nil
 }
+
+// p, err := environs.Provider(cloudSpec.Type)
+// if err != nil {
+// 	return errors.Trace(err)
+// }
+// if cloudSpec.Type == "kubernetes" {
+// 	env, err = caas.Open(p, environs.OpenParams{
+// 		Cloud:  cloudSpec,
+// 		Config: modelConfig,
+// 	})
+// 	if err != nil {
+// 		return errors.Trace(err)
+// 	}
+// } else {
+// 	env, err = environs.Open(p, environs.OpenParams{
+// 		Cloud:  cloudSpec,
+// 		Config: modelConfig,
+// 	})
+// 	if err != nil {
+// 		return errors.Trace(err)
+// 	}
+// }

@@ -44,9 +44,11 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
+	// "github.com/juju/juju/cmd/jujud/bootstrap"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -84,7 +86,7 @@ import (
 )
 
 var (
-	logger           = loggo.GetLogger("juju.cmd.jujud")
+	// logger           = loggo.GetLogger("juju.cmd.jujud")
 	jujuRun          = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
 	jujuDumpLogs     = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 	jujuIntrospect   = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
@@ -99,9 +101,15 @@ var (
 	useMultipleCPUs   = utils.UseMultipleCPUs
 	reportOpenedState = func(*state.State) {}
 
-	caasModelManifolds = model.CAASManifolds
-	iaasModelManifolds = model.IAASManifolds
-	machineManifolds   = machine.Manifolds
+	caasModelManifolds   = model.CAASManifolds
+	iaasModelManifolds   = model.IAASManifolds
+	caasMachineManifolds = machine.CAASManifolds
+	iaasMachineManifolds = machine.IAASManifolds
+
+	// isFirstRun indicates if it is the first run of a new controller which is mostly used
+	// for checking if bootstrap-state should run or not
+	// Rework here for HA!!!!
+	isFirstRun = false
 )
 
 // Variable to override in tests, default is true
@@ -131,6 +139,8 @@ func init() {
 type AgentInitializer interface {
 	AddFlags(*gnuflag.FlagSet)
 	CheckArgs([]string) error
+	// DataDir returns the directory where this agent should store its data.
+	DataDir() string
 }
 
 // AgentConfigWriter encapsulates disk I/O operations with the agent
@@ -159,6 +169,7 @@ func NewMachineAgentCmd(
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
 		currentConfig:       configFetcher,
+		logToStdErr:         true,
 	}
 }
 
@@ -173,7 +184,6 @@ type machineAgentCmd struct {
 
 	// This group is for debugging purposes.
 	logToStdErr bool
-
 	// The following are set via command-line flags.
 	machineId string
 }
@@ -199,8 +209,8 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return nil
 	}
 
-	err := a.currentConfig.ReadConfig(names.NewMachineTag(a.machineId).String())
-	if err != nil {
+	// err := a.currentConfig.ReadConfig(names.NewMachineTag(a.machineId).String())
+	if err := a.ensureThenReadAgentConfig(); err != nil {
 		return errors.Annotate(err, "cannot read agent configuration")
 	}
 
@@ -216,8 +226,45 @@ func (a *machineAgentCmd) Init(args []string) error {
 	return nil
 }
 
+func (a *machineAgentCmd) Tag() names.Tag {
+	return names.NewMachineTag(a.machineId)
+}
+
+func (a *machineAgentCmd) ensureThenReadAgentConfig() error {
+	err := a.currentConfig.ReadConfig(a.Tag().String())
+	if os.IsNotExist(errors.Cause(err)) {
+		// this needs to be enhanced later for k8s HA mode
+		isFirstRun = true
+		templateFile := filepath.Join(agent.Dir(a.agentInitializer.DataDir(), a.Tag()), TemplateAgentConfigFileName)
+		logger.Criticalf("1st run, copying templateFile -> %q", templateFile)
+		if err := copyFile(agent.ConfigPath(a.agentInitializer.DataDir(), a.Tag()), templateFile); err != nil {
+			logger.Errorf("copying agent config file template: %v", err)
+			return errors.Trace(err)
+		}
+	} else if err != nil {
+		return errors.Annotate(err, "cannot read agent configuration")
+	}
+	return a.currentConfig.ReadConfig(a.Tag().String())
+}
+
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
+	if err := a.ensureThenReadAgentConfig(); err != nil {
+		return errors.Annotate(err, "cannot read agent configuration")
+	}
+
+	if isFirstRun {
+		// Run bootstrap-state
+		bootstrapCmd := &BootstrapCommand{
+			AgentConf: NewAgentConf(a.agentInitializer.DataDir()),
+		}
+		// bootstrapCmd := NewBootstrapCommand()
+
+		// bootstrapCmd.AgentConf = a.currentConfig
+		bootstrapCmd.BootstrapParamsFile = filepath.Join(a.agentInitializer.DataDir(), "bootstrap-params")
+		logger.Criticalf("1st run, exec bootstrapCmd, DataDir is %q", a.agentInitializer.DataDir())
+		bootstrapCmd.Run(c)
+	}
 	machineAgent, err := a.machineAgentFactory(a.machineId)
 	if err != nil {
 		return errors.Trace(err)
@@ -297,9 +344,6 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
-	}
-	if err := a.registerPrometheusCollectors(); err != nil {
-		return nil, errors.Trace(err)
 	}
 	return a, nil
 }
@@ -464,6 +508,11 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	// 	return errors.Annotate(err, "error upgrading server certificate")
 	// }
 
+	// moved from NewMachineAgent here coz the agent config could not be ready yet there
+	if err := a.registerPrometheusCollectors(); err != nil {
+		return errors.Trace(err)
+	}
+
 	agentConfig := a.CurrentConfig()
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   a.Tag().String(),
@@ -504,6 +553,9 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
+
+		providerType := a.CurrentConfig().ProviderType()
+
 		config := dependency.EngineConfig{
 			IsFatal:     cmdutil.IsFatal,
 			WorstError:  cmdutil.MoreImportantError,
@@ -555,7 +607,14 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return environs.SupportsSpaces(state.CallContext(st), env), nil
 		}
 
-		manifolds := machineManifolds(machine.ManifoldsConfig{
+		if providerType == caasprovider.CAASProviderType {
+			// TODO: read from caas broker rather than env
+			controllerSupportsSpaces = func(st *state.State) (bool, error) {
+				return false, nil
+			}
+		}
+
+		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,
@@ -587,7 +646,15 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
-		})
+		}
+
+		var manifolds dependency.Manifolds
+		if providerType == caasprovider.CAASProviderType {
+			manifolds = caasMachineManifolds(manifoldsCfg)
+		} else {
+			manifolds = iaasMachineManifolds(manifoldsCfg)
+		}
+
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
 				logger.Errorf("while stopping engine with bad manifolds: %v", err)
@@ -703,7 +770,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		if params.IsCodeDead(cause) || cause == jworker.ErrTerminateAgent {
 			return nil, jworker.ErrTerminateAgent
 		}
-		return nil, errors.Errorf("setting up container support: %v", err)
+		return nil, errors.Annotate(err, "setting up container support")
 	}
 
 	if isModelManager {
@@ -739,6 +806,8 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 }
 
 func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
+	// ????? do we need this for k8s
+
 	machine, err := a.machine(apiConn)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return jworker.ErrTerminateAgent
@@ -755,6 +824,7 @@ func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error 
 
 // Restart restarts the agent's service.
 func (a *MachineAgent) Restart() error {
+	// IAAS ONLY!
 	name := a.CurrentConfig().Value(agent.AgentServiceName)
 	return service.Restart(name)
 }

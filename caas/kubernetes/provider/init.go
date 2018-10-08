@@ -8,11 +8,7 @@ import (
 	// "github.com/juju/juju/environs"
 )
 
-const (
-	providerType = "kubernetes"
-)
-
 func init() {
-	caas.RegisterContainerProvider(providerType, providerInstance)
-	// environs.RegisterProvider(providerType, providerInstance)
+	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
+	// environs.RegisterProvider(ProviderType, providerInstance)
 }

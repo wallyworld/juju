@@ -29,9 +29,9 @@ spec:
       - name: juju-controller-agent-conf
         configMap:
           name: juju-controller-config
-          # items:
-          # - key: agent.conf
-          #   path: agent.conf
+          items:
+          - key: agent.conf
+            path: template-agent.conf
       - name: juju-mongo-server-pem
         secret:
           secretName: juju-controller-server-pem
@@ -46,9 +46,22 @@ spec:
           items:
           - key: shared-secret
             path: shared-secret
+      # - name: juju-controller-bootstrap-params  # !!! secret escapes "" which makes bootstrap-params an invalid yaml!!!
+      #   secret:
+      #     secretName: juju-controller-bootstrap-params
+      #     defaultMode: 256
+      #     items:
+      #     - key: bootstrap-params
+      #       path: bootstrap-params
+      - name: juju-controller-bootstrap-params
+        configMap:
+          name: juju-controller-bootstrap-params
+          items:
+          - key: bootstrap-params
+            path: bootstrap-params
       containers:
       - name: mongodb-replicaset
-        image: mongo:3.6
+        image: mongo:3.6.6
         imagePullPolicy: IfNotPresent
         command:
         - mongod
@@ -114,7 +127,9 @@ spec:
         - name: mongo-persistent-storage
           mountPath: /var/lib/juju/db
         - name: juju-controller-agent-conf
-          mountPath: /var/lib/juju/agents/machine-0
+          mountPath: /var/lib/juju/agents/machine-0/template-agent.conf
+          subPath: template-agent.conf  # mount readonly configmap as template conf
+          # readOnly: true
         - name: juju-mongo-server-pem
           mountPath: /var/lib/juju/server.pem
           subPath: server.pem
@@ -129,12 +144,14 @@ spec:
         image: ycliuhw/jujud-controller:2.5-beta1-bionic-amd64
         imagePullPolicy: Always
         volumeMounts:
-        # - name: juju-controller-persistent-storage
-        #   mountPath: /var/lib/juju
+        - name: juju-controller-persistent-storage
+          mountPath: /var/lib/juju
         - name: juju-controller-log-dir
           mountPath: /var/log/juju
         - name: juju-controller-agent-conf
-          mountPath: /var/lib/juju/agents/machine-0
+          mountPath: /var/lib/juju/agents/machine-0/template-agent.conf
+          subPath: template-agent.conf  # mount readonly configmap as template conf
+          # readOnly: true
         - name: juju-mongo-server-pem
           mountPath: /var/lib/juju/server.pem
           subPath: server.pem
@@ -143,32 +160,36 @@ spec:
           mountPath: /var/lib/juju/shared-secret
           subPath: shared-secret
           readOnly: true
-      - name: mongo-sidecar
-        image: cvallance/mongo-k8s-sidecar
-        env:
-        # TODO: enable this after `--auth` enabled
-        - name: MONGODB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: juju-controller-mongo-admin
-              key: username
-        - name: MONGODB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: juju-controller-mongo-admin
-              key: password
-        - name: MONGODB_DATABASE
-          value: "admin"
-        - name: MONGO_SSL_ENABLED
-          value: "true"
-        - name: MONGO_SSL_ALLOW_INVALID_CERTIFICATES
-          value: "true"
-        - name: MONGO_SSL_ALLOW_INVALID_HOSTNAMES
-          value: "true"
-        - name: MONGO_PORT
-          value: "37017"
-        - name: MONGO_SIDECAR_POD_LABELS
-          value: "app=juju-controller"
+        - name: juju-controller-bootstrap-params
+          mountPath: /var/lib/juju/bootstrap-params
+          subPath: bootstrap-params
+          readOnly: true
+      # - name: mongo-sidecar
+      #   image: cvallance/mongo-k8s-sidecar
+      #   env:
+      #   # TODO: enable this after `--auth` enabled
+      #   - name: MONGODB_USERNAME
+      #     valueFrom:
+      #       secretKeyRef:
+      #         name: juju-controller-mongo-admin
+      #         key: username
+      #   - name: MONGODB_PASSWORD
+      #     valueFrom:
+      #       secretKeyRef:
+      #         name: juju-controller-mongo-admin
+      #         key: password
+      #   - name: MONGODB_DATABASE
+      #     value: "admin"
+      #   - name: MONGO_SSL_ENABLED
+      #     value: "true"
+      #   - name: MONGO_SSL_ALLOW_INVALID_CERTIFICATES
+      #     value: "true"
+      #   - name: MONGO_SSL_ALLOW_INVALID_HOSTNAMES
+      #     value: "true"
+      #   - name: MONGO_PORT
+      #     value: "37017"
+      #   - name: MONGO_SIDECAR_POD_LABELS
+      #     value: "app=juju-controller"
   volumeClaimTemplates:
   - metadata:
       name: mongo-persistent-storage

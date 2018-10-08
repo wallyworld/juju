@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"encoding/json"
@@ -560,7 +560,7 @@ var bootstrapArgTests = []struct {
 		err:   "bootstrap-params file must be specified",
 		input: []string{"--data-dir", "/tmp/juju/data/dir"},
 	}, {
-		input:                       []string{"/some/where"},
+		input: []string{"/some/where"},
 		expectedBootstrapParamsFile: "/some/where",
 	},
 }

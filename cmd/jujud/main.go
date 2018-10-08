@@ -138,7 +138,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
+	defer log.Debugf("jujud complete, code %d, err %v", code, err)
 	bufferedLogger, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
@@ -159,10 +159,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 
 	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
-		return &jujudWriter{target: target}
+		return &jujudWriter{target: os.Stdout}
 	}
 
-	jujud.Register(NewBootstrapCommand())
+	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -210,7 +210,7 @@ func Main(args []string) int {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
 			buf = buf[:runtime.Stack(buf, false)]
-			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			log.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()

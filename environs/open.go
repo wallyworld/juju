@@ -24,10 +24,10 @@ func New(args OpenParams) (Environ, error) {
 
 // Open creates an Environ instance and errors if the provider is not for a cloud.
 func Open(p EnvironProvider, args OpenParams) (Environ, error) {
-	logger.Criticalf("p -> %#v", p)
 	if envProvider, ok := p.(CloudEnvironProvider); ok {
 		return envProvider.Open(args)
 	}
+	logger.Errorf("environs Open. p -> %#v", p)
 	return nil, errors.NotValidf("cloud environ provider %T", p)
 	// return p.Open(args)
 }

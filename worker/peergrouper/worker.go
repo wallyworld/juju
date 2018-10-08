@@ -251,6 +251,7 @@ func (w *pgWorker) loop() error {
 			// because they just subscribed).
 			logger.Tracef("<-w.detailsRequests (from %q)", requester)
 			w.config.Hub.Publish(apiserver.DetailsTopic, w.serverDetails)
+			logger.Criticalf("apiserver.DetailsTopic -> %q, w.serverDetails -> %#v", apiserver.DetailsTopic, w.serverDetails)
 			continue
 		case <-updateChan:
 			// Scheduled update.
@@ -263,6 +264,7 @@ func (w *pgWorker) loop() error {
 		for _, serverHostPorts := range servers {
 			apiHostPorts = append(apiHostPorts, serverHostPorts)
 		}
+		logger.Criticalf("servers -> %#v, apiHostPorts -> %#v", servers, apiHostPorts)
 
 		var failed bool
 		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts); err != nil {
@@ -272,6 +274,7 @@ func (w *pgWorker) loop() error {
 
 		members, err := w.updateReplicaSet()
 		if err != nil {
+			logger.Errorf("!!! cannot set replicaset: %v", err)
 			if _, isReplicaSetError := err.(*replicaSetError); isReplicaSetError {
 				logger.Errorf("cannot set replicaset: %v", err)
 			} else if _, isStepDownPrimary := err.(*stepDownPrimaryError); !isStepDownPrimary {
@@ -395,6 +398,7 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 
 		// Don't add the machine unless it is "Started"
 		machineStatus, err := stm.Status()
+		logger.Criticalf("stm -> %#v, machineStatus -> %#v", stm, machineStatus)
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
@@ -483,6 +487,8 @@ func (w *pgWorker) publishAPIServerDetails(
 		details.Servers[server.ID] = server
 	}
 
+	logger.Criticalf("publishAPIServerDetails ---> %#v", details)
+
 	if !reflect.DeepEqual(w.serverDetails, details) {
 		w.config.Hub.Publish(apiserver.DetailsTopic, details)
 		w.serverDetails = details
@@ -510,6 +516,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
+	logger.Criticalf("updateReplicaSet peerGroupInfo -> %#v", info)
 	desired, err := desiredPeerGroup(info)
 	// membersChanged, members, voting, err
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/status"
@@ -108,13 +109,24 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		return nil, err
 	}
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
-	env, err := environs.GetEnviron(configGetter, environs.New)
-	if err != nil {
-		return nil, err
-	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
+	// !!!! this change needs upgrade facade?
+	var storageProviderRegistry storage.ProviderRegistry
+	if model.Type() == state.ModelTypeCAAS {
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+		if err != nil {
+			return nil, err
+		}
+		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(broker)
+	} else {
+		env, err := environs.GetEnviron(configGetter, environs.New)
+		if err != nil {
+			return nil, err
+		}
+		storageProviderRegistry = stateenvirons.NewStorageProviderRegistry(env)
+	}
+
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	callCtx := state.CallContext(st)
 	return &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),
@@ -347,9 +359,9 @@ func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
 	}
 
 	return params.ContainerConfigV5{
-		ProviderType:               cfg.ProviderType,
-		AuthorizedKeys:             cfg.AuthorizedKeys,
-		SSLHostnameVerification:    cfg.SSLHostnameVerification,
+		ProviderType:            cfg.ProviderType,
+		AuthorizedKeys:          cfg.AuthorizedKeys,
+		SSLHostnameVerification: cfg.SSLHostnameVerification,
 		Proxy:                      cfg.LegacyProxy,
 		AptProxy:                   cfg.AptProxy,
 		AptMirror:                  cfg.AptMirror,

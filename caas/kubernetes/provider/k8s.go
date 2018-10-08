@@ -73,6 +73,8 @@ type kubernetesClient struct {
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
+
+	envCfg *environConfig
 }
 
 // PrepareForBootstrap is part of the Environ interface.
@@ -98,7 +100,17 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 
 // Config -
 func (k *kubernetesClient) Config() *config.Config {
-	return nil
+	// attrs := map[string]interface{}{
+	// 	// "development": true,
+	// }
+
+	// cfg, err := config.New(config.UseDefaults, attrs)
+	// logger.Errorf("kubernetesClient.Config -> %#v", err)
+	// return cfg
+
+	return k.envCfg.Config
+
+	// return &config.Config{}
 }
 
 // ControllerInstances -
@@ -159,19 +171,24 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
-	config, err := newK8sConfig(cloudSpec)
+func NewK8sBroker(cloudSpec environs.CloudSpec, cfg *config.Config, newClient NewK8sClientFunc) (caas.Broker, error) {
+	k8sConfig, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	k8sClient, apiextensionsClient, err := newClient(config)
+	k8sClient, apiextensionsClient, err := newClient(k8sConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newCfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &kubernetesClient{
 		Interface:           k8sClient,
 		apiextensionsClient: apiextensionsClient,
-		namespace:           namespace,
+		namespace:           cfg.Name(),
+		envCfg:              newCfg,
 	}, nil
 }
 
