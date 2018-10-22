@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
@@ -169,6 +170,16 @@ func (store *Store) ExpireLease(key lease.Key) error {
 // Refresh is part of the lease.Store interface.
 func (store *Store) Refresh() error {
 	return store.call("Refresh", nil)
+}
+
+// PinLease is part of the corelease.Store interface.
+func (store *Store) PinLease(key lease.Key, entity names.Tag) error {
+	return store.call("PinLease", []interface{}{key, entity})
+}
+
+// UnpinLease is part of the corelease.Store interface.
+func (store *Store) UnpinLease(key lease.Key, entity names.Tag) error {
+	return store.call("UnpinLease", []interface{}{key, entity})
 }
 
 // call defines a expected method call on a Store; it encodes:

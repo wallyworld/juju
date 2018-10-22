@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 )
@@ -26,7 +25,6 @@ type ManifoldsSuite struct {
 var _ = gc.Suite(&ManifoldsSuite{})
 
 func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.UpgradeSeries)
 	s.BaseSuite.SetUpTest(c)
 }
 
@@ -66,6 +64,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"global-clock-updater",
 		"host-key-reporter",
 		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"lease-clock-updater",
@@ -140,6 +139,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"clock",
 		"global-clock-updater",
 		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"lease-clock-updater",
@@ -303,9 +303,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"audit-config-updater",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"lease-manager",
 		"restore-watcher",
@@ -395,9 +394,25 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"http-server": {
 		"agent",
+		"api-server",
+		"audit-config-updater",
+		"central-hub",
 		"certificate-watcher",
 		"clock",
+		"http-server-args",
 		"is-controller-flag",
+		"lease-manager",
+		"raft-enabled-flag",
+		"raft-transport",
+		"restore-watcher",
+		"state",
+		"state-config-watcher",
+		"upgrade-steps-gate",
+	},
+
+	"http-server-args": {
+		"agent",
+		"clock",
 		"state",
 		"state-config-watcher"},
 
@@ -564,9 +579,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft-enabled-flag",
 		"raft-transport",
@@ -581,9 +595,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft-backstop": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft",
 		"raft-enabled-flag",
@@ -599,9 +612,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft-clusterer": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft",
 		"raft-enabled-flag",
@@ -624,9 +636,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft-forwarder": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft",
 		"raft-enabled-flag",
@@ -643,9 +654,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft-leader-flag": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft",
 		"raft-enabled-flag",
@@ -661,17 +671,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"raft-transport": {
 		"agent",
 		"central-hub",
-		"certificate-watcher",
 		"clock",
-		"http-server",
+		"http-server-args",
 		"is-controller-flag",
 		"raft-enabled-flag",
 		"state",
 		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"reboot-executor": {

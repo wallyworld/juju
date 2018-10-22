@@ -108,6 +108,8 @@ type ApplicationParams struct {
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
 	Password                string
+	Placement               []*instance.Placement
+	DesiredScale            int
 }
 
 // UnitParams are used to create units.
@@ -484,9 +486,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Constraints:       params.Constraints,
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
+		Placement:         params.Placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	application.SetPassword(params.Password)
+	err = application.SetPassword(params.Password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = application.Scale(params.DesiredScale)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -769,12 +774,17 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 	}
 	params.Type = state.ModelTypeCAAS
 	params.CloudRegion = "<none>"
+	if params.Owner == nil {
+		origEnv, err := factory.st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		params.Owner = origEnv.Owner()
+	}
 	if params.CloudName == "" {
 		err := factory.st.AddCloud(cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
 			AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-		})
+		}, params.Owner.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		params.CloudName = "caascloud"
 	}

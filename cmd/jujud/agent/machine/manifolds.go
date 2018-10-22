@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
-	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -58,6 +57,7 @@ import (
 	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/worker/httpserverargs"
 	"github.com/juju/juju/worker/identityfilewriter"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/logger"
@@ -317,7 +317,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// for the creation of the hub.
 		centralHubName: centralhub.Manifold(centralhub.ManifoldConfig{
 			StateConfigWatcherName: stateConfigWatcherName,
-			Hub: config.CentralHub,
+			Hub:                    config.CentralHub,
 		}),
 
 		// The pubsub manifold gets the APIInfo from the agent config,
@@ -605,9 +605,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
 		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			Clock:                        config.Clock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 
@@ -665,32 +665,40 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
-			AgentName:             agentName,
-			CertWatcherName:       certificateWatcherName,
+		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
 			StateName:             stateName,
-			PrometheusRegisterer:  config.PrometheusRegisterer,
-			NewTLSConfig:          httpserver.NewTLSConfig,
-			NewStateAuthenticator: httpserver.NewStateAuthenticator,
-			NewWorker:             httpserver.NewWorkerShim,
+			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
+		}),
+
+		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
+			AgentName:            agentName,
+			CertWatcherName:      certificateWatcherName,
+			StateName:            stateName,
+			MuxName:              httpServerArgsName,
+			APIServerName:        apiServerName,
+			RaftTransportName:    raftTransportName,
+			RaftEnabledName:      raftEnabledName,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewTLSConfig:         httpserver.NewTLSConfig,
+			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:                         agentName,
-			AuthenticatorName:                 httpServerName,
+			AuthenticatorName:                 httpServerArgsName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
-			MuxName:                           httpServerName,
+			MuxName:                           httpServerArgsName,
 			LeaseManagerName:                  leaseManagerName,
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:       config.CentralHub,
-			Presence:  config.PresenceRecorder,
-			NewWorker: apiserver.NewWorker,
+			Hub:                               config.CentralHub,
+			Presence:                          config.PresenceRecorder,
+			NewWorker:                         apiserver.NewWorker,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -736,25 +744,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// All the other raft workers hang off the raft transport, so
 		// it's the only one that needs to be gated by the enabled flag.
-		raftTransportName: ifRaftEnabled(ifFullyUpgraded(rafttransport.Manifold(rafttransport.ManifoldConfig{
+		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
 			ClockName:         clockName,
 			AgentName:         agentName,
-			AuthenticatorName: httpServerName,
+			AuthenticatorName: httpServerArgsName,
 			HubName:           centralHubName,
-			MuxName:           httpServerName,
+			MuxName:           httpServerArgsName,
 			DialConn:          rafttransport.DialConn,
 			NewWorker:         rafttransport.NewWorker,
 			Path:              "/raft",
-		}))),
+		})),
 
-		raftName: raft.Manifold(raft.ManifoldConfig{
+		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
 			FSM:           leaseFSM,
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
-		}),
+		})),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
 			RaftName:  raftName,
@@ -820,15 +828,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			FanConfigurerName: fanConfigurerName,
 		})),
 	}
-	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
-		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-			NewFacade:     upgradeseries.NewFacade,
-			NewWorker:     upgradeseries.NewWorker,
-		}))
-	}
+
+	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+		AgentName:     agentName,
+		APICallerName: apiCallerName,
+		Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+		NewFacade:     upgradeseries.NewFacade,
+		NewWorker:     upgradeseries.NewWorker,
+	}))
+
 	return manifolds
 }
 
@@ -1003,8 +1011,9 @@ const (
 	upgradeSeriesEnabledName = "upgrade-series-enabled"
 	upgradeSeriesWorkerName  = "upgrade-series"
 
-	httpServerName = "http-server"
-	apiServerName  = "api-server"
+	httpServerName     = "http-server"
+	httpServerArgsName = "http-server-args"
+	apiServerName      = "api-server"
 
 	raftTransportName = "raft-transport"
 	raftName          = "raft"

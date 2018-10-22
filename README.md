@@ -23,12 +23,12 @@ If you are looking for binary releases of `juju`, they are available in the snap
 Installing Go
 --------------
 
-`Juju's` source code currently depends on Go 1.10. One of the easiest ways
+`Juju's` source code currently depends on Go 1.11. One of the easiest ways
 to install golang is from a snap. You may need to first install
 the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
 snap package is then as easy as
 
-    snap install go --channel=1.10/stable --classic
+    snap install go --channel=1.11/stable --classic
 
 You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
 
@@ -36,7 +36,7 @@ If you want to use `apt`, then you can add the [Golang Gophers PPA](https://laun
 
     sudo add-apt-repository ppa:gophers/archive
     sudo apt-get update
-    sudo apt install golang-1.10
+    sudo apt install golang-1.11
 
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
@@ -198,3 +198,4 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
+ 

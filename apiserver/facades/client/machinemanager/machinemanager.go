@@ -549,6 +549,7 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 // all support the input series. If not, an error is returned.
 // If they do, the agent statuses are checked to ensure that they are all in
 // the idle state i.e. not installing, running hooks, or needing intervention.
+// the final check is that the unit itself is not in an error state.
 func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force bool) ([]string, error) {
 	principals := machine.Principals()
 	units, err := machine.VerifyUnitsSeries(principals, series, force)
@@ -563,9 +564,18 @@ func (mm *MachineManagerAPI) verifiedUnits(machine Machine, series string, force
 			return nil, errors.Trace(err)
 		}
 		if agentStatus.Status != status.Idle {
-			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its current status is: %q %s",
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its agent status is: %q %s",
 				u.Name(), agentStatus.Status, agentStatus.Message)
 		}
+		unitStatus, err := u.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if unitStatus.Status == status.Error {
+			return nil, errors.Errorf("unit %s is not ready to start a series upgrade; its status is: \"error\" %s",
+				u.Name(), unitStatus.Message)
+		}
+
 		unitNames[i] = u.UnitTag().Id()
 	}
 	return unitNames, nil
@@ -663,4 +673,42 @@ func (mm *MachineManagerAPI) validateSeries(argumentSeries, currentSeries string
 	}
 
 	return nil
+}
+
+// Applications returns for each input machine, the unique list of application
+// names represented by the units running on the machine.
+func (mm *MachineManagerAPI) Applications(args params.Entities) (params.StringsResults, error) {
+	err := mm.checkCanRead()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+
+	results := make([]params.StringsResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := mm.st.Machine(tag.Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		units, err := machine.Units()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		apps := make(map[string]bool)
+		for _, unit := range units {
+			apps[unit.ApplicationName()] = true
+		}
+		for app := range apps {
+			results[i].Result = append(results[i].Result, app)
+		}
+	}
+
+	return params.StringsResults{Results: results}, nil
 }

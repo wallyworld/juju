@@ -190,6 +190,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// we include the name of the leader unit. On import, a new lease
 		// is created for the leader unit.
 		leasesC,
+
+		// Volume attachment plans are ignored if missing. A missing collection
+		// simply defaults to the old code path.
+		volumeAttachmentPlanC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -312,6 +316,10 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",
+		// Ignore at this stage.  Depends on how we handle the machine charm
+		// profile watcher if this is a good idea.
+		"UpgradeCharmProfileApplication",
+		"UpgradeCharmProfileCharmURL",
 	)
 	migrated := set.NewStrings(
 		"Addresses",
@@ -357,6 +365,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"CpuPower",
 		"Tags",
 		"AvailZone",
+		"CharmProfiles",
 	)
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
 }
@@ -377,9 +386,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
-		// TODO(caas)
-		"DesiredScale",
-		"Placement",
 	)
 	migrated := set.NewStrings(
 		"Name",
@@ -394,6 +400,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"MetricCredentials",
 		"PasswordHash",
 		"Tools",
+		"DesiredScale",
+		"Placement",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
@@ -749,7 +757,7 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 	s.AssertExportedFields(c, volumeAttachmentDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeAttachmentInfo{}, set.NewStrings(
-		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly"))
+		"DeviceName", "DeviceLink", "BusAddress", "ReadOnly", "PlanInfo"))
 	s.AssertExportedFields(c, VolumeAttachmentParams{}, set.NewStrings(
 		"ReadOnly"))
 }

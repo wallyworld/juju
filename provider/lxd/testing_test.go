@@ -525,6 +525,14 @@ func (conn *StubClient) GetProfile(name string) (*api.Profile, string, error) {
 	return conn.Profile, "etag", conn.NextErr()
 }
 
+func (conn *StubClient) GetContainerProfiles(name string) ([]string, error) {
+	conn.AddCall("GetContainerProfiles", name)
+	return []string{
+		"default",
+		"juju-model-name",
+	}, conn.NextErr()
+}
+
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
@@ -647,6 +655,11 @@ func (conn *StubClient) WriteContainer(container *lxd.Container) error {
 
 func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]string) error {
 	conn.AddCall("CreateProfileWithConfig", name, cfg)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) CreateProfile(post api.ProfilesPost) error {
+	conn.AddCall("CreateProfile", post)
 	return conn.NextErr()
 }
 

@@ -5,9 +5,12 @@ package provisioner_test
 
 import (
 	"fmt"
+	"os"
 	stdtesting "testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -23,9 +26,13 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	environtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -671,6 +678,43 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
+func (s *withoutControllerSuite) TestWatchContainersCharmProfiles(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.WatchContainers{Params: []params.WatchContainer{
+		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
+		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.KVM)},
+		{MachineTag: "machine-42", ContainerType: ""},
+		{MachineTag: "unit-foo-0", ContainerType: ""},
+		{MachineTag: "application-bar", ContainerType: ""},
+	}}
+	result, err := s.provisioner.WatchContainersCharmProfiles(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "2", Changes: []string{}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 2)
+	m0Watcher := s.resources.Get("1")
+	defer statetesting.AssertStop(c, m0Watcher)
+	m1Watcher := s.resources.Get("2")
+	defer statetesting.AssertStop(c, m1Watcher)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc0 := statetesting.NewStringsWatcherC(c, s.State, m0Watcher.(state.StringsWatcher))
+	wc0.AssertNoChange()
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, m1Watcher.(state.StringsWatcher))
+	wc1.AssertNoChange()
+}
+
 func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	// Now test it with a non-controller and make sure
 	// the secret attributes are masked.
@@ -1173,7 +1217,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil)
+	err = s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -1704,6 +1748,80 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
 
+func (s *withControllerSuite) TestGetContainerProfileInfo(c *gc.C) {
+	// TODO (hml) lxd-profile
+	// enable this test once charmrepo test accepts charms with an lxdprofile
+	c.Skip("will fail until charm.v6 lxdprofile functionality added to charmrepo testing")
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+
+	profileMachine, err := s.State.AddMachineInsideNewMachine(
+		state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		state.MachineTemplate{ // parent
+			Series: "quantal",
+		},
+		instance.LXD,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profileCharm := s.AddTestingCharm(c, "lxd-profile")
+	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = profileUnit.AssignToMachine(profileMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: profileMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.GetContainerProfileInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := coretesting.FakeControllerConfig()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.APIPort(s.Environ.Provider())
+	controllerCfg["api-port"] = apiPort
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-0", coretesting.ModelConfig(c).Name())
+	expected := params.ContainerProfileResults{
+		Results: []params.ContainerProfileResult{{
+			LXDProfiles: []params.ContainerLXDProfile{{
+				Profile: params.CharmLXDProfile{
+					Config: map[string]string{
+						"security.nesting":       "true",
+						"security.privileged":    "true",
+						"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
+						"environment.http_proxy": "",
+					},
+					Description: "lxd profile for testing, black list items grouped commented out",
+					Devices: map[string]map[string]string{
+						"tun": {
+							"path": "/dev/net/tun",
+							"type": "unix-char",
+						},
+						"sony": {
+							"type":      "usb",
+							"vendorid":  "0fce",
+							"productid": "51da",
+						},
+						"bdisk": {
+							"source": "/dev/loop0",
+							"type":   "unix-block",
+						},
+					},
+				},
+				Name: pName,
+			}},
+		}},
+	}
+
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
 // TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
 // Some of the use cases we need to be testing are:
 // 1) Provider can allocate addresses, should result in a container with
@@ -1714,3 +1832,132 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 // 3) Provider could allocate DHCP based addresses on the host device, which would let us
 //    use a bridge on the device and DHCP. (Currently not supported, but desirable for
 //    vSphere and Manual and probably LXD providers.)
+// Addition (manadart 2018-10-09): To begin accommodating the deficiencies noted
+// above, the new suite below uses mocks for tests ill-suited to the dummy
+// provider. We could reasonably re-write the tests above over time to use the
+// new suite.
+
+type provisionerMockSuite struct {
+	coretesting.BaseSuite
+
+	environ      *environtesting.MockNetworkingEnviron
+	host         *MockMachine
+	container    *MockMachine
+	device       *MockLinkLayerDevice
+	parentDevice *MockLinkLayerDevice
+}
+
+var _ = gc.Suite(&provisionerMockSuite{})
+
+// Even when the provider supports container addresses, manually provisioned
+// machines should fall back to DHCP.
+func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectManuallyProvisionedHostsUseDHCPForContainers()
+
+	res := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{}},
+	}
+	ctx := provisioner.NewPrepareOrGetContext(res, false)
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Config, gc.HasLen, 1)
+
+	cfg := res.Results[0].Config[0]
+	c.Check(cfg.ConfigType, gc.Equals, "dhcp")
+	c.Check(cfg.ProviderSubnetId, gc.Equals, "")
+	c.Check(cfg.VLANTag, gc.Equals, 0)
+}
+
+func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainers() {
+	s.expectNetworkingEnviron()
+	s.expectLinkLayerDevices()
+
+	emptySpace := ""
+
+	cExp := s.container.EXPECT()
+	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
+	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
+	cExp.Id().Return("lxd/0").AnyTimes()
+	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
+	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
+
+	hExp := s.host.EXPECT()
+	hExp.Id().Return("0").AnyTimes()
+	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
+		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
+	// Crucial behavioural trait. Set false to test failure.
+	hExp.IsManual().Return(true, nil)
+	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
+
+}
+
+// expectNetworkingEnviron stubs an environ that supports container networking.
+func (s *provisionerMockSuite) expectNetworkingEnviron() {
+	eExp := s.environ.EXPECT()
+	eExp.Config().Return(&config.Config{}).AnyTimes()
+	eExp.SupportsContainerAddresses(gomock.Any()).Return(true, nil).AnyTimes()
+}
+
+// expectLinkLayerDevices mocks a link-layer device and its parent,
+// suitable for use as a bridge network for containers.
+func (s *provisionerMockSuite) expectLinkLayerDevices() {
+	devName := "eth0"
+	mtu := uint(1500)
+	mac := network.GenerateVirtualMACAddress()
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name:       devName,
+		Type:       state.EthernetDevice,
+		MACAddress: mac,
+		MTU:        mtu,
+	}
+
+	dExp := s.device.EXPECT()
+	dExp.Name().Return(devName).AnyTimes()
+	dExp.Type().Return(state.BridgeDevice).AnyTimes()
+	dExp.MTU().Return(mtu).AnyTimes()
+	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
+	dExp.ParentDevice().Return(s.parentDevice, nil)
+	dExp.MACAddress().Return(mac)
+	dExp.IsAutoStart().Return(true)
+	dExp.IsUp().Return(true)
+
+	pExp := s.parentDevice.EXPECT()
+	// The address itself is unimportant, so we can use an empty one.
+	// What is important is that there is one there to flex the path we are
+	// testing.
+	pExp.Addresses().Return([]*state.Address{{}}, nil)
+	pExp.Name().Return(devName).MinTimes(1)
+}
+
+func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	exp := s.container.EXPECT()
+	exp.InstanceId().Return(instance.Id("juju-8ebd6c-0"), nil)
+	exp.Id().Return("0/lxd/0")
+
+	res := params.MachineNetworkConfigResults{
+		Results: []params.MachineNetworkConfigResult{{}},
+	}
+	ctx := provisioner.NewPrepareOrGetContext(res, true)
+
+	// ProviderCallContext is not required by this logical path; we pass nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
+}
+
+func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
+	s.host = NewMockMachine(ctrl)
+	s.container = NewMockMachine(ctrl)
+	s.device = NewMockLinkLayerDevice(ctrl)
+	s.parentDevice = NewMockLinkLayerDevice(ctrl)
+
+	return ctrl
+}

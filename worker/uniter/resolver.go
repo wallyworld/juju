@@ -56,8 +56,7 @@ func (s *uniterResolver) NextOp(
 	// state) then the uniter should idle in the face of all remote state
 	// changes accept for those which indicate termination - the unit is
 	// waiting to be shutdown.
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
+	if remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted {
 		return nil, resolver.ErrNoOperation
 	}
 
@@ -236,7 +235,6 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
@@ -271,6 +269,17 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
+	// This is checked early so that after a series upgrade, it is the first
+	// hook to be run. The uniter's local state will be in the "not started" state
+	// if the uniter was stopped, for whatever reason, when performing a
+	// series upgrade. If the uniter was not stopped then it will be in the
+	// "prepare completed" state and should fire the hook likewise.
+	if (localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted ||
+		localState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareCompleted) &&
+		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
+	}
+
 	// Only IAAS models will react to a charm modified change.
 	// For CAAS models, the operator will unpack the new charm and
 	// inform the uniter workers to run the upgrade hook.
@@ -290,11 +299,6 @@ func (s *uniterResolver) nextOp(
 	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
 		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesPrepareStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
-	}
-
-	if localState.UpgradeSeriesStatus == model.UpgradeSeriesNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UpgradeSeriesCompleteStarted {
-		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
 	// If the local state is completed but the remote state is not started,

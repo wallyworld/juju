@@ -91,7 +91,7 @@ type Config struct {
 	// UnitRemover is an interface for removing a unit.
 	UnitRemover UnitRemover
 
-	// CharmApplication is an interface for getting info about an application's charm.
+	// ApplicationWatcher is an interface for getting info about an application's charm.
 	ApplicationWatcher ApplicationWatcher
 
 	// VersionSetter is an interface for setting the operator agent version.
@@ -331,7 +331,7 @@ func (op *caasOperator) loop() (err error) {
 	}
 	op.catacomb.Add(jujuUnitsWatcher)
 
-	if op.setStatus(status.Active, ""); err != nil {
+	if err := op.setStatus(status.Active, ""); err != nil {
 		return errors.Trace(err)
 	}
 

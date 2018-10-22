@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/romulus"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
@@ -41,16 +40,15 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
 
 type CharmAdder interface {
-	AddLocalCharm(*charm.URL, charm.Charm) (*charm.URL, error)
-	AddCharm(*charm.URL, params.Channel) error
-	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon) error
+	AddLocalCharm(*charm.URL, charm.Charm, bool) (*charm.URL, error)
+	AddCharm(*charm.URL, params.Channel, bool) error
+	AddCharmWithAuthorization(*charm.URL, params.Channel, *macaroon.Macaroon, bool) error
 	AuthorizeCharmstoreEntity(*charm.URL) (*macaroon.Macaroon, error)
 }
 
@@ -82,6 +80,12 @@ type MeteredDeployAPI interface {
 	SetMetricCredentials(application string, credentials []byte) error
 }
 
+// CharmDeployAPI represents the methods of the API the deploy
+// command needs for charms.
+type CharmDeployAPI interface {
+	CharmInfo(string) (*apicharms.CharmInfo, error)
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -90,11 +94,11 @@ type DeployAPI interface {
 	api.Connection
 	CharmAdder
 	MeteredDeployAPI
+	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
 
 	// ApplicationClient
-	CharmInfo(string) (*apicharms.CharmInfo, error)
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
@@ -261,6 +265,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			RegisterPath: "/plan/authorize",
 			QueryPath:    "/charm",
 		},
+		&ValidateLXDProfileCharm{},
 	}
 	deployCmd := &DeployCommand{
 		Steps: steps,
@@ -415,6 +420,15 @@ unless '--force' is used.
 
   juju deploy /path/to/charm --series wily --force
 
+Charms can also utilise LXD Profiles when deploying a charm. LXD Profiles can
+be used to override configurations or devices when creating the containers for
+LXD. LXD Profiles are validated against a allow/deny list, using '--force' flag
+can bypass the validation.
+
+Using the '--force' flag for LXD Profiles is not generally recommended when
+deploying an application; overriding profiles on the container may cause
+unexpected behavior.
+
 Local bundles are specified with a direct path to a bundle.yaml file.
 For example:
 
@@ -563,6 +577,14 @@ See also:
     spaces
 `
 
+//go:generate mockgen -package mocks -destination mocks/deploystepapi_mock.go github.com/juju/juju/cmd/juju/application DeployStepAPI
+
+// DeployStepAPI represents a API required for deploying using the step
+// deployment code.
+type DeployStepAPI interface {
+	MeteredDeployAPI
+}
+
 // DeployStep is an action that needs to be taken during charm deployment.
 type DeployStep interface {
 
@@ -573,11 +595,11 @@ type DeployStep interface {
 	SetPlanURL(planURL string)
 
 	// RunPre runs before the call is made to add the charm to the environment.
-	RunPre(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
+	RunPre(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo) error
 
 	// RunPost runs after the call is made to add the charm to the environment.
 	// The error parameter is used to notify the step of a previously occurred error.
-	RunPost(MeteredDeployAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
+	RunPost(DeployStepAPI, *httpbakery.Client, *cmd.Context, DeploymentInfo, error) error
 }
 
 // DeploymentInfo is used to maintain all deployment information for
@@ -588,6 +610,7 @@ type DeploymentInfo struct {
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
 	ApplicationPlan string
+	Force           bool
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -635,7 +658,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
@@ -649,9 +672,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	if c.Force && c.Series == "" && c.PlacementSpec == "" {
-		return errors.New("--force is only used with --series")
-	}
 	modelType, err := c.ModelType()
 	if err != nil {
 		return err
@@ -753,6 +773,7 @@ func (c *DeployCommand) deployBundle(
 	ctx *cmd.Context,
 	filePath string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
@@ -781,6 +802,7 @@ func (c *DeployCommand) deployBundle(
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       modelUUID,
+					Force:           c.Force,
 				}
 
 				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
@@ -799,9 +821,12 @@ func (c *DeployCommand) deployBundle(
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
+	// Deploying bundles does not allow the use force, it's expected that the
+	// bundle is correct and therefore the charms are also.
 	if _, err := deployBundle(
 		filePath,
 		data,
+		bundleURL,
 		c.BundleOverlayFile,
 		channel,
 		apiRoot,
@@ -858,12 +883,6 @@ func (c *DeployCommand) deployCharm(
 	applicationName := c.ApplicationName
 	if applicationName == "" {
 		applicationName = charmInfo.Meta.Name
-	}
-
-	// Validate the charmInfo before launching, interesting if this fails
-	// I'm not entirely sure what you can do here with a stored charm
-	if err := c.validateCharmInfoLXDProfile(charmInfo); err != nil {
-		return errors.Trace(err)
 	}
 
 	// Process the --config args.
@@ -943,6 +962,7 @@ func (c *DeployCommand) deployCharm(
 		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
+		Force:           c.Force,
 	}
 
 	for _, step := range c.Steps {
@@ -1110,32 +1130,6 @@ func (c *DeployCommand) validateCharmSeries(series string) error {
 	return model.ValidateSeries(modelType, series)
 }
 
-func (c *DeployCommand) validateCharmLXDProfile(ch charm.Charm) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		// Check if the charm conforms to the LXDProfiler, as it's optional and in
-		// theory the charm.Charm doesn't have to provider a LXDProfile method we
-		// can ignore it if it's missing and assume it is therefore valid.
-		if profiler, ok := ch.(charm.LXDProfiler); ok {
-			// Profile from the api could be nil, so check that it isn't
-			if profile := profiler.LXDProfile(); profile != nil {
-				err := profile.ValidateConfigDevices()
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *DeployCommand) validateCharmInfoLXDProfile(info *apicharms.CharmInfo) error {
-	if featureflag.Enabled(feature.LXDProfile) {
-		if profile := info.LXDProfile; profile != nil {
-			err := profile.ValidateConfigDevices()
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
@@ -1234,6 +1228,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			ctx,
 			bundleDir,
 			bundleData,
+			nil,
 			c.Channel,
 			apiRoot,
 			c.BundleStorage,
@@ -1305,16 +1300,13 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	if err := c.validateCharmSeries(series); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := c.validateCharmLXDProfile(ch); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
 
-		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
+		if curl, err = apiRoot.AddLocalCharm(curl, ch, c.Force); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1377,6 +1369,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				ctx,
 				"", // filepath
 				data,
+				storeCharmOrBundleURL,
 				channel,
 				apiRoot,
 				c.BundleStorage,
@@ -1448,7 +1441,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// We check this first before possibly suggesting --force.
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
-				return errors.Trace(err)
+				return errors.Trace(err2)
 			}
 		}
 
@@ -1457,7 +1450,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
+		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())

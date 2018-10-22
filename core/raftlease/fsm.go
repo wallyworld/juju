@@ -10,6 +10,8 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/globalclock"
@@ -36,6 +38,14 @@ const (
 	// OperationSetTime denotes updating stored global time (which
 	// will also remove any expired leases).
 	OperationSetTime = "setTime"
+
+	// OperationPin pins a lease, preventing it from expiring
+	// until it is unpinned.
+	OperationPin = "pin"
+
+	// OperationUnpin unpins a lease, restoring normal
+	// lease expiry behaviour.
+	OperationUnpin = "unpin"
 )
 
 // FSMResponse defines what will be available on the return value from
@@ -54,6 +64,7 @@ type FSMResponse interface {
 func NewFSM() *FSM {
 	return &FSM{
 		entries: make(map[lease.Key]*entry),
+		pinned:  make(map[lease.Key]set.Tags),
 	}
 }
 
@@ -62,11 +73,17 @@ type FSM struct {
 	mu         sync.Mutex
 	globalTime time.Time
 	entries    map[lease.Key]*entry
+
+	// Pinned leases are denoted by having a non-empty collection of tags
+	// representing vested "pinners" against their key.
+	// This allows different Juju concerns to pin leases, but remove only
+	// their own pins. It is done to avoid restoring normal expiration
+	// to a lease pinned by another concern operating under under the
+	// assumption that the lease holder will not change.
+	pinned map[lease.Key]set.Tags
 }
 
 func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if _, found := f.entries[key]; found {
 		return invalidResponse()
 	}
@@ -79,8 +96,6 @@ func (f *FSM) claim(key lease.Key, holder string, duration time.Duration) *respo
 }
 
 func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	entry, found := f.entries[key]
 	if !found {
 		return invalidResponse()
@@ -101,46 +116,75 @@ func (f *FSM) extend(key lease.Key, holder string, duration time.Duration) *resp
 	return &response{}
 }
 
+func (f *FSM) pin(key lease.Key, entity names.Tag) *response {
+	if f.pinned[key] == nil {
+		f.pinned[key] = set.NewTags()
+	}
+	f.pinned[key].Add(entity)
+	return &response{}
+}
+
+func (f *FSM) unpin(key lease.Key, entity names.Tag) *response {
+	if f.pinned[key] != nil {
+		f.pinned[key].Remove(entity)
+	}
+	return &response{}
+}
+
 func (f *FSM) setTime(oldTime, newTime time.Time) *response {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if f.globalTime != oldTime {
 		return &response{err: globalclock.ErrConcurrentUpdate}
 	}
 	f.globalTime = newTime
+	return &response{expired: f.removeExpired(newTime)}
+}
+
+// expired returns a collection of keys for leases that have expired.
+// Any pinned leases are not included in the return.
+func (f *FSM) removeExpired(newTime time.Time) []lease.Key {
 	var expired []lease.Key
 	for key, entry := range f.entries {
 		expiry := entry.start.Add(entry.duration)
-		if expiry.Before(newTime) {
+		if expiry.Before(newTime) && !f.isPinned(key) {
 			delete(f.entries, key)
 			expired = append(expired, key)
 		}
 	}
-	return &response{expired: expired}
+	return expired
 }
 
 // GlobalTime returns the FSM's internal time.
 func (f *FSM) GlobalTime() time.Time {
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	return f.globalTime
 }
 
 // Leases gets information about all of the leases in the system.
 func (f *FSM) Leases(localTime time.Time) map[lease.Key]lease.Info {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	results := make(map[lease.Key]lease.Info)
 	for key, entry := range f.entries {
 		globalExpiry := entry.start.Add(entry.duration)
+
+		// If there is a pinned lease, always represent it as having an expiry
+		// in the future. This prevents the lease manager from waking up
+		// thinking it has some expiry events to handle.
 		remaining := globalExpiry.Sub(f.globalTime)
+		if f.isPinned(key) {
+			remaining = 30 * time.Second
+		}
 		localExpiry := localTime.Add(remaining)
+
 		results[key] = lease.Info{
 			Holder: entry.holder,
 			Expiry: localExpiry,
 		}
 	}
+	f.mu.Unlock()
 	return results
+}
+
+func (f *FSM) isPinned(key lease.Key) bool {
+	return !f.pinned[key].IsEmpty()
 }
 
 // entry holds the details of a lease.
@@ -195,11 +239,27 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 	if err := command.Validate(); err != nil {
 		return &response{err: errors.Trace(err)}
 	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	switch command.Operation {
 	case OperationClaim:
 		return f.claim(command.LeaseKey(), command.Holder, command.Duration)
 	case OperationExtend:
 		return f.extend(command.LeaseKey(), command.Holder, command.Duration)
+	case OperationPin:
+		tag, err := names.ParseTag(command.PinEntity)
+		if err != nil {
+			return &response{err: errors.Trace(err)}
+		}
+		return f.pin(command.LeaseKey(), tag)
+	case OperationUnpin:
+		tag, err := names.ParseTag(command.PinEntity)
+		if err != nil {
+			return &response{err: errors.Trace(err)}
+		}
+		return f.unpin(command.LeaseKey(), tag)
 	case OperationSetTime:
 		return f.setTime(command.OldTime, command.NewTime)
 	default:
@@ -210,7 +270,7 @@ func (f *FSM) Apply(log *raft.Log) interface{} {
 // Snapshot is part of raft.FSM.
 func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
+
 	entries := make(map[SnapshotKey]SnapshotEntry, len(f.entries))
 	for key, entry := range f.entries {
 		entries[SnapshotKey{
@@ -223,9 +283,29 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 			Duration: entry.duration,
 		}
 	}
+
+	pinned := make(map[SnapshotKey][]string)
+	for key, tags := range f.pinned {
+		if tags.IsEmpty() {
+			continue
+		}
+		entities := make([]string, tags.Size())
+		for i, t := range tags.SortedValues() {
+			entities[i] = t.String()
+		}
+		pinned[SnapshotKey{
+			Namespace: key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Lease:     key.Lease,
+		}] = entities
+	}
+
+	f.mu.Unlock()
+
 	return &Snapshot{
 		Version:    SnapshotVersion,
 		Entries:    entries,
+		Pinned:     pinned,
 		GlobalTime: f.globalTime,
 	}, nil
 }
@@ -233,6 +313,7 @@ func (f *FSM) Snapshot() (raft.FSMSnapshot, error) {
 // Restore is part of raft.FSM.
 func (f *FSM) Restore(reader io.ReadCloser) error {
 	defer reader.Close()
+
 	var snapshot Snapshot
 	decoder := yaml.NewDecoder(reader)
 	if err := decoder.Decode(&snapshot); err != nil {
@@ -258,11 +339,29 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 		}
 	}
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	newPinned := make(map[lease.Key]set.Tags, len(snapshot.Pinned))
+	for key, entities := range snapshot.Pinned {
+		tags := make([]names.Tag, len(entities))
+		for i, e := range entities {
+			tag, err := names.ParseTag(e)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			tags[i] = tag
+		}
 
+		newPinned[lease.Key{
+			Namespace: key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Lease:     key.Lease,
+		}] = set.NewTags(tags...)
+	}
+
+	f.mu.Lock()
 	f.globalTime = snapshot.GlobalTime
 	f.entries = newEntries
+	f.pinned = newPinned
+	f.mu.Unlock()
 
 	return nil
 }
@@ -271,6 +370,7 @@ func (f *FSM) Restore(reader io.ReadCloser) error {
 type Snapshot struct {
 	Version    int                           `yaml:"version"`
 	Entries    map[SnapshotKey]SnapshotEntry `yaml:"entries"`
+	Pinned     map[SnapshotKey][]string      `yaml:"pinned"`
 	GlobalTime time.Time                     `yaml:"global-time"`
 }
 
@@ -340,40 +440,51 @@ type Command struct {
 
 	// NewTime is the time to store as the global time.
 	NewTime time.Time `yaml:"new-time,omitempty"`
+
+	// PinEntity is a tag representing an entity concerned
+	// with a pin or unpin operation.
+	PinEntity string `yaml:"pin-entity,omitempty"`
 }
 
 // Validate checks that the command describes a valid state change.
 func (c *Command) Validate() error {
-	var zeroTime time.Time
 	// For now there's only version 1.
 	if c.Version != 1 {
 		return errors.NotValidf("version %d", c.Version)
 	}
 	switch c.Operation {
 	case OperationClaim, OperationExtend:
+		if err := c.validateLeaseKey(); err != nil {
+			return err
+		}
+		if err := c.validateNoTime(); err != nil {
+			return err
+		}
 		if c.Holder == "" {
 			return errors.NotValidf("%s with empty holder", c.Operation)
 		}
 		if c.Duration == 0 {
 			return errors.NotValidf("%s with zero duration", c.Operation)
 		}
-		if c.Namespace == "" {
-			return errors.NotValidf("%s with empty namespace", c.Operation)
+		if c.PinEntity != "" {
+			return errors.NotValidf("%s with pin entity", c.Operation)
 		}
-		if c.ModelUUID == "" {
-			return errors.NotValidf("%s with empty model UUID", c.Operation)
+	case OperationPin, OperationUnpin:
+		if err := c.validateLeaseKey(); err != nil {
+			return err
 		}
-		if c.Lease == "" {
-			return errors.NotValidf("%s with empty lease", c.Operation)
+		if err := c.validateNoTime(); err != nil {
+			return err
 		}
-		if c.OldTime != zeroTime {
-			return errors.NotValidf("%s with old time", c.Operation)
+		if c.Duration != 0 {
+			return errors.NotValidf("%s with duration", c.Operation)
 		}
-		if c.NewTime != zeroTime {
-			return errors.NotValidf("%s with new time", c.Operation)
+		if c.PinEntity == "" {
+			return errors.NotValidf("%s with empty pin entity", c.Operation)
 		}
 	case OperationSetTime:
 		// An old time of 0 is valid when starting up.
+		var zeroTime time.Time
 		if c.NewTime == zeroTime {
 			return errors.NotValidf("setTime with zero new time")
 		}
@@ -390,10 +501,40 @@ func (c *Command) Validate() error {
 			return errors.NotValidf("setTime with model UUID")
 		}
 		if c.Lease != "" {
+			if c.Holder == "" {
+				return errors.NotValidf("%s with empty holder", c.Operation)
+			}
 			return errors.NotValidf("setTime with lease")
+		}
+		if c.PinEntity != "" {
+			return errors.NotValidf("setTime with pin entity")
 		}
 	default:
 		return errors.NotValidf("operation %q", c.Operation)
+	}
+	return nil
+}
+
+func (c *Command) validateLeaseKey() error {
+	if c.Namespace == "" {
+		return errors.NotValidf("%s with empty namespace", c.Operation)
+	}
+	if c.ModelUUID == "" {
+		return errors.NotValidf("%s with empty model UUID", c.Operation)
+	}
+	if c.Lease == "" {
+		return errors.NotValidf("%s with empty lease", c.Operation)
+	}
+	return nil
+}
+
+func (c *Command) validateNoTime() error {
+	var zeroTime time.Time
+	if c.OldTime != zeroTime {
+		return errors.NotValidf("%s with old time", c.Operation)
+	}
+	if c.NewTime != zeroTime {
+		return errors.NotValidf("%s with new time", c.Operation)
 	}
 	return nil
 }

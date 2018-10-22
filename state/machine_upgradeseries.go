@@ -106,7 +106,7 @@ func (m *Machine) IsLocked() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if errors.IsBadRequest(err) {
+	if errors.IsNotFound(err) {
 		return false, nil
 	}
 	return false, errors.Trace(err)
@@ -197,10 +197,19 @@ func (m *Machine) StartUpgradeSeriesUnitCompletion(message string) error {
 		}
 		timestamp := bson.Now()
 		lock.Messages = append(lock.Messages, newUpgradeSeriesMessage(m.Tag().String(), message, timestamp))
+		lock.TimeStamp = timestamp
+		changeCount := 0
 		for unitName, us := range lock.UnitStatuses {
+			if us.Status == model.UpgradeSeriesCompleteStarted {
+				continue
+			}
 			us.Status = model.UpgradeSeriesCompleteStarted
 			us.Timestamp = timestamp
 			lock.UnitStatuses[unitName] = us
+			changeCount++
+		}
+		if changeCount == 0 {
+			return nil, jujutxn.ErrNoOperations
 		}
 		return startUpgradeSeriesUnitCompletionTxnOps(m.doc.Id, lock), nil
 	}
@@ -224,7 +233,10 @@ func startUpgradeSeriesUnitCompletionTxnOps(machineDocID string, lock *upgradeSe
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}},
-			Update: bson.D{{"$set", bson.D{{statusField, lock.UnitStatuses}, {"messages", lock.Messages}}}},
+			Update: bson.D{{"$set", bson.D{
+				{statusField, lock.UnitStatuses},
+				{"timestamp", lock.TimeStamp},
+				{"messages", lock.Messages}}}},
 		},
 	}
 }
@@ -248,8 +260,9 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !readyForCompletion {
 			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
-		message := newUpgradeSeriesMessage(m.Tag().String(), "complete phase started", bson.Now())
-		return completeUpgradeSeriesTxnOps(m.doc.Id, message), nil
+		timestamp := bson.Now()
+		message := newUpgradeSeriesMessage(m.Tag().String(), "complete phase started", timestamp)
+		return completeUpgradeSeriesTxnOps(m.doc.Id, timestamp, message), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -267,7 +280,7 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	return lock.MachineStatus == model.UpgradeSeriesPrepareCompleted, nil
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessage) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string, timestamp time.Time, message UpgradeSeriesMessage) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -279,7 +292,10 @@ func completeUpgradeSeriesTxnOps(machineDocID string, message UpgradeSeriesMessa
 			Id:     machineDocID,
 			Assert: bson.D{{"machine-status", model.UpgradeSeriesPrepareCompleted}},
 			Update: bson.D{
-				{"$set", bson.D{{"machine-status", model.UpgradeSeriesCompleteStarted}}},
+				{"$set", bson.D{
+					{"machine-status", model.UpgradeSeriesCompleteStarted},
+					{"timestamp", timestamp},
+				}},
 				{"$push", bson.D{{"messages", message}}}},
 		},
 	}
@@ -377,11 +393,11 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		statusSet, err := m.isUnitUpgradeSeriesStatusSet(unitName, status)
+		canUpdate, err := m.verifyUnitUpgradeSeriesStatus(unitName, status)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if statusSet {
+		if !canUpdate {
 			return nil, jujutxn.ErrNoOperations
 		}
 		timestamp := bson.Now()
@@ -396,7 +412,9 @@ func (m *Machine) SetUpgradeSeriesUnitStatus(unitName string, status model.Upgra
 	return nil
 }
 
-func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
+// verifyUnitUpgradeSeriesStatus returns a boolean indicating whether or not it
+// is safe to update the UpgradeSeriesStatus of a lock.
+func (m *Machine) verifyUnitUpgradeSeriesStatus(unitName string, status model.UpgradeSeriesStatus) (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
@@ -405,7 +423,12 @@ func (m *Machine) isUnitUpgradeSeriesStatusSet(unitName string, status model.Upg
 	if !ok {
 		return false, errors.NotFoundf(unitName)
 	}
-	return us.Status == status, nil
+
+	comp, err := model.CompareUpgradeSeriesStatus(us.Status, status)
+	if err != nil {
+		return false, err
+	}
+	return comp == -1, nil
 }
 
 // [TODO](externalreality): move some/all of these parameters into an argument structure.
@@ -432,7 +455,10 @@ func setUpgradeSeriesTxnOps(
 				{{statusField, bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
-				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}},
+				{"$set", bson.D{
+					{unitStatusField, status},
+					{"timestamp", timestamp},
+					{unitTimestampField, timestamp}}},
 				{"$push", bson.D{{"messages", message}}},
 			},
 		},
@@ -474,18 +500,29 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 // notifications sorted by timestamp.
 func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
+	if errors.IsNotFound(err) {
+		// If the lock is not found here then there are no more messages
+		return nil, true, nil
+	}
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, false, err
-	}
+	// finished means that a subsequent call to this method, while the
+	// Machine Lock is of a similar Machine Status, would return no
+	// additional messages (notifications). Since the value of this variable
+	// is returned, callers may choose to close streams or stop watchers
+	// based on this information.
+	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
+		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
 	// Filter seen messages
 	unseenMessages := make([]UpgradeSeriesMessage, 0)
 	for _, upgradeSeriesMessage := range lock.Messages {
 		if !upgradeSeriesMessage.Seen {
 			unseenMessages = append(unseenMessages, upgradeSeriesMessage)
 		}
+	}
+	if len(unseenMessages) == 0 {
+		return []string{}, finished, nil
 	}
 	sort.Slice(unseenMessages, func(i, j int) bool {
 		return unseenMessages[i].Timestamp.Before(unseenMessages[j].Timestamp)
@@ -498,29 +535,20 @@ func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	// finished means that a subsequent call to this method, while the
-	// Machine Lock is of a similar Machine Status, would return no
-	// additional messages (notifications). Since the value of this variable
-	// is returned, callers may choose to close streams or stop watchers
-	// based on this information.
-	finished := lock.MachineStatus == model.UpgradeSeriesCompleted ||
-		lock.MachineStatus == model.UpgradeSeriesPrepareCompleted
-
 	return messages, finished, nil
 }
 
 // SetUpgradeSeriesMessagesAsSeen marks a given upgrade series messages as
-// having been seen by a client of the API. This method is exported since only
-// the client of this method can determine when a message has been "seen" and
-// thus the decision must be made ad the APIServer level as whether to call this
-// method or not (as apposed to immediately calling this method when messages
-// are queried for sending).
+// having been seen by a client of the API.
 func (m *Machine) SetUpgradeSeriesMessagesAsSeen(messages []UpgradeSeriesMessage) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+		}
+		if len(messages) == 0 {
+			return nil, jujutxn.ErrNoOperations
 		}
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
@@ -543,14 +571,16 @@ func setUpgradeSeriesMessageTxnOps(machineDocID string, messages []UpgradeSeries
 			Assert: isAliveDoc,
 		},
 	}
+	fields := bson.D{}
 	for i := range messages {
 		field := fmt.Sprintf("messages.%d.seen", i)
-		ops = append(ops, txn.Op{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Update: bson.D{{"$set", bson.D{{field, seen}}}},
-		})
+		fields = append(fields, bson.DocElem{field, seen})
 	}
+	ops = append(ops, txn.Op{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     machineDocID,
+		Update: bson.D{{"$set", fields}},
+	})
 	return ops
 }
 
@@ -559,7 +589,6 @@ func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.UpgradeSeriesStat
 	if err != nil {
 		return false, err
 	}
-
 	return lock.MachineStatus == status, nil
 }
 
@@ -570,7 +599,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
-		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+		return nil, errors.NotFoundf("upgrade lock for machine %q", m)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving upgrade series lock for machine %v", m.Id())

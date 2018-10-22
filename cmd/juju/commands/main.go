@@ -358,10 +358,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewRemoveCommand())
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
-
-	if featureflag.Enabled(feature.UpgradeSeries) {
-		r.Register(machine.NewUpgradeSeriesCommand())
-	}
+	r.Register(machine.NewUpgradeSeriesCommand())
 
 	// Manage model
 	r.Register(model.NewConfigCommand())
@@ -371,6 +368,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
+	r.Register(model.NewModelCredentialCommand())
 
 	r.Register(newMigrateCommand())
 	if featureflag.Enabled(feature.DeveloperMode) {
@@ -464,6 +462,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
 	r.Register(cloud.NewShowCredentialCommand())
+	r.Register(model.NewGrantCloudCommand())
+	r.Register(model.NewRevokeCloudCommand())
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))

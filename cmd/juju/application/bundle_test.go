@@ -20,6 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -29,6 +30,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -56,8 +59,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --config")
 	err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: -n")
-	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial", "--force")
-	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --force, --series")
+	err = runDeploy(c, "bundle/wordpress-simple", "--series", "xenial")
+	c.Assert(err, gc.ErrorMatches, "flags provided but not supported when deploying a bundle: --series")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
@@ -283,8 +286,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- set annotations for mysql\n"+
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- set annotations for wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
@@ -322,8 +327,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"Changes to deploy bundle:\n" +
 		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
 		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit mysql/0 to new machine 0\n" +
 		"- add unit wordpress/0 to new machine 1"
@@ -360,8 +367,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
+		"- set annotations for mysql\n" +
 		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
 		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- set annotations for wordpress\n" +
 		"- add relation wordpress:db - mysql:server\n" +
 		"- add unit wordpress/0 to new machine 1"
 
@@ -591,6 +600,11 @@ func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
 
 	s.charmStoreSuite.SetUpTest(c)
 	logger.SetLogLevel(loggo.TRACE)
+
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.LXDProfile)
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
@@ -865,6 +879,41 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle overlay file .*")
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
+	lxdProfile, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"lxd-profile": {charm: "local:bionic/lxd-profile-0", config: lxdProfile.Config().DefaultSettings()},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"lxd-profile/0": "0",
+	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile-fail")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile-fail:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath))
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
 	configDir := c.MkDir()
 	configFile := filepath.Join(configDir, "config.yaml")
@@ -975,7 +1024,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
@@ -1005,6 +1054,24 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
 	s.assertUnitsCreated(c, map[string]string{
 		"customized/0": "0",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err := s.Model.Annotations(application)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
+	application2, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	ann2, err := s.Model.Annotations(application2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "cs:bundle/wordpress-simple-1"})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {

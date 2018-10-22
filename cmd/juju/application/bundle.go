@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -62,6 +63,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleOverlayFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
@@ -114,7 +116,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage, bundleDevices)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -183,6 +185,10 @@ type bundleHandler struct {
 	// data is the original bundle data that we want to deploy.
 	data *charm.BundleData
 
+	// bundleURL is the URL of the bundle when deploying a bundle from the
+	// charmstore, nil otherwise.
+	bundleURL *charm.URL
+
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
 	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
@@ -213,6 +219,7 @@ func makeBundleHandler(
 	api DeployAPI,
 	ctx *cmd.Context,
 	data *charm.BundleData,
+	bundleURL *charm.URL,
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
 ) *bundleHandler {
@@ -231,6 +238,7 @@ func makeBundleHandler(
 		bundleDevices: bundleDevices,
 		ctx:           ctx,
 		data:          data,
+		bundleURL:     bundleURL,
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
@@ -330,11 +338,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
+	bundleURL := ""
+	if h.bundleURL != nil {
+		bundleURL = h.bundleURL.String()
+	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
-			Bundle: h.data,
-			Model:  h.model,
-			Logger: logger,
+			Bundle:    h.data,
+			BundleURL: bundleURL,
+			Model:     h.model,
+			Logger:    logger,
 		})
 	if err != nil {
 		return errors.Trace(err)
@@ -431,7 +444,10 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
-			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
+			if err := lxdprofile.ValidateCharmLXDProfile(ch); err != nil {
+				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+			}
+			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -454,7 +470,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel)
+	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -555,8 +571,13 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 	charmInfo, err := h.api.CharmInfo(ch)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+
+	if err := lxdprofile.ValidateCharmInfoLXDProfile(charmInfo); err != nil {
+		return errors.Trace(err)
+	}
+
 	resNames2IDs, err := resourceadapters.DeployResources(
 		p.Application,
 		chID,
@@ -601,6 +622,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	h.writeAddedResources(resNames2IDs)
+
 	return nil
 }
 
@@ -634,8 +656,13 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 
 	deployedApps := func() string {
 		apps := h.applicationsForMachineChange(change.Id())
-		// Note that we always have at least one application that justifies the
-		// creation of this machine.
+		// Note that we *should* always have at least one application
+		// that justifies the creation of this machine. But just in
+		// case, check (see https://pad.lv/1773357).
+		if len(apps) == 0 {
+			h.ctx.Warningf("no applications found for machine change %q", change.Id())
+			return "nothing"
+		}
 		msg := apps[0] + " unit"
 
 		if count := len(apps); count != 1 {

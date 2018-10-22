@@ -68,6 +68,9 @@ func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) 
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 
+// StatusCallbackFunc represents a function that can be called to report a status.
+type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
+
 // ServiceParams defines parameters used to create a service.
 type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
@@ -98,6 +101,9 @@ type Broker interface {
 	// // Destroy terminates all containers and other resources in this broker's namespace.
 	// Destroy(context.ProviderCallContext) error
 
+	// Namespaces returns name names of the namespaces on the cluster.
+	Namespaces() ([]string, error)
+
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
 
@@ -113,7 +119,7 @@ type Broker interface {
 	DeleteOperator(appName string) error
 
 	// EnsureService creates or updates a service for pods with the given params.
-	EnsureService(appName string, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, statusCallback StatusCallbackFunc, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
 
 	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
 	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
@@ -139,10 +145,25 @@ type Broker interface {
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
-	// // ProviderRegistry is an interface for obtaining storage providers.
-	// storage.ProviderRegistry
+	// WatchOperator returns a watcher which notifies when there
+	// are changes to the operator of the specified application.
+	WatchOperator(string) (watcher.NotifyWatcher, error)
 
-	environs.GenericEnviron
+	// Operator returns an Operator with current status and life details.
+	Operator(string) (*Operator, error)
+
+	// ProviderRegistry is an interface for obtaining storage providers.
+	storage.ProviderRegistry
+
+	// InstancePrechecker provides a means of "prechecking" placement
+	// arguments before recording them in state.
+	environs.InstancePrechecker
+
+	// BootstrapEnviron defines methods for bootstraping a controller.
+	environs.BootstrapEnviron
+
+	// ResourceAdopter defines methods for adopting resources.
+	environs.ResourceAdopter
 }
 
 // Service represents information about the status of a caas service entity.
@@ -180,6 +201,13 @@ type Unit struct {
 	Dying          bool
 	Status         status.StatusInfo
 	FilesystemInfo []FilesystemInfo
+}
+
+// Operator represents information about the status of an "operator pod".
+type Operator struct {
+	Id     string
+	Dying  bool
+	Status status.StatusInfo
 }
 
 // CharmStorageParams defines parameters used to create storage

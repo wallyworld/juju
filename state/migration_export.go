@@ -28,15 +28,19 @@ const maxStatusHistoryEntries = 20
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	SkipActions            bool
-	SkipAnnotations        bool
-	SkipCloudImageMetadata bool
-	SkipCredentials        bool
-	SkipIPAddresses        bool
-	SkipSettings           bool
-	SkipSSHHostKeys        bool
-	SkipStatusHistory      bool
-	SkipLinkLayerDevices   bool
+	SkipActions              bool
+	SkipAnnotations          bool
+	SkipCloudImageMetadata   bool
+	SkipCredentials          bool
+	SkipIPAddresses          bool
+	SkipSettings             bool
+	SkipSSHHostKeys          bool
+	SkipStatusHistory        bool
+	SkipLinkLayerDevices     bool
+	SkipUnitAgentBinaries    bool
+	SkipMachineAgentBinaries bool
+	SkipRelationScope        bool
+	SkipInstanceData         bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -170,10 +174,8 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if dbModel.Type() == ModelTypeIAAS {
-		if err := export.storage(); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err := export.storage(); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// If we are doing a partial export, it doesn't really make sense
@@ -405,19 +407,22 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// We fully expect the machine to have tools set, and that there is
 	// some instance data.
-	instData, found := instances[machine.doc.Id]
-	if !found {
-		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
+	if !e.cfg.SkipInstanceData {
+		instData, found := instances[machine.doc.Id]
+		if !found {
+			return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
+		}
+		exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+		instance := exMachine.Instance()
+		instanceKey := machine.globalInstanceKey()
+		statusArgs, err := e.statusArgs(instanceKey)
+		if err != nil {
+			return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+		}
+		instance.SetStatus(statusArgs)
+		instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 	}
-	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
-	instance := exMachine.Instance()
-	instanceKey := machine.globalInstanceKey()
-	statusArgs, err := e.statusArgs(instanceKey)
-	if err != nil {
-		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
-	}
-	instance.SetStatus(statusArgs)
-	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -439,25 +444,27 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err = e.statusArgs(globalKey)
+	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
 	exMachine.SetStatus(statusArgs)
 	exMachine.SetStatusHistory(e.statusHistoryArgs(globalKey))
 
-	tools, err := machine.AgentTools()
-	if err != nil {
-		// This means the tools aren't set, but they should be.
-		return nil, errors.Trace(err)
-	}
+	if !e.cfg.SkipMachineAgentBinaries {
+		tools, err := machine.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return nil, errors.Trace(err)
+		}
 
-	exMachine.SetTools(description.AgentToolsArgs{
-		Version: tools.Version,
-		URL:     tools.URL,
-		SHA256:  tools.SHA256,
-		Size:    tools.Size,
-	})
+		exMachine.SetTools(description.AgentToolsArgs{
+			Version: tools.Version,
+			URL:     tools.URL,
+			SHA256:  tools.SHA256,
+			Size:    tools.Size,
+		})
+	}
 
 	for _, args := range e.openedPortsArgsForMachine(machine.Id(), portsData) {
 		exMachine.AddOpenedPorts(args)
@@ -708,6 +715,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
 		PasswordHash:         application.doc.PasswordHash,
+		Placement:            application.doc.Placement,
+		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
 		ApplicationConfig:    applicationConfigDoc.Settings,
@@ -733,6 +742,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
 	exApplication.SetAnnotations(e.getAnnotations(globalKey))
+
+	// TODO(caas) - Actually use the exported application operator details and status history.
+	// Currently these are only grabbed to make the MigrationExportSuite tests happy.
+	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
+	_, err = e.statusArgs(globalAppWorkloadKey)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "application operator status for applucation %s", appName)
+		}
+	}
+	e.statusHistoryArgs(globalAppWorkloadKey)
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
@@ -803,7 +823,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		if e.dbModel.Type() != ModelTypeCAAS {
+		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
 			tools, err := unit.AgentTools()
 			if err != nil {
 				// This means the tools aren't set, but they should be.
@@ -815,6 +835,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 				SHA256:  tools.SHA256,
 				Size:    tools.Size,
 			})
+		} else {
+			// TODO(caas) - Actually use the exported cloud container details and status history.
+			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
+			globalCCKey := unit.globalCloudContainerKey()
+			_, err = e.statusArgs(globalCCKey)
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					return errors.Annotatef(err, "cloud container workload status for unit %s", unit.Name())
+				}
+			}
+			e.statusHistoryArgs(globalCCKey)
 		}
 		exUnit.SetAnnotations(e.getAnnotations(globalKey))
 
@@ -943,9 +974,12 @@ func (e *exporter) relations() error {
 	}
 	e.logger.Debugf("read %d relations", len(rels))
 
-	relationScopes, err := e.readAllRelationScopes()
-	if err != nil {
-		return errors.Trace(err)
+	relationScopes := set.NewStrings()
+	if !e.cfg.SkipRelationScope {
+		relationScopes, err = e.readAllRelationScopes()
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	remoteApps := make(set.Strings)
@@ -1006,7 +1040,7 @@ func (e *exporter) relations() error {
 					continue
 				}
 				key := ru.key()
-				if !relationScopes.Contains(key) {
+				if !e.cfg.SkipRelationScope && !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
@@ -1637,11 +1671,15 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	for key := range e.status {
-		missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
+			missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+		}
 	}
 
 	for key := range e.statusHistory {
-		missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+		if !e.cfg.SkipInstanceData && !strings.HasSuffix(key, "#instance") {
+			missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+		}
 	}
 
 	if len(missing) > 0 {
@@ -1745,12 +1783,19 @@ func (e *exporter) volumes() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	attachmentPlans, err := e.readVolumeAttachmentPlans()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		vol := &volume{e.st, doc}
-		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
+		plan := attachmentPlans[doc.Name]
+		if err := e.addVolume(vol, attachments[doc.Name], plan); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1760,7 +1805,7 @@ func (e *exporter) volumes() error {
 	return nil
 }
 
-func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) error {
+func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, attachmentPlans []volumeAttachmentPlanDoc) error {
 	args := description.VolumeArgs{
 		Tag: vol.VolumeTag(),
 	}
@@ -1807,7 +1852,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		va := volumeAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
 		args := description.VolumeAttachmentArgs{
-			Machine: va.Host().(names.MachineTag),
+			Host: va.Host(),
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
@@ -1816,12 +1861,48 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 			args.DeviceName = info.DeviceName
 			args.DeviceLink = info.DeviceLink
 			args.BusAddress = info.BusAddress
+			if info.PlanInfo != nil {
+				args.DeviceType = string(info.PlanInfo.DeviceType)
+				args.DeviceAttributes = info.PlanInfo.DeviceAttributes
+			}
 		} else {
 			params, _ := va.Params()
 			logger.Debugf("    params %#v", params)
 			args.ReadOnly = params.ReadOnly
 		}
 		exVolume.AddAttachment(args)
+	}
+
+	for _, doc := range attachmentPlans {
+		va := volumeAttachmentPlan{doc}
+		logger.Debugf("  attachment plan %#v", doc)
+		args := description.VolumeAttachmentPlanArgs{
+			Machine: va.Machine(),
+		}
+		if info, err := va.PlanInfo(); err == nil {
+			logger.Debugf("    plan info %#v", info)
+			args.DeviceType = string(info.DeviceType)
+			args.DeviceAttributes = info.DeviceAttributes
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if info, err := va.BlockDeviceInfo(); err == nil {
+			logger.Debugf("    block device info %#v", info)
+			args.DeviceName = info.DeviceName
+			args.DeviceLinks = info.DeviceLinks
+			args.Label = info.Label
+			args.UUID = info.UUID
+			args.HardwareId = info.HardwareId
+			args.WWN = info.WWN
+			args.BusAddress = info.BusAddress
+			args.Size = info.Size
+			args.FilesystemType = info.FilesystemType
+			args.InUse = info.InUse
+			args.MountPoint = info.MountPoint
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		exVolume.AddAttachmentPlan(args)
 	}
 	return nil
 }
@@ -1843,6 +1924,26 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
+	return result, nil
+}
+
+func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPlanDoc, error) {
+	coll, closer := e.st.db().GetCollection(volumeAttachmentPlanC)
+	defer closer()
+
+	result := make(map[string][]volumeAttachmentPlanDoc)
+	var doc volumeAttachmentPlanDoc
+	var count int
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		result[doc.Volume] = append(result[doc.Volume], doc)
+		count++
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotate(err, "failed to read volume attachment plans")
+	}
+	e.logger.Debugf("read %d volume attachment plan documents", count)
 	return result, nil
 }
 
@@ -1909,7 +2010,9 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 	for _, doc := range fsAttachments {
 		va := filesystemAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
-		var args description.FilesystemAttachmentArgs
+		args := description.FilesystemAttachmentArgs{
+			Host: va.Host(),
+		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
 			args.Provisioned = true
@@ -1920,10 +2023,6 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 			logger.Debugf("    params %#v", params)
 			args.ReadOnly = params.ReadOnly
 			args.MountPoint = params.Location
-		}
-		// TODO(caas) - handle non-machine hosts
-		if m, ok := va.Host().(names.MachineTag); ok {
-			args.Machine = m
 		}
 		exFilesystem.AddAttachment(args)
 	}

@@ -41,10 +41,12 @@ type WorkerSuite struct {
 	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitUpdater        mockUnitUpdater
+	statusSetter       mockProvisioningStatusSetter
 
 	applicationChanges      chan []string
 	applicationScaleChanges chan struct{}
 	caasUnitsChanges        chan struct{}
+	caasOperatorChanges     chan struct{}
 	containerSpecChanges    chan struct{}
 	serviceDeleted          chan struct{}
 	serviceEnsured          chan struct{}
@@ -76,7 +78,7 @@ containers:
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
 			},
-			Config: map[string]string{
+			Config: map[string]interface{}{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
 			}},
@@ -100,6 +102,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationChanges = make(chan []string)
 	s.applicationScaleChanges = make(chan struct{})
 	s.caasUnitsChanges = make(chan struct{})
+	s.caasOperatorChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
 	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
@@ -130,25 +133,28 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.unitUpdater = mockUnitUpdater{}
 
 	s.containerBroker = mockContainerBroker{
-		serviceDeleted: s.serviceDeleted,
-		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
-		podSpec:        &parsedSpec,
+		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
+		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
+		podSpec:         &parsedSpec,
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
 		ensured: s.serviceEnsured,
+		deleted: s.serviceDeleted,
 		podSpec: &parsedSpec,
 	}
+	s.statusSetter = mockProvisioningStatusSetter{}
 
 	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:      &s.applicationGetter,
-		ApplicationUpdater:     &s.applicationUpdater,
-		ServiceBroker:          &s.serviceBroker,
-		ContainerBroker:        &s.containerBroker,
-		ProvisioningInfoGetter: &s.podSpecGetter,
-		LifeGetter:             &s.lifeGetter,
-		UnitUpdater:            &s.unitUpdater,
+		ApplicationGetter:        &s.applicationGetter,
+		ApplicationUpdater:       &s.applicationUpdater,
+		ServiceBroker:            &s.serviceBroker,
+		ContainerBroker:          &s.containerBroker,
+		ProvisioningInfoGetter:   &s.podSpecGetter,
+		LifeGetter:               &s.lifeGetter,
+		UnitUpdater:              &s.unitUpdater,
+		ProvisioningStatusSetter: &s.statusSetter,
 	}
 }
 
@@ -184,6 +190,9 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.ProvisioningStatusSetter = nil
+	}, `missing ProvisioningStatusSetter not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {
@@ -239,6 +248,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
+	s.statusSetter.CheckCall(c, 0, "SetOperatorStatus", "gitlab", status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	select {
 	case <-s.serviceUpdated:
 	case <-time.After(coretesting.LongWait):
@@ -497,9 +507,9 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
-	s.containerBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
-	s.containerBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
-	s.containerBroker.CheckCall(c, 1, "DeleteService", "gitlab")
+	s.serviceBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
+	s.serviceBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
+	s.serviceBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
@@ -625,10 +635,49 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 			break
 		}
 	}
-	s.containerBroker.CheckCallNames(c, "WatchUnits")
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 
 	s.assertUnitChange(c, status.Allocating, status.Allocating)
 	s.assertUnitChange(c, status.Allocating, status.Unknown)
+}
+
+func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
+	s.containerBroker.ResetCalls()
+
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+	s.containerBroker.reportedOperatorStatus = status.Active
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "Operator")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	s.statusSetter.CheckCallNames(c, "SetOperatorStatus")
+	c.Assert(s.statusSetter.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"},
+	})
 }
 
 func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status) {
