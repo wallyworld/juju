@@ -105,6 +105,8 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
 	if !isAgentOrUser(auth) {
 		return nil, common.ErrPerm
 	}
@@ -340,6 +342,13 @@ type srvMachineStorageIdsWatcher struct {
 }
 
 func newVolumeAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
+	return newMachineStorageIdsWatcher(
+		context,
+		storagecommon.ParseVolumeAttachmentIds,
+	)
+}
+
+func newVolumeAttachmentPlansWatcher(context facade.Context) (facade.Facade, error) {
 	return newMachineStorageIdsWatcher(
 		context,
 		storagecommon.ParseVolumeAttachmentIds,

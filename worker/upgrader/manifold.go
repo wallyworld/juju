@@ -11,7 +11,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	jujuworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -48,13 +49,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
-			// currentConfig := agent.CurrentConfig()
+			currentConfig := agent.CurrentConfig()
 
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			// upgraderFacade := upgrader.NewState(apiCaller)
+			upgraderFacade := upgrader.NewState(apiCaller)
 
 			var upgradeStepsWaiter gate.Waiter
 			if config.UpgradeStepsGateName == "" {
@@ -76,15 +77,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					return nil, err
 				}
 			}
-			initialCheckUnlocker.Unlock()
-			return jujuworker.NewNoOpWorker(), nil
-			// return NewAgentUpgrader(
-			// 	upgraderFacade,
-			// 	currentConfig,
-			// 	config.PreviousAgentVersion,
-			// 	upgradeStepsWaiter,
-			// 	initialCheckUnlocker,
-			// )
+
+			return NewAgentUpgrader(Config{
+				State:                       upgraderFacade,
+				AgentConfig:                 currentConfig,
+				OrigAgentVersion:            config.PreviousAgentVersion,
+				UpgradeStepsWaiter:          upgradeStepsWaiter,
+				InitialUpgradeCheckComplete: initialCheckUnlocker,
+				CheckDiskSpace:              upgrades.CheckFreeDiskSpace,
+			})
 		},
 	}
 }

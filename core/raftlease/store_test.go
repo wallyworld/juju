@@ -13,6 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -222,6 +223,62 @@ func (s *storeSuite) TestLeases(c *gc.C) {
 	err = r2.Trapdoor(&out)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
+}
+
+func (s *storeSuite) TestPin(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
+	s.handleHubRequest(c,
+		func() {
+			err := s.store.PinLease(
+				lease.Key{"warframe", "frost", "prime"},
+				machineTag,
+			)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationPin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machineTag.String(),
+		},
+		func(req raftlease.ForwardRequest) {
+			_, err := s.hub.Publish(
+				req.ResponseTopic,
+				raftlease.ForwardResponse{},
+			)
+			c.Check(err, jc.ErrorIsNil)
+		},
+	)
+}
+
+func (s *storeSuite) TestUnpin(c *gc.C) {
+	machineTag := names.NewMachineTag("0")
+	s.handleHubRequest(c,
+		func() {
+			err := s.store.UnpinLease(
+				lease.Key{"warframe", "frost", "prime"},
+				machineTag,
+			)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+		raftlease.Command{
+			Version:   1,
+			Operation: raftlease.OperationUnpin,
+			Namespace: "warframe",
+			ModelUUID: "frost",
+			Lease:     "prime",
+			PinEntity: machineTag.String(),
+		},
+		func(req raftlease.ForwardRequest) {
+			_, err := s.hub.Publish(
+				req.ResponseTopic,
+				raftlease.ForwardResponse{},
+			)
+			c.Check(err, jc.ErrorIsNil)
+		},
+	)
 }
 
 // handleHubRequest takes the action that triggers the request, the

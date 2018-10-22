@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -83,7 +84,7 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type credentialAPI interface {
-	UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error
+	UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error)
 	Close() error
 }
 
@@ -131,9 +132,26 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if err := client.UpdateCredential(credentialTag, *credToUpdate); err != nil {
-		return err
+	models, err := client.UpdateCredentialsCheckModels(credentialTag, *credToUpdate)
+
+	// We always want to display models information if there is any.
+	common.OutputUpdateCredentialModelResult(ctx, models, true)
+	if err != nil {
+		ctx.Infof("Controller credential %q for user %q on cloud %q not updated: %v.", c.credential, accountDetails.User, c.cloud, err)
+		// TODO (anastasiamac 2018-09-21) When set-credential is done, also direct user to it.
+		// Something along the lines of:
+		// "
+		// Failed models may require a different credential.
+		// Use ‘juju set-credential’ to change credential for these models before repeating this update.
+		// "
+		//
+		// We do not want to return err here as we have already displayed it on the console.
+		return cmd.ErrSilent
 	}
-	ctx.Infof("Updated credential %q for user %q on cloud %q.", c.credential, accountDetails.User, c.cloud)
+	ctx.Infof(`
+Controller credential %q for user %q on cloud %q updated.
+For more information, see ‘juju show-credential %v %v’.`[1:],
+		c.credential, accountDetails.User, c.cloud,
+		c.cloud, c.credential)
 	return nil
 }

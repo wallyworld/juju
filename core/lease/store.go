@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 // Store manipulates leases directly, and is most likely to be seen set on a
@@ -36,7 +37,7 @@ type Store interface {
 	// expressed according to the Clock the store was configured with.
 	Leases() map[Key]Info
 
-	// TODO (jam) 2017-10-31: Many callers of Leases() actually only tant
+	// TODO (jam) 2017-10-31: Many callers of Leases() actually only want
 	// exactly 1 lease, we should have a way to do a query to return exactly
 	// that lease, instead of having to read all of them to pull one out of the
 	// map. (Worst case it is implemented as exactly this, best case avoids
@@ -44,6 +45,19 @@ type Store interface {
 
 	// Refresh reads all lease state from the database.
 	Refresh() error
+
+	// Pin ensures that the current holder of the lease for the input key will
+	// not lose the lease to expiry.
+	// If there is no current holder of the lease, the next claimant will be
+	// the recipient of the pin behaviour.
+	// The input entity denotes the party responsible for the
+	// pinning operation.
+	PinLease(lease Key, entity names.Tag) error
+
+	// Unpin reverses a Pin operation for the same key and entity.
+	// Normal expiry behaviour is restored when no entities remain with
+	// pins for the application.
+	UnpinLease(lease Key, tag names.Tag) error
 }
 
 // Key fully identifies a lease, including the namespace and

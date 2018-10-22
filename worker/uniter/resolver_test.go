@@ -58,6 +58,7 @@ func (s *caasResolverSuite) SetUpTest(c *gc.C) {
 func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
 	s.modelType = model.IAAS
 	s.resolverSuite.SetUpTest(c)
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
 }
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
@@ -91,6 +92,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
 		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
+		ModelType:           s.modelType,
 	}
 
 	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
@@ -147,6 +149,26 @@ func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
 
+func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		Series:               s.charmURL.Series,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.Series = "trusty"
+	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
+	// Change relation state (to simulate simultaneous change remote state update)
+	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
+}
+
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
@@ -172,6 +194,7 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
 		UpgradeSeriesStatus:  model.UpgradeSeriesNotStarted,
+		ConfigVersion:        1,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -180,6 +203,11 @@ func (s *iaasResolverSuite) TestPostSeriesUpgradeHookRunsWhenConditionsAreMet(c 
 	}
 	s.remoteState.Series = s.charmURL.Series
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesCompleteStarted
+
+	// Bumping the remote state config version checks that the upgrade-series
+	// completion hook takes precedence.
+	s.remoteState.ConfigVersion = 2
+
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
@@ -204,9 +232,9 @@ func (s *iaasResolverSuite) TestRunsOperationToResetLocalUpgradeSeriesStateWhenC
 	c.Assert(op.String(), gc.Equals, "complete upgrade series")
 }
 
-func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
+func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesCompleted(c *gc.C) {
 	localState := resolver.LocalState{
-		UpgradeSeriesStatus: model.UpgradeSeriesPrepareCompleted,
+		UpgradeSeriesStatus: model.UpgradeSeriesNotStarted,
 		CharmURL:            s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
@@ -215,13 +243,6 @@ func (s *iaasResolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCo
 	}
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-
-	// changing the series would normally fire a config-changed hook but
-	// since the uniter does not respond to state changes after reaching a
-	// UpgradeSeriesStatus of "UpgradeSeriesCompleted" no operation should take place.
-	s.remoteState.Series = "NewSeries"
-	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 

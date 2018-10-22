@@ -719,11 +719,11 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
 	arbitraryReason := ""
 
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitraryStatus, arbitraryReason)
-	c.Assert(err, gc.ErrorMatches, "machine \"[0-9]*\" is not locked for upgrade")
+	c.Assert(err, gc.ErrorMatches, "upgrade lock for machine \"[0-9]*\" not found")
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
-	arbitraryNonDefaultStatus := model.UpgradeSeriesNotStarted
+	arbitraryNonDefaultStatus := model.UpgradeSeriesPrepareRunning
 	arbitraryReason := ""
 
 	// First we create the prepare lock or the required state will not exists
@@ -940,38 +940,6 @@ func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "error getting meter status")
 	c.Assert(statusCode, gc.Equals, "")
 	c.Assert(statusInfo, gc.Equals, "")
-}
-
-func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
-	// This test is really testing the apiserver code, and the
-	// state code, not really the API client.
-	// The watcher gets notified when either the unit meter status
-	// changes, or the metrics manager changes.
-	w, err := s.apiUnit.WatchMeterStatus()
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
-	defer wc.AssertStops()
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	mm, err := s.State.MetricsManager()
-	c.Assert(err, jc.ErrorIsNil)
-	err = mm.SetLastSuccessfulSend(time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	err = mm.IncrementConsecutiveErrors()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
 }
 
 func (s *unitSuite) TestUpgradeSeriesStatusMultipleReturnsError(c *gc.C) {

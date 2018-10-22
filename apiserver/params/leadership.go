@@ -30,28 +30,6 @@ type ClaimLeadershipParams struct {
 // leadership claim.
 type ClaimLeadershipBulkResults ErrorResults
 
-// ReleaseLeadershipBulkParams is a collection of parameters needed to
-// make a bulk release leadership call.
-type ReleaseLeadershipBulkParams struct {
-	Params []ReleaseLeadershipParams `json:"params"`
-}
-
-// ReleaseLeadershipParams are the parameters needed to release a
-// leadership claim.
-type ReleaseLeadershipParams struct {
-
-	// ApplicationTag is the application for which you want to make a
-	// leadership claim.
-	ApplicationTag string `json:"application-tag"`
-
-	// UnitTag is the unit which is making the leadership claim.
-	UnitTag string `json:"unit-tag"`
-}
-
-// ReleaseLeadershipBulkResults is a type which contains results from
-// a bulk leadership call.
-type ReleaseLeadershipBulkResults ErrorResults
-
 // GetLeadershipSettingsBulkResults is the collection of results from
 // a bulk request for leadership settings.
 type GetLeadershipSettingsBulkResults struct {
@@ -87,4 +65,25 @@ type MergeLeadershipSettingsParam struct {
 
 	// Settings are the Leadership settings you wish to merge in.
 	Settings Settings `json:"settings"`
+}
+
+// PinLeadershipBulkParams is a collection of parameters for making
+// bulk requests to pin or unpin leadership claims.
+type PinLeadershipBulkParams struct {
+
+	// Params indicates the collection of applications for which a pin or unpin
+	// request is being made.
+	Params []PinLeadershipParams `json:"params"`
+}
+
+// PinLeadershipParams holds the parameters for pinning or unpinning a single
+// application's leadership claim.
+type PinLeadershipParams struct {
+	// ApplicationTag is the application for which leadership is to
+	// be pinned or unpinned.
+	ApplicationTag string `json:"application-tag"`
+
+	// EntityTag denotes who is responsible for particular pin being
+	// operated on.
+	EntityTag string `json:"entity-tag"`
 }

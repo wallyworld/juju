@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -46,6 +47,23 @@ type Claimer interface {
 	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
 }
 
+// Pinner describes methods used to manage suspension of lease expiry.
+type Pinner interface {
+
+	// Pin ensures that the current holder of input lease name will not lose
+	// the lease to expiry.
+	// If there is no current holder of the lease, the next claimant will be
+	// the recipient of the pin behaviour.
+	// The input entity denotes the party responsible for the
+	// pinning operation.
+	Pin(leaseName string, entity names.Tag) error
+
+	// Unpin reverses a Pin operation for the same application and entity.
+	// Normal expiry behaviour is restored when no entities remain with
+	// pins for the application.
+	Unpin(leaseName string, tag names.Tag) error
+}
+
 // Checker exposes facts about lease ownership.
 type Checker interface {
 
@@ -70,9 +88,10 @@ type Token interface {
 	Check(trapdoorKey interface{}) error
 }
 
-// Manager represents somewhere you can get Checkers and Claimers for
-// different models.
+// Manager describes methods for acquiring objects that manipulate and query
+// leases for different models.
 type Manager interface {
 	Checker(namespace string, modelUUID string) (Checker, error)
 	Claimer(namespace string, modelUUID string) (Claimer, error)
+	Pinner(namespace string, modelUUID string) (Pinner, error)
 }

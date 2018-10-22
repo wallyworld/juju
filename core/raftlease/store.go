@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -126,6 +127,27 @@ func (s *Store) Leases() map[lease.Key]lease.Info {
 // Refresh is part of lease.Store.
 func (s *Store) Refresh() error {
 	return nil
+}
+
+// PinLease is part of lease.Store.
+func (s *Store) PinLease(key lease.Key, entity names.Tag) error {
+	return errors.Trace(s.pinOp(OperationPin, key, entity))
+}
+
+// UnpinLease is part of lease.Store.
+func (s *Store) UnpinLease(key lease.Key, entity names.Tag) error {
+	return errors.Trace(s.pinOp(OperationUnpin, key, entity))
+}
+
+func (s *Store) pinOp(operation string, key lease.Key, entity names.Tag) error {
+	return errors.Trace(s.runOnLeader(&Command{
+		Version:   CommandVersion,
+		Operation: operation,
+		Namespace: key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Lease:     key.Lease,
+		PinEntity: entity.String(),
+	}))
 }
 
 // Advance is part of globalclock.Updater.

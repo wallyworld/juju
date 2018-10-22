@@ -40,6 +40,7 @@ type Provisioner interface {
 	worker.Worker
 	getMachineWatcher() (watcher.StringsWatcher, error)
 	getRetryWatcher() (watcher.NotifyWatcher, error)
+	getProfileWatcher() (watcher.StringsWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -150,6 +151,10 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
+	profileWatcher, err := p.getProfileWatcher()
+	if err != nil {
+		return nil, err
+	}
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
@@ -175,6 +180,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
+		profileWatcher,
 		p.broker,
 		auth,
 		modelCfg.ImageStream(),
@@ -273,11 +279,15 @@ func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return p.st.WatchMachineErrorRetry()
 }
 
+func (p *environProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachinesCharmProfiles()
+}
+
 // setConfig updates the environment configuration and notifies
 // the config observer.
 func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 	if err := p.environ.SetConfig(modelConfig); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	return nil
@@ -330,14 +340,14 @@ func (p *containerProvisioner) loop() error {
 
 	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return err
+		return loggedErrorStack(errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
@@ -392,4 +402,16 @@ func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, erro
 
 func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
+}
+
+func (p *containerProvisioner) getProfileWatcher() (watcher.StringsWatcher, error) {
+	if p.containerType != instance.LXD {
+		// TODO (hml) lxd-profile 17-oct-2018
+		// what is the correct way to handle this, only start for LXD containers
+	}
+	machine, err := p.getMachine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.WatchContainersCharmProfiles(p.containerType)
 }

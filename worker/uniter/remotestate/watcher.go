@@ -557,13 +557,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 }
 
-// [TODO] externalreality: upgradeSeriesStatusChanged makes two remote calls,
-// one for each type of state. Perhaps we should make one call collect both.
-// However, the remote state watcher is only ever interested in at most one of
-// the states at a time(basically only one of the states should ever update when
-// this function is called). Is it worth keeping track of which one is of
-// interest instead of checking for both?
-
 // upgradeSeriesStatusChanged is called when the remote status of a series
 // upgrade changes.
 func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
@@ -589,7 +582,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, e
 	if err != nil {
 		return "", err
 	}
-	status, err := model.ValidateUnitSeriesUpgradeStatus(rawStatus)
+	status, err := model.ValidateUpgradeSeriesStatus(rawStatus)
 	if err != nil {
 		return "", err
 	}

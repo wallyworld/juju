@@ -3405,6 +3405,8 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	f := factory.NewFactory(s.caasSt, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	// Consume the initial construction events from the watchers.
+	s.State.StartSync()
 }
 
 func strPtr(s string) *string {
@@ -3424,6 +3426,8 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
+	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")})
+	c.Assert(err, jc.ErrorIsNil)
 	if !aliveApp {
 		err := s.app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -3431,32 +3435,56 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
-	updateUnits.Adds = []*state.AddUnitOperation{s.app.AddOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("new-unit-uuid"),
-		Address:    strPtr("192.168.1.1"),
-		Ports:      &[]string{"80"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "new running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "new active",
-		},
-	})}
-	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: strPtr("unit-uuid"),
-		Address:    strPtr("192.168.1.2"),
-		Ports:      &[]string{"443"},
-		AgentStatus: &status.StatusInfo{
-			Status:  status.Running,
-			Message: "existing running",
-		},
-		UnitStatus: &status.StatusInfo{
-			Status:  status.Active,
-			Message: "existing active",
-		},
-	})}
+	updateUnits.Adds = []*state.AddUnitOperation{
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("new-unit-uuid"),
+			Address:    strPtr("192.168.1.1"),
+			Ports:      &[]string{"80"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new container running",
+			},
+		}),
+		s.app.AddOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("add-never-cloud-container"),
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "new running",
+			},
+			// Status history should not show this as active.
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+	}
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		noContainerUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("never-cloud-container"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			UnitStatus: &status.StatusInfo{
+				Status:  status.Active,
+				Message: "unit active",
+			},
+		}),
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("unit-uuid"),
+			Address:    strPtr("192.168.1.2"),
+			Ports:      &[]string{"443"},
+			AgentStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing running",
+			},
+			CloudContainerStatus: &status.StatusInfo{
+				Status:  status.Running,
+				Message: "existing container running",
+			},
+		})}
 	err = s.app.UpdateUnits(&updateUnits)
 	if !aliveApp {
 		c.Assert(err, jc.Satisfies, state.IsNotAlive)
@@ -3466,7 +3494,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 
 	units, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 2)
+	c.Assert(units, gc.HasLen, 4)
 
 	unitsById := make(map[string]*state.Unit)
 	containerInfoById := make(map[string]state.CloudContainer)
@@ -3506,13 +3534,39 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	}
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "existing active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, "waiting for container")
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "existing container running")
+	unitHistory, err := u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "existing container running")
+
+	u, ok = unitsById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+
+	u, ok = unitsById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	info, ok = containerInfoById["add-never-cloud-container"]
+	c.Assert(ok, jc.IsTrue)
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
 
 	u, ok = unitsById["new-unit-uuid"]
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(u.Name(), gc.Equals, "gitlab/2")
+	c.Assert(u.Name(), gc.Equals, "gitlab/3")
 	c.Check(info.Address(), gc.NotNil)
 	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
@@ -3525,8 +3579,12 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	})
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.Active)
-	c.Assert(statusInfo.Message, gc.Equals, "new active")
+	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(statusInfo.Message, gc.Equals, status.MessageWaitForContainer)
+	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "new container running")
 	statusInfo, err = u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3544,6 +3602,18 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 		c.Assert(history[0].Status, gc.Equals, status.Allocating)
 		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
 	}
+	// container status history must have overridden the unit status.
+	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(unitHistory[0].Message, gc.Equals, "new container running")
+
+	// check cloud container status history is stored.
+	containerStatusHistory, err := state.GetCloudContainerStatusHistory(s.caasSt, u.Name(), status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerStatusHistory, gc.HasLen, 1)
+	c.Assert(containerStatusHistory[0].Status, gc.Equals, status.Running)
+	c.Assert(containerStatusHistory[0].Message, gc.Equals, "new container running")
 
 	err = removedUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -3612,12 +3682,10 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err := s.app.Scale(5)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// Set to same value, no change.
 	err = s.app.Scale(5)
@@ -3627,7 +3695,6 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	err = s.app.Scale(6)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// An unrelated update, no change.
 	err = s.app.SetMinUnits(2)
@@ -3637,6 +3704,58 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	err = s.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	history, err := app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 1)
+	c.Assert(history[0].Status, gc.Equals, status.Waiting)
+	c.Assert(history[0].Message, gc.Equals, "waiting for container")
+
+	// Must overwrite the history
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Allocating,
+		Message: "operator message",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	c.Assert(history[0].Status, gc.Equals, status.Allocating)
+	c.Assert(history[0].Message, gc.Equals, "operator message")
+	c.Assert(history[1].Status, gc.Equals, status.Waiting)
+	c.Assert(history[1].Message, gc.Equals, "waiting for container")
+
+	err = app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Running,
+		Message: "operator running",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "app active",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	history, err = app.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Log(history)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 3)
+	c.Assert(history[0].Status, gc.Equals, status.Active)
+	c.Assert(history[0].Message, gc.Equals, "app active")
+	c.Assert(history[1].Status, gc.Equals, status.Allocating)
+	c.Assert(history[1].Message, gc.Equals, "operator message")
+	c.Assert(history[2].Status, gc.Equals, status.Waiting)
+	c.Assert(history[2].Message, gc.Equals, "waiting for container")
 }
 
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {
@@ -3683,4 +3802,40 @@ func (s *ApplicationSuite) TestApplicationWaitAgentPresence(c *gc.C) {
 	alive, err = s.mysql.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsFalse)
+}
+
+func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
+	_, err := state.ApplicationOperatorStatus(s.State, s.mysql.Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	// Initial status.
+	appStatus, err := state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Waiting)
+	c.Assert(appStatus.Message, gc.DeepEquals, "waiting for container")
+
+	now := coretesting.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Since:   &now,
+	}
+	err = app.SetOperatorStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appStatus, err = state.ApplicationOperatorStatus(st, app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.DeepEquals, status.Error)
+	c.Assert(appStatus.Message, gc.DeepEquals, "broken")
 }

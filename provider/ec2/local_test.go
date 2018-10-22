@@ -416,8 +416,8 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
-	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -494,8 +494,8 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
-	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -737,8 +737,8 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	_, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
-	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
@@ -1804,7 +1804,7 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ec2inst := ec2.InstanceEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
-	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t3.medium")
 }
 
 func makeFilter(key string, values ...string) *amzec2.Filter {
@@ -1965,7 +1965,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
-	env, err := bootstrap.Prepare(
+	env, err := bootstrap.PrepareController(
+		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
@@ -1982,7 +1983,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	t.env = env
+	t.env = env.(environs.Environ)
 }
 
 func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {

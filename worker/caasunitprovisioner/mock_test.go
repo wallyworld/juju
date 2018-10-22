@@ -40,6 +40,7 @@ type mockServiceBroker struct {
 	testing.Stub
 	caas.ContainerEnvironProvider
 	ensured chan<- struct{}
+	deleted chan<- struct{}
 	podSpec *caas.PodSpec
 }
 
@@ -51,8 +52,9 @@ func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
+func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
+	statusCallback(appName, status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"})
 	m.ensured <- struct{}{}
 	return m.NextErr()
 }
@@ -69,16 +71,23 @@ func (m *mockServiceBroker) Service(appName string) (*caas.Service, error) {
 
 func (m *mockServiceBroker) DeleteService(appName string) error {
 	m.MethodCall(m, "DeleteService", appName)
+	m.deleted <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockServiceBroker) UnexposeService(appName string) error {
+	m.MethodCall(m, "UnexposeService", appName)
 	return m.NextErr()
 }
 
 type mockContainerBroker struct {
 	testing.Stub
 	caas.ContainerEnvironProvider
-	serviceDeleted     chan<- struct{}
-	unitsWatcher       *watchertest.MockNotifyWatcher
-	reportedUnitStatus status.Status
-	podSpec            *caas.PodSpec
+	unitsWatcher           *watchertest.MockNotifyWatcher
+	operatorWatcher        *watchertest.MockNotifyWatcher
+	reportedUnitStatus     status.Status
+	reportedOperatorStatus status.Status
+	podSpec                *caas.PodSpec
 }
 
 func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
@@ -87,17 +96,6 @@ func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
 
 func (m *mockContainerBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
-}
-
-func (m *mockContainerBroker) DeleteService(appName string) error {
-	m.MethodCall(m, "DeleteService", appName)
-	m.serviceDeleted <- struct{}{}
-	return m.NextErr()
-}
-
-func (m *mockContainerBroker) UnexposeService(appName string) error {
-	m.MethodCall(m, "UnexposeService", appName)
-	return m.NextErr()
 }
 
 func (m *mockContainerBroker) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
@@ -123,6 +121,23 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 			},
 		},
 		m.NextErr()
+}
+
+func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
+	m.MethodCall(m, "Operator", appName)
+	return &caas.Operator{
+		Dying: false,
+		Status: status.StatusInfo{
+			Status:  m.reportedOperatorStatus,
+			Message: "testing 1. 2. 3.",
+			Data:    map[string]interface{}{"zip": "zap"},
+		},
+	}, nil
+}
+
+func (m *mockContainerBroker) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchOperator", appName)
+	return m.operatorWatcher, m.NextErr()
 }
 
 type mockApplicationGetter struct {
@@ -258,6 +273,18 @@ type mockUnitUpdater struct {
 
 func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	m.MethodCall(m, "UpdateUnits", arg)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type mockProvisioningStatusSetter struct {
+	testing.Stub
+}
+
+func (m *mockProvisioningStatusSetter) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+	m.MethodCall(m, "SetOperatorStatus", appName, status, message, data)
 	if err := m.NextErr(); err != nil {
 		return err
 	}

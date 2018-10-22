@@ -238,7 +238,7 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
 	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
@@ -986,9 +986,10 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 		Charm:      sch,
 		ForceUnits: s.forced,
 	}
+	// Make sure we upload the charm before changing it in the DB.
+	serveCharm{}.step(c, ctx)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	serveCharm{}.step(c, ctx)
 }
 
 type verifyCharm struct {

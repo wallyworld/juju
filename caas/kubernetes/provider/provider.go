@@ -104,12 +104,12 @@ func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Co
 	return cfg, nil
 }
 
-func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*config.Config, error) {
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &environConfig{valid, map[string]interface{}{}}, nil
+	return valid, nil
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {
@@ -122,7 +122,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType && authType != cloud.CertificateAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

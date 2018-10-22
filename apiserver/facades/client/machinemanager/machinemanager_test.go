@@ -5,6 +5,9 @@ package machinemanager_test
 
 import (
 	"sort"
+	"strings"
+
+	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
@@ -431,6 +434,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C)
 func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
 	s.st.machines["0"].unitAgentState = status.Executing
+	s.st.machines["0"].unitState = status.Active
 
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	args := params.UpdateSeriesArgs{
@@ -442,7 +446,25 @@ func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C)
 	results, err := apiV5.UpgradeSeriesValidate(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
-		"unit unit-foo-[0-2] is not ready to start a series upgrade; its current status is: \"executing\" ")
+		"unit unit-foo-[0-2] is not ready to start a series upgrade; its agent status is: \"executing\" ")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].unitAgentState = status.Idle
+	s.st.machines["0"].unitState = status.Error
+
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.UpdateSeriesArgs{
+		Args: []params.UpdateSeriesArg{{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+		}},
+	}
+	results, err := apiV5.UpgradeSeriesValidate(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"unit unit-foo-[0-2] is not ready to start a series upgrade; its status is: \"error\" ")
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
@@ -580,6 +602,31 @@ func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineManagerSuite) TestApplications(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewMachineTag("0").String(),
+		}},
+	}
+	results, err := apiV5.Applications(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the applications returned correspond with the machine units.
+	machine, err := s.st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := machine.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := set.NewStrings()
+	for _, unit := range units {
+		apps.Add(unit.ApplicationName())
+	}
+	c.Check(results.Results[0].Result, jc.SameContents, apps.Values())
 }
 
 // TestIsSeriesLessThan tests a validation method which is not very complicated
@@ -744,6 +791,7 @@ type mockMachine struct {
 	series         string
 	units          []string
 	unitAgentState status.Status
+	unitState      status.Status
 }
 
 func (m *mockMachine) Destroy() error {
@@ -786,7 +834,11 @@ func (m *mockMachine) VerifyUnitsSeries(units []string, series string, force boo
 	m.MethodCall(m, "VerifyUnitsSeries", units, series, force)
 	out := make([]machinemanager.Unit, len(m.units))
 	for i, name := range m.units {
-		out[i] = &mockUnit{tag: names.NewUnitTag(name), sts: m.unitAgentState}
+		out[i] = &mockUnit{
+			tag:         names.NewUnitTag(name),
+			agentStatus: m.unitAgentState,
+			unitStatus:  m.unitState,
+		}
 	}
 	return out, m.NextErr()
 }
@@ -807,8 +859,9 @@ func (m *mockMachine) CompleteUpgradeSeries() error {
 }
 
 type mockUnit struct {
-	tag names.UnitTag
-	sts status.Status
+	tag         names.UnitTag
+	agentStatus status.Status
+	unitStatus  status.Status
 }
 
 func (u *mockUnit) UnitTag() names.UnitTag {
@@ -820,7 +873,15 @@ func (u *mockUnit) Name() string {
 }
 
 func (u *mockUnit) AgentStatus() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: u.sts}, nil
+	return status.StatusInfo{Status: u.agentStatus}, nil
+}
+
+func (u *mockUnit) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: u.unitStatus}, nil
+}
+
+func (u *mockUnit) ApplicationName() string {
+	return strings.Split(u.tag.String(), "-")[1]
 }
 
 type mockStorage struct {

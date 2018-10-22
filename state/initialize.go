@@ -212,6 +212,11 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// Ensure the controller cloud owner has admin.
+	cloudPermissionOps := createPermissionOp(
+		cloudGlobalKey(args.Cloud.Name),
+		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
+		permission.AdminAccess)
 
 	ops = append(ops,
 		txn.Op{
@@ -224,6 +229,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			},
 		},
 		createCloudOp(args.Cloud),
+		cloudPermissionOps,
 		cloudRefCountOp,
 		txn.Op{
 			C:      controllersC,
@@ -365,6 +371,10 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
+	qualifier := args.Owner.Id()
+	if args.Type == ModelTypeCAAS {
+		qualifier = args.CloudName
+	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
@@ -377,7 +387,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			args.MigrationMode,
 			args.EnvironVersion,
 		),
-		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
+		createUniqueOwnerModelNameOp(qualifier, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil

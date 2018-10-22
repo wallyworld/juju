@@ -11,16 +11,19 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
@@ -81,6 +84,17 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 
+	// TODO: lxd-profile 2018-09-18
+	// Add withoutControllerSuite.TestProvisioningInfoWithLXDProfile when
+	// lxd profiles added to ProvisioningInfo.
+	var pNames []string
+	if featureflag.Enabled(feature.LXDProfile) {
+		pNames, err = p.machineLXDProfiles(m, env)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot write lxd profiles")
+		}
+	}
+
 	endpointBindings, err := p.machineEndpointBindings(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
@@ -109,6 +123,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		ImageMetadata:     imageMetadata,
 		ControllerConfig:  controllerCfg,
 		CloudInitUserData: env.Config().CloudInitUserData(),
+		CharmLXDProfiles:  pNames,
 	}, nil
 }
 
@@ -300,6 +315,38 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 		subnetsToZones[string(providerId)] = []string{zone}
 	}
 	return subnetsToZones, nil
+}
+
+func (p *ProvisionerAPI) machineLXDProfiles(m *state.Machine, env environs.Environ) ([]string, error) {
+	profileEnv, ok := env.(environs.LXDProfiler)
+	if !ok {
+		return nil, nil
+	}
+	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var names []string
+	for _, unit := range units {
+		app, err := unit.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ch, _, err := app.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		profile := ch.LXDProfile()
+		if profile == nil || (profile != nil && profile.Empty()) {
+			continue
+		}
+		pName := lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision())
+		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
+			return nil, errors.Trace(err)
+		}
+		names = append(names, pName)
+	}
+	return names, nil
 }
 
 func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {

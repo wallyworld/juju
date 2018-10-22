@@ -314,34 +314,36 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("really-new-uuid"),
 		Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "really new message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "really new message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
 		Address:    strPtr("address"), Ports: &[]string{"port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Waiting, Message: "waiting for container"},
-		AgentStatus: &status.StatusInfo{Status: status.Allocating},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: ""},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	// CloudContainer message is not overwritten based on agent status
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("another-uuid"),
 		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Waiting, Message: "waiting for container"},
-		AgentStatus: &status.StatusInfo{Status: status.Allocating, Message: "another message"},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Waiting, Message: "another message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Allocating, Message: "another message"},
 	})
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation", "UpdateOperation")
 	s.st.application.units[2].(*mockUnit).CheckCall(c, 2, "UpdateOperation", state.UnitUpdateProperties{
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
-		UnitStatus:  &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
 	})
 	s.st.application.units[3].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[3].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("new-uuid"),
 		Address:    strPtr("new-address"), Ports: &[]string{"new-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "new message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "new message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 }
 
@@ -434,15 +436,15 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
 		Address:    strPtr("address"), Ports: &[]string{"port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("another-uuid"),
 		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "another message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
+		AgentStatus:          &status.StatusInfo{Status: status.Idle},
 	})
 	s.storage.CheckCallNames(c,
 		"UnitStorageAttachments", "UnitStorageAttachments", "StorageInstance",
@@ -522,4 +524,26 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 	})
 	c.Assert(s.st.application.providerId, gc.Equals, "id")
 	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+}
+
+func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	results, err := s.facade.SetOperatorStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "application-gitlab", Status: "error", Info: "broken", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+	now := s.clock.Now()
+	s.st.application.CheckCall(c, 0, "SetOperatorStatus", status.StatusInfo{
+		Status:  status.Error,
+		Message: "broken",
+		Data:    map[string]interface{}{"foo": "bar"},
+		Since:   &now,
+	})
 }

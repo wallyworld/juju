@@ -4,14 +4,17 @@
 package lxd_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -65,7 +68,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch:   "amd64",
 		Series: "trusty",
-		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
+		CloudBootstrapFinalizer: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},
 	}
@@ -80,7 +83,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	c.Check(result.Arch, gc.Equals, "amd64")
 	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(result.Finalize, gc.NotNil)
+	c.Check(result.CloudBootstrapFinalizer, gc.NotNil)
 
 	out := cmdtesting.Stderr(ctx)
 	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
@@ -194,5 +197,68 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
+	})
+}
+
+type environProfileSuite struct {
+	lxd.EnvironSuite
+
+	callCtx context.ProviderCallContext
+}
+
+var _ = gc.Suite(&environProfileSuite{})
+
+func (s *environProfileSuite) TestMaybeWriteLXDProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HasProfile("testname").Return(true, nil),
+		exp.HasProfile("testname").Return(false, nil),
+		exp.CreateProfile(api.ProfilesPost{
+			Name: "testname",
+			ProfilePut: api.ProfilePut{
+				Config: map[string]string{
+					"security.nesting": "true",
+				},
+				Description: "test profile",
+			},
+		}).Return(nil),
+	)
+
+	env := s.NewEnviron(c, svr, nil)
+	lxdEnv, ok := env.(environs.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	err := lxdEnv.MaybeWriteLXDProfile("testname", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = lxdEnv.MaybeWriteLXDProfile("testname", &charm.LXDProfile{
+		Config: map[string]string{
+			"security.nesting": "true",
+		},
+		Description: "test profile",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	exp := svr.EXPECT()
+
+	exp.GetContainerProfiles("testname").Return([]string{
+		lxdprofile.Name("foo", "bar", 1),
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil)
+	lxdEnv, ok := env.(environs.LXDProfiler)
+	c.Assert(ok, jc.IsTrue)
+	result, err := lxdEnv.LXDProfileNames("testname")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []string{
+		lxdprofile.Name("foo", "bar", 1),
 	})
 }
