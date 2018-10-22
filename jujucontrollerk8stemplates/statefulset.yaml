@@ -194,7 +194,7 @@ spec:
   - metadata:
       name: mongo-persistent-storage
     spec:
-      storageClassName: standard
+      storageClassName: microk8s-hostpath
       accessModes:
       - ReadWriteOnce
       resources:
@@ -203,7 +203,7 @@ spec:
   - metadata:
       name: juju-controller-persistent-storage
     spec:
-      storageClassName: standard
+      storageClassName: microk8s-hostpath
       accessModes:
       - ReadWriteOnce
       resources:

@@ -19,4 +19,5 @@ spec:
     # role: mongo
     app: juju-controller
   # type: ClusterIP
-  type: LoadBalancer
+  # type: LoadBalancer
+  type: NodePort
