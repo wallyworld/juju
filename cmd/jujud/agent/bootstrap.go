@@ -16,19 +16,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/os/series"
-	"github.com/juju/utils/arch"
-	"github.com/juju/utils/ssh"
-	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	// agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cloudconfig/instancecfg" // agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -41,6 +33,12 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/loggo"
+	"github.com/juju/os/series"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 var (

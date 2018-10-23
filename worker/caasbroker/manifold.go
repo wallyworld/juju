@@ -5,14 +5,13 @@ package caasbroker
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/caasagent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.

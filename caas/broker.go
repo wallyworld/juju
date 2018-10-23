@@ -7,8 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version"
-
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/version"
 )
 
 // ContainerEnvironProvider represents a computing and storage provider
@@ -95,10 +94,10 @@ type ServiceParams struct {
 
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
-	// Provider returns the ContainerEnvironProvider that created this Broker.
+	// // Provider returns the ContainerEnvironProvider that created this Broker.
 	// Provider() ContainerEnvironProvider
 
-	// // Destroy terminates all containers and other resources in this broker's namespace.
+	// // // Destroy terminates all containers and other resources in this broker's namespace.
 	// Destroy(context.ProviderCallContext) error
 
 	// Namespaces returns name names of the namespaces on the cluster.
@@ -152,18 +151,20 @@ type Broker interface {
 	// Operator returns an Operator with current status and life details.
 	Operator(string) (*Operator, error)
 
-	// ProviderRegistry is an interface for obtaining storage providers.
-	storage.ProviderRegistry
+	// // ProviderRegistry is an interface for obtaining storage providers.
+	// storage.ProviderRegistry
 
-	// InstancePrechecker provides a means of "prechecking" placement
-	// arguments before recording them in state.
-	environs.InstancePrechecker
+	// // InstancePrechecker provides a means of "prechecking" placement
+	// // arguments before recording them in state.
+	// environs.InstancePrechecker
 
-	// BootstrapEnviron defines methods for bootstraping a controller.
-	environs.BootstrapEnviron
+	// // BootstrapEnviron defines methods for bootstraping a controller.
+	// environs.BootstrapEnviron
 
-	// ResourceAdopter defines methods for adopting resources.
-	environs.ResourceAdopter
+	// // ResourceAdopter defines methods for adopting resources.
+	// environs.ResourceAdopter
+
+	environs.GenericEnviron
 }
 
 // Service represents information about the status of a caas service entity.

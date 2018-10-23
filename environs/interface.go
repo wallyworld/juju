@@ -7,9 +7,6 @@ import (
 	"io"
 
 	"github.com/juju/jsonschema"
-	"github.com/juju/version"
-	"gopkg.in/juju/environschema.v1"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -18,6 +15,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/version"
+	"gopkg.in/juju/environschema.v1"
 )
 
 //go:generate mockgen -package testing -destination testing/package_mock.go github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
@@ -343,12 +342,6 @@ type GenericEnviron interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	// SetConfig updates the Environ's configuration.
-	//
-	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
-
 	// CloudDestroyer provides the API to cleanup cloud resources.
 	CloudDestroyer
 
@@ -392,9 +385,6 @@ type GenericEnviron interface {
 	// If it can be determined that the environment has not been bootstrapped,
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
-
-	// Provider returns the EnvironProvider that created this Environ.
-	Provider() EnvironProvider
 
 	InstancePrechecker
 
