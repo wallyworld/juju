@@ -10,16 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/proxy"
-	"github.com/juju/pubsub"
-	"github.com/juju/utils/voyeur"
-	"github.com/juju/version"
-	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -71,6 +61,12 @@ import (
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftbackstop"
+	"github.com/juju/juju/worker/raft/raftclusterer"
+	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/raftforwarder"
+	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
@@ -84,13 +80,15 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
-
-	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/raftbackstop"
-	"github.com/juju/juju/worker/raft/raftclusterer"
-	"github.com/juju/juju/worker/raft/raftflag"
-	"github.com/juju/juju/worker/raft/raftforwarder"
-	"github.com/juju/juju/worker/raft/rafttransport"
+	"github.com/juju/loggo"
+	"github.com/juju/proxy"
+	"github.com/juju/pubsub"
+	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 )
 
 const (
@@ -755,14 +753,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Path:              "/raft",
 		})),
 
-		raftName: ifFullyUpgraded(raft.Manifold(raft.ManifoldConfig{
+		raftName: raft.Manifold(raft.ManifoldConfig{
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
 			FSM:           leaseFSM,
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
-		})),
+		}),
 
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
 			RaftName:  raftName,
@@ -829,14 +827,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 	}
 
-	manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-		AgentName:     agentName,
-		APICallerName: apiCallerName,
-		Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-		NewFacade:     upgradeseries.NewFacade,
-		NewWorker:     upgradeseries.NewWorker,
-	}))
-
 	return manifolds
 }
 
@@ -875,6 +865,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+		})),
+
+		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
 		})),
 	}
 	result := commonManifolds(config)

@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/status"
@@ -44,6 +45,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -78,6 +81,46 @@ type kubernetesClient struct {
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
+}
+
+// AllInstances returns all the instance.Instance in this provider.
+func (k *kubernetesClient) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return []instance.Instance{}, errors.NotSupportedf("AllInstances")
+}
+
+// ControllerInstances -
+func (k *kubernetesClient) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	return []instance.Id{}, errors.NotSupportedf("ControllerInstances")
+}
+
+// Create is part of the Environ interface.
+func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
+	return nil
+}
+
+// InstanceTypes implements InstanceTypesFetcher
+func (k *kubernetesClient) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+	return instances.InstanceTypesWithCostMetadata{}, errors.NotSupportedf("InstanceTypes")
+}
+
+// Instances -
+func (k *kubernetesClient) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	return []instance.Instance{}, errors.NotSupportedf("Instances")
+}
+
+// MaintainInstance is specified in the InstanceBroker interface.
+func (k *kubernetesClient) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+	return errors.NotSupportedf("MaintainInstance")
+}
+
+// StartInstance -
+func (k *kubernetesClient) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return nil, errors.NotSupportedf("StartInstance")
+}
+
+// StopInstances implements environs.InstanceBroker.
+func (k *kubernetesClient) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
+	return errors.NotSupportedf("StopInstances")
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
