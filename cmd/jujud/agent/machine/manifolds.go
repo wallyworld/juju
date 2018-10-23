@@ -83,7 +83,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
-	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -828,16 +827,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 	}
 
-	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
-		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-			NewFacade:     upgradeseries.NewFacade,
-			NewWorker:     upgradeseries.NewWorker,
-		}))
-	}
-
 	return manifolds
 }
 
@@ -876,6 +865,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+		})),
+
+		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
 		})),
 	}
 	result := commonManifolds(config)
