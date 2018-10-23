@@ -141,7 +141,7 @@ spec:
         # - name: juju-mongo-config-volume
         #   mountPath: /var/lib/juju
       - name: juju-controller
-        image: ycliuhw/jujud-controller:2.5-beta1-bionic-amd64
+        image: ycliuhw/jujud-controller:2.5-beta1-bionic-amd64-692259bc59
         imagePullPolicy: Always
         volumeMounts:
         - name: juju-controller-persistent-storage

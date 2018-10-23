@@ -56,3 +56,6 @@ const LegacyLeases = "legacy-leases"
 // LXDProfile will allow for lxd-profile.yaml files in a charm to be used
 // in container creation.
 const LXDProfile = "lxd-profile"
+
+// UpgradeSeries is a development feature flag.
+const UpgradeSeries = "upgrade-series"
