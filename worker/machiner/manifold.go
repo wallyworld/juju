@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -75,6 +76,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Errorf("cannot read environment config: %v", err)
 	}
+	reportHostname := modelConfig.Type() == string(provider.K8s_ProviderType)
 
 	ignoreMachineAddresses, _ := modelConfig.IgnoreMachineAddresses()
 	// Containers only have machine addresses, so we can't ignore them.
@@ -90,6 +92,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		MachineAccessor:              accessor,
 		Tag:                          tag.(names.MachineTag),
 		ClearMachineAddressesOnStart: ignoreMachineAddresses,
+		ReportHostname:               reportHostname,
 		NotifyMachineDead: func() error {
 			return agent.SetCanUninstall(a)
 		},

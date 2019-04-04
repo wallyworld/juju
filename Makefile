@@ -161,7 +161,7 @@ operator-image:
 push-operator-image: operator-image
 	docker push ${OPERATOR_IMAGE_PATH}
 
-microk8s-operator-update: operator-image
+microk8s-operator-update: install operator-image
 	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr -n k8s.io image import -
 
 check-k8s-model:

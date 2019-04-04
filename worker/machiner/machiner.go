@@ -4,6 +4,7 @@ package machiner
 
 import (
 	"net"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -25,6 +26,10 @@ type Config struct {
 	// MachineAccessor provides a means of observing and updating the
 	// machine's state.
 	MachineAccessor MachineAccessor
+
+	// ReportHostname indicates whether to report the machine's
+	// hostname instead of local IP addresses.
+	ReportHostname bool
 
 	// Tag is the machine's tag.
 	Tag names.MachineTag
@@ -94,7 +99,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 		}
 	} else {
 		// Set the addresses in state to the host's addresses.
-		if err := setMachineAddresses(mr.config.Tag, m); err != nil {
+		if err := setMachineAddresses(mr.config.Tag, m, mr.config.ReportHostname); err != nil {
 			return nil, errors.Annotate(err, "setting machine addresses")
 		}
 	}
@@ -108,32 +113,46 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	return m.Watch()
 }
 
-var interfaceAddrs = net.InterfaceAddrs
+var (
+	interfaceAddrs = net.InterfaceAddrs
+	hostname       = os.Hostname
+)
 
 // setMachineAddresses sets the addresses for this machine to all of the
 // host's non-loopback interface IP addresses.
-func setMachineAddresses(tag names.MachineTag, m Machine) error {
-	addrs, err := interfaceAddrs()
-	if err != nil {
-		return err
-	}
+func setMachineAddresses(tag names.MachineTag, m Machine, reportHostname bool) error {
 	var hostAddresses []network.Address
-	for _, addr := range addrs {
-		var ip net.IP
-		switch addr := addr.(type) {
-		case *net.IPAddr:
-			ip = addr.IP
-		case *net.IPNet:
-			ip = addr.IP
-		default:
-			continue
+
+	if reportHostname {
+		hostname, err := hostname()
+		if err != nil {
+			return errors.Trace(err)
 		}
-		address := network.NewAddress(ip.String())
-		// Filter out link-local addresses as we cannot reliably use them.
-		if address.Scope == network.ScopeLinkLocal {
-			continue
+		hostAddresses = []network.Address{
+			network.NewScopedAddress(hostname, network.ScopeCloudLocal),
 		}
-		hostAddresses = append(hostAddresses, address)
+	} else {
+		addrs, err := interfaceAddrs()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch addr := addr.(type) {
+			case *net.IPAddr:
+				ip = addr.IP
+			case *net.IPNet:
+				ip = addr.IP
+			default:
+				continue
+			}
+			address := network.NewAddress(ip.String())
+			// Filter out link-local addresses as we cannot reliably use them.
+			if address.Scope == network.ScopeLinkLocal {
+				continue
+			}
+			hostAddresses = append(hostAddresses, address)
+		}
 	}
 	if len(hostAddresses) == 0 {
 		return nil
