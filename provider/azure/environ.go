@@ -581,6 +581,22 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}, nil
 }
 
+func (env *azureEnviron) GetModelConfigNetwork(modelConfigNetwork string) (netRGname string, netName string, subnetName string) {
+	if modelConfigNetwork == "" {
+		return "", internalNetworkName, ""
+	}
+	strArray := strings.Split(modelConfigNetwork,"/")
+	switch len(strArray) {
+	case 1:
+		return "", modelConfigNetwork, ""
+	case 2:
+		return strArray[0], strArray[1], ""
+	default:
+		return strArray[0], strArray[1], strArray[2]
+	}
+	return "", "", ""
+}
+
 // createVirtualMachine creates a virtual machine and related resources.
 //
 // All resources created are tagged with the specified "vmTags", so if
@@ -593,6 +609,9 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceConfig *instancecfg.InstanceConfig,
 	storageAccountType string,
 ) error {
+	netRGname, networkName, subnetName := env.GetModelConfigNetwork(env.config.virtualNetworkName)
+	logger.Debugf("createVirtualMachine: from model-config network %s, generated %s / %s / %s", env.config.virtualNetworkName, netRGname, networkName, subnetName)
+
 	deploymentsClient := resources.DeploymentsClient{
 		BaseClient: env.resources,
 	}
@@ -620,10 +639,17 @@ func (env *azureEnviron) createVirtualMachine(
 		resources = append(resources,
 			networkTemplateResources(env.location, env.config, envTags, apiPorts, nil)...,
 		)
-		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
-			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
-			internalNetworkName,
-		))
+		if netRGname != "" {
+			nicDependsOn = append(nicDependsOn, fmt.Sprintf(
+			        `[resourceId('%s','Microsoft.Network/virtualNetworks', '%s')]`,
+			        netRGname, networkName,
+			))
+		} else {
+			nicDependsOn = append(nicDependsOn, fmt.Sprintf(
+				`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
+				networkName,
+			))
+		}
 	} else {
 		// Wait for the common resource deployment to complete.
 		if err := env.waitCommonResourcesCreated(); err != nil {
@@ -711,14 +737,24 @@ func (env *azureEnviron) createVirtualMachine(
 	// Controller and non-controller machines are assigned to separate
 	// subnets. This enables us to create controller-specific NSG rules
 	// just by targeting the controller subnet.
-	subnetName := internalSubnetName
-	if instanceConfig.Controller != nil {
-		subnetName = controllerSubnetName
+	if subnetName == "" {
+		subnetName = internalSubnetName
+		if instanceConfig.Controller != nil {
+			subnetName = controllerSubnetName
+		}
 	}
-	subnetId := fmt.Sprintf(
-		`[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
-		internalNetworkName, subnetName,
-	)
+	subnetId := ""
+	if netRGname != "" {
+		subnetId = fmt.Sprintf(
+			`[concat(resourceId('%s','Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+			netRGname, networkName, subnetName,
+		)
+	} else {
+                subnetId = fmt.Sprintf(
+                        `[concat(resourceId('Microsoft.Network/virtualNetworks', '%s'), '/subnets/%s')]`,
+                        networkName, subnetName,
+                )
+	}
 	var privateIPAddress *string
 	ipConfig := &network.InterfaceIPConfigurationPropertiesFormat{
 		Primary:                   to.BoolPtr(true),
