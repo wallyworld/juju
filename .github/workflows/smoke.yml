@@ -71,7 +71,7 @@ jobs:
     if: github.event.pull_request.draft == false
     strategy:
       matrix:
-        snap_version: ["2.8/stable"]
+        snap_version: ["3.0/stable"]
         model_type: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
@@ -88,7 +88,7 @@ jobs:
         OUT=$(snap info juju | grep -E "${{ matrix.snap_version }}:[[:space:]]+\^" || echo "NOT FOUND")
         set -e
         if [ "$OUT" = "NOT FOUND" ]; then
-          echo "RUN_TEST=RUN" >> $GITHUB_ENV
+          echo "RUN_TEST=NO_BASE_VERSION" >> $GITHUB_ENV
         fi
 
     - name: Install Dependencies
