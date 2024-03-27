@@ -606,7 +606,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			Data:    params.Status.Data,
 			Since:   &now,
 		}
-		err = application.SetStatus(s)
+		err = application.SetStatus(s, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -709,7 +709,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 			Data:    params.Status.Data,
 			Since:   &now,
 		}
-		err = unit.SetStatus(s)
+		err = unit.SetStatus(s, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

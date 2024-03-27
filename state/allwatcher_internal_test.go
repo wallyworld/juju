@@ -305,7 +305,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Message: m.Tag().String(),
 			Since:   &now,
 		}
-		err = m.SetStatus(sInfo)
+		err = m.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 		c.Assert(err, jc.ErrorIsNil)
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, jc.ErrorIsNil)
@@ -514,7 +514,7 @@ func addTestingApplicationOffer(
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(relEps...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined}, status.NoopStatusHistoryRecorder)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddOfferConnection(AddOfferConnectionParams{
 		SourceModelUUID: uuid.MustNewUUID().String(),
@@ -667,7 +667,7 @@ func (s *allWatcherStateSuite) TestChangeCAASApplications(c *gc.C) {
 				Message: "failure",
 				Since:   &now,
 			}
-			err := mysql.SetOperatorStatus(sInfo)
+			err := mysql.SetOperatorStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "operator status update, updates application",
@@ -1607,7 +1607,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				Message: "failure",
 				Since:   &now,
 			}
-			err = m.SetStatus(sInfo)
+			err = m.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1739,7 +1739,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				Message: "",
 				Since:   &now,
 			}
-			err = m.SetStatus(sInfo)
+			err = m.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1959,7 +1959,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			unit, err := app.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = unit.SetWorkloadVersion("42.47")
+			err = unit.SetWorkloadVersion("42.47", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "workload version is updated when set on a unit",
@@ -1998,7 +1998,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			unit, err := app.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = unit.SetWorkloadVersion("")
+			err = unit.SetWorkloadVersion("", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "workload version is not updated when empty",
@@ -2038,7 +2038,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 			app := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			unit, err := app.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = unit.SetWorkloadVersion("42.47")
+			err = unit.SetWorkloadVersion("42.47", status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "workload version is ignored if there is no application info",
@@ -2782,7 +2782,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "doing work",
 				Since:   &now,
 			}
-			err = u.SetStatus(sInfo)
+			err = u.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -3240,7 +3240,7 @@ func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTe
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			}
-			err := mysql.SetStatus(sInfo)
+			err := mysql.SetStatus(sInfo, status.NoopStatusHistoryRecorder)
 			c.Assert(err, jc.ErrorIsNil)
 			initialRemoteApplicationInfo := remoteApplicationInfo
 			remoteApplicationInfo.Status = multiwatcher.StatusInfo{

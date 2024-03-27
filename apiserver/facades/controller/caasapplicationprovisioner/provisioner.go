@@ -72,6 +72,7 @@ type API struct {
 	registry          storage.ProviderRegistry
 	clock             clock.Clock
 	logger            loggo.Logger
+	historyRecorder   status.StatusHistoryRecorder
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -113,6 +114,15 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelLogger, err := ctx.ModelLogger(m.UUID(), m.Name(), m.Owner().Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	api, err := NewCAASApplicationProvisionerAPI(
 		stateShim{State: systemState},
 		stateShim{State: st},
@@ -125,6 +135,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		ctx.ObjectStore(),
 		clock.WallClock,
 		ctx.Logger().Child("caasapplicationprovisioner"),
+		common.NewStatusHistoryRecorder(ctx.MachineTag().String(), modelLogger),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -177,6 +188,7 @@ func NewCAASApplicationProvisionerAPI(
 	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger loggo.Logger,
+	historyRecorder status.StatusHistoryRecorder,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -194,6 +206,7 @@ func NewCAASApplicationProvisionerAPI(
 		registry:          registry,
 		clock:             clock,
 		logger:            logger,
+		historyRecorder:   historyRecorder,
 	}, nil
 }
 
@@ -411,7 +424,7 @@ func (a *API) setStatus(tag names.ApplicationTag, info status.StatusInfo) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return app.SetOperatorStatus(info)
+	return app.SetOperatorStatus(info, a.historyRecorder)
 }
 
 // Units returns all the units for each application specified.
@@ -763,7 +776,7 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 				Message: appStatus.Info,
 				Data:    appStatus.Data,
 				Since:   &now,
-			})
+			}, a.historyRecorder)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -1109,7 +1122,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 			Message: volStatus.Message,
 			Data:    volStatus.Data,
 			Since:   &now,
-		})
+		}, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1182,7 +1195,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 			Message: fsStatus.Message,
 			Data:    fsStatus.Data,
 			Since:   &now,
-		})
+		}, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}

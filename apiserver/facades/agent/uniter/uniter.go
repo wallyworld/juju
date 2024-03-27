@@ -100,7 +100,8 @@ type UniterAPI struct {
 	accessCloudSpec func() (func() bool, error)
 	cloudSpecer     cloudspec.CloudSpecer
 
-	logger loggo.Logger
+	logger          loggo.Logger
+	historyRecorder status.StatusHistoryRecorder
 }
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
@@ -725,7 +726,7 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = unit.SetWorkloadVersion(entity.WorkloadVersion)
+		err = unit.SetWorkloadVersion(entity.WorkloadVersion, u.historyRecorder)
 		if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 		}
@@ -1549,7 +1550,7 @@ func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationS
 		return rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: message,
-		})
+		}, nil)
 	}
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
