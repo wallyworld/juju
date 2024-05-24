@@ -69,6 +69,11 @@ parts:
   wrappers:
     plugin: dump
     source: snap/local
+  plugin-binaries:
+    plugin: dump
+    source: snap/local/bin
+    organize:
+      '*': bin/
   juju:
     # TODO(hpidcock): move to upstream go plugin when it has the features we need.
     plugin: juju-go
