@@ -91,6 +91,77 @@ jobs:
         cd tests
         ./main.sh -v smoke
 
+  testci:
+    name: Smoke CI
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+    - name: Pull request details
+      uses: 8BitJonny/gh-get-current-pr@3.0.0
+      id: PR
+      with:
+        sha: ${{ github.event.pull_request.head.sha }}
+    - name: Extract PR body
+      if: steps.PR.outputs.pr_found == 'true'
+      id: PR_BODY
+      run: |
+        echo "PR ${prNumber} ${prTitle} at ${prUrl}"
+        echo "prBody=${prBody}" >> $GITHUB_OUTPUT
+      env:
+        prNumber: ${{ steps.PR.outputs.number }}
+        prUrl: ${{ steps.PR.outputs.pr_url }}
+        prBody: ${{ toJSON(steps.PR.outputs.pr_body) }}
+        prTitle: ${{ steps.PR.outputs.pr_title }}
+
+    - name: Convert pull request body to markdown data
+      uses: kkurno/action-markdown-reader@v0.1.0
+      id: markdown
+      with:
+        markdown: ${{ fromJSON(steps.PR_BODY.outputs.prbody) }}
+
+    - name: Smoke CI
+      run: |-
+        # echo "Raw data"
+        # echo ${{ steps.markdown.outputs.data }}
+        echo "Extracted data"
+        data=${{ toJSON(fromJSON(steps.markdown.outputs.data).QA.subheader.SmokeCI.bodies[0].text) }}
+        echo -e "${data}"     
+
+  testci2:
+    name: Smoke CI2
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+    - name: Convert pull request body to markdown data
+      uses: kkurno/action-markdown-reader@v0.1.0
+      id: markdown
+      with:
+        markdown: |
+          # Main Topic - My Markdown
+          
+          This is an example
+          
+          ## Sub Topic
+          
+          - [x] list item 1
+          - [ ] list item 2
+
+    - name: See the full result
+      run: |-
+        echo ${{ toJSON(steps.markdown.outputs.data) }}
+
+    - name: See specific properties
+      run: |-
+        echo 'should be "Main Topic - My Markdown" --> ${{ fromJSON(steps.markdown.outputs.data).Main_Topic___My_Markdown.text }}'
+        echo 'should be "This is an example" --> ${{ fromJSON(steps.markdown.outputs.data).Main_Topic___My_Markdown.bodies[0].text }}'
+        echo 'should be "true" --> ${{ fromJSON(steps.markdown.outputs.data).Main_Topic___My_Markdown.subheader.Sub_Topic.bodies[0].items[0].checked }}'
+        echo 'should be "false" --> ${{ fromJSON(steps.markdown.outputs.data).Main_Topic___My_Markdown.subheader.Sub_Topic.bodies[0].items[1].checked }}'
+
+    - name: Should be skip
+      if: fromJSON(steps.markdown.outputs.data).Main_Topic___My_Markdown.subheader.Sub_Topic.bodies[0].items[1].checked
+      run: |-
+        echo "2nd item is checked"    
+
   Upgrade:
     name: Upgrade
     runs-on: ubuntu-latest
