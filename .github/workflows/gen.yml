@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [Collate changed files]
     branches: [test-checks-trigger, test-checks-trigger2, 3.*, 4.*, main]
-#    types: [requested,completed]
+#    types: [requested,completed] #
 
 permissions:
   contents: write
