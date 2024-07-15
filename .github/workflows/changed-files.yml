@@ -12,14 +12,6 @@ permissions:
 jobs:
   changed-files:
     runs-on: ubuntu-latest
-    outputs:
-      check-build: ${{ steps.set-flag.collate-files.outputs.check_build }}
-      check-client: ${{ steps.set-flag.collate-files.outputs.check_client }}
-      check-migrate: ${{ steps.set-flag.collate-files.outputs.check_migrate }}
-      check-upgrade: ${{ steps.set-flag.collate-files.outputs.check_upgrade }}
-      check-terraform: ${{ steps.set-flag.collate-files.outputs.check_terraform }}
-      check-snap: ${{ steps.set-flag.collate-files.outputs.check_snap }}
-      check-generate: ${{ steps.set-flag.collate-files.outputs.check_generate }}
     steps:
       - name: Filter Files
         id: filter-files

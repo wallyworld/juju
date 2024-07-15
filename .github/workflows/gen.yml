@@ -1,46 +1,57 @@
 name: "Generate"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_run:
+    workflows: [Collate changed files]
+    branches: [test-checks-trigger, test-checks-trigger2, 3.*, 4.*, main]
+#    types: [requested,completed]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  should-run:
-    # This job checks if files have been changed according
-    # to the filter, and sets a should-run output if
-    # the filter is satisfied.
-    name: Check changed files
+  debug:
     runs-on: ubuntu-latest
-    outputs:
-      should-run: ${{ steps.set-flag.outputs.SHOULD_RUN }}
     steps:
-      - name: Check changed files
-        id: should-run
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            should_run:
-              - '**.go'
-              - 'go.mod'
-              - '.github/workflows/gen.yml'
-
-      - name: Set flag
-        id: set-flag
+      - name: Debug
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
         run: |
-          echo "SHOULD_RUN=steps.should-run.outputs.should_run" >> $GITHUB_OUTPUT
+          echo "$GITHUB_CONTEXT"
 
-  Generate:
-    needs: [should-run]
-    name: Generate
-    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
-    if: github.event.pull_request.draft == false && needs.should-run.outputs.should-run == true
-
+  generate:
+    runs-on: ubuntu-latest
+    #runs-on: [self-hosted, linux, arm64, aws, xxlarge]
+    #if: github.event.pull_request.draft == false #&& needs.jobs.should-run.outputs.check-generate == true
+    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      check-generate: ${{ fromJSON(steps.return-parsed-json.outputs.result).check-generate }}
     steps:
+      - name: Download flags
+        uses: actions/download-artifact@v4
+        with:
+#          name: check-flags
+#          path: ./
+          github-token: ${{ github.token }}
+          #github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: List Files
+        run: |
+          ls -R
+          echo "run id ${{ github.event.workflow_run.id }}"
+          echo "generate flag is "${{ needs.jobs.should-run.outputs.check-generate }}""
+      - name: Read flags flags
+        uses: actions/github-script@v6
+        id: return-parsed-json
+        with:
+          script: |
+            let fs = require('fs');
+            let data = fs.readFileSync('./check-flags.json');
+            return JSON.parse(data);
+      - name: "Print flags"
+        run: |
+          echo "flags: fromJSON(steps.return-parsed-json.outputs.result)"
+####
       - name: "Checkout"
         uses: actions/checkout@v4
 
