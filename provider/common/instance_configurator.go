@@ -39,7 +39,6 @@ type sshInstanceConfigurator struct {
 // NewSshInstanceConfigurator creates new sshInstanceConfigurator.
 func NewSshInstanceConfigurator(host string) InstanceConfigurator {
 	options := ssh.Options{}
-	options.SetIdentities("/var/lib/juju/system-identity")
 
 	// Disable host key checking. We're not sending any sensitive data
 	// across, and we don't have access to the host's keys from here.

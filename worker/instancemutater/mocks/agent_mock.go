@@ -411,20 +411,6 @@ func (mr *MockConfigMockRecorder) StateServingInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateServingInfo", reflect.TypeOf((*MockConfig)(nil).StateServingInfo))
 }
 
-// SystemIdentityPath mocks base method.
-func (m *MockConfig) SystemIdentityPath() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SystemIdentityPath")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SystemIdentityPath indicates an expected call of SystemIdentityPath.
-func (mr *MockConfigMockRecorder) SystemIdentityPath() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemIdentityPath", reflect.TypeOf((*MockConfig)(nil).SystemIdentityPath))
-}
-
 // Tag mocks base method.
 func (m *MockConfig) Tag() names.Tag {
 	m.ctrl.T.Helper()

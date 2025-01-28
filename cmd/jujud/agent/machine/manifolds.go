@@ -67,7 +67,6 @@ import (
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/httpserverargs"
-	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/instancemutater"
 	leasemanager "github.com/juju/juju/worker/lease/manifold"
 	"github.com/juju/juju/worker/leaseexpiry"
@@ -590,11 +589,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		logSenderName: ifNotMigrating(logsender.Manifold(logsender.ManifoldConfig{
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
-		})),
-
-		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
 		})),
 
 		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
@@ -1146,7 +1140,6 @@ const (
 	deployerName                  = "deployer"
 	authenticationWorkerName      = "ssh-authkeys-updater"
 	storageProvisionerName        = "storage-provisioner"
-	identityFileWriterName        = "ssh-identity-writer"
 	toolsVersionCheckerName       = "tools-version-checker"
 	machineActionName             = "machine-action-runner"
 	hostKeyReporterName           = "host-key-reporter"

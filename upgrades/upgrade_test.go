@@ -159,10 +159,6 @@ func (mock *mockAgentConfig) LogDir() string {
 	return mock.logDir
 }
 
-func (mock *mockAgentConfig) SystemIdentityPath() string {
-	return filepath.Join(mock.dataDir, agent.SystemIdentity)
-}
-
 func (mock *mockAgentConfig) Jobs() []model.MachineJob {
 	return mock.jobs
 }

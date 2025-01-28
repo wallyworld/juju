@@ -185,9 +185,6 @@ type EnsureServerParams struct {
 	// SharedSecret is a secret shared between mongo servers.
 	SharedSecret string
 
-	// SystemIdentity is the identity of the system.
-	SystemIdentity string
-
 	// MongoDataDir is the machine agent mongo data directory.
 	MongoDataDir string
 

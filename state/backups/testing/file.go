@@ -231,10 +231,6 @@ func NewArchiveBasic(meta *backups.Metadata) (*bytes.Buffer, error) {
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
 			Content: "<some binary data goes here>",
 		},
-		{
-			Name:    "var/lib/juju/system-identity",
-			Content: "<an ssh key goes here>",
-		},
 	}
 	dump := []File{
 		{

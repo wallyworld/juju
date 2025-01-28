@@ -14,7 +14,7 @@ to_sanitize = [
     ('units', ['passwordhash']),
     ('machines', ['passwordhash']),
     ('settings', ['settings']),
-    ('controllers', ['settings', 'cert', 'privatekey', 'caprivatekey', 'sharedsecret', 'systemidentity']),
+    ('controllers', ['settings', 'cert', 'privatekey', 'caprivatekey', 'sharedsecret']),
     ('actions', ['parameters', 'message', 'results']),
     ('cloudCredentials', ['attributes']),
     ('statuses', ['statusinfo']),

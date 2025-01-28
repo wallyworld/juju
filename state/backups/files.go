@@ -25,7 +25,6 @@ const (
 	toolsDir    = "tools"
 	initDir     = "init"
 
-	sshIdentFile = "system-identity"
 	nonceFile    = "nonce.txt"
 	authKeysFile = "authorized_keys"
 
@@ -73,7 +72,6 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 
 	backupFiles := []string{
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
-		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 	}
 

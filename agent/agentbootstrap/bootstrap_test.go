@@ -90,12 +90,11 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Model:             testing.ModelTag,
 	}
 	servingInfo := controller.StateServingInfo{
-		Cert:           testing.ServerCert,
-		PrivateKey:     testing.ServerKey,
-		CAPrivateKey:   testing.CAKey,
-		APIPort:        1234,
-		StatePort:      s.mgoInst.Port(),
-		SystemIdentity: "def456",
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		CAPrivateKey: testing.CAKey,
+		APIPort:      1234,
+		StatePort:    s.mgoInst.Port(),
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
@@ -301,13 +300,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stateServingInfo, jc.DeepEquals, controller.StateServingInfo{
-		APIPort:        1234,
-		StatePort:      s.mgoInst.Port(),
-		Cert:           testing.ServerCert,
-		PrivateKey:     testing.ServerKey,
-		CAPrivateKey:   testing.CAKey,
-		SharedSecret:   "abc123",
-		SystemIdentity: "def456",
+		APIPort:      1234,
+		StatePort:    s.mgoInst.Port(),
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		CAPrivateKey: testing.CAKey,
+		SharedSecret: "abc123",
 	})
 
 	// Check the initial storage pool.
@@ -402,12 +400,11 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetStateServingInfo(controller.StateServingInfo{
-		APIPort:        5555,
-		StatePort:      s.mgoInst.Port(),
-		Cert:           testing.CACert,
-		PrivateKey:     testing.CAKey,
-		SharedSecret:   "baz",
-		SystemIdentity: "qux",
+		APIPort:      5555,
+		StatePort:    s.mgoInst.Port(),
+		Cert:         testing.CACert,
+		PrivateKey:   testing.CAKey,
+		SharedSecret: "baz",
 	})
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),

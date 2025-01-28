@@ -26,7 +26,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
 // The comment values used by juju internal ssh keys.
-var internalComments = set.NewStrings("juju-client-key", config.JujuSystemKey)
+var internalComments = set.NewStrings("juju-client-key")
 
 // KeyManagerAPI provides api endpoints for manipulating ssh keys
 type KeyManagerAPI struct {
@@ -37,35 +37,17 @@ type KeyManagerAPI struct {
 	controllerTag names.ControllerTag
 }
 
-func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
-	if err := api.checkCanWrite(sshUser); err == nil {
+func (api *KeyManagerAPI) checkCanRead() error {
+	if err := api.checkCanWrite(); err == nil {
 		return nil
 	} else if err != apiservererrors.ErrPerm {
 		return errors.Trace(err)
-	}
-	if sshUser == config.JujuSystemKey {
-		// users cannot read the system key.
-		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
-		// in requests. It exists as an added layer of protection for the future, to prevent users
-		// requesting the system key. Later, when keys are not global we will need to put more
-		// thought into exactly how we should ensure the system key is never exposed to users.
-		// At the moment this is handled by using `internalComments`
-		return apiservererrors.ErrPerm
 	}
 	err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
 	return err
 }
 
-func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
-	if sshUser == config.JujuSystemKey {
-		// users cannot modify the system key.
-		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
-		// in requests. It exists as an added layer of protection for the future, to prevent users
-		// requesting the system key. Later, when keys are not global we will need to put more
-		// thought into exactly how we should ensure the system key is never exposed to users.
-		// At the moment this is handled by using `internalComments`
-		return apiservererrors.ErrPerm
-	}
+func (api *KeyManagerAPI) checkCanWrite() error {
 	ok, err := common.HasModelAdmin(api.authorizer, api.controllerTag, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -97,7 +79,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	results := transform.Slice(arg.Entities.Entities, func(entity params.Entity) params.StringsResult {
 		// NOTE: entity.Tag isn't a tag, but a username.
-		if err := api.checkCanRead(entity.Tag); err != nil {
+		if err := api.checkCanRead(); err != nil {
 			return params.StringsResult{Error: apiservererrors.ServerError(err)}
 		}
 		// All keys are global, no need to look up the user.
@@ -165,7 +147,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -257,7 +239,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -351,7 +333,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (keyDataForDelete, error) {
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.RemoveAllowed(); err != nil {

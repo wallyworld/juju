@@ -36,10 +36,6 @@ func (c *configFromEnv) LogDir() string {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) SystemIdentityPath() string {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) Jobs() []model.MachineJob {
 	panic("not implemented")
 }

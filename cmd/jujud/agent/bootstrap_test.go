@@ -404,13 +404,10 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
-	c.Assert(expectInfo.SystemIdentity, gc.Equals, "")
 
 	servingInfo := s.fakeEnsureMongo.Info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
-	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
-	servingInfo.SystemIdentity = ""
 	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
 	expectDialAddrs := []string{fmt.Sprintf("localhost:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
@@ -690,20 +687,6 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 	// the message related to the credential is logged.
 	c.Assert(c.GetTestLog(), jc.Contains,
 		`ERROR juju.cmd.jujud Cloud credential "" is not accepted by cloud provider: considered invalid for the sake of testing`)
-}
-
-func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
-	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "private-key")
 }
 
 func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {

@@ -93,8 +93,7 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
-	key2 := sshtesting.ValidKeyTwo.Key + " " + config.JujuSystemKey
-	s.setAuthorizedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1)
 
 	args := params.ListSSHKeys{
 		Entities: params.Entities{Entities: []params.Entity{
@@ -109,24 +108,6 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 			{Result: nil},
 		},
 	})
-}
-
-func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	key1 := sshtesting.ValidKeyOne.Key
-	s.setAuthorizedKeys(c, key1)
-
-	args := params.ListSSHKeys{
-		Entities: params.Entities{Entities: []params.Entity{
-			{Tag: config.JujuSystemKey},
-		}},
-		Mode: ssh.FullKeys,
-	}
-	results, err := s.api.ListKeys(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
 func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
@@ -198,30 +179,6 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
 
-func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
-	s.setAuthorizedKeys(c, sshtesting.ValidKeyOne.Key)
-
-	newAttrs := map[string]interface{}{
-		config.AuthorizedKeysKey: sshtesting.ValidKeyOne.Key,
-	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
-
-	newKey := sshtesting.ValidKeyThree.Key + " " + config.JujuSystemKey
-	args := params.ModifyUserSSHKeys{
-		User: names.NewUserTag("admin").Name(),
-		Keys: []string{newKey},
-	}
-	results, err := s.api.AddKeys(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ServerError("may not add key with comment juju-system-key: " + newKey)},
-		},
-	})
-}
-
 func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key
@@ -291,25 +248,23 @@ func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
 	s.blockChecker.EXPECT().RemoveAllowed().Return(nil)
 
 	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
-	key2 := sshtesting.ValidKeyTwo.Key + " " + config.JujuSystemKey
-	key3 := sshtesting.ValidKeyThree.Key + " a user key"
-	s.setAuthorizedKeys(c, key1, key2, key3)
+	key2 := sshtesting.ValidKeyThree.Key + " a user key"
+	s.setAuthorizedKeys(c, key1, key2)
 
 	newAttrs := map[string]interface{}{
-		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, key3}, "\n"),
+		config.AuthorizedKeysKey: strings.Join([]string{key1, key2}, "\n"),
 	}
 	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").Name(),
-		Keys: []string{"juju-client-key", config.JujuSystemKey},
+		Keys: []string{"juju-client-key"},
 	}
 	results, err := s.api.DeleteKeys(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
-			{Error: apiservertesting.ServerError("may not delete internal key: " + config.JujuSystemKey)},
 		},
 	})
 }

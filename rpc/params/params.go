@@ -757,8 +757,7 @@ type StateServingInfo struct {
 	// cert can be generated when needed.
 	CAPrivateKey string `json:"ca-private-key"`
 	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret   string `json:"shared-secret"`
-	SystemIdentity string `json:"system-identity"`
+	SharedSecret string `json:"shared-secret"`
 }
 
 // IsMasterResult holds the result of an IsMaster API call.

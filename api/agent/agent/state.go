@@ -75,7 +75,6 @@ func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
 		PrivateKey:        results.PrivateKey,
 		CAPrivateKey:      results.CAPrivateKey,
 		SharedSecret:      results.SharedSecret,
-		SystemIdentity:    results.SystemIdentity,
 	}, nil
 }
 

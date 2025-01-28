@@ -807,9 +807,6 @@
                         },
                         "state-port": {
                             "type": "integer"
-                        },
-                        "system-identity": {
-                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -819,8 +816,7 @@
                         "cert",
                         "private-key",
                         "ca-private-key",
-                        "shared-secret",
-                        "system-identity"
+                        "shared-secret"
                     ]
                 }
             }

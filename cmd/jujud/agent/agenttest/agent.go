@@ -91,13 +91,12 @@ func (f *FakeEnsureMongo) EnsureMongo(ctx context.Context, args mongo.EnsureServ
 	f.EnsureCount++
 	f.MongoDataDir, f.OplogSize = args.MongoDataDir, args.OplogSize
 	f.Info = controller.StateServingInfo{
-		APIPort:        args.APIPort,
-		StatePort:      args.StatePort,
-		Cert:           args.Cert,
-		PrivateKey:     args.PrivateKey,
-		CAPrivateKey:   args.CAPrivateKey,
-		SharedSecret:   args.SharedSecret,
-		SystemIdentity: args.SystemIdentity,
+		APIPort:      args.APIPort,
+		StatePort:    args.StatePort,
+		Cert:         args.Cert,
+		PrivateKey:   args.PrivateKey,
+		CAPrivateKey: args.CAPrivateKey,
+		SharedSecret: args.SharedSecret,
 	}
 	return f.Err
 }

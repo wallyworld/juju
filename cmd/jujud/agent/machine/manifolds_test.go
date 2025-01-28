@@ -112,7 +112,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"reboot-executor",
 			"secret-backend-rotate",
 			"ssh-authkeys-updater",
-			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
 			"state-converter",
@@ -180,7 +179,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"pubsub-forwarder",
 			"query-logger",
 			"secret-backend-rotate",
-			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
 			"syslog",
@@ -948,18 +946,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"ssh-identity-writer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"state": {"agent", "state-config-watcher"},
 
 	"state-config-watcher": {"agent"},
@@ -1395,18 +1381,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"ssh-identity-writer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",

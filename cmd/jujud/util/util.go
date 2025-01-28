@@ -76,13 +76,12 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 	}
 
 	params := mongo.EnsureServerParams{
-		APIPort:        si.APIPort,
-		StatePort:      si.StatePort,
-		Cert:           si.Cert,
-		PrivateKey:     si.PrivateKey,
-		CAPrivateKey:   si.CAPrivateKey,
-		SharedSecret:   si.SharedSecret,
-		SystemIdentity: si.SystemIdentity,
+		APIPort:      si.APIPort,
+		StatePort:    si.StatePort,
+		Cert:         si.Cert,
+		PrivateKey:   si.PrivateKey,
+		CAPrivateKey: si.CAPrivateKey,
+		SharedSecret: si.SharedSecret,
 
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,

@@ -61,7 +61,6 @@ type format_2_0Serialization struct {
 	ControllerAPIPort     int           `yaml:"controllerapiport,omitempty"`
 	StatePort             int           `yaml:"stateport,omitempty"`
 	SharedSecret          string        `yaml:"sharedsecret,omitempty"`
-	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
 	MongoMemoryProfile    string        `yaml:"mongomemoryprofile,omitempty"`
 	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
@@ -138,7 +137,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			ControllerAPIPort: format.ControllerAPIPort,
 			StatePort:         format.StatePort,
 			SharedSecret:      format.SharedSecret,
-			SystemIdentity:    format.SystemIdentity,
 		}
 		// If private key is not present, infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 {
@@ -203,7 +201,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.ControllerAPIPort = config.servingInfo.ControllerAPIPort
 		format.StatePort = config.servingInfo.StatePort
 		format.SharedSecret = config.servingInfo.SharedSecret
-		format.SystemIdentity = config.servingInfo.SystemIdentity
 		format.StatePassword = config.statePassword
 	}
 	if config.apiDetails != nil {

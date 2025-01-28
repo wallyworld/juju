@@ -66,7 +66,6 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	}
 
 	dirname := mkdir(paths.DataDir)
-	touch(dirname, "system-identity")
 	touch(dirname, "nonce.txt")
 	touch(dirname, "server.pem")
 	if snapPaths {
@@ -136,7 +135,6 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
-		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
@@ -173,7 +171,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0/agent.conf"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
-		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
@@ -197,7 +194,6 @@ func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/snap/juju-db/common/shared-secret"),
-		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}

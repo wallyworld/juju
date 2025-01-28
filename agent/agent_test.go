@@ -6,7 +6,6 @@ package agent_test
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -305,7 +304,6 @@ func stateServingInfo() controller.StateServingInfo {
 		APIPort:           47,
 		ControllerAPIPort: 52,
 		SharedSecret:      "shared",
-		SystemIdentity:    "identity",
 	}
 }
 
@@ -395,9 +393,6 @@ func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
-	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
-	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
-	c.Assert(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
 	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
@@ -422,7 +417,6 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 		PrivateKey:        "new key",
 		CAPrivateKey:      "new ca key",
 		SharedSecret:      "new shared",
-		SystemIdentity:    "new identity",
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()

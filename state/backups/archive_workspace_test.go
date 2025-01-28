@@ -57,8 +57,6 @@ func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *gc.C) {
 
 	_, err = os.Stat(targetDir + "/var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = os.Stat(targetDir + "/var/lib/juju/system-identity")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *workspaceSuiteV0) TestOpenBundledFile(c *gc.C) {
@@ -66,12 +64,12 @@ func (s *workspaceSuiteV0) TestOpenBundledFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
 
-	file, err := ws.OpenBundledFile("var/lib/juju/system-identity")
+	file, err := ws.OpenBundledFile("var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud")
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := io.ReadAll(file)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(data), gc.Equals, "<an ssh key goes here>")
+	c.Check(string(data), gc.Equals, "<some binary data goes here>")
 }
 
 func (s *workspaceSuiteV0) TestMetadata(c *gc.C) {

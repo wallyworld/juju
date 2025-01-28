@@ -275,8 +275,7 @@ type stateServingInfo struct {
 	PrivateKey   string `bson:"privatekey"`
 	CAPrivateKey string `bson:"caprivatekey"`
 	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret   string `bson:"sharedsecret"`
-	SystemIdentity string `bson:"systemidentity"`
+	SharedSecret string `bson:"sharedsecret"`
 }
 
 // StateServingInfo returns information for running a controller machine
@@ -293,20 +292,21 @@ func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
 		return jujucontroller.StateServingInfo{}, errors.NotFoundf("state serving info")
 	}
 	return jujucontroller.StateServingInfo{
-		APIPort:        info.APIPort,
-		StatePort:      info.StatePort,
-		Cert:           info.Cert,
-		PrivateKey:     info.PrivateKey,
-		CAPrivateKey:   info.CAPrivateKey,
-		SharedSecret:   info.SharedSecret,
-		SystemIdentity: info.SystemIdentity,
+		APIPort:      info.APIPort,
+		StatePort:    info.StatePort,
+		Cert:         info.Cert,
+		PrivateKey:   info.PrivateKey,
+		CAPrivateKey: info.CAPrivateKey,
+		SharedSecret: info.SharedSecret,
 	}, nil
 }
 
 // SetStateServingInfo stores information needed for running a controller
 func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error {
-	if info.StatePort == 0 || info.APIPort == 0 ||
-		info.Cert == "" || info.PrivateKey == "" {
+	if info.StatePort == 0 ||
+		info.APIPort == 0 ||
+		info.Cert == "" ||
+		info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {
@@ -317,17 +317,17 @@ func (st *State) SetStateServingInfo(info jujucontroller.StateServingInfo) error
 		// until an upgrade process is written.
 		logger.Warningf("state serving info has no CA certificate key")
 	}
+
 	ops := []txn.Op{{
 		C:  controllersC,
 		Id: stateServingInfoKey,
 		Update: bson.D{{"$set", stateServingInfo{
-			APIPort:        info.APIPort,
-			StatePort:      info.StatePort,
-			Cert:           info.Cert,
-			PrivateKey:     info.PrivateKey,
-			CAPrivateKey:   info.CAPrivateKey,
-			SharedSecret:   info.SharedSecret,
-			SystemIdentity: info.SystemIdentity,
+			APIPort:      info.APIPort,
+			StatePort:    info.StatePort,
+			Cert:         info.Cert,
+			PrivateKey:   info.PrivateKey,
+			CAPrivateKey: info.CAPrivateKey,
+			SharedSecret: info.SharedSecret,
 		}}},
 	}}
 	if err := st.db().RunTransaction(ops); err != nil {

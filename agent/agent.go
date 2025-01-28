@@ -148,9 +148,6 @@ var (
 	}
 )
 
-// SystemIdentity is the name of the file where the environment SSH key is kept.
-const SystemIdentity = "system-identity"
-
 const (
 	ProviderType      = "PROVIDER_TYPE"
 	ContainerType     = "CONTAINER_TYPE"
@@ -201,10 +198,6 @@ type Config interface {
 	// LogDir returns the log directory. All logs from all agents on
 	// the machine are written to this directory.
 	LogDir() string
-
-	// SystemIdentityPath returns the path of the file where the environment
-	// SSH key is kept.
-	SystemIdentityPath() string
 
 	// Jobs returns a list of MachineJobs that need to run.
 	Jobs() []model.MachineJob
@@ -722,10 +715,6 @@ func (c *configInternal) MetricsSpoolDir() string {
 
 func (c *configInternal) LogDir() string {
 	return c.paths.LogDir
-}
-
-func (c *configInternal) SystemIdentityPath() string {
-	return filepath.Join(c.paths.DataDir, SystemIdentity)
 }
 
 func (c *configInternal) Jobs() []model.MachineJob {

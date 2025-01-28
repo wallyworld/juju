@@ -100,7 +100,6 @@ func (api *AgentAPI) StateServingInfo() (result params.StateServingInfo, err err
 		PrivateKey:        info.PrivateKey,
 		CAPrivateKey:      info.CAPrivateKey,
 		SharedSecret:      info.SharedSecret,
-		SystemIdentity:    info.SystemIdentity,
 	}
 
 	return result, nil

@@ -38,7 +38,6 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -304,11 +303,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	agentConfig = c.CurrentConfig()
 
-	// Create system-identity file
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := c.startMongo(ctx, isCAAS, addrs, agentConfig); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
@@ -437,17 +431,6 @@ func ensureKeys(
 	if isCAAS {
 		return nil
 	}
-	// Generate a private SSH key for the controllers, and add
-	// the public key to the environment config. We'll add the
-	// private key to StateServingInfo below.
-	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
-	if err != nil {
-		return errors.Annotate(err, "failed to generate system key")
-	}
-	info.SystemIdentity = privateKey
-
-	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
