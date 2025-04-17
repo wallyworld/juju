@@ -41,7 +41,7 @@ type Services struct {
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
-	StubService             StubService
+	CredentialService       CredentialService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -67,12 +67,6 @@ type ModelInfoService interface {
 
 	// CloudAPIVersion returns the cloud API version for the model's cloud.
 	CloudAPIVersion(context.Context) (string, error)
-}
-
-// StubService will be replaced once the implementation is finished.
-type StubService interface {
-	// CloudSpec returns the cloud spec for the model.
-	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -251,6 +245,10 @@ type MachineService interface {
 	// AvailabilityZone returns the hardware characteristics of the
 	// specified machine.
 	AvailabilityZone(ctx context.Context, machineUUID string) (string, error)
+}
+
+type CredentialService interface {
+	GetModelCloudSpec(ctx context.Context, modelUUID model.UUID) (cloudspec.CloudSpec, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

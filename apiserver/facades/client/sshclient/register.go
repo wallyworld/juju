@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -50,11 +51,16 @@ func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 		State:          st,
 		networkService: domainServices.Network(),
 	}
+
+	cloudSpecGetter := func(stdCtx context.Context) (cloudspec.CloudSpec, error) {
+		return domainServices.Credential().GetModelCloudSpec(stdCtx, ctx.ModelUUID())
+	}
 	return internalFacade(
 		names.NewControllerTag(ctx.ControllerUUID()),
 		names.NewModelTag(ctx.ModelUUID().String()),
 		&facadeBackend,
 		domainServices.Config(),
+		cloudSpecGetter,
 		domainServices.Stub(),
 		leadershipReader,
 		ctx.Auth(),

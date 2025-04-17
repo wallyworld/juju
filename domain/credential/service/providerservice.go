@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/credential"
@@ -16,6 +17,13 @@ import (
 
 // ProviderState describes retrieval and persistence methods for storage.
 type ProviderState interface {
+	// GetModelCloudAndCredential returns the cloud, cloud region
+	// and credential for the given model.
+	GetModelCloudAndCredential(
+		ctx context.Context,
+		uuid coremodel.UUID,
+	) (*cloud.Cloud, string, *credential.CloudCredentialInfo, error)
+
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
 

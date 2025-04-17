@@ -42,6 +42,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -88,7 +89,7 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
-	stubService             StubService
+	cloudSpecGetter         func(stdCtx context.Context) (cloudspec.CloudSpec, error)
 
 	// cmrBackend is a wrapper around state to handle CMR request
 	// todo(gfouillet): remove it whenever CMR have their domain.
@@ -2107,7 +2108,7 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	spec, err := u.stubService.CloudSpec(ctx)
+	spec, err := u.cloudSpecGetter(ctx)
 	if err != nil {
 		return params.CloudSpecResult{}, errors.Trace(err)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs/cloudspec"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -65,7 +66,7 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 			RelationService:         domainServices.Relation(),
 			SecretService:           domainServices.Secret(),
 			UnitStateService:        domainServices.UnitState(),
-			StubService:             domainServices.Stub(),
+			CredentialService:       domainServices.Credential(),
 		},
 	)
 }
@@ -73,22 +74,22 @@ func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, 
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
 	stdCtx context.Context,
-	context facade.ModelContext,
+	ctx facade.ModelContext,
 	services Services,
 ) (*UniterAPI, error) {
-	authorizer := context.Auth()
+	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-	st := context.State()
-	aClock := context.Clock()
-	resources := context.Resources()
-	watcherRegistry := context.WatcherRegistry()
-	leadershipChecker, err := context.LeadershipChecker()
+	st := ctx.State()
+	aClock := ctx.Clock()
+	resources := ctx.Resources()
+	watcherRegistry := ctx.WatcherRegistry()
+	leadershipChecker, err := ctx.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipRevoker, err := context.LeadershipRevoker()
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,16 +109,16 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, context.DomainServices().BlockDevice(), resources, accessUnit)
+		stateShim{st}, storageAccessor, ctx.DomainServices().BlockDevice(), resources, accessUnit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		services.ModelConfigService,
-		context.WatcherRegistry(),
+		ctx.WatcherRegistry(),
 	)
-	logger := context.Logger().Child("uniter")
+	logger := ctx.Logger().Child("uniter")
 
 	extUnitState := common.NewExternalUnitStateAPI(
 		services.ControllerConfigService,
@@ -132,7 +133,7 @@ func newUniterAPIWithServices(
 	extLXDProfile := NewExternalLXDProfileAPIv2(
 		st,
 		services.MachineService,
-		context.WatcherRegistry(),
+		ctx.WatcherRegistry(),
 		authorizer,
 		accessUnit,
 		logger,
@@ -147,7 +148,11 @@ func newUniterAPIWithServices(
 		aClock,
 	)
 
-	systemState, err := context.StatePool().SystemState()
+	cloudSpecGetter := func(stdCtx context.Context) (cloudspec.CloudSpec, error) {
+		return services.CredentialService.GetModelCloudSpec(stdCtx, ctx.ModelUUID())
+	}
+
+	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -160,7 +165,7 @@ func newUniterAPIWithServices(
 		lxdProfileAPI:      extLXDProfile,
 		StatusAPI:          statusAPI,
 
-		modelUUID:               context.ModelUUID(),
+		modelUUID:               ctx.ModelUUID(),
 		modelType:               modelInfo.Type,
 		st:                      st,
 		clock:                   aClock,
@@ -175,7 +180,7 @@ func newUniterAPIWithServices(
 		accessCloudSpec:         accessCloudSpec,
 		StorageAPI:              storageAPI,
 		logger:                  logger,
-		store:                   context.ObjectStore(),
+		store:                   ctx.ObjectStore(),
 		watcherRegistry:         watcherRegistry,
 
 		applicationService:      services.ApplicationService,
@@ -190,7 +195,7 @@ func newUniterAPIWithServices(
 		relationService:         services.RelationService,
 		secretService:           services.SecretService,
 		unitStateService:        services.UnitStateService,
-		stubService:             services.StubService,
+		cloudSpecGetter:         cloudSpecGetter,
 
 		cmrBackend: commoncrossmodel.GetBackend(st),
 	}, nil

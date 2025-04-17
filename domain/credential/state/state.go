@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -589,6 +590,10 @@ WHERE  uuid = $M.id
 		rval.CloudCredentialInfo.Attributes[row.AttributeKey] = row.AttributeValue
 	}
 	return rval, nil
+}
+
+func (st *State) GetModelCloudAndCredential(ctx context.Context, uuid coremodel.UUID) (*cloud.Cloud, string, *credential.CloudCredentialInfo, error) {
+	panic("implement me")
 }
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller

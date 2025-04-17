@@ -6,7 +6,6 @@ package sshclient
 import (
 	"context"
 
-	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -18,9 +17,6 @@ type ModelConfigService interface {
 
 // StubService will be replaced once the implementation is finished.
 type StubService interface {
-	// CloudSpec returns the cloud spec for the model.
-	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
-
 	// GetExecSecretToken returns a token that can be used to run exec operations
 	// on the provider cloud.
 	GetExecSecretToken(ctx context.Context) (string, error)

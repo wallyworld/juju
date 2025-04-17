@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,8 +31,10 @@ type Facade struct {
 
 	modelConfigService ModelConfigService
 	stubService        StubService
-	modelTag           names.ModelTag
-	controllerTag      names.ControllerTag
+	cloudSpecGetter    func(context.Context) (cloudspec.CloudSpec, error)
+
+	modelTag      names.ModelTag
+	controllerTag names.ControllerTag
 }
 
 // FacadeV5 provides the SSH Client API facade version 5
@@ -50,6 +53,7 @@ func internalFacade(
 	modelTag names.ModelTag,
 	backend Backend,
 	modelConfigService ModelConfigService,
+	cloudSpecGetter func(context.Context) (cloudspec.CloudSpec, error),
 	stubService StubService,
 	leadershipReader leadership.Reader, auth facade.Authorizer,
 ) (*Facade, error) {
@@ -267,7 +271,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		return result, nil
 	}
 
-	spec, err := facade.stubService.CloudSpec(ctx)
+	spec, err := facade.cloudSpecGetter(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
