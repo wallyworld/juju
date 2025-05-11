@@ -287,6 +287,35 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
 
+	if strings.HasPrefix(commands, "hook/") {
+		charmLocation := "hooks"
+		hookName := strings.TrimPrefix(commands, "hook/")
+		environmenter := context.NewHostEnvironmenter()
+		env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
+		if err != nil {
+			errors.Trace(err)
+		}
+		env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
+
+		logger := runner.logger()
+		debugctx := debug.NewHooksContext(runner.context.UnitName())
+		if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+			// Note: hookScript might be relative but the debug session only requires its name
+			hookHandlerType, hookScript, err := runner.discoverHookHandler(
+				hookName, runner.paths.GetCharmDir(), charmLocation)
+			if session.DebugAt() != "" {
+				if hookHandlerType == InvalidHookHandler {
+					logger.Infof("debug-code active, but hook %s not implemented (skipping)", hookName)
+					return nil, err
+				}
+				logger.Infof("executing %s via debug-code; %s", hookName, hookHandlerType)
+			} else {
+				logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
+			}
+			return nil, session.RunHook(hookName, runner.paths.GetCharmDir(), env, hookScript)
+		}
+	}
+
 	var cancel chan struct{}
 	if timeout != 0 {
 		cancel = make(chan struct{})
