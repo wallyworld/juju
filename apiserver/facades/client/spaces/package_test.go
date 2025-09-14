@@ -4,12 +4,11 @@
 package spaces
 
 import (
-	"testing"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/environs"
@@ -19,10 +18,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 // APISuite is used to test API calls using mocked model operations.
 type APISuite struct {
@@ -46,13 +41,15 @@ type APISuite struct {
 	ReloadSpacesAPI     *ReloadSpacesAPI
 }
 
-var _ = gc.Suite(&APISuite{})
+func TestAPISuite(t *tctesting.T) {
+	tc.Run(t, &APISuite{})
+}
 
-func (s *APISuite) TearDownTest(_ *gc.C) {
+func (s *APISuite) TearDownTest(_ *tc.C) {
 	s.API = nil
 }
 
-func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) (*gomock.Controller, func()) {
+func (s *APISuite) SetupMocks(c *tc.C, supportSpaces bool, providerSpaces bool) (*gomock.Controller, func()) {
 	ctrl := gomock.NewController(c)
 
 	s.resource = facademocks.NewMockResources(ctrl)
@@ -116,7 +113,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Authorizer:      s.authorizer,
 		Factory:         s.OpFactory,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl, unReg
 }

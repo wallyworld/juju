@@ -5,15 +5,14 @@ package apiserver_test
 
 import (
 	"net/http"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -24,13 +23,14 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
 )
 
 type workerFixture struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	agentConfig          mockAgentConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
@@ -40,7 +40,7 @@ type workerFixture struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	leaseManager         lease.Manager
 	config               apiserver.Config
-	stub                 testing.Stub
+	stub                 testhelpers.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
 	sysLogger            syslogger.SysLogger
@@ -49,7 +49,7 @@ type workerFixture struct {
 	jwtParser            *jwtparser.Parser
 }
 
-func (s *workerFixture) SetUpTest(c *gc.C) {
+func (s *workerFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agentConfig = mockAgentConfig{
@@ -64,7 +64,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	controller, err := cache.NewController(cache.ControllerConfig{
 		Changes: make(chan interface{}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
@@ -104,7 +104,7 @@ func (s *workerFixture) newServer(config coreapiserver.ServerConfig) (worker.Wor
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -112,9 +112,11 @@ type WorkerValidationSuite struct {
 	workerFixture
 }
 
-var _ = gc.Suite(&WorkerValidationSuite{})
+func TestWorkerValidationSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerValidationSuite{})
+}
 
-func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
+func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 	type test struct {
 		f      func(*apiserver.Config)
 		expect string
@@ -171,27 +173,27 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}
 }
 
-func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Config), expect string) {
+func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*apiserver.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := apiserver.NewWorker(config)
-	if !c.Check(err, gc.NotNil) {
+	if !c.Check(err, tc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
 	}
-	c.Check(w, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
+func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *tc.C) {
 	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerBufferSize, "foo", "parsing LOGSINK_DBLOGGER_BUFFER_SIZE: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerFlushInterval, "foo", "parsing LOGSINK_DBLOGGER_FLUSH_INTERVAL: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitBurst, "foo", "parsing LOGSINK_RATELIMIT_BURST: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitRefill, "foo", "parsing LOGSINK_RATELIMIT_REFILL: .*")
 }
 
-func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, expect string) {
+func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *tc.C, key, value, expect string) {
 	s.agentConfig.values = map[string]string{key: value}
 	_, err := apiserver.NewWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
+	c.Check(err, tc.ErrorMatches, "getting log sink config: "+expect)
 }

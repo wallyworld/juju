@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +36,7 @@ import (
 	providermocks "github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
 	k8sspecsmocks "github.com/juju/juju/internal/provider/kubernetes/specs/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type builderSuite struct {
@@ -92,7 +92,9 @@ spec:
     app: mock
 `[1:]
 
-var _ = gc.Suite(&builderSuite{})
+func TestBuilderSuite(t *tctesting.T) {
+	tc.Run(t, &builderSuite{})
+}
 
 type assertionRegisterRestClient func(c *providermocks.MockRestClientInterface)
 type restClientSetUpAction struct {
@@ -100,7 +102,7 @@ type restClientSetUpAction struct {
 	gv       apischema.GroupVersion
 }
 
-func (s *builderSuite) SetUpTest(c *gc.C) {
+func (s *builderSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.namespace = "test"
 	s.deploymentParams = &caas.DeploymentParams{DeploymentType: caas.DeploymentStateless}
@@ -115,7 +117,7 @@ func (s *builderSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *builderSuite) TearDownTest(c *gc.C) {
+func (s *builderSuite) TearDownTest(c *tc.C) {
 	s.namespace = ""
 	s.deploymentParams = nil
 	s.mockRestClients = nil
@@ -124,7 +126,7 @@ func (s *builderSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *builderSuite) setupRestClients(c *gc.C, restClientAssertions ...restClientSetUpAction) *gomock.Controller {
+func (s *builderSuite) setupRestClients(c *tc.C, restClientAssertions ...restClientSetUpAction) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockRestMapper = k8sspecsmocks.NewMockRESTMapper(ctrl)
 
@@ -140,7 +142,7 @@ func (s *builderSuite) setupRestClients(c *gc.C, restClientAssertions ...restCli
 		CACertificates: []string{testing.CACert},
 	}
 	k8sRestConfig, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, rca := range restClientAssertions {
 		mockRestClient := providermocks.NewMockRestClientInterface(ctrl)
@@ -156,10 +158,10 @@ func (s *builderSuite) setupRestClients(c *gc.C, restClientAssertions ...restCli
 		},
 		s.annotations,
 		func(cfg *rest.Config) (rest.Interface, error) {
-			c.Assert(cfg.Username, gc.Equals, "fred")
-			c.Assert(cfg.Password, gc.Equals, "secret")
-			c.Assert(cfg.Host, gc.Equals, "some-host")
-			c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+			c.Assert(cfg.Username, tc.Equals, "fred")
+			c.Assert(cfg.Password, tc.Equals, "secret")
+			c.Assert(cfg.Host, tc.Equals, "some-host")
+			c.Assert(cfg.TLSClientConfig, tc.DeepEquals, rest.TLSClientConfig{
 				CertData: []byte("cert-data"),
 				KeyData:  []byte("cert-key"),
 				CAData:   []byte(testing.CACert),
@@ -173,13 +175,13 @@ func (s *builderSuite) setupRestClients(c *gc.C, restClientAssertions ...restCli
 	return ctrl
 }
 
-func (s *builderSuite) getRestClientForGroupVersion(c *gc.C, gv apischema.GroupVersion) *providermocks.MockRestClientInterface {
+func (s *builderSuite) getRestClientForGroupVersion(c *tc.C, gv apischema.GroupVersion) *providermocks.MockRestClientInterface {
 	rC, ok := s.mockRestClients[gv]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return rC
 }
 
-func (s *builderSuite) TestDeployCreated(c *gc.C) {
+func (s *builderSuite) TestDeployCreated(c *tc.C) {
 	gvApps := appsv1.SchemeGroupVersion
 	gvCore := core.SchemeGroupVersion
 
@@ -229,7 +231,7 @@ func (s *builderSuite) TestDeployCreated(c *gc.C) {
 	)
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testing.LongWait)
 	defer cancel()
 
 	gomock.InOrder(
@@ -250,10 +252,10 @@ func (s *builderSuite) TestDeployCreated(c *gc.C) {
 			),
 	)
 
-	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), jc.ErrorIsNil)
+	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), tc.ErrorIsNil)
 }
 
-func (s *builderSuite) TestDeployUpdated(c *gc.C) {
+func (s *builderSuite) TestDeployUpdated(c *tc.C) {
 	gvApps := appsv1.SchemeGroupVersion
 	gvCore := core.SchemeGroupVersion
 
@@ -291,7 +293,7 @@ func (s *builderSuite) TestDeployUpdated(c *gc.C) {
 	)
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testing.LongWait)
 	defer cancel()
 
 	gomock.InOrder(
@@ -312,10 +314,10 @@ func (s *builderSuite) TestDeployUpdated(c *gc.C) {
 			),
 	)
 
-	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), jc.ErrorIsNil)
+	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), tc.ErrorIsNil)
 }
 
-func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *gc.C) {
+func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *tc.C) {
 	gvApps := appsv1.SchemeGroupVersion
 	gvCore := core.SchemeGroupVersion
 
@@ -333,7 +335,7 @@ func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *gc.C) {
 
 	defer ctrl.Finish()
 
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	ctx, cancel := context.WithTimeout(c.Context(), testing.LongWait)
 	defer cancel()
 
 	gomock.InOrder(
@@ -353,17 +355,17 @@ func (s *builderSuite) TestDeployDeploymentTypeMismatchFailed(c *gc.C) {
 				},
 			),
 	)
-	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), gc.ErrorMatches, `empty "daemonsets" resource definition not valid`)
+	c.Assert(s.builder.Deploy(ctx, rawK8sSpec, true), tc.ErrorMatches, `empty "daemonsets" resource definition not valid`)
 }
 
-func objBody(c *gc.C, object interface{}) io.ReadCloser {
+func objBody(c *tc.C, object interface{}) io.ReadCloser {
 	output, err := json.MarshalIndent(object, "", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return io.NopCloser(bytes.NewReader(output))
 }
 
 func (s *builderSuite) fakeRequest(
-	c *gc.C,
+	c *tc.C,
 	gvk apischema.GroupVersionKind,
 	expectedErr error,
 	expectedResponse *http.Response,
@@ -388,33 +390,33 @@ func (s *builderSuite) fakeRequest(
 		}
 		// Check labels and annotations are set correctly.
 		reqBody, err := req.GetBody()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer reqBody.Close()
 		reqBodyData, err := io.ReadAll(reqBody)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		reqObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, reqBodyData)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		metadataAccessor := meta.NewAccessor()
 		labels, err := metadataAccessor.Labels(reqObj)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		labelsSet := k8slabels.Set(labels)
 		for k, v := range s.labels {
 			// Check all Juju's labels are set into the obj.
-			c.Check(labelsSet.Get(k), gc.DeepEquals, v)
+			c.Check(labelsSet.Get(k), tc.DeepEquals, v)
 		}
 
 		// Check all Juju's annotations are set into the obj.
 		annotations, err := metadataAccessor.Annotations(reqObj)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(k8sannotations.New(annotations).HasAll(s.annotations), jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(k8sannotations.New(annotations).HasAll(s.annotations), tc.IsTrue)
 
 		// Check the namespace in raw spec has been reset from `ns-will-be-overwritten` to `test`.
 		ns, err := metadataAccessor.Namespace(reqObj)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ns, gc.DeepEquals, s.namespace)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(ns, tc.DeepEquals, s.namespace)
 
-		c.Assert(req.URL.String(), gc.DeepEquals, expectedURL)
+		c.Assert(req.URL.String(), tc.DeepEquals, expectedURL)
 		return expectedResponse, nil
 	})
 

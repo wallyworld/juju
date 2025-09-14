@@ -8,17 +8,19 @@ import (
 	"bytes"
 	"io"
 	"os"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type querySuite struct{}
 
-var _ = gc.Suite(&querySuite{})
+func TestQuerySuite(t *tctesting.T) {
+	tc.Run(t, &querySuite{})
+}
 
-func (s *querySuite) TestSuccess(c *gc.C) {
+func (s *querySuite) TestSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -28,7 +30,7 @@ func (s *querySuite) TestSuccess(c *gc.C) {
 	scope := NewMockScope(ctrl)
 
 	res, err := os.ReadFile("./testfiles/success")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	buf := bufio.NewReader(bytes.NewBuffer(res))
 	for {
@@ -40,15 +42,15 @@ func (s *querySuite) TestSuccess(c *gc.C) {
 		c.Logf("Line: %v", string(line))
 
 		query, err := Parse(string(line))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		done, err := query.Run(funcScope, scope)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(done, jc.IsTrue)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(done, tc.IsTrue)
 	}
 }
 
-func (s *querySuite) TestFailure(c *gc.C) {
+func (s *querySuite) TestFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -58,7 +60,7 @@ func (s *querySuite) TestFailure(c *gc.C) {
 	scope := NewMockScope(ctrl)
 
 	res, err := os.ReadFile("./testfiles/failure")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	buf := bufio.NewReader(bytes.NewBuffer(res))
 	for {
@@ -70,15 +72,15 @@ func (s *querySuite) TestFailure(c *gc.C) {
 		c.Logf("Line: %v", string(line))
 
 		query, err := Parse(string(line))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		done, err := query.Run(funcScope, scope)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(done, jc.IsFalse)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(done, tc.IsFalse)
 	}
 }
 
-func (s *querySuite) TestQueryScope(c *gc.C) {
+func (s *querySuite) TestQueryScope(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -90,14 +92,14 @@ func (s *querySuite) TestQueryScope(c *gc.C) {
 	src := `life == "death" || life == "alive"`
 
 	query, err := Parse(src)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	done, err := query.Run(funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(done, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(done, tc.IsTrue)
 }
 
-func (s *querySuite) TestRunIdent(c *gc.C) {
+func (s *querySuite) TestRunIdent(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -127,11 +129,11 @@ func (s *querySuite) TestRunIdent(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, NewString("alive"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, NewString("alive"))
 }
 
-func (s *querySuite) TestRunString(c *gc.C) {
+func (s *querySuite) TestRunString(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -159,11 +161,11 @@ func (s *querySuite) TestRunString(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &BoxString{"abc"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &BoxString{"abc"})
 }
 
-func (s *querySuite) TestRunInteger(c *gc.C) {
+func (s *querySuite) TestRunInteger(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -192,11 +194,11 @@ func (s *querySuite) TestRunInteger(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &BoxInteger{value: int64(1)})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &BoxInteger{value: int64(1)})
 }
 
-func (s *querySuite) TestRunFloat(c *gc.C) {
+func (s *querySuite) TestRunFloat(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -225,11 +227,11 @@ func (s *querySuite) TestRunFloat(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &BoxFloat{value: float64(1.12)})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &BoxFloat{value: float64(1.12)})
 }
 
-func (s *querySuite) TestRunBool(c *gc.C) {
+func (s *querySuite) TestRunBool(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -258,11 +260,11 @@ func (s *querySuite) TestRunBool(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, &BoxBool{value: true})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &BoxBool{value: true})
 }
 
-func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
+func (s *querySuite) TestRunInfixLogicalAND(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -307,11 +309,11 @@ func (s *querySuite) TestRunInfixLogicalAND(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, true)
 }
 
-func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
+func (s *querySuite) TestRunInfixLogicalOR(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -356,6 +358,6 @@ func (s *querySuite) TestRunInfixLogicalOR(c *gc.C) {
 
 	var query Query
 	result, err := query.run(exp, funcScope, scope)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, true)
 }

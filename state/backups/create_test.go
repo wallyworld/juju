@@ -7,9 +7,9 @@ import (
 	"os"
 	"path"
 	"runtime"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -21,7 +21,9 @@ type createSuite struct {
 
 const backupfileRegex = "juju-backup-\\d{8}-\\d{6}.tar.gz"
 
-var _ = gc.Suite(&createSuite{}) // Register the suite.
+func TestCreateSuite(t *tctesting.T) {
+	tc.Run(t, &createSuite{})
+} // Register the suite.
 
 type TestDBDumper struct {
 	DumpDir string
@@ -36,35 +38,35 @@ func (d *TestDBDumper) IsSnap() bool {
 	return false
 }
 
-func (s *createSuite) TestLegacy(c *gc.C) {
+func (s *createSuite) TestLegacy(c *tc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Currently does not work on windows, see comments inside backups.create function")
 	}
 	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	backupDir := c.MkDir()
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
 	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 
 	archiveFile, size, checksum, _ := backups.ExposeCreateResult(result)
-	c.Assert(archiveFile, gc.NotNil)
+	c.Assert(archiveFile, tc.NotNil)
 
 	// Check the result.
 	file, ok := archiveFile.(*os.File)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	s.checkSize(c, file, size)
 	s.checkChecksum(c, file, checksum)
 	s.checkArchive(c, file, expected)
 }
 
-func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
+func (s *createSuite) TestMetadataFileMissing(c *tc.C) {
 	var backupDir string
 	var testFiles []string
 	dumper := &TestDBDumper{}
@@ -72,25 +74,25 @@ func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
 	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil)
 	_, err := backups.Create(args)
 
-	c.Check(err, gc.ErrorMatches, "missing metadataReader")
+	c.Check(err, tc.ErrorMatches, "missing metadataReader")
 }
 
-func (s *createSuite) TestCreate(c *gc.C) {
+func (s *createSuite) TestCreate(c *tc.C) {
 	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	backupDir := c.MkDir()
 	_, testFiles, _ := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
 	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
 	_, _, _, resultFilename := backups.ExposeCreateResult(result)
 	dir, filename := path.Split(resultFilename)
-	c.Assert(filename, gc.Matches, backupfileRegex)
-	c.Assert(dir, jc.Contains, backupDir)
+	c.Assert(filename, tc.Matches, backupfileRegex)
+	c.Assert(dir, tc.Contains, backupDir)
 	_, err = os.Stat(resultFilename)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

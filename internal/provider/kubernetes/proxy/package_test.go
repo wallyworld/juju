@@ -4,15 +4,8 @@
 package proxy
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/rest"
 )
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func (p *Proxier) RESTConfig() rest.Config {
 	return p.restConfig

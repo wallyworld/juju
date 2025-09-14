@@ -4,32 +4,35 @@
 package usersecretsdrain_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type drainSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer   *facademocks.MockAuthorizer
 	secretsState *mocks.MockSecretsState
 	facade       *usersecretsdrain.SecretsDrainAPI
 }
 
-var _ = gc.Suite(&drainSuite{})
+func TestDrainSuite(t *tctesting.T) {
+	tc.Run(t, &drainSuite{})
+}
 
-func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
+func (s *drainSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -76,19 +79,19 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = usersecretsdrain.NewTestAPI(s.authorizer, s.secretsState, backendConfigGetter, drainConfigGetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
 
-func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
+func (s *drainSuite) TestGetSecretBackendConfigs(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendConfigResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendConfigResults{
 		ActiveID: "backend-id",
 		Results: map[string]params.SecretBackendConfigResult{
 			"backend-id": {
@@ -105,17 +108,17 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretContentInvalidArg(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentInvalidArg(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `empty URI`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, `empty URI`)
 }
 
-func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentInternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
@@ -131,15 +134,15 @@ func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretContentExternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -156,8 +159,8 @@ func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
 			{URI: uri.String()},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{
@@ -179,7 +182,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
 	})
 }
 
-func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -193,15 +196,15 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
 
-func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *gc.C) {
+func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -216,8 +219,8 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *gc.C) {
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{

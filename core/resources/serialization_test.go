@@ -5,42 +5,44 @@ package resources_test
 
 import (
 	"strings"
+	tctesting "testing"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type SerializationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SerializationSuite{})
+func TestSerializationSuite(t *tctesting.T) {
+	tc.Run(t, &SerializationSuite{})
+}
 
-func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *gc.C) {
+func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *tc.C) {
 	content := "some data\n..."
 	expected, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fp, err := resources.DeserializeFingerprint(expected.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(fp, jc.DeepEquals, expected)
+	c.Check(fp, tc.DeepEquals, expected)
 }
 
-func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *gc.C) {
+func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *tc.C) {
 	_, err := resources.DeserializeFingerprint([]byte("<too short>"))
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *gc.C) {
+func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *tc.C) {
 	fp, err := resources.DeserializeFingerprint(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(fp, jc.DeepEquals, charmresource.Fingerprint{})
+	c.Check(fp, tc.DeepEquals, charmresource.Fingerprint{})
 }

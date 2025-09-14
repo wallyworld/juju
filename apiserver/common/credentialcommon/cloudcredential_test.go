@@ -4,58 +4,61 @@
 package credentialcommon_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type CredentialSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	backend *testBackend
 	api     *credentialcommon.CredentialManagerAPI
 }
 
-var _ = gc.Suite(&CredentialSuite{})
+func TestCredentialSuite(t *tctesting.T) {
+	tc.Run(t, &CredentialSuite{})
+}
 
-func (s *CredentialSuite) SetUpTest(c *gc.C) {
+func (s *CredentialSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.backend = newMockBackend()
 	s.api = credentialcommon.NewCredentialManagerAPI(s.backend)
 }
 
-func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialSuite) TestInvalidateModelCredential(c *tc.C) {
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
-func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
+func (s *CredentialSuite) TestInvalidateModelCredentialError(c *tc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
 func newMockBackend() *testBackend {
-	return &testBackend{Stub: &testing.Stub{}}
+	return &testBackend{Stub: &testhelpers.Stub{}}
 }
 
 type testBackend struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (b *testBackend) InvalidateModelCredential(reason string) error {

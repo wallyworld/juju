@@ -6,10 +6,10 @@ package tools_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -18,24 +18,26 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type URLsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&URLsSuite{})
+func TestURLsSuite(t *tctesting.T) {
+	tc.Run(t, &URLsSuite{})
+}
 
-func (s *URLsSuite) TearDownTest(c *gc.C) {
+func (s *URLsSuite) TearDownTest(c *tc.C) {
 	dummy.Reset(c)
 
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
+func (s *URLsSuite) env(c *tc.C, toolsMetadataURL string) environs.Environ {
 	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
 		attrs = attrs.Merge(coretesting.Attrs{
@@ -52,30 +54,30 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.(environs.Environ)
 }
 
-func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
+func (s *URLsSuite) TestToolsURLsNoConfigURL(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true}})
 }
 
-func (s *URLsSuite) TestToolsSources(c *gc.C) {
+func (s *URLsSuite) TestToolsSources(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
 		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey, true},
 	})
 }
 
-func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
+func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
 		return ss.NewDataSource(simplestreams.Config{
@@ -102,7 +104,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
 		{"config-tools-metadata-url/", keys.JujuPublicKey, false},
 		{"betwixt/releases/", "", false},
@@ -110,7 +112,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	})
 }
 
-func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
+func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *tc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
 		// Non-NotSupported errors cause GetMetadataSources to fail.
@@ -120,10 +122,10 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 
 	env := s.env(c, "config-tools-metadata-url")
 	_, err := tools.GetMetadataSources(env, ss)
-	c.Assert(err, gc.ErrorMatches, "oyvey!")
+	c.Assert(err, tc.ErrorMatches, "oyvey!")
 }
 
-func (s *URLsSuite) TestToolsURL(c *gc.C) {
+func (s *URLsSuite) TestToolsURL(c *tc.C) {
 	var toolsTests = []struct {
 		in          string
 		expected    string
@@ -158,7 +160,7 @@ func (s *URLsSuite) TestToolsURL(c *gc.C) {
 		c.Logf("Test %d:", i)
 
 		out, err := tools.ToolsURL(t.in)
-		c.Assert(err, gc.DeepEquals, t.expectedErr)
-		c.Assert(out, gc.Equals, t.expected)
+		c.Assert(err, tc.DeepEquals, t.expectedErr)
+		c.Assert(out, tc.Equals, t.expected)
 	}
 }

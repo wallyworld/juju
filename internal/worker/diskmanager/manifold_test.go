@@ -4,26 +4,29 @@
 package diskmanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/model"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type manifoldSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
+func (s *manifoldSuite) TestMachineDiskmanager(c *tc.C) {
 
 	called := false
 
@@ -42,12 +45,12 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
 	s.PatchValue(&diskmanager.NewWorker, func(l diskmanager.ListBlockDevicesFunc, b diskmanager.BlockDeviceSetter) worker.Worker {
 		called = true
 
-		c.Assert(l, gc.FitsTypeOf, diskmanager.DefaultListBlockDevices)
-		c.Assert(b, gc.NotNil)
+		c.Assert(l, tc.FitsTypeOf, diskmanager.DefaultListBlockDevices)
+		c.Assert(b, tc.NotNil)
 
 		api, ok := b.(*apidiskmanager.State)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(api, gc.NotNil)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(api, tc.NotNil)
 
 		return nil
 	})
@@ -60,8 +63,8 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
 	}
 
 	_, err := diskmanager.NewWorkerFunc(a, apiCaller)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type dummyAgent struct {

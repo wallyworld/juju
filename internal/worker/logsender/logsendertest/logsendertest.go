@@ -6,10 +6,10 @@ package logsendertest
 import (
 	"reflect"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
-	"github.com/juju/juju/testing"
 )
 
 // ExpectLogStats waits for the buffered log writer's
@@ -17,7 +17,7 @@ import (
 // provided because statistics are updated after
 // log messages are handed off to the sink, and so
 // tests must cater for the gap or races will occur.
-func ExpectLogStats(c *gc.C, writer *logsender.BufferedLogWriter, expect logsender.LogStats) {
+func ExpectLogStats(c *tc.C, writer *logsender.BufferedLogWriter, expect logsender.LogStats) {
 	var stats logsender.LogStats
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		stats = writer.Stats()

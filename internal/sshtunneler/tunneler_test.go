@@ -9,15 +9,15 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
-	gc "gopkg.in/check.v1"
 
-	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 )
@@ -29,9 +29,11 @@ type sshTunnelerSuite struct {
 	clock      *MockClock
 }
 
-var _ = gc.Suite(&sshTunnelerSuite{})
+func TestSshTunnelerSuite(t *tctesting.T) {
+	tc.Run(t, &sshTunnelerSuite{})
+}
 
-func (s *sshTunnelerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sshTunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
@@ -42,7 +44,7 @@ func (s *sshTunnelerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *sshTunnelerSuite) newTracker(c *gc.C) *Tracker {
+func (s *sshTunnelerSuite) newTracker(c *tc.C) *Tracker {
 	args := TrackerArgs{
 		State:          s.state,
 		ControllerInfo: s.controller,
@@ -50,11 +52,11 @@ func (s *sshTunnelerSuite) newTracker(c *gc.C) *Tracker {
 		Clock:          s.clock,
 	}
 	tunnelTracker, err := NewTracker(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return tunnelTracker
 }
 
-func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
+func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -67,9 +69,9 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	now := time.Now()
 
 	machineHostKey, err := test.InsecureKeyProfile()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sshPublicHostKey, err := gossh.NewPublicKey(machineHostKey.Public())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var hostKeyCallback gossh.HostKeyCallback
 
@@ -102,12 +104,12 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
+		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}()
 
 	// wait for the tunnel request to be processed
@@ -121,25 +123,25 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	for uuid := range tunnelTracker.tracker {
 		tunnels = append(tunnels, uuid)
 	}
-	c.Check(tunnels, gc.HasLen, 1)
+	c.Check(tunnels, tc.HasLen, 1)
 
 	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(tunnelID, gc.Equals, tunnels[0])
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(tunnelID, tc.Equals, tunnels[0])
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	err = tunnelTracker.PushTunnel(ctx, tunnelID, nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	wg.Wait()
 
 	// Check that the host key callback correctly validates the machine's public host key
-	c.Check(hostKeyCallback("", nil, sshPublicHostKey), jc.ErrorIsNil)
+	c.Check(hostKeyCallback("", nil, sshPublicHostKey), tc.ErrorIsNil)
 
-	c.Check(tunnelTracker.tracker, gc.HasLen, 0)
+	c.Check(tunnelTracker.tracker, tc.HasLen, 0)
 }
 
 type mockConn struct {
@@ -152,7 +154,7 @@ func (m *mockConn) Close() error {
 	return nil
 }
 
-func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
+func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -188,12 +190,12 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ctx := context.Background()
+		ctx := c.Context()
 		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 
 		_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
-		c.Check(err, gc.ErrorMatches, `failed-to-connect`)
+		c.Check(err, tc.ErrorMatches, `failed-to-connect`)
 	}()
 
 	// wait for the tunnel request to be processed
@@ -204,34 +206,34 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 	}
 
 	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	mockConn := &mockConn{}
 	err = tunnelTracker.PushTunnel(ctx, tunnelID, mockConn)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	wg.Wait()
 
-	c.Check(tunnelTracker.tracker, gc.HasLen, 0)
-	c.Check(mockConn.Bool.Load(), gc.Equals, true)
+	c.Check(tunnelTracker.tracker, tc.HasLen, 0)
+	c.Check(mockConn.Bool.Load(), tc.Equals, true)
 }
 
-func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *gc.C) {
+func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
 
 	privateKey, publicKey, err := tunnelTracker.generateEphemeralSSHKey()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(privateKey, gc.Not(gc.IsNil))
-	c.Assert(publicKey, gc.Not(gc.IsNil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(privateKey, tc.Not(tc.IsNil))
+	c.Assert(publicKey, tc.Not(tc.IsNil))
 }
 
-func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
+func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -241,15 +243,15 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 
 	tunnelID := "test-tunnel-id"
 	token, err := tunnelTracker.authn.generatePassword(tunnelID, now, deadline)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 	authTunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(authTunnelID, gc.Equals, tunnelID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(authTunnelID, tc.Equals, tunnelID)
 }
 
-func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
+func (s *sshTunnelerSuite) TestPushTunnel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -263,22 +265,22 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 	go func() {
 		select {
 		case receivedConn := <-recv:
-			c.Check(receivedConn, gc.Equals, conn)
+			c.Check(receivedConn, tc.Equals, conn)
 		case <-time.After(1 * time.Second):
 			c.Error("timeout waiting for tunnel")
 		}
 	}()
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 
 	err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 }
 
-func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
+func (s *sshTunnelerSuite) TestDeleteTunnel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -288,28 +290,28 @@ func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
 
 	tunnelTracker.delete(tunnelID)
 	_, ok := tunnelTracker.tracker[tunnelID]
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, tc.Equals, false)
 }
 
-func (s *sshTunnelerSuite) TestAuthenticateTunnelInvalidUsername(c *gc.C) {
+func (s *sshTunnelerSuite) TestAuthenticateTunnelInvalidUsername(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
 
 	_, err := tunnelTracker.AuthenticateTunnel("invalid-username", "some-password")
-	c.Assert(err, gc.ErrorMatches, "invalid username")
+	c.Assert(err, tc.ErrorMatches, "invalid username")
 }
 
-func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *gc.C) {
+func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
 
-	err := tunnelTracker.PushTunnel(context.Background(), "invalid-tunnel-id", nil)
-	c.Assert(err, gc.ErrorMatches, "tunnel not found")
+	err := tunnelTracker.PushTunnel(c.Context(), "invalid-tunnel-id", nil)
+	c.Assert(err, tc.ErrorMatches, "tunnel not found")
 }
 
-func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *gc.C) {
+func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -327,18 +329,18 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *gc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer cancel()
 
 	_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
-	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
+	c.Assert(err, tc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
 
-func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *gc.C) {
+func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	restore := testing.PatchValue(&maxTimeout, 1*time.Millisecond)
+	restore := testhelpers.PatchValue(&maxTimeout, 1*time.Millisecond)
 	defer restore()
 
 	tunnelTracker := s.newTracker(c)
@@ -356,11 +358,11 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *gc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
-	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
+	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
+	c.Assert(err, tc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
 
-func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *gc.C) {
+func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -371,15 +373,15 @@ func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *gc.C) {
 
 	conn := &net.TCPConn{}
 
-	ctx := context.Background()
+	ctx := c.Context()
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Millisecond)
 	defer cancel()
 
 	err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
-	c.Check(err, gc.ErrorMatches, `no one waiting for tunnel: context deadline exceeded`)
+	c.Check(err, tc.ErrorMatches, `no one waiting for tunnel: context deadline exceeded`)
 }
 
-func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *gc.C) {
+func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker := s.newTracker(c)
@@ -396,11 +398,11 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *gc.C) {
 		ModelUUID: "model-uuid",
 	}
 
-	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
-	c.Assert(err, gc.ErrorMatches, "failed to parse machine host key: ssh: no key found")
+	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
+	c.Assert(err, tc.ErrorMatches, "failed to parse machine host key: ssh: no key found")
 }
 
-func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *gc.C) {
+func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *tc.C) {
 	// Test case: All arguments are valid
 	args := TrackerArgs{
 		State:          s.state,
@@ -409,33 +411,33 @@ func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *gc.C) {
 		Clock:          s.clock,
 	}
 	tunnelTracker, err := NewTracker(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tunnelTracker, gc.Not(gc.IsNil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tunnelTracker, tc.Not(tc.IsNil))
 
 	// Test case: Missing State
 	args.State = nil
 	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, gc.ErrorMatches, "state is required")
-	c.Assert(tunnelTracker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "state is required")
+	c.Assert(tunnelTracker, tc.IsNil)
 
 	// Test case: Missing ControllerInfo
 	args.State = s.state
 	args.ControllerInfo = nil
 	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, gc.ErrorMatches, "controller info is required")
-	c.Assert(tunnelTracker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "controller info is required")
+	c.Assert(tunnelTracker, tc.IsNil)
 
 	// Test case: Missing Dialer
 	args.ControllerInfo = s.controller
 	args.Dialer = nil
 	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, gc.ErrorMatches, "dialer is required")
-	c.Assert(tunnelTracker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "dialer is required")
+	c.Assert(tunnelTracker, tc.IsNil)
 
 	// Test case: Missing Clock
 	args.Dialer = s.dialer
 	args.Clock = nil
 	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, gc.ErrorMatches, "clock is required")
-	c.Assert(tunnelTracker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "clock is required")
+	c.Assert(tunnelTracker, tc.IsNil)
 }

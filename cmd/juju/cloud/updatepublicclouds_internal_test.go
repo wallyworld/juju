@@ -4,51 +4,55 @@
 package cloud
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type cloudChangesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&cloudChangesSuite{})
-
-func (s *cloudChangesSuite) TestPluralityNone(c *gc.C) {
-	c.Assert(adjustPlurality("item", 0), gc.Equals, "")
+func TestCloudChangesSuite(t *tctesting.T) {
+	tc.Run(t, &cloudChangesSuite{})
 }
 
-func (s *cloudChangesSuite) TestPluralitySingular(c *gc.C) {
-	c.Assert(adjustPlurality("item", 1), gc.Equals, "1 item")
+func (s *cloudChangesSuite) TestPluralityNone(c *tc.C) {
+	c.Assert(adjustPlurality("item", 0), tc.Equals, "")
 }
 
-func (s *cloudChangesSuite) TestPluralityPlural(c *gc.C) {
-	c.Assert(adjustPlurality("item", 2), gc.Equals, "2 items")
+func (s *cloudChangesSuite) TestPluralitySingular(c *tc.C) {
+	c.Assert(adjustPlurality("item", 1), tc.Equals, "1 item")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceEmpty(c *gc.C) {
-	c.Assert(formatSlice(nil, "", ""), gc.Equals, "")
-	c.Assert(formatSlice([]string{}, "", ""), gc.Equals, "")
+func (s *cloudChangesSuite) TestPluralityPlural(c *tc.C) {
+	c.Assert(adjustPlurality("item", 2), tc.Equals, "2 items")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceOne(c *gc.C) {
-	c.Assert(formatSlice([]string{"one"}, "", ""), gc.Equals, "one")
+func (s *cloudChangesSuite) TestFormatSliceEmpty(c *tc.C) {
+	c.Assert(formatSlice(nil, "", ""), tc.Equals, "")
+	c.Assert(formatSlice([]string{}, "", ""), tc.Equals, "")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceTwo(c *gc.C) {
-	c.Assert(formatSlice([]string{"one", "two"}, "", " and "), gc.Equals, "one and two")
+func (s *cloudChangesSuite) TestFormatSliceOne(c *tc.C) {
+	c.Assert(formatSlice([]string{"one"}, "", ""), tc.Equals, "one")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceMany(c *gc.C) {
-	c.Assert(formatSlice([]string{"one", "two", "three"}, ", ", " and "), gc.Equals, "one, two and three")
+func (s *cloudChangesSuite) TestFormatSliceTwo(c *tc.C) {
+	c.Assert(formatSlice([]string{"one", "two"}, "", " and "), tc.Equals, "one and two")
 }
 
-func (s *cloudChangesSuite) TestFormatSlices(c *gc.C) {
+func (s *cloudChangesSuite) TestFormatSliceMany(c *tc.C) {
+	c.Assert(formatSlice([]string{"one", "two", "three"}, ", ", " and "), tc.Equals, "one, two and three")
+}
+
+func (s *cloudChangesSuite) TestFormatSlices(c *tc.C) {
 	c.Assert(formatSlice(
 		[]string{"one add", "two and three updates", "four, five and seven deletes"}, "; ", " as well as "),
-		gc.Equals,
+		tc.Equals,
 		"one add; two and three updates as well as four, five and seven deletes",
 	)
 }
@@ -426,9 +430,9 @@ var diffCloudsTests = []struct {
 	},
 }
 
-func (s *cloudChangesSuite) TestDiffClouds(c *gc.C) {
+func (s *cloudChangesSuite) TestDiffClouds(c *tc.C) {
 	for i, test := range diffCloudsTests {
 		c.Logf("%d: %v", i, test.description)
-		c.Check(diffClouds(test.new, test.old), gc.Equals, test.expected)
+		c.Check(diffClouds(test.new, test.old), tc.Equals, test.expected)
 	}
 }

@@ -8,26 +8,28 @@ import (
 	"database/sql"
 	"fmt"
 	"sync/atomic"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type trackedDBWorkerSuite struct {
 	dbBaseSuite
 }
 
-var _ = gc.Suite(&trackedDBWorkerSuite{})
+func TestTrackedDBWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &trackedDBWorkerSuite{})
+}
 
-func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -36,15 +38,15 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -53,8 +55,8 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := NewTrackedDBWorker(context.Background(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := NewTrackedDBWorker(c.Context(), s.dbApp, "controller", WithClock(s.clock), WithLogger(s.logger))
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -69,7 +71,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -78,23 +80,23 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
-	err = w.TxnNoRetry(context.Background(), func(_ context.Context, tx *sql.Tx) error {
+	err = w.TxnNoRetry(c.Context(), func(_ context.Context, tx *sql.Tx) error {
 		if tx == nil {
 			return errors.New("nil transaction")
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -103,8 +105,8 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
-	w, err := s.newTrackedDBWorker(defaultPingDBFunc)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -112,10 +114,10 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		defer close(done)
 
-		c.Assert(tx, gc.NotNil)
+		c.Assert(tx, tc.NotNil)
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -126,7 +128,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -142,8 +144,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, pingFn)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -159,11 +161,11 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, gc.Equals, uint64(1))
-	c.Assert(w.Err(), jc.ErrorIsNil)
+	c.Assert(count, tc.Equals, uint64(1))
+	c.Assert(w.Err(), tc.ErrorIsNil)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -186,8 +188,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, pingFn)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -209,10 +211,10 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(w.Err(), jc.ErrorIsNil)
+	c.Assert(w.Err(), tc.ErrorIsNil)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -229,8 +231,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 		return nil
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, pingFn)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -246,11 +248,11 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Assert(count, gc.Equals, uint64(2))
-	c.Assert(w.Err(), jc.ErrorIsNil)
+	c.Assert(count, tc.Equals, uint64(2))
+	c.Assert(w.Err(), tc.ErrorIsNil)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDifferentDB(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -280,8 +282,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, pingFn)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -321,10 +323,10 @@ loop:
 	}
 
 	workertest.CleanKill(c, w)
-	c.Assert(w.Err(), jc.ErrorIsNil)
+	c.Assert(w.Err(), tc.ErrorIsNil)
 }
 
-func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
+func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -337,8 +339,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 		return errors.New("boom")
 	}
 
-	w, err := s.newTrackedDBWorker(pingFn)
-	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.newTrackedDBWorker(c, pingFn)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer workertest.DirtyKill(c, w)
 
@@ -348,20 +350,20 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 		c.Fatal("timed out waiting for DB callback")
 	}
 
-	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
-	c.Assert(w.Err(), gc.ErrorMatches, "boom")
+	c.Assert(w.Wait(), tc.ErrorMatches, "boom")
+	c.Assert(w.Err(), tc.ErrorMatches, "boom")
 
 	// Ensure that the DB is dead.
 	err = w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		c.Fatal("failed if called")
 		return nil
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
+func (s *trackedDBWorkerSuite) newTrackedDBWorker(c *tc.C, pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return NewTrackedDBWorker(context.Background(), s.dbApp, "controller",
+	return NewTrackedDBWorker(c.Context(), s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
 		WithPingDBFunc(pingFn),
@@ -369,34 +371,34 @@ func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *
 	)
 }
 
-func readTableNames(c *gc.C, w coredatabase.TrackedDB) []string {
+func readTableNames(c *tc.C, w coredatabase.TrackedDB) []string {
 	// Attempt to use the new db, note there shouldn't be any leases in this
 	// db.
 	var tables []string
 	err := w.Txn(context.TODO(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		defer rows.Close()
 
 		for rows.Next() {
 			var table string
 			err = rows.Scan(&table)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			tables = append(tables, table)
 		}
 
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return set.NewStrings(tables...).SortedValues()
 }
 
 type sliceContainsChecker[T comparable] struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
-var SliceContains gc.Checker = &sliceContainsChecker[string]{
-	&gc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
+var SliceContains tc.Checker = &sliceContainsChecker[string]{
+	&tc.CheckerInfo{Name: "SliceContains", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {
@@ -421,11 +423,11 @@ func (checker *sliceContainsChecker[T]) Check(params []interface{}, names []stri
 }
 
 type hasKeysChecker[T comparable] struct {
-	*gc.CheckerInfo
+	*tc.CheckerInfo
 }
 
-var MapHasKeys gc.Checker = &hasKeysChecker[string]{
-	&gc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
+var MapHasKeys tc.Checker = &hasKeysChecker[string]{
+	&tc.CheckerInfo{Name: "hasKeysChecker", Params: []string{"obtained", "expected"}},
 }
 
 func (checker *hasKeysChecker[T]) Check(params []interface{}, names []string) (result bool, error string) {

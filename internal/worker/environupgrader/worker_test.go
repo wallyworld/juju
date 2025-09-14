@@ -5,37 +5,39 @@ package environupgrader_test
 
 import (
 	"sync"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (*WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
+func (*WorkerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	_, err := environupgrader.NewWorker(environupgrader.Config{})
-	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
+	c.Assert(err, tc.ErrorMatches, "nil Facade not valid")
 }
 
-func (*WorkerSuite) TestNewWorker(c *gc.C) {
+func (*WorkerSuite) TestNewWorker(c *tc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := mockEnviron{}
 	mockGateUnlocker := mockGateUnlocker{}
@@ -48,9 +50,9 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckKill(c, w)
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
@@ -60,7 +62,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
 
-func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
+func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *tc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
 	mockEnviron := mockEnviron{}
@@ -74,16 +76,16 @@ func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, environupgrader.ErrModelRemoved.Error())
+	c.Assert(errors.Cause(err), tc.ErrorMatches, environupgrader.ErrModelRemoved.Error())
 	workertest.CheckNilOrKill(c, w)
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 	})
 	mockEnviron.CheckNoCalls(c)
 	mockGateUnlocker.CheckNoCalls(c)
 }
 
-func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
+func (*WorkerSuite) TestNonUpgradeable(c *tc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := struct{ environs.Environ }{} // not an Upgrader
 	mockGateUnlocker := mockGateUnlocker{}
@@ -96,9 +98,9 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckKill(c, w)
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
@@ -107,8 +109,8 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
 
-func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
-	var stepsStub testing.Stub
+func (*WorkerSuite) TestRunUpgradeOperations(c *tc.C) {
+	var stepsStub testhelpers.Stub
 	mockFacade := mockFacade{current: 123, target: 125}
 	mockEnviron := mockEnviron{
 		ops: []environs.UpgradeOperation{{
@@ -149,9 +151,9 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckKill(c, w)
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 125", nilData}},
@@ -163,7 +165,7 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
-	mockEnviron.CheckCalls(c, []testing.StubCall{
+	mockEnviron.CheckCalls(c, []testhelpers.StubCall{
 		{"UpgradeOperations", []interface{}{
 			mockEnviron.callCtxUsed,
 			environs.UpgradeOperationsParams{
@@ -175,8 +177,8 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 	stepsStub.CheckCallNames(c, "step124_0", "step124_1", "step125")
 }
 
-func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
-	var stepsStub testing.Stub
+func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *tc.C) {
+	var stepsStub testhelpers.Stub
 	stepsStub.SetErrors(errors.New("phooey"))
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := mockEnviron{
@@ -197,12 +199,12 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "upgrading environ: phooey")
+	c.Assert(err, tc.ErrorMatches, "upgrading environ: phooey")
 
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Busy, "upgrading environ from version 123 to 124", nilData}},
@@ -211,7 +213,7 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 	mockGateUnlocker.CheckNoCalls(c)
 }
 
-func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
+func (*WorkerSuite) TestWaitForUpgrade(c *tc.C) {
 	ch := make(chan struct{})
 	mockFacade := mockFacade{
 		current: 123,
@@ -228,7 +230,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Send the initial change event on the watcher, and
 	// wait for the worker to call "ModelEnvironVersion".
@@ -237,7 +239,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		if len(mockFacade.Calls()) < 3 && a.HasNext() {
 			continue
 		}
-		mockFacade.CheckCalls(c, []testing.StubCall{
+		mockFacade.CheckCalls(c, []testhelpers.StubCall{
 			{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 			{"WatchModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 			{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
@@ -255,7 +257,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 	ch <- struct{}{}
 
 	workertest.CheckKill(c, w)
-	mockFacade.CheckCalls(c, []testing.StubCall{
+	mockFacade.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"WatchModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
@@ -264,7 +266,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
 
-func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
+func (*WorkerSuite) TestModelNotFoundWhenRunning(c *tc.C) {
 	ch := make(chan struct{})
 	mockFacade := mockFacade{
 		current: 123,
@@ -280,17 +282,17 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 		CredentialAPI: &credentialAPIForTest{},
 		Logger:        loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
 	ch <- struct{}{}
 
 	err = workertest.CheckKill(c, w)
 	// We expect NotFound to be changed to environupgrader.ErrModelRemoved.
-	c.Check(err, gc.ErrorMatches, "model has been removed")
+	c.Check(err, tc.ErrorMatches, "model has been removed")
 }
 
-func newStep(stub *testing.Stub, name string) environs.UpgradeStep {
+func newStep(stub *testhelpers.Stub, name string) environs.UpgradeStep {
 	run := func() error {
 		stub.AddCall(name)
 		return stub.NextErr()
@@ -312,7 +314,7 @@ func (s mockUpgradeStep) Run(ctx context.ProviderCallContext) error {
 }
 
 type mockFacade struct {
-	testing.Stub
+	testhelpers.Stub
 	target  int
 	watcher *mockNotifyWatcher
 
@@ -363,7 +365,7 @@ func (f *mockFacade) SetModelStatus(tag names.ModelTag, status status.Status, in
 
 type mockEnviron struct {
 	environs.Environ
-	testing.Stub
+	testhelpers.Stub
 	ops []environs.UpgradeOperation
 
 	callCtxUsed context.ProviderCallContext
@@ -377,7 +379,7 @@ func (e *mockEnviron) UpgradeOperations(ctx context.ProviderCallContext, args en
 }
 
 type mockGateUnlocker struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (g *mockGateUnlocker) Unlock() {

@@ -4,20 +4,12 @@
 package usersecretsdrain
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/controller/usersecretsdrain SecretsState
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 var NewUserSecretsDrainAPI = newUserSecretsDrainAPI
 

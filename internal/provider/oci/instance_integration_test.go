@@ -4,12 +4,13 @@
 package oci_test
 
 import (
-	"context"
 	"strings"
+	tctesting "testing"
 
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -24,55 +25,57 @@ type instanceSuite struct {
 	commonSuite
 }
 
-var _ = gc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *tctesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
-func (s *instanceSuite) SetUpTest(c *gc.C) {
+func (s *instanceSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }
 
-func (s *instanceSuite) TestNewInstance(c *gc.C) {
+func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	_, err := oci.NewInstance(ociCore.Instance{}, s.env)
-	c.Assert(err, gc.ErrorMatches, "Instance response does not contain an ID")
+	c.Assert(err, tc.ErrorMatches, "Instance response does not contain an ID")
 }
 
-func (s *instanceSuite) TestId(c *gc.C) {
+func (s *instanceSuite) TestId(c *tc.C) {
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	id := inst.Id()
-	c.Assert(id, gc.Equals, instance.Id(s.testInstanceID))
+	c.Assert(id, tc.Equals, instance.Id(s.testInstanceID))
 }
 
-func (s *instanceSuite) TestStatus(c *gc.C) {
+func (s *instanceSuite) TestStatus(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	s.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *s.ociInstance}, nil)
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	instStatus := inst.Status(nil)
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
 	}
-	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
+	c.Assert(instStatus, tc.DeepEquals, expectedStatus)
 
 	// Change lifecycle and check again
 	s.ociInstance.LifecycleState = ociCore.InstanceLifecycleStateTerminating
 
 	s.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *s.ociInstance}, nil)
 	inst, err = oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	instStatus = inst.Status(nil)
 	expectedStatus = instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateTerminating)),
 	}
-	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
+	c.Assert(instStatus, tc.DeepEquals, expectedStatus)
 }
 
-func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
+func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -88,20 +91,20 @@ func (s *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil)
+	s.compute.EXPECT().GetInstance(gomock.Any(), request).Return(response, nil)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	instStatus := inst.Status(nil)
 	expectedStatus := instance.Status{
 		Status:  status.Running,
 		Message: strings.ToLower(string(ociCore.InstanceLifecycleStateRunning)),
 	}
-	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
+	c.Assert(instStatus, tc.DeepEquals, expectedStatus)
 }
 
-func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
+func (s *instanceSuite) setupListVnicsExpectations(c *tc.C, instanceId, vnicID string) {
 	attachResponse := []ociCore.VnicAttachment{
 		{
 			Id:                 makeStringPointer("fakeAttachmentId"),
@@ -134,51 +137,51 @@ func (s *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
 	})
 
 	gomock.InOrder(
-		s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
-		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
+		s.compute.EXPECT().ListVnicAttachments(gomock.Any(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.netw.EXPECT().GetVnic(gomock.Any(), vnicRequest[0]).Return(vnicResponse[0], nil),
 	)
 }
 
-func (s *instanceSuite) TestAddresses(c *gc.C) {
+func (s *instanceSuite) TestAddresses(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	addresses, err := inst.Addresses(nil)
-	c.Assert(err, gc.IsNil)
-	c.Check(addresses, gc.HasLen, 2)
-	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
-	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
+	c.Assert(err, tc.IsNil)
+	c.Check(addresses, tc.HasLen, 2)
+	c.Check(addresses[0].Scope, tc.Equals, corenetwork.ScopeCloudLocal)
+	c.Check(addresses[1].Scope, tc.Equals, corenetwork.ScopePublic)
 }
 
-func (s *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
+func (s *instanceSuite) TestAddressesNoPublicIP(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*s.ociInstance, s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	addresses, err := inst.Addresses(nil)
-	c.Assert(err, gc.IsNil)
-	c.Check(addresses, gc.HasLen, 2)
-	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
-	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
+	c.Assert(err, tc.IsNil)
+	c.Check(addresses, tc.HasLen, 2)
+	c.Check(addresses[0].Scope, tc.Equals, corenetwork.ScopeCloudLocal)
+	c.Check(addresses[1].Scope, tc.Equals, corenetwork.ScopePublic)
 }
 
-func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
+func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	s.setupListVnicsExpectations(s.testInstanceID, vnicID)
+	s.setupListVnicsExpectations(c, s.testInstanceID, vnicID)
 
 	rules := firewall.IngressRules{{
 		PortRange: corenetwork.PortRange{
@@ -192,11 +195,11 @@ func (s *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
 	ic.EXPECT().ChangeIngressRules("", true, rules).Return(nil)
 
 	factory := func(addr string) common.InstanceConfigurator {
-		c.Assert(addr, gc.Equals, "2.2.2.2")
+		c.Assert(addr, tc.Equals, "2.2.2.2")
 		return ic
 	}
 
 	inst, err := oci.NewInstanceWithConfigurator(*s.ociInstance, s.env, factory)
-	c.Assert(err, gc.IsNil)
-	c.Assert(inst.OpenPorts(nil, "", rules), gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(inst.OpenPorts(nil, "", rules), tc.IsNil)
 }

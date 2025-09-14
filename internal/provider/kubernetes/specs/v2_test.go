@@ -5,9 +5,9 @@ package specs_test
 
 import (
 	"encoding/base64"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
@@ -19,20 +19,22 @@ import (
 
 	"github.com/juju/juju/caas/specs"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type v2SpecsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&v2SpecsSuite{})
+func TestV2SpecsSuite(t *tctesting.T) {
+	tc.Run(t, &v2SpecsSuite{})
+}
 
 var version2Header = `
 version: 2
 `[1:]
 
-func (s *v2SpecsSuite) TestParse(c *gc.C) {
+func (s *v2SpecsSuite) TestParse(c *tc.C) {
 
 	specStrBase := version2Header + `
 containers:
@@ -573,7 +575,7 @@ echo "do some stuff here for gitlab-init container"
 		}
 		webhookRuleWithOperations1.Rule = webhookRule1
 		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		webhookFailurePolicy1 := admissionregistration.Ignore
 		webhook1 := admissionregistration.MutatingWebhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
@@ -811,21 +813,21 @@ password: shhhh`[1:],
 	}
 
 	spec, err := k8sspecs.ParsePodSpec(specStrBase)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, getExpectedPodSpecBase())
 }
 
-func (s *v2SpecsSuite) TestValidateMissingContainers(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingContainers(c *tc.C) {
 
 	specStr := version2Header + `
 containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
+	c.Assert(err, tc.ErrorMatches, "require at least one container spec")
 }
 
-func (s *v2SpecsSuite) TestValidateMissingName(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingName(c *tc.C) {
 
 	specStr := version2Header + `
 containers:
@@ -833,10 +835,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec name is missing")
+	c.Assert(err, tc.ErrorMatches, "spec name is missing")
 }
 
-func (s *v2SpecsSuite) TestValidateMissingImage(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingImage(c *tc.C) {
 
 	specStr := version2Header + `
 containers:
@@ -844,10 +846,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
+	c.Assert(err, tc.ErrorMatches, "spec image details is missing")
 }
 
-func (s *v2SpecsSuite) TestValidateFileSetPath(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateFileSetPath(c *tc.C) {
 
 	specStr := version2Header + `
 containers:
@@ -861,10 +863,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
+	c.Assert(err, tc.ErrorMatches, `file set name is missing`)
 }
 
-func (s *v2SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingMountPath(c *tc.C) {
 
 	specStr := version2Header + `
 containers:
@@ -879,10 +881,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
+	c.Assert(err, tc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -895,10 +897,10 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `invalid primary service account: rules is required`)
+	c.Assert(err, tc.ErrorMatches, `invalid primary service account: rules is required`)
 }
 
-func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -940,10 +942,10 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
+	c.Assert(err, tc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
-func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -957,10 +959,10 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
 }
 
-func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -974,10 +976,10 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
 }
 
-func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateIngressResources(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -1002,7 +1004,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `name is missing`)
+	c.Assert(err, tc.ErrorMatches, `name is missing`)
 
 	specStr = version3Header + `
 containers:
@@ -1029,10 +1031,10 @@ kubernetesResources:
 `[1:]
 
 	_, err = k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
+	c.Assert(err, tc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
-func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {
+func (s *v2SpecsSuite) TestUnknownFieldError(c *tc.C) {
 	specStr := version2Header + `
 containers:
   - name: gitlab-helper
@@ -1044,5 +1046,5 @@ bar: a-bad-guy
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
+	c.Assert(err, tc.ErrorMatches, `json: unknown field "bar"`)
 }

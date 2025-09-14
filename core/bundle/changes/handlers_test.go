@@ -4,21 +4,24 @@
 package bundlechanges
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type resolverSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&resolverSuite{})
+func TestResolverSuite(t *tctesting.T) {
+	tc.Run(t, &resolverSuite{})
+}
 
-func (s *resolverSuite) TestAllowUpgrade(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgrade(c *tc.C) {
 	existing := &Application{
 		Charm: "ch:ubuntu",
 	}
@@ -29,11 +32,11 @@ func (s *resolverSuite) TestAllowUpgrade(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *tc.C) {
 	existing := &Application{
 		Charm:    "ch:ubuntu",
 		Channel:  "stable",
@@ -52,11 +55,11 @@ func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *gc.C) {
 		},
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *tc.C) {
 	existing := &Application{
 		Name:     "ubuntu",
 		Charm:    "ch:ubuntu",
@@ -76,11 +79,11 @@ func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
 		},
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `application "ubuntu": downgrades are not currently supported: deployed revision 2 is newer than requested revision 1`)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `application "ubuntu": downgrades are not currently supported: deployed revision 2 is newer than requested revision 1`)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *tc.C) {
 	existing := &Application{
 		Charm:    "ch:ubuntu",
 		Channel:  "stable",
@@ -99,11 +102,11 @@ func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *gc.C) {
 		},
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *tc.C) {
 	existing := &Application{
 		Name:    "ubuntu",
 		Charm:   "ch:ubuntu",
@@ -117,11 +120,11 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", requested: "edge"\); use --force to override`)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", requested: "edge"\); use --force to override`)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *tc.C) {
 	existing := &Application{
 		Name:    "ubuntu",
 		Charm:   "ch:ubuntu",
@@ -134,11 +137,11 @@ func (s *resolverSuite) TestAllowUpgradeWithNoBundleChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", resolved: ""\); use --force to override`)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `^application "ubuntu": upgrades not supported across channels \(existing: "stable", resolved: ""\); use --force to override`)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *tc.C) {
 	existing := &Application{
 		Charm:    "ch:ubuntu",
 		Channel:  "stable",
@@ -157,11 +160,11 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *gc.C) {
 		},
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannel(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannel(c *tc.C) {
 	existing := &Application{
 		Charm: "ch:ubuntu",
 	}
@@ -173,11 +176,11 @@ func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannel(c *gc.C) {
 
 	r := resolver{}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, gc.ErrorMatches, `^upgrades not supported when the channel for "" is unknown; use --force to override`)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, `^upgrades not supported when the channel for "" is unknown; use --force to override`)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannelWithForce(c *gc.C) {
+func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannelWithForce(c *tc.C) {
 	existing := &Application{
 		Charm: "ch:ubuntu",
 	}
@@ -191,6 +194,6 @@ func (s *resolverSuite) TestAllowUpgradeWithNoExistingChannelWithForce(c *gc.C) 
 		force: true,
 	}
 	ok, err := r.allowCharmUpgrade(existing, requested, requestedArch)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
 }

@@ -4,7 +4,7 @@
 package instancetest
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
@@ -13,7 +13,7 @@ import (
 // MatchInstances uses DeepEquals to check the instances returned.  The lists
 // are first put into a map, so the ordering of the result and expected values
 // is not tested, and duplicates are ignored.
-func MatchInstances(c *gc.C, result []instances.Instance, expected ...instances.Instance) {
+func MatchInstances(c *tc.C, result []instances.Instance, expected ...instances.Instance) {
 	resultMap := make(map[instance.Id]instances.Instance)
 	for _, i := range result {
 		resultMap[i.Id()] = i
@@ -23,5 +23,5 @@ func MatchInstances(c *gc.C, result []instances.Instance, expected ...instances.
 	for _, i := range expected {
 		expectedMap[i.Id()] = i
 	}
-	c.Assert(resultMap, gc.DeepEquals, expectedMap)
+	c.Assert(resultMap, tc.DeepEquals, expectedMap)
 }

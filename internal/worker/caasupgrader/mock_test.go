@@ -4,14 +4,14 @@
 package caasupgrader_test
 
 import (
-	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type mockUpgraderClient struct {
-	testing.Stub
+	testhelpers.Stub
 
 	desired version.Number
 	actual  version.Binary
@@ -34,7 +34,7 @@ func (m *mockUpgraderClient) WatchAPIVersion(agentTag string) (watcher.NotifyWat
 }
 
 type mockOperatorUpgrader struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockOperatorUpgrader) Upgrade(appName string, vers version.Number) error {

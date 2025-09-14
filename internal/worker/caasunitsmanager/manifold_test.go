@@ -4,14 +4,14 @@
 package caasunitsmanager_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitsmanager/mocks"
@@ -21,9 +21,11 @@ type manifoldSuite struct {
 	config caasunitsmanager.ManifoldConfig
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.config = caasunitsmanager.ManifoldConfig{
 		Clock:  testclock.NewClock(time.Now()),
 		Logger: loggo.GetLogger("test"),
@@ -31,28 +33,28 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *manifoldSuite) TestConfigValidation(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidation(c *tc.C) {
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestConfigValidationMissingClock(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidationMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Clock not valid")
 }
 
-func (s *manifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidationMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Logger not valid")
 }
 
-func (s *manifoldSuite) TestConfigValidationMissingHub(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidationMissingHub(c *tc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Hub not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Hub not valid")
 }

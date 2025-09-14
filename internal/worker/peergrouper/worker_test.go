@@ -10,25 +10,25 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/replicaset/v3"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type TestIPVersion struct {
@@ -63,9 +63,11 @@ type workerSuite struct {
 	memberUpdates [][]replicaset.Member
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
@@ -74,8 +76,8 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 }
 
 type testSuite interface {
-	SetUpTest(c *gc.C)
-	TearDownTest(c *gc.C)
+	SetUpTest(c *tc.C)
+	TearDownTest(c *tc.C)
 }
 
 // DoTestForIPv4AndIPv6 runs the passed test for IPv4 and IPv6.
@@ -85,7 +87,7 @@ type testSuite interface {
 // tests for each address type. We can introduce a limited
 // number (probably one) of feature tests to check that we
 // handle both address types as expected.
-func DoTestForIPv4AndIPv6(c *gc.C, s testSuite, t func(ipVersion TestIPVersion)) {
+func DoTestForIPv4AndIPv6(c *tc.C, s testSuite, t func(ipVersion TestIPVersion)) {
 	t(testIPv4)
 	s.TearDownTest(c)
 	s.SetUpTest(c)
@@ -94,21 +96,21 @@ func DoTestForIPv4AndIPv6(c *gc.C, s testSuite, t func(ipVersion TestIPVersion))
 
 // InitState initializes the fake state with a single replica-set member and
 // numNodes nodes primed to vote.
-func InitState(c *gc.C, st *fakeState, numNodes int, ipVersion TestIPVersion) {
+func InitState(c *tc.C, st *fakeState, numNodes int, ipVersion TestIPVersion) {
 	var ids []string
 	for i := 10; i < 10+numNodes; i++ {
 		id := fmt.Sprint(i)
 		m := st.addController(id, true)
 		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(ipVersion.formatHost, i)))
 		ids = append(ids, id)
-		c.Assert(m.Addresses(), gc.HasLen, 1)
+		c.Assert(m.Addresses(), tc.HasLen, 1)
 	}
 	st.setControllers(ids...)
 	err := st.session.Set(mkMembers("0v", ipVersion))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	err = st.controller("10").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st.setCheck(checkInvariants)
 }
 
@@ -125,15 +127,15 @@ func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) []network.SpaceHostPor
 	return servers
 }
 
-func (s *workerSuite) TestSetsAndUpdatesMembersIPv4(c *gc.C) {
+func (s *workerSuite) TestSetsAndUpdatesMembersIPv4(c *tc.C) {
 	s.doTestSetAndUpdateMembers(c, testIPv4)
 }
 
-func (s *workerSuite) TestSetsAndUpdatesMembersIPv6(c *gc.C) {
+func (s *workerSuite) TestSetsAndUpdatesMembersIPv6(c *tc.C) {
 	s.doTestSetAndUpdateMembers(c, testIPv6)
 }
 
-func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestSetAndUpdateMembers(c *tc.C, ipVersion TestIPVersion) {
 	c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
@@ -230,15 +232,15 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	assertMembers(c, update, mkMembers("1v 2v 3v", ipVersion))
 }
 
-func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv4(c *gc.C) {
+func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv4(c *tc.C) {
 	s.doTestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv4)
 }
 
-func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv6(c *gc.C) {
+func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv6(c *tc.C) {
 	s.doTestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv6)
 }
 
-func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *tc.C, ipVersion TestIPVersion) {
 	st := NewFakeState()
 
 	// Simulate a state where we have four controllers,
@@ -254,13 +256,13 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// to false.
 	InitState(c, st, 4, ipVersion)
 	err := st.controller("10").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.controller("11").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.controller("12").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.controller("13").SetHasVote(false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st.controller("10").setWantsVote(true)
 	st.controller("11").setWantsVote(false)
@@ -268,7 +270,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	st.controller("13").setWantsVote(true)
 
 	err = st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p 1H 2s 3s", ipVersion))
 
 	// Make the worker fail to set HasVote to false
@@ -292,7 +294,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, `removing non-voters: cannot set voting status of "[0-9]+" to false: frood`)
+	c.Assert(err, tc.ErrorMatches, `removing non-voters: cannot set voting status of "[0-9]+" to false: frood`)
 
 	// Start the worker again - although the membership should
 	// not change, the HasVote status should be updated correctly.
@@ -337,7 +339,7 @@ loop:
 	}
 }
 
-func (s *workerSuite) TestAddressChange(c *gc.C) {
+func (s *workerSuite) TestAddressChange(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -368,7 +370,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
+func (s *workerSuite) TestAddressChangeNoHA(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -407,7 +409,7 @@ func (s *workerSuite) TestAddressChangeNoHA(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestPendingMemberNotAdded(c *gc.C) {
+func (s *workerSuite) TestPendingMemberNotAdded(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -416,7 +418,7 @@ func (s *workerSuite) TestPendingMemberNotAdded(c *gc.C) {
 		err := st.controller("12").SetStatus(status.StatusInfo{
 			Status: status.Pending,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		memberWatcher := st.session.members.Watch()
 		defer memberWatcher.Close()
@@ -457,7 +459,7 @@ var fatalErrorsTests = []struct {
 	expectErr:  `cannot get controller "10": sample`,
 }}
 
-func (s *workerSuite) TestFatalErrors(c *gc.C) {
+func (s *workerSuite) TestFatalErrors(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
@@ -476,7 +478,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			}()
 			select {
 			case err := <-done:
-				c.Assert(err, gc.ErrorMatches, testCase.expectErr)
+				c.Assert(err, tc.ErrorMatches, testCase.expectErr)
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for error")
 			}
@@ -484,7 +486,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
+func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
@@ -506,7 +508,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 			retryInterval = scaleRetry(retryInterval)
 			select {
 			case err := <-called:
-				c.Check(err, gc.Equals, setErr)
+				c.Check(err, tc.Equals, setErr)
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for loop #%d", i)
 			}
@@ -520,7 +522,7 @@ func (f SetAPIHostPortsFunc) SetAPIHostPorts(apiServers []network.SpaceHostPorts
 	return f(apiServers)
 }
 
-func (s *workerSuite) TestControllersArePublished(c *gc.C) {
+func (s *workerSuite) TestControllersArePublished(c *tc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		publishCh := make(chan []network.SpaceHostPorts)
 		publish := func(apiServers []network.SpaceHostPorts) error {
@@ -562,17 +564,17 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
+func (s *workerSuite) TestControllersArePublishedOverHub(c *tc.C) {
 	st := NewFakeState()
 	InitState(c, st, 3, testIPv4)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
 	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		event <- data
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.hub = hub
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -589,23 +591,23 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 
 	select {
 	case obtained := <-event:
-		c.Assert(obtained, jc.DeepEquals, expected)
+		c.Assert(obtained, tc.DeepEquals, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
 }
 
-func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
+func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *tc.C) {
 	st := NewFakeState()
 	InitState(c, st, 3, testIPv4)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
 	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		event <- data
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.hub = hub
 
 	w := s.newWorkerWithConfig(c, Config{
@@ -634,37 +636,37 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 
 	select {
 	case obtained := <-event:
-		c.Assert(obtained, jc.DeepEquals, expected)
+		c.Assert(obtained, tc.DeepEquals, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
 }
 
-func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
+func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *tc.C) {
 	st := NewFakeState()
 	var ids []string
 	for i := 10; i < 13; i++ {
 		id := fmt.Sprint(i)
 		m := st.addController(id, true)
 		err := m.SetHasVote(true)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(testIPv4.formatHost, i)))
 		ids = append(ids, id)
-		c.Assert(m.Addresses(), gc.HasLen, 1)
+		c.Assert(m.Addresses(), tc.HasLen, 1)
 	}
 	st.setControllers(ids...)
 	err := st.session.Set(mkMembers("0v 1 2", testIPv4))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
 	st.setCheck(checkInvariants)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
 	_, err = hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		event <- data
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.hub = hub
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -681,7 +683,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 
 	select {
 	case obtained := <-event:
-		c.Assert(obtained, jc.DeepEquals, expected)
+		c.Assert(obtained, tc.DeepEquals, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
@@ -691,16 +693,16 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 		Requester: "dad",
 		LocalOnly: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case obtained := <-event:
-		c.Assert(obtained, jc.DeepEquals, expected)
+		c.Assert(obtained, tc.DeepEquals, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
 }
 
-func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *fakeState {
+func haSpaceTestCommonSetup(c *tc.C, ipVersion TestIPVersion, members string) *fakeState {
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
@@ -718,7 +720,7 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 	for _, id := range controllers {
 		controller := st.controller(strconv.Itoa(id))
 		err := controller.SetHasVote(true)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		controller.setWantsVote(true)
 
 		// Each controller gets 3 addresses in 3 different spaces.
@@ -739,19 +741,19 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 	}
 
 	err := st.session.Set(mkMembers(members, ipVersion))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return st
 }
 
-func (s *workerSuite) TestUsesConfiguredHASpaceIPv4(c *gc.C) {
+func (s *workerSuite) TestUsesConfiguredHASpaceIPv4(c *tc.C) {
 	s.doTestUsesConfiguredHASpace(c, testIPv4)
 }
 
-func (s *workerSuite) TestUsesConfiguredHASpaceIPv6(c *gc.C) {
+func (s *workerSuite) TestUsesConfiguredHASpaceIPv6(c *tc.C) {
 	s.doTestUsesConfiguredHASpace(c, testIPv6)
 }
 
-func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestUsesConfiguredHASpace(c *tc.C, ipVersion TestIPVersion) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
 
 	// Set one of the statuses to ensure it is cleared upon determination
@@ -762,30 +764,30 @@ func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersi
 		Message: "You said that would be bad, Egon",
 		Since:   &now,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	st.setHASpace("two")
 	s.runUntilPublish(c, st, "")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 2)
 
 	sInfo, err := st.controller("11").Status()
-	c.Assert(err, gc.IsNil)
-	c.Check(sInfo.Status, gc.Equals, status.Started)
-	c.Check(sInfo.Message, gc.Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(sInfo.Status, tc.Equals, status.Started)
+	c.Check(sInfo.Message, tc.Equals, "")
 }
 
 // runUntilPublish runs a worker until addresses are published over the pub/sub
 // hub. Note that the replica-set is updated earlier than the publish,
 // so this sync can be used to check for those changes.
 // If errMsg is not empty, it is used to check for a matching error.
-func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
+func (s *workerSuite) runUntilPublish(c *tc.C, st *fakeState, errMsg string) {
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
 	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		event <- data
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.hub = hub
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -794,7 +796,7 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 			workertest.CleanKill(c, w)
 		} else {
 			err := workertest.CheckKill(c, w)
-			c.Assert(err, gc.ErrorMatches, errMsg)
+			c.Assert(err, tc.ErrorMatches, errMsg)
 		}
 	}()
 
@@ -805,15 +807,15 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 	}
 }
 
-func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv4(c *gc.C) {
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv4(c *tc.C) {
 	s.doTestDetectsAndUsesHASpaceChange(c, testIPv4)
 }
 
-func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *tc.C) {
 	s.doTestDetectsAndUsesHASpaceChange(c, testIPv6)
 }
 
-func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *tc.C, ipVersion TestIPVersion) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
 	st.setHASpace("one")
 
@@ -821,10 +823,10 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
 	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		event <- data
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.hub = hub
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -853,7 +855,7 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
 }
 
-func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesignator int) {
+func assertMemberAddresses(c *tc.C, st *fakeState, addrTemplate string, addrDesignator int) {
 	members, _ := st.session.CurrentMembers()
 	obtained := make([]string, 3)
 	for i, m := range members {
@@ -866,45 +868,45 @@ func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesi
 		expected[i] = net.JoinHostPort(fmt.Sprintf(addrTemplate, 10*addrDesignator+i), fmt.Sprint(mongoPort))
 	}
 
-	c.Check(obtained, gc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
+func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *tc.C) {
 	s.doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
 }
 
-func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
+func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *tc.C) {
 	s.doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
 }
 
 func (s *workerSuite) doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(
-	c *gc.C, ipVersion TestIPVersion,
+	c *tc.C, ipVersion TestIPVersion,
 ) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
 		`juju-ha-space is not set and these nodes have more than one usable address: 1[12], 1[12]` +
 		"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
-	c.Check(err, gc.ErrorMatches, errMsg)
+	c.Check(err, tc.ErrorMatches, errMsg)
 
 	for _, id := range []string{"11", "12"} {
 		sInfo, err := st.controller(id).Status()
-		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Started)
-		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
+		c.Assert(err, tc.IsNil)
+		c.Check(sInfo.Status, tc.Equals, status.Started)
+		c.Check(sInfo.Message, tc.Not(tc.Equals), "")
 	}
 }
 
-func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv4(c *gc.C) {
+func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv4(c *tc.C) {
 	s.doTestErrorAndStatusForHASpaceWithNoAddresses(c, testIPv4)
 }
 
-func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv6(c *gc.C) {
+func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv6(c *tc.C) {
 	s.doTestErrorAndStatusForHASpaceWithNoAddresses(c, testIPv6)
 }
 
 func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
-	c *gc.C, ipVersion TestIPVersion,
+	c *tc.C, ipVersion TestIPVersion,
 ) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
 	st.setHASpace("nope")
@@ -912,39 +914,39 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
 		`no usable Mongo addresses found in configured juju-ha-space "nope" for nodes: 1[012], 1[012], 1[012]`
-	c.Check(err, gc.ErrorMatches, errMsg)
+	c.Check(err, tc.ErrorMatches, errMsg)
 
 	for _, id := range []string{"10", "11", "12"} {
 		sInfo, err := st.controller(id).Status()
-		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Started)
-		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
+		c.Assert(err, tc.IsNil)
+		c.Check(sInfo.Status, tc.Equals, status.Started)
+		c.Check(sInfo.Message, tc.Not(tc.Equals), "")
 	}
 }
 
-func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
+func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *tc.C) {
 	s.doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
 }
 
-func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
+func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *tc.C) {
 	s.doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
 }
 
-func (s *workerSuite) doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c *tc.C, ipVersion TestIPVersion) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
 	s.runUntilPublish(c, st, "")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
 }
 
-func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *gc.C) {
+func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *tc.C) {
 	s.doTestWorkerRetriesOnSetAPIHostPortsError(c, testIPv4)
 }
 
-func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *gc.C) {
+func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *tc.C) {
 	s.doTestWorkerRetriesOnSetAPIHostPortsError(c, testIPv6)
 }
 
-func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *tc.C, ipVersion TestIPVersion) {
 	logger.SetLogLevel(loggo.TRACE)
 
 	publishCh := make(chan []network.SpaceHostPorts, 10)
@@ -977,11 +979,11 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 	// will also call SetAPIHostPorts. But we may not get this.
 }
 
-func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
+func (s *workerSuite) initialize3Voters(c *tc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
 	st := NewFakeState()
 	InitState(c, st, 1, testIPv4)
 	err := st.controller("10").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -1004,7 +1006,7 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 		id := fmt.Sprint(i)
 		m := st.addController(id, true)
 		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(testIPv4.formatHost, i)))
-		c.Check(m.Addresses(), gc.HasLen, 1)
+		c.Check(m.Addresses(), tc.HasLen, 1)
 	}
 	// Now that we've added 2 more, flag them as started and mark them as participating
 	st.session.setStatus(mkStatuses("0p 1 2", testIPv4))
@@ -1017,13 +1019,13 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	update = s.mustNext(c, "status ok")
 	assertMembers(c, update, mkMembers("0v 1v 2v", testIPv4))
 	err = st.controller("11").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.controller("12").SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return st, w, memberWatcher
 }
 
-func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
+func (s *workerSuite) TestDyingMachinesAreRemoved(c *tc.C) {
 	st, w, memberWatcher := s.initialize3Voters(c)
 	defer workertest.CleanKill(c, w)
 	defer memberWatcher.Close()
@@ -1042,7 +1044,7 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	assertMembers(c, update, mkMembers("0v", testIPv4))
 }
 
-func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
+func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *tc.C) {
 	st, w, memberWatcher := s.initialize3Voters(c)
 	defer workertest.CleanKill(c, w)
 	defer memberWatcher.Close()
@@ -1050,7 +1052,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	statusWatcher := st.session.status.Watch()
 	defer statusWatcher.Close()
 	testStatus := mustNextStatus(c, statusWatcher, "init")
-	c.Check(testStatus.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
+	c.Check(testStatus.Members, tc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
 	primaryMemberIndex := 0
 
 	st.controller("10").setWantsVote(false)
@@ -1058,14 +1060,14 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// a change in the Status.
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down primary")
 	// find out which one is primary, should only be one of 1 or 2
-	c.Assert(testStatus.Members, gc.HasLen, 3)
-	c.Check(testStatus.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+	c.Assert(testStatus.Members, tc.HasLen, 3)
+	c.Check(testStatus.Members[0].State, tc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	if testStatus.Members[1].State == replicaset.PrimaryState {
 		primaryMemberIndex = 1
-		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[2].State, tc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	} else {
 		primaryMemberIndex = 2
-		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[2].State, tc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	}
 	// Now we have to wait for time to advance for us to reevaluate the system
 	s.waitUntilIdle(c)
@@ -1093,11 +1095,11 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	s.clock.Advance(2 * pollInterval)
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
-		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
-		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[1].State, tc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[2].State, tc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	} else {
-		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
-		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[1].State, tc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[2].State, tc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
 	// and then we again notice that the primary has been rescheduled and changed the member votes again
 	s.waitUntilIdle(c)
@@ -1113,7 +1115,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 }
 
 // recordMemberChanges starts a go routine to record member changes.
-func (s *workerSuite) recordMemberChanges(c *gc.C, w *voyeur.Watcher) {
+func (s *workerSuite) recordMemberChanges(c *tc.C, w *voyeur.Watcher) {
 	go func() {
 		for {
 			c.Logf("waiting for next update")
@@ -1133,7 +1135,7 @@ func (s *workerSuite) recordMemberChanges(c *gc.C, w *voyeur.Watcher) {
 }
 
 // mustNext waits for w's value to be set and returns it.
-func (s *workerSuite) mustNext(c *gc.C, context string) []replicaset.Member {
+func (s *workerSuite) mustNext(c *tc.C, context string) []replicaset.Member {
 	c.Logf("waiting for next update: %v", context)
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		s.mu.Lock()
@@ -1150,7 +1152,7 @@ func (s *workerSuite) mustNext(c *gc.C, context string) []replicaset.Member {
 	return nil
 }
 
-func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Status {
+func mustNextStatus(c *tc.C, w *voyeur.Watcher, context string) *replicaset.Status {
 	type voyeurResult struct {
 		ok  bool
 		val *replicaset.Status
@@ -1169,7 +1171,7 @@ func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Stat
 	}()
 	select {
 	case result := <-done:
-		c.Assert(result.ok, jc.IsTrue)
+		c.Assert(result.ok, tc.IsTrue)
 		return result.val
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for value to be set %v", context)
@@ -1206,7 +1208,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 }
 
 func (s *workerSuite) newWorkerWithConfig(
-	c *gc.C,
+	c *tc.C,
 	config Config,
 ) worker.Worker {
 	// We create a new clock for the worker so we can wait on alarms even when
@@ -1214,13 +1216,13 @@ func (s *workerSuite) newWorkerWithConfig(
 	s.clock = testclock.NewClock(time.Now())
 	config.Clock = s.clock
 	w, err := New(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w
 }
 
 func (s *workerSuite) newWorker(
-	c *gc.C,
+	c *tc.C,
 	st State,
 	session *fakeMongoSession,
 	apiHostPortsSetter APIHostPortsSetter,
@@ -1257,7 +1259,7 @@ func (s *workerSuite) idleNotify() {
 	}
 }
 
-func (s *workerSuite) waitUntilIdle(c *gc.C) {
+func (s *workerSuite) waitUntilIdle(c *tc.C) {
 	logger.Infof("wait for idle")
 	s.mu.Lock()
 	s.idle = make(chan struct{})

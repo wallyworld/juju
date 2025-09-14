@@ -7,13 +7,13 @@ import (
 	"context"
 	"io"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type fallbackPutterSuite struct {
@@ -21,15 +21,17 @@ type fallbackPutterSuite struct {
 	fallbackPutter CharmPutter
 }
 
-var _ = gc.Suite(&fallbackPutterSuite{})
+func TestFallbackPutterSuite(t *tctesting.T) {
+	tc.Run(t, &fallbackPutterSuite{})
+}
 
-func (s *fallbackPutterSuite) setup(c *gc.C) *gomock.Controller {
+func (s *fallbackPutterSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.putters = []*MockCharmPutter{NewMockCharmPutter(ctrl), NewMockCharmPutter(ctrl), NewMockCharmPutter(ctrl)}
 
 	var err error
 	s.fallbackPutter, err = newFallbackPutter(s.putters[0], s.putters[1], s.putters[2])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -41,31 +43,31 @@ const (
 	curlResp  = "local:focal/dummy-1"
 )
 
-func (s *fallbackPutterSuite) TestFirstSucceeds(c *gc.C) {
+func (s *fallbackPutterSuite) TestFirstSucceeds(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.putters[0].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).Return(curlResp, nil)
 
 	// NOTE strings.Reader is not a closer, so here we also implicitly test that case
 	body := strings.NewReader(charmBlob)
-	resp, err := s.fallbackPutter.PutCharm(context.Background(), testing.ModelTag.Id(), charmRef, curlReq, body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.Equals, curlResp)
+	resp, err := s.fallbackPutter.PutCharm(c.Context(), testing.ModelTag.Id(), charmRef, curlReq, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.Equals, curlResp)
 }
 
-func (s *fallbackPutterSuite) TestFallbackableError(c *gc.C) {
+func (s *fallbackPutterSuite) TestFallbackableError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.putters[0].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).Return("", errors.NotFoundf("ep not found"))
 	s.putters[1].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).Return(curlResp, nil)
 
 	body := strings.NewReader(charmBlob)
-	resp, err := s.fallbackPutter.PutCharm(context.Background(), testing.ModelTag.Id(), charmRef, curlReq, body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.Equals, curlResp)
+	resp, err := s.fallbackPutter.PutCharm(c.Context(), testing.ModelTag.Id(), charmRef, curlReq, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.Equals, curlResp)
 }
 
-func (s *fallbackPutterSuite) TestDoubleFallbackableError(c *gc.C) {
+func (s *fallbackPutterSuite) TestDoubleFallbackableError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.putters[0].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).Return("", errors.NotFoundf("ep not found"))
@@ -73,9 +75,9 @@ func (s *fallbackPutterSuite) TestDoubleFallbackableError(c *gc.C) {
 	s.putters[2].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).Return(curlResp, nil)
 
 	body := strings.NewReader(charmBlob)
-	resp, err := s.fallbackPutter.PutCharm(context.Background(), testing.ModelTag.Id(), charmRef, curlReq, body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.Equals, curlResp)
+	resp, err := s.fallbackPutter.PutCharm(c.Context(), testing.ModelTag.Id(), charmRef, curlReq, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.Equals, curlResp)
 }
 
 // TestCloseCloserOnce ensures that the stream we pass to the putter is only closed once,
@@ -83,7 +85,7 @@ func (s *fallbackPutterSuite) TestDoubleFallbackableError(c *gc.C) {
 // often try to close bodies passed to them, which will break the fallback mechanism.
 // So assert that, even when PutObject closes the stream it's passed, thos does not close
 // the underlying stream.
-func (s *fallbackPutterSuite) TestCloseCloserOnce(c *gc.C) {
+func (s *fallbackPutterSuite) TestCloseCloserOnce(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	body := &streamShim{stream: strings.NewReader(charmBlob)}
@@ -91,32 +93,32 @@ func (s *fallbackPutterSuite) TestCloseCloserOnce(c *gc.C) {
 	s.putters[0].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			reader.(io.Closer).Close()
-			c.Assert(body.closed, jc.IsFalse)
+			c.Assert(body.closed, tc.IsFalse)
 			return "", errors.NotFoundf("ep not found")
 		},
 	)
 	s.putters[1].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			reader.(io.Closer).Close()
-			c.Assert(body.closed, jc.IsFalse)
+			c.Assert(body.closed, tc.IsFalse)
 			return "", errors.MethodNotAllowedf("bad method")
 		},
 	)
 	s.putters[2].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			reader.(io.Closer).Close()
-			c.Assert(body.closed, jc.IsFalse)
+			c.Assert(body.closed, tc.IsFalse)
 			return curlResp, nil
 		},
 	)
 
-	resp, err := s.fallbackPutter.PutCharm(context.Background(), testing.ModelTag.Id(), charmRef, curlReq, body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(body.closed, jc.IsTrue)
-	c.Assert(resp, gc.Equals, curlResp)
+	resp, err := s.fallbackPutter.PutCharm(c.Context(), testing.ModelTag.Id(), charmRef, curlReq, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(body.closed, tc.IsTrue)
+	c.Assert(resp, tc.Equals, curlResp)
 }
 
-func (s *fallbackPutterSuite) TestBodyReset(c *gc.C) {
+func (s *fallbackPutterSuite) TestBodyReset(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	body := strings.NewReader(charmBlob)
@@ -124,31 +126,31 @@ func (s *fallbackPutterSuite) TestBodyReset(c *gc.C) {
 	s.putters[0].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			blob, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(blob), gc.Equals, charmBlob)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(string(blob), tc.Equals, charmBlob)
 			return "", errors.NotFoundf("ep not found")
 		},
 	)
 	s.putters[1].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			blob, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(blob), gc.Equals, charmBlob)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(string(blob), tc.Equals, charmBlob)
 			return "", errors.MethodNotAllowedf("bad method")
 		},
 	)
 	s.putters[2].EXPECT().PutCharm(gomock.Any(), testing.ModelTag.Id(), charmRef, curlReq, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, _, _ string, reader io.Reader) (string, error) {
 			blob, err := io.ReadAll(reader)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(blob), gc.Equals, charmBlob)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(string(blob), tc.Equals, charmBlob)
 			return curlResp, nil
 		},
 	)
 
-	resp, err := s.fallbackPutter.PutCharm(context.Background(), testing.ModelTag.Id(), charmRef, curlReq, body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp, gc.Equals, curlResp)
+	resp, err := s.fallbackPutter.PutCharm(c.Context(), testing.ModelTag.Id(), charmRef, curlReq, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp, tc.Equals, curlResp)
 }
 
 type streamShim struct {

@@ -4,36 +4,38 @@
 package controllerport_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/controllerport"
 	pscontroller "github.com/juju/juju/pubsub/controller"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	agentConfig *mockAgentConfig
 	hub         *pubsub.StructuredHub
 	logger      loggo.Logger
 	config      controllerport.Config
-	stub        testing.Stub
+	stub        testhelpers.Stub
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.agentConfig = &mockAgentConfig{port: 232323}
 	s.hub = pubsub.NewStructuredHub(nil)
@@ -57,14 +59,14 @@ func (s *WorkerSuite) updatePort(port int) error {
 	return s.stub.NextErr()
 }
 
-func (s *WorkerSuite) newWorker(c *gc.C, config controllerport.Config) worker.Worker {
+func (s *WorkerSuite) newWorker(c *tc.C, config controllerport.Config) worker.Worker {
 	w, err := controllerport.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w
 }
 
-func (s *WorkerSuite) TestImmediateUpdate(c *gc.C) {
+func (s *WorkerSuite) TestImmediateUpdate(c *tc.C) {
 	// Change the agent config so the ports are out of sync.
 	s.agentConfig.port = 23456
 	w := s.newWorker(c, s.config)
@@ -72,7 +74,7 @@ func (s *WorkerSuite) TestImmediateUpdate(c *gc.C) {
 	s.stub.CheckCall(c, 0, "UpdatePort", 232323)
 }
 
-func (s *WorkerSuite) TestNoChange(c *gc.C) {
+func (s *WorkerSuite) TestNoChange(c *tc.C) {
 	w := s.newWorker(c, s.config)
 	processed, err := s.hub.Publish(pscontroller.ConfigChanged, pscontroller.ConfigChangedMessage{
 		Config: controller.Config{
@@ -80,7 +82,7 @@ func (s *WorkerSuite) TestNoChange(c *gc.C) {
 			"some-other-field":    "new value!",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(processed):
 	case <-time.After(coretesting.LongWait):
@@ -90,12 +92,12 @@ func (s *WorkerSuite) TestNoChange(c *gc.C) {
 	s.stub.CheckCallNames(c)
 }
 
-func (s *WorkerSuite) TestChange(c *gc.C) {
+func (s *WorkerSuite) TestChange(c *tc.C) {
 	w := s.newWorker(c, s.config)
 	processed, err := s.hub.Publish(pscontroller.ConfigChanged, pscontroller.ConfigChangedMessage{
 		Config: controller.Config{"controller-api-port": 444444},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(processed):
 	case <-time.After(coretesting.LongWait):
@@ -103,10 +105,10 @@ func (s *WorkerSuite) TestChange(c *gc.C) {
 	}
 	s.stub.CheckCall(c, 0, "UpdatePort", 444444)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrBounce)
+	c.Assert(errors.Cause(err), tc.Equals, dependency.ErrBounce)
 }
 
-func (s *WorkerSuite) TestValidate(c *gc.C) {
+func (s *WorkerSuite) TestValidate(c *tc.C) {
 	type test struct {
 		f      func(*controllerport.Config)
 		expect string
@@ -130,6 +132,6 @@ func (s *WorkerSuite) TestValidate(c *gc.C) {
 		test.f(&config)
 		w, err := controllerport.NewWorker(config)
 		workertest.CheckNilOrKill(c, w)
-		c.Check(err, gc.ErrorMatches, test.expect)
+		c.Check(err, tc.ErrorMatches, test.expect)
 	}
 }

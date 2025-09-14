@@ -5,50 +5,52 @@ package payload_test
 
 import (
 	"bytes"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/payload"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&outputTabularSuite{})
-
-type outputTabularSuite struct {
-	testing.IsolationSuite
+func TestOutputTabularSuite(t *tctesting.T) {
+	tc.Run(t, &outputTabularSuite{})
 }
 
-func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
+type outputTabularSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *outputTabularSuite) TestFormatTabularOkay(c *tc.C) {
 	pl := payload.NewPayload("spam", "a-application", 1, 0)
 	pl.Labels = []string{"a-tag", "other"}
 	formatted := payload.Formatted(pl)
 	buff := &bytes.Buffer{}
 	err := payload.FormatTabular(buff, formatted)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(buff.String(), gc.Equals, `
+	c.Check(buff.String(), tc.Equals, `
 [Unit Payloads]
 Unit             Machine  Payload class  Status   Type    Id      Tags         
 a-application/0  1        spam           running  docker  idspam  a-tag other  
 `[1:])
 }
 
-func (s *outputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
+func (s *outputTabularSuite) TestFormatTabularMinimal(c *tc.C) {
 	pl := payload.NewPayload("spam", "a-application", 1, 0)
 	formatted := payload.Formatted(pl)
 	buff := &bytes.Buffer{}
 	err := payload.FormatTabular(buff, formatted)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(buff.String(), gc.Equals, `
+	c.Check(buff.String(), tc.Equals, `
 [Unit Payloads]
 Unit             Machine  Payload class  Status   Type    Id      Tags  
 a-application/0  1        spam           running  docker  idspam        
 `[1:])
 }
 
-func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
+func (s *outputTabularSuite) TestFormatTabularMulti(c *tc.C) {
 	p10A := payload.NewPayload("spam", "a-application", 1, 0)
 	p10A.Labels = []string{"a-tag"}
 	p21A := payload.NewPayload("spam", "a-application", 2, 1)
@@ -71,9 +73,9 @@ func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	)
 	buff := &bytes.Buffer{}
 	err := payload.FormatTabular(buff, formatted)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(buff.String(), gc.Equals, `
+	c.Check(buff.String(), tc.Equals, `
 [Unit Payloads]
 Unit                   Machine  Payload class  Status   Type    Id       Tags         
 a-application/0        1        spam           running  docker  idspam   a-tag        
@@ -85,8 +87,8 @@ another-application/0  1        ham            running  docker  idham    other e
 `[1:])
 }
 
-func (s *outputTabularSuite) TestFormatTabularBadValue(c *gc.C) {
+func (s *outputTabularSuite) TestFormatTabularBadValue(c *tc.C) {
 	bogus := "should have been []formattedPayload"
 	err := payload.FormatTabular(nil, bogus)
-	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
+	c.Check(err, tc.ErrorMatches, `expected value of type .*`)
 }

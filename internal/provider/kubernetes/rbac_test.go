@@ -4,22 +4,25 @@
 package kubernetes_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&rbacSuite{})
+func TestRbacSuite(t *tctesting.T) {
+	tc.Run(t, &rbacSuite{})
+}
 
 type rbacSuite struct {
 	BaseSuite
 }
 
-func (s *rbacSuite) TestEnsureRoleBinding(c *gc.C) {
+func (s *rbacSuite) TestEnsureRoleBinding(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -131,14 +134,14 @@ func (s *rbacSuite) TestEnsureRoleBinding(c *gc.C) {
 	)
 
 	_, _, err := s.broker.EnsureRoleBinding(rb1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.broker.EnsureRoleBinding(rb1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.broker.EnsureRoleBinding(&rb2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.broker.EnsureRoleBinding(&rb2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

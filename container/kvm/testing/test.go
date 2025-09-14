@@ -8,12 +8,12 @@
 package testing
 
 import (
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/kvm/mock"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // TestSuite replaces the kvm factory that the manager uses with a mock
@@ -25,7 +25,7 @@ type TestSuite struct {
 	RemovedDir       string
 }
 
-func (s *TestSuite) SetUpTest(c *gc.C) {
+func (s *TestSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ContainerDir = c.MkDir()
 	s.PatchValue(&container.ContainerDir, s.ContainerDir)

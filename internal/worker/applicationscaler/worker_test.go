@@ -4,26 +4,29 @@
 package applicationscaler_test
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/tc"
+	"github.com/juju/worker/v3"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/applicationscaler"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) TestValidate(c *gc.C) {
+func (s *WorkerSuite) TestValidate(c *tc.C) {
 	config := applicationscaler.Config{}
 	check := func(err error) {
-		c.Check(err, gc.ErrorMatches, "nil Facade not valid")
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, tc.ErrorMatches, "nil Facade not valid")
+		c.Check(err, tc.Satisfies, errors.IsNotValid)
 	}
 
 	err := config.Validate()
@@ -31,25 +34,25 @@ func (s *WorkerSuite) TestValidate(c *gc.C) {
 
 	worker, err := applicationscaler.New(config)
 	check(err)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *WorkerSuite) TestWatchError(c *gc.C) {
+func (s *WorkerSuite) TestWatchError(c *tc.C) {
 	fix := newFixture(c, errors.New("zap ouch"))
 	fix.Run(c, func(worker worker.Worker) {
 		err := worker.Wait()
-		c.Check(err, gc.ErrorMatches, "zap ouch")
+		c.Check(err, tc.ErrorMatches, "zap ouch")
 	})
 	fix.CheckCallNames(c, "Watch")
 }
 
-func (s *WorkerSuite) TestRescaleThenError(c *gc.C) {
+func (s *WorkerSuite) TestRescaleThenError(c *tc.C) {
 	fix := newFixture(c, nil, nil, errors.New("pew squish"))
 	fix.Run(c, func(worker worker.Worker) {
 		err := worker.Wait()
-		c.Check(err, gc.ErrorMatches, "pew squish")
+		c.Check(err, tc.ErrorMatches, "pew squish")
 	})
-	fix.CheckCalls(c, []testing.StubCall{{
+	fix.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Watch",
 	}, {
 		FuncName: "Rescale",

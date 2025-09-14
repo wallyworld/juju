@@ -8,24 +8,26 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type FindSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&FindSuite{})
+func TestFindSuite(t *tctesting.T) {
+	tc.Run(t, &FindSuite{})
+}
 
-func (s *FindSuite) TestFind(c *gc.C) {
+func (s *FindSuite) TestFind(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -38,13 +40,13 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	s.expectGet(c, restClient, path, name)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.Background(), name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 1)
-	c.Assert(responses[0].Name, gc.Equals, name)
+	responses, err := client.Find(c.Context(), name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(responses), tc.Equals, 1)
+	c.Assert(responses[0].Name, tc.Equals, name)
 }
 
-func (s *FindSuite) TestFindWithOptions(c *gc.C) {
+func (s *FindSuite) TestFindWithOptions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -54,21 +56,21 @@ func (s *FindSuite) TestFindWithOptions(c *gc.C) {
 	path := path.MakePath(baseURL)
 
 	expect, err := path.Query("channel", "1.0/stable")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expect, err = expect.Query("type", "bundle")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGet(c, restClient, expect, name)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	responses, err := client.Find(context.Background(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(responses), gc.Equals, 1)
-	c.Assert(responses[0].Name, gc.Equals, name)
+	responses, err := client.Find(c.Context(), name, WithFindChannel("1.0/stable"), WithFindType("bundle"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(responses), tc.Equals, 1)
+	c.Assert(responses[0].Name, tc.Equals, name)
 }
 
-func (s *FindSuite) TestFindFailure(c *gc.C) {
+func (s *FindSuite) TestFindFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,15 +83,15 @@ func (s *FindSuite) TestFindFailure(c *gc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newFindClient(path, restClient, &FakeLogger{})
-	_, err := client.Find(context.Background(), name)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	_, err := client.Find(c.Context(), name)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
+func (s *FindSuite) expectGet(c *tc.C, client *MockRESTClient, p path.Path, name string) {
 	namedPath, err := p.Query("q", name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	namedPath, err = namedPath.Query("fields", defaultFindFilter())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, responses *transport.FindResponses) {
 		responses.Results = []transport.FindResponse{{
@@ -102,7 +104,7 @@ func (s *FindSuite) expectGetFailure(client *MockRESTClient) {
 	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
-func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
+func (s *FindSuite) TestFindRequestPayload(c *tc.C) {
 	findResponses := transport.FindResponses{
 		Results: []transport.FindResponse{{
 			Name: "wordpress",
@@ -161,28 +163,28 @@ func (s *FindSuite) TestFindRequestPayload(c *gc.C) {
 		w.WriteHeader(http.StatusOK)
 
 		err := json.NewEncoder(w).Encode(findResponses)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	basePath, err := basePath(server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	findPath, err := basePath.Join("find")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newFindClient(findPath, restClient, &FakeLogger{})
-	responses, err := client.Find(context.Background(), "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(responses, gc.DeepEquals, findResponses.Results)
+	responses, err := client.Find(c.Context(), "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(responses, tc.DeepEquals, findResponses.Results)
 }
 
-func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
+func (s *FindSuite) TestFindErrorPayload(c *tc.C) {
 	findResponses := transport.FindResponses{
 		ErrorList: []transport.APIError{{
 			Code:    "some-error-code",
@@ -195,22 +197,22 @@ func (s *FindSuite) TestFindErrorPayload(c *gc.C) {
 		w.WriteHeader(http.StatusOK)
 
 		err := json.NewEncoder(w).Encode(findResponses)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	basePath, err := basePath(server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	findPath, err := basePath.Join("find")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newFindClient(findPath, restClient, &FakeLogger{})
-	_, err = client.Find(context.Background(), "wordpress")
-	c.Assert(err, gc.ErrorMatches, "not found error code")
+	_, err = client.Find(c.Context(), "wordpress")
+	c.Assert(err, tc.ErrorMatches, "not found error code")
 }

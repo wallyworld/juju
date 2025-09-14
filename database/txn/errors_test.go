@@ -4,22 +4,26 @@
 package txn_test
 
 import (
-	"github.com/juju/testing"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
 	"github.com/pkg/errors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/driver"
 	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type isErrRetryableSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&isErrRetryableSuite{})
+func TestIsErrRetryableSuite(t *tctesting.T) {
+	tc.Run(t, &isErrRetryableSuite{})
+}
 
-func (s *isErrRetryableSuite) TestIsErrRetryable(c *gc.C) {
+func (s *isErrRetryableSuite) TestIsErrRetryable(c *tc.C) {
 	tests := []struct {
 		name     string
 		err      error
@@ -69,6 +73,6 @@ func (s *isErrRetryableSuite) TestIsErrRetryable(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.name)
-		c.Check(txn.IsErrRetryable(test.err), gc.Equals, test.expected)
+		c.Check(txn.IsErrRetryable(test.err), tc.Equals, test.expected)
 	}
 }

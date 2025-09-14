@@ -4,8 +4,9 @@
 package lxd_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
@@ -16,33 +17,35 @@ type instanceSuite struct {
 	lxd.BaseSuite
 }
 
-var _ = gc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *tctesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
-func (s *instanceSuite) TestNewInstance(c *gc.C) {
+func (s *instanceSuite) TestNewInstance(c *tc.C) {
 	inst := lxd.NewInstance(s.Container, s.Env)
 
-	c.Check(lxd.ExposeInstContainer(inst), gc.Equals, s.Container)
-	c.Check(lxd.ExposeInstEnv(inst), gc.Equals, s.Env)
+	c.Check(lxd.ExposeInstContainer(inst), tc.Equals, s.Container)
+	c.Check(lxd.ExposeInstEnv(inst), tc.Equals, s.Env)
 	s.CheckNoAPI(c)
 }
 
-func (s *instanceSuite) TestID(c *gc.C) {
+func (s *instanceSuite) TestID(c *tc.C) {
 	id := s.Instance.Id()
 
-	c.Check(id, gc.Equals, instance.Id("spam"))
+	c.Check(id, tc.Equals, instance.Id("spam"))
 	s.CheckNoAPI(c)
 }
 
-func (s *instanceSuite) TestStatus(c *gc.C) {
+func (s *instanceSuite) TestStatus(c *tc.C) {
 	instanceStatus := s.Instance.Status(context.NewEmptyCloudCallContext())
 
-	c.Check(instanceStatus.Message, gc.Equals, "Running")
+	c.Check(instanceStatus.Message, tc.Equals, "Running")
 	s.CheckNoAPI(c)
 }
 
-func (s *instanceSuite) TestAddresses(c *gc.C) {
+func (s *instanceSuite) TestAddresses(c *tc.C) {
 	addresses, err := s.Instance.Addresses(context.NewEmptyCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(addresses, jc.DeepEquals, s.Addresses)
+	c.Check(addresses, tc.DeepEquals, s.Addresses)
 }

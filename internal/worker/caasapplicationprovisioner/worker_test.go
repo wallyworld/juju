@@ -4,29 +4,31 @@
 package caasapplicationprovisioner_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&CAASApplicationSuite{})
+func TestCAASApplicationSuite(t *tctesting.T) {
+	tc.Run(t, &CAASApplicationSuite{})
+}
 
 type CAASApplicationSuite struct {
 	coretesting.BaseSuite
@@ -36,13 +38,13 @@ type CAASApplicationSuite struct {
 	logger   loggo.Logger
 }
 
-func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
+func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggo.GetLogger("test")
 }
 
-func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
+func (s *CAASApplicationSuite) TestWorkerStart(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -75,14 +77,14 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 
 	called := false
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
-		c.Assert(called, jc.IsFalse)
+		c.Assert(called, tc.IsFalse)
 		called = true
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.Facade", gc.NotNil)
-		mc.AddExpr("_.Broker", gc.NotNil)
-		mc.AddExpr("_.Clock", gc.NotNil)
-		mc.AddExpr("_.Logger", gc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", gc.NotNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.Facade", tc.NotNil)
+		mc.AddExpr("_.Broker", tc.NotNil)
+		mc.AddExpr("_.Clock", tc.NotNil)
+		mc.AddExpr("_.Logger", tc.NotNil)
+		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
 			Name:     "test",
 			ModelTag: s.modelTag,
@@ -101,12 +103,12 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioner, tc.NotNil)
 
 	select {
 	case <-done:
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
@@ -114,7 +116,7 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 	workertest.CleanKill(c, provisioner)
 }
 
-func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
+func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -147,14 +149,14 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 
 	called := false
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
-		c.Assert(called, jc.IsFalse)
+		c.Assert(called, tc.IsFalse)
 		called = true
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.Facade", gc.NotNil)
-		mc.AddExpr("_.Broker", gc.NotNil)
-		mc.AddExpr("_.Clock", gc.NotNil)
-		mc.AddExpr("_.Logger", gc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", gc.NotNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.Facade", tc.NotNil)
+		mc.AddExpr("_.Broker", tc.NotNil)
+		mc.AddExpr("_.Clock", tc.NotNil)
+		mc.AddExpr("_.Logger", tc.NotNil)
+		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
 			Name:       "test",
 			ModelTag:   s.modelTag,
@@ -174,12 +176,12 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioner, tc.NotNil)
 
 	select {
 	case <-done:
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for worker to start")
 	}
@@ -187,7 +189,7 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 	workertest.CleanKill(c, provisioner)
 }
 
-func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
+func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -244,12 +246,12 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 	called := 0
 	newWorker := func(config caasapplicationprovisioner.AppWorkerConfig) func() (worker.Worker, error) {
 		called++
-		mc := jc.NewMultiChecker()
-		mc.AddExpr("_.Facade", gc.NotNil)
-		mc.AddExpr("_.Broker", gc.NotNil)
-		mc.AddExpr("_.Clock", gc.NotNil)
-		mc.AddExpr("_.Logger", gc.NotNil)
-		mc.AddExpr("_.ShutDownCleanUpFunc", gc.NotNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr("_.Facade", tc.NotNil)
+		mc.AddExpr("_.Broker", tc.NotNil)
+		mc.AddExpr("_.Clock", tc.NotNil)
+		mc.AddExpr("_.Logger", tc.NotNil)
+		mc.AddExpr("_.ShutDownCleanUpFunc", tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.AppWorkerConfig{
 			Name:     "test",
 			ModelTag: s.modelTag,
@@ -267,8 +269,8 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 		NewAppWorker: newWorker,
 	}
 	provisioner, err := caasapplicationprovisioner.NewProvisionerWorkerForTest(config, runner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provisioner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provisioner, tc.NotNil)
 
 	select {
 	case <-done:
@@ -276,8 +278,8 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(notifyWorker, gc.NotNil)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(notifyWorker, tc.NotNil)
 	select {
 	case <-time.After(coretesting.ShortWait):
 		workertest.CleanKill(c, provisioner)

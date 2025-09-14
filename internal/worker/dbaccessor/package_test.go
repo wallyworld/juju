@@ -4,27 +4,22 @@
 package dbaccessor
 
 import (
-	"testing"
 	"time"
 
 	"github.com/juju/clock"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Hub,Client
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 type baseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock                *MockClock
 	hub                  *MockHub
@@ -37,7 +32,7 @@ type baseSuite struct {
 	nodeManager          *MockNodeManager
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
@@ -123,10 +118,10 @@ type dbBaseSuite struct {
 	baseSuite
 }
 
-func ensureStartup(c *gc.C, w *dbWorker) {
+func ensureStartup(c *tc.C, w *dbWorker) {
 	select {
 	case <-w.dbReady:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 }

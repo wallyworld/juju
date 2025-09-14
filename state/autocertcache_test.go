@@ -4,11 +4,13 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/context"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -16,79 +18,81 @@ type autocertCacheSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&autocertCacheSuite{})
+func TestAutocertCacheSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &autocertCacheSuite{})
+}
 
-func (s *autocertCacheSuite) TestCachePutGet(c *gc.C) {
+func (s *autocertCacheSuite) TestCachePutGet(c *tc.C) {
 	ctx := context.Background()
 	cache := s.State.AutocertCache()
 
 	err := cache.Put(ctx, "a", []byte("aval"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cache.Put(ctx, "b", []byte("bval"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we can get the existing entries.
 	data, err := cache.Get(ctx, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "aval")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "aval")
 
 	data, err = cache.Get(ctx, "b")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "bval")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "bval")
 }
 
-func (s *autocertCacheSuite) TestGetNonexistentEntry(c *gc.C) {
+func (s *autocertCacheSuite) TestGetNonexistentEntry(c *tc.C) {
 	ctx := context.Background()
 	cache := s.State.AutocertCache()
 
 	// Getting a non-existent entry must return ErrCacheMiss.
 	data, err := cache.Get(ctx, "c")
-	c.Assert(err, gc.Equals, autocert.ErrCacheMiss)
-	c.Assert(data, gc.IsNil)
+	c.Assert(err, tc.Equals, autocert.ErrCacheMiss)
+	c.Assert(data, tc.IsNil)
 }
 
-func (s *autocertCacheSuite) TestDelete(c *gc.C) {
+func (s *autocertCacheSuite) TestDelete(c *tc.C) {
 	ctx := context.Background()
 	cache := s.State.AutocertCache()
 
 	err := cache.Put(ctx, "a", []byte("aval"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cache.Put(ctx, "b", []byte("bval"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we can delete an entry.
 	err = cache.Delete(ctx, "b")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := cache.Get(ctx, "b")
-	c.Assert(err, gc.Equals, autocert.ErrCacheMiss)
-	c.Assert(data, gc.IsNil)
+	c.Assert(err, tc.Equals, autocert.ErrCacheMiss)
+	c.Assert(data, tc.IsNil)
 
 	// Check that the non-deleted entry is still there.
 	data, err = cache.Get(ctx, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "aval")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "aval")
 }
 
-func (s *autocertCacheSuite) TestDeleteNonexistentEntry(c *gc.C) {
+func (s *autocertCacheSuite) TestDeleteNonexistentEntry(c *tc.C) {
 	ctx := context.Background()
 	cache := s.State.AutocertCache()
 
 	err := cache.Delete(ctx, "a")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *autocertCacheSuite) TestPutExistingEntry(c *gc.C) {
+func (s *autocertCacheSuite) TestPutExistingEntry(c *tc.C) {
 	ctx := context.Background()
 	cache := s.State.AutocertCache()
 
 	err := cache.Put(ctx, "a", []byte("aval"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = cache.Put(ctx, "a", []byte("aval2"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := cache.Get(ctx, "a")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "aval2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "aval2")
 }

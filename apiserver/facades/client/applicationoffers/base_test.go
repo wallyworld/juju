@@ -6,10 +6,8 @@ package applicationoffers_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -19,8 +17,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 const (
@@ -30,7 +29,7 @@ const (
 )
 
 type baseSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	resources  *common.Resources
 	authorizer *testing.FakeAuthorizer
@@ -43,7 +42,7 @@ type baseSuite struct {
 	applicationOffers *stubApplicationOffers
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = &testing.FakeAuthorizer{
@@ -64,7 +63,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
 }
 
-func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
+func (s *baseSuite) addApplication(c *tc.C, name string) jujucrossmodel.ApplicationOffer {
 	return jujucrossmodel.ApplicationOffer{
 		OfferName:              "offer-" + name,
 		OfferUUID:              "offer-" + name + "-uuid",
@@ -74,13 +73,13 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 	}
 }
 
-func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) string {
+func (s *baseSuite) setupOffers(c *tc.C, filterAppName string, filterWithEndpoints bool) string {
 	offerUUID := utils.MustNewUUID().String()
 	s.setupOffersForUUID(c, offerUUID, filterAppName, filterWithEndpoints)
 	return offerUUID
 }
 
-func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string, filterWithEndpoints bool) {
+func (s *baseSuite) setupOffersForUUID(c *tc.C, offerUUID, filterAppName string, filterWithEndpoints bool) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
@@ -97,7 +96,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 	}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
-		c.Assert(filters, gc.HasLen, 1)
+		c.Assert(filters, tc.HasLen, 1)
 		expectedFilter := jujucrossmodel.ApplicationOfferFilter{
 			OfferName:       offerName,
 			ApplicationName: filterAppName,
@@ -107,7 +106,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 				Interface: "db2",
 			}}
 		}
-		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
+		c.Assert(filters[0], tc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	ch := &mockCharm{

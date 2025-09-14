@@ -4,19 +4,23 @@
 package broker
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type brokerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&brokerSuite{})
+func TestBrokerSuite(t *tctesting.T) {
+	tc.Run(t, &brokerSuite{})
+}
 
-func (s *brokerSuite) TestAssociateDNSConfigSetsDomainsAndServers(c *gc.C) {
+func (s *brokerSuite) TestAssociateDNSConfigSetsDomainsAndServers(c *tc.C) {
 	nics := network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
@@ -41,11 +45,11 @@ func (s *brokerSuite) TestAssociateDNSConfigSetsDomainsAndServers(c *gc.C) {
 	}
 
 	results := associateDNSConfig(nics, dnsCfg)
-	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, tc.HasLen, 2)
 
-	c.Assert(results[0].DNSSearchDomains, gc.DeepEquals, []string{"example.com"})
-	c.Assert(results[0].DNSServers.Values(), gc.DeepEquals, []string{"192.168.10.2", "8.8.8.8", "1.1.1.1"})
+	c.Assert(results[0].DNSSearchDomains, tc.DeepEquals, []string{"example.com"})
+	c.Assert(results[0].DNSServers.Values(), tc.DeepEquals, []string{"192.168.10.2", "8.8.8.8", "1.1.1.1"})
 
-	c.Assert(results[1].DNSSearchDomains, gc.DeepEquals, []string{"example.com"})
-	c.Assert(results[1].DNSServers.Values(), gc.DeepEquals, []string{"192.168.20.2", "8.8.8.8", "1.1.1.1"})
+	c.Assert(results[1].DNSSearchDomains, tc.DeepEquals, []string{"example.com"})
+	c.Assert(results[1].DNSServers.Values(), tc.DeepEquals, []string{"192.168.20.2", "8.8.8.8", "1.1.1.1"})
 }

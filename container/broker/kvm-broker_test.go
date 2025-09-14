@@ -6,12 +6,11 @@ package broker_test
 import (
 	"fmt"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig"
@@ -25,7 +24,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -42,9 +42,11 @@ type kvmBrokerSuite struct {
 	manager     *fakeContainerManager
 }
 
-var _ = gc.Suite(&kvmBrokerSuite{})
+func TestKvmBrokerSuite(t *tctesting.T) {
+	tc.Run(t, &kvmBrokerSuite{})
+}
 
-func (s *kvmSuite) SetUpTest(c *gc.C) {
+func (s *kvmSuite) SetUpTest(c *tc.C) {
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -57,13 +59,13 @@ func (s *kvmSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.ContainerFactory.AddListener(s.events)
 }
 
-func (s *kvmSuite) TearDownTest(c *gc.C) {
+func (s *kvmSuite) TearDownTest(c *tc.C) {
 	close(s.events)
 	<-s.eventsDone
 	s.TestSuite.TearDownTest(c)
 }
 
-func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
+func (s *kvmBrokerSuite) SetUpTest(c *tc.C) {
 	s.kvmSuite.SetUpTest(c)
 	broker.PatchNewMachineInitReader(s, newBlankMachineInitReader)
 
@@ -80,34 +82,34 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Controller:        coretesting.ControllerTag,
 			Model:             coretesting.ModelTag,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
 }
 
-func (s *kvmBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
+func (s *kvmBrokerSuite) startInstance(c *tc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
 	return callStartInstance(c, s, broker, machineId)
 }
 
-func (s *kvmBrokerSuite) newKVMBroker(c *gc.C) (environs.InstanceBroker, error) {
+func (s *kvmBrokerSuite) newKVMBroker(c *tc.C) (environs.InstanceBroker, error) {
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	manager, err := kvm.NewContainerManager(managerConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return broker.NewKVMBroker(s.api.PrepareHost, s.api, manager, s.agentConfig)
 }
 
-func (s *kvmBrokerSuite) newKVMBrokerFakeManager(c *gc.C) (environs.InstanceBroker, error) {
+func (s *kvmBrokerSuite) newKVMBrokerFakeManager(c *tc.C) (environs.InstanceBroker, error) {
 	return broker.NewKVMBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
-func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
+func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *tc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	machineId := "1/kvm/0"
 	result, err := s.startInstance(c, broker, machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+	c.Assert(err, tc.ErrorIsNil)
+	s.api.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "ContainerConfig",
 	}, {
 		FuncName: "PrepareHost",
@@ -116,73 +118,73 @@ func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
+	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 
-func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
+func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *tc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	machineId := "1/kvm/0"
 	result, err := s.startInstance(c, broker, machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.api.ResetCalls()
 
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
+	s.api.CheckCalls(c, []testhelpers.StubCall{})
+	c.Assert(result.Instance.Id(), tc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertResults(c, broker, result)
 }
 
-func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
+func (s *kvmBrokerSuite) TestStopInstance(c *tc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	result0, err0 := s.startInstance(c, broker, "1/kvm/0")
-	c.Assert(err0, jc.ErrorIsNil)
+	c.Assert(err0, tc.ErrorIsNil)
 
 	result1, err1 := s.startInstance(c, broker, "1/kvm/1")
-	c.Assert(err1, jc.ErrorIsNil)
+	c.Assert(err1, tc.ErrorIsNil)
 
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
-	c.Assert(err2, jc.ErrorIsNil)
+	c.Assert(err2, tc.ErrorIsNil)
 
 	callCtx := context.NewEmptyCloudCallContext()
 	err := broker.StopInstances(callCtx, result0.Instance.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertResults(c, broker, result1, result2)
-	c.Assert(s.kvmContainerDir(result0), jc.DoesNotExist)
-	c.Assert(s.kvmRemovedContainerDir(result0), jc.IsDirectory)
+	c.Assert(s.kvmContainerDir(result0), tc.DoesNotExist)
+	c.Assert(s.kvmRemovedContainerDir(result0), tc.IsDirectory)
 
 	err = broker.StopInstances(callCtx, result1.Instance.Id(), result2.Instance.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertNoResults(c, broker)
 }
 
-func (s *kvmBrokerSuite) TestAllRunningInstances(c *gc.C) {
+func (s *kvmBrokerSuite) TestAllRunningInstances(c *tc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	result0, err0 := s.startInstance(c, broker, "1/kvm/0")
-	c.Assert(err0, jc.ErrorIsNil)
+	c.Assert(err0, tc.ErrorIsNil)
 
 	result1, err1 := s.startInstance(c, broker, "1/kvm/1")
-	c.Assert(err1, jc.ErrorIsNil)
+	c.Assert(err1, tc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result1)
 
 	err := broker.StopInstances(context.NewEmptyCloudCallContext(), result1.Instance.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
-	c.Assert(err2, jc.ErrorIsNil)
+	c.Assert(err2, tc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result2)
 }
 
-func (s *kvmBrokerSuite) assertResults(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
+func (s *kvmBrokerSuite) assertResults(c *tc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
 	assertInstancesStarted(c, broker, results...)
 }
 
-func (s *kvmBrokerSuite) assertNoResults(c *gc.C, broker environs.InstanceBroker) {
+func (s *kvmBrokerSuite) assertNoResults(c *tc.C, broker environs.InstanceBroker) {
 	s.assertResults(c, broker)
 }
 
@@ -196,9 +198,9 @@ func (s *kvmBrokerSuite) kvmRemovedContainerDir(result *environs.StartInstanceRe
 	return filepath.Join(s.RemovedDir, string(inst.Id()))
 }
 
-func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *tc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	patchResolvConf(s, c)
 
@@ -208,19 +210,19 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		errors.NotSupportedf("container address allocation"),
 	)
 	_, err := s.startInstance(c, broker, "1/kvm/2")
-	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
+	c.Assert(err, tc.ErrorMatches, "container address allocation not supported")
 }
 
-func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
+func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *tc.C) {
 	broker, brokerErr := s.newKVMBrokerFakeManager(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := s.startInstance(c, broker, "1/kvm/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
@@ -230,19 +232,19 @@ func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 	}, c)
 }
 
-func (s *kvmBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
+func (s *kvmBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *tc.C) {
 	broker.PatchNewMachineInitReader(s, newFakeMachineInitReader)
 	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
 
 	broker, brokerErr := s.newKVMBrokerFakeManager(c)
-	c.Assert(brokerErr, jc.ErrorIsNil)
+	c.Assert(brokerErr, tc.ErrorIsNil)
 
 	_, err := s.startInstance(c, broker, "1/kvm/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
-	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	c.Assert(call.Args[0], tc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},

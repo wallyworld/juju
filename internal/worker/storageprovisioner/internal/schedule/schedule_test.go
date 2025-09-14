@@ -4,29 +4,31 @@
 package schedule_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner/internal/schedule"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type scheduleSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&scheduleSuite{})
-
-func (*scheduleSuite) TestNextNoEvents(c *gc.C) {
-	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
-	next := s.Next()
-	c.Assert(next, gc.IsNil)
+func TestScheduleSuite(t *tctesting.T) {
+	tc.Run(t, &scheduleSuite{})
 }
 
-func (*scheduleSuite) TestNext(c *gc.C) {
+func (*scheduleSuite) TestNextNoEvents(c *tc.C) {
+	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
+	next := s.Next()
+	c.Assert(next, tc.IsNil)
+}
+
+func (*scheduleSuite) TestNext(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
@@ -51,13 +53,13 @@ func (*scheduleSuite) TestNext(c *gc.C) {
 	assertReady(c, s, clock, "v0")
 }
 
-func (*scheduleSuite) TestReadyNoEvents(c *gc.C) {
+func (*scheduleSuite) TestReadyNoEvents(c *tc.C) {
 	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	ready := s.Ready(time.Now())
-	c.Assert(ready, gc.HasLen, 0)
+	c.Assert(ready, tc.HasLen, 0)
 }
 
-func (*scheduleSuite) TestAdd(c *gc.C) {
+func (*scheduleSuite) TestAdd(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
@@ -80,7 +82,7 @@ func (*scheduleSuite) TestAdd(c *gc.C) {
 	assertReady(c, s, clock, "v0")
 }
 
-func (*scheduleSuite) TestRemove(c *gc.C) {
+func (*scheduleSuite) TestRemove(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()
 	s := schedule.NewSchedule(clock)
@@ -94,14 +96,14 @@ func (*scheduleSuite) TestRemove(c *gc.C) {
 	assertReady(c, s, clock, "v1")
 }
 
-func (*scheduleSuite) TestRemoveKeyNotFound(c *gc.C) {
+func (*scheduleSuite) TestRemoveKeyNotFound(c *tc.C) {
 	s := schedule.NewSchedule(testclock.NewClock(time.Time{}))
 	s.Remove("0") // does not explode
 }
 
-func assertNextOp(c *gc.C, s *schedule.Schedule, clock *testclock.Clock, d time.Duration) {
+func assertNextOp(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, d time.Duration) {
 	next := s.Next()
-	c.Assert(next, gc.NotNil)
+	c.Assert(next, tc.NotNil)
 	if d > 0 {
 		select {
 		case <-next:
@@ -116,14 +118,14 @@ func assertNextOp(c *gc.C, s *schedule.Schedule, clock *testclock.Clock, d time.
 
 	select {
 	case _, ok := <-next:
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		// the time value is unimportant to us
 	default:
 		c.Fatal("Next channel not signalled")
 	}
 }
 
-func assertReady(c *gc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...interface{}) {
+func assertReady(c *tc.C, s *schedule.Schedule, clock *testclock.Clock, expect ...interface{}) {
 	ready := s.Ready(clock.Now())
-	c.Assert(ready, jc.DeepEquals, expect)
+	c.Assert(ready, tc.DeepEquals, expect)
 }

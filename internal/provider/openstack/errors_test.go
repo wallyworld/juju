@@ -4,35 +4,38 @@
 package openstack
 
 import (
+	tctesting "testing"
+
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ErrorSuite{})
-
-func (s *ErrorSuite) TestIsUnauthorisedError(c *gc.C) {
-	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")
-	c.Assert(IsAuthorisationFailure(e), jc.IsTrue)
-	c.Assert(IsAuthorisationFailure(errors.Cause(e)), jc.IsTrue)
-
-	traced := errors.Trace(e)
-	c.Assert(IsAuthorisationFailure(traced), jc.IsTrue)
-
-	annotated := errors.Annotatef(e, "more and more")
-	c.Assert(IsAuthorisationFailure(annotated), jc.IsTrue)
+func TestErrorSuite(t *tctesting.T) {
+	tc.Run(t, &ErrorSuite{})
 }
 
-func (s *ErrorSuite) TestIsNotUnauthorisedErro(c *gc.C) {
-	e := errors.New("fluffy")
-	c.Assert(IsAuthorisationFailure(e), jc.IsFalse)
+func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
+	e := gooseerrors.NewUnauthorisedf(nil, "", "not on")
+	c.Assert(IsAuthorisationFailure(e), tc.IsTrue)
+	c.Assert(IsAuthorisationFailure(errors.Cause(e)), tc.IsTrue)
 
-	c.Assert(IsAuthorisationFailure(nil), jc.IsFalse)
+	traced := errors.Trace(e)
+	c.Assert(IsAuthorisationFailure(traced), tc.IsTrue)
+
+	annotated := errors.Annotatef(e, "more and more")
+	c.Assert(IsAuthorisationFailure(annotated), tc.IsTrue)
+}
+
+func (s *ErrorSuite) TestIsNotUnauthorisedErro(c *tc.C) {
+	e := errors.New("fluffy")
+	c.Assert(IsAuthorisationFailure(e), tc.IsFalse)
+
+	c.Assert(IsAuthorisationFailure(nil), tc.IsFalse)
 }

@@ -4,25 +4,29 @@
 package packaging_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/packaging"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&DependencyManagerTestSuite{})
+func TestDependencyManagerTestSuite(t *tctesting.T) {
+	tc.Run(t, &DependencyManagerTestSuite{})
+}
 
 type DependencyManagerTestSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *DependencyManagerTestSuite) SetUpTest(c *gc.C) {
+func (s *DependencyManagerTestSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
+func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *tc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
 		base:         base.MustParseBaseFromString("centos@7"),
 		pkg:          "foo",
@@ -34,7 +38,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
 	})
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
+func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *tc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
 		base:         base.MustParseBaseFromString("ubuntu@22.04"),
 		pkg:          "lxd",
@@ -49,7 +53,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
 	})
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithAptOnBionic(c *gc.C) {
+func (s *DependencyManagerTestSuite) TestInstallWithAptOnBionic(c *tc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
 		base:         base.MustParseBaseFromString("ubuntu@18.04"),
 		pkg:          "lxd",
@@ -63,7 +67,7 @@ func (s *DependencyManagerTestSuite) TestInstallWithAptOnBionic(c *gc.C) {
 	})
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithSnapOnDisco(c *gc.C) {
+func (s *DependencyManagerTestSuite) TestInstallWithSnapOnDisco(c *tc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
 		base:         base.MustParseBaseFromString("ubuntu@18.10"),
 		pkg:          "foo",
@@ -83,14 +87,14 @@ type assertParams struct {
 	expArgs      []string
 }
 
-func (s *DependencyManagerTestSuite) assertInstallCallsCorrectBinary(c *gc.C, params assertParams) {
-	testing.PatchExecutableAsEchoArgs(c, s, params.expPkgBinary)
+func (s *DependencyManagerTestSuite) assertInstallCallsCorrectBinary(c *tc.C, params assertParams) {
+	testhelpers.PatchExecutableAsEchoArgs(c, s, params.expPkgBinary)
 
 	err := packaging.InstallDependency(fakeDep{
 		pkgs: packaging.MakePackageList(params.pm, "", params.pkg),
 	}, params.base)
-	c.Assert(err, gc.IsNil)
-	testing.AssertEchoArgs(c, params.expPkgBinary, params.expArgs...)
+	c.Assert(err, tc.IsNil)
+	testhelpers.AssertEchoArgs(c, params.expPkgBinary, params.expArgs...)
 }
 
 type fakeDep struct {

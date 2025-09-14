@@ -4,8 +4,7 @@
 package featuretests
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/juju/testing"
@@ -23,26 +22,26 @@ type ControllerSuite struct {
 	client *controller.Client
 }
 
-func (s *ControllerSuite) SetUpTest(c *gc.C) {
+func (s *ControllerSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	userConn := s.OpenControllerAPI(c)
 	s.client = controller.NewClient(userConn)
-	s.AddCleanup(func(*gc.C) { s.client.Close() })
+	s.AddCleanup(func(*tc.C) { s.client.Close() })
 }
 
-func (s *ControllerSuite) TestWatchModelSummaries(c *gc.C) {
+func (s *ControllerSuite) TestWatchModelSummaries(c *tc.C) {
 
 	watcher, err := s.client.WatchModelSummaries()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
-		c.Check(watcher.Stop(), jc.ErrorIsNil)
+		c.Check(watcher.Stop(), tc.ErrorIsNil)
 	}()
 
 	summaries, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(summaries, jc.DeepEquals, []params.ModelAbstract{
+	c.Assert(summaries, tc.DeepEquals, []params.ModelAbstract{
 		{
 			UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			Name:       "controller",
@@ -55,18 +54,18 @@ func (s *ControllerSuite) TestWatchModelSummaries(c *gc.C) {
 	})
 }
 
-func (s *ControllerSuite) TestWatchAllModelSummaries(c *gc.C) {
+func (s *ControllerSuite) TestWatchAllModelSummaries(c *tc.C) {
 
 	watcher, err := s.client.WatchAllModelSummaries()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
-		c.Check(watcher.Stop(), jc.ErrorIsNil)
+		c.Check(watcher.Stop(), tc.ErrorIsNil)
 	}()
 
 	summaries, err := watcher.Next()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(summaries, jc.DeepEquals, []params.ModelAbstract{
+	c.Assert(summaries, tc.DeepEquals, []params.ModelAbstract{
 		{
 			UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			Name:       "controller",

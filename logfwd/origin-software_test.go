@@ -4,22 +4,25 @@
 package logfwd_test
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/tc"
+	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/logfwd"
 )
 
 type SoftwareSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SoftwareSuite{})
+func TestSoftwareSuite(t *tctesting.T) {
+	tc.Run(t, &SoftwareSuite{})
+}
 
-func (s *SoftwareSuite) TestValidateFull(c *gc.C) {
+func (s *SoftwareSuite) TestValidateFull(c *tc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
 		Name:                    "juju",
@@ -28,18 +31,18 @@ func (s *SoftwareSuite) TestValidateFull(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *SoftwareSuite) TestValidateZeroValue(c *gc.C) {
+func (s *SoftwareSuite) TestValidateZeroValue(c *tc.C) {
 	var sw logfwd.Software
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *SoftwareSuite) TestValidateEmptyPEN(c *gc.C) {
+func (s *SoftwareSuite) TestValidateEmptyPEN(c *tc.C) {
 	sw := logfwd.Software{
 		Name:    "juju",
 		Version: version.MustParse("2.0.1"),
@@ -47,11 +50,11 @@ func (s *SoftwareSuite) TestValidateEmptyPEN(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `missing PrivateEnterpriseNumber`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `missing PrivateEnterpriseNumber`)
 }
 
-func (s *SoftwareSuite) TestValidateNegativePEN(c *gc.C) {
+func (s *SoftwareSuite) TestValidateNegativePEN(c *tc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: -1,
 		Name:                    "juju",
@@ -60,11 +63,11 @@ func (s *SoftwareSuite) TestValidateNegativePEN(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `missing PrivateEnterpriseNumber`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `missing PrivateEnterpriseNumber`)
 }
 
-func (s *SoftwareSuite) TestValidateEmptyName(c *gc.C) {
+func (s *SoftwareSuite) TestValidateEmptyName(c *tc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
 		Version:                 version.MustParse("2.0.1"),
@@ -72,11 +75,11 @@ func (s *SoftwareSuite) TestValidateEmptyName(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty Name`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `empty Name`)
 }
 
-func (s *SoftwareSuite) TestValidateEmptyVersion(c *gc.C) {
+func (s *SoftwareSuite) TestValidateEmptyVersion(c *tc.C) {
 	sw := logfwd.Software{
 		PrivateEnterpriseNumber: 28978,
 		Name:                    "juju",
@@ -84,6 +87,6 @@ func (s *SoftwareSuite) TestValidateEmptyVersion(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty Version`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `empty Version`)
 }

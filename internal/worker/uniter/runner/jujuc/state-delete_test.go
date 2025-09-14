@@ -4,10 +4,11 @@
 package jujuc_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -16,7 +17,9 @@ type stateDeleteSuite struct {
 	stateSuite
 }
 
-var _ = gc.Suite(&stateDeleteSuite{})
+func TestStateDeleteSuite(t *tctesting.T) {
+	tc.Run(t, &stateDeleteSuite{})
+}
 
 type runStateDeleteCmd struct {
 	description string
@@ -25,7 +28,7 @@ type runStateDeleteCmd struct {
 	expect      func()
 }
 
-func (s *stateDeleteSuite) TestStateDelete(c *gc.C) {
+func (s *stateDeleteSuite) TestStateDelete(c *tc.C) {
 	runStateDeleteCmdTests := []runStateDeleteCmd{
 		{
 			description: "delete one",
@@ -47,12 +50,12 @@ func (s *stateDeleteSuite) TestStateDelete(c *gc.C) {
 		}
 
 		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-delete")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, test.args)
-		c.Check(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, test.out)
+		c.Check(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, test.out)
 	}
 }

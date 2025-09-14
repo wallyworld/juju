@@ -4,13 +4,12 @@
 package modelmanager_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
@@ -23,13 +22,14 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type ListModelsWithInfoSuite struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st *mockState
 
@@ -40,9 +40,11 @@ type ListModelsWithInfoSuite struct {
 	callContext context.ProviderCallContext
 }
 
-var _ = gc.Suite(&ListModelsWithInfoSuite{})
+func TestListModelsWithInfoSuite(t *tctesting.T) {
+	tc.Run(t, &ListModelsWithInfoSuite{})
+}
 
-func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
+func (s *ListModelsWithInfoSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	adminUser := "admin"
@@ -64,15 +66,15 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		s.st, &mockState{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
+func (s *ListModelsWithInfoSuite) createModel(c *tc.C, user names.UserTag) *mockModel {
 	attrs := dummy.SampleConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &mockModel{
 		owner:               user,
 		cfg:                 cfg,
@@ -80,22 +82,22 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 	}
 }
 
-func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *ListModelsWithInfoSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		s.st, &mockState{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = modelmanager
 }
 
 // TODO (anastasiamac 2017-11-24) add test with migration and SLA
 
-func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *tc.C) {
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
 			{
 				Result: &params.ModelSummary{
@@ -116,11 +118,11 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesV9(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesV9(c *tc.C) {
 	api := &modelmanager.ModelManagerAPIV9{s.api}
 	result, err := api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
 			{
 				Result: &params.ModelSummary{
@@ -142,18 +144,18 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesV9(c *gc.C) {
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *tc.C) {
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.Access = permission.AdminAccess
 		return []state.ModelSummary{summary}, nil
 	}
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.UserAccess, jc.DeepEquals, params.ModelAdminAccess)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Result.UserAccess, tc.DeepEquals, params.ModelAdminAccess)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *tc.C) {
 	now := time.Now()
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
@@ -161,33 +163,33 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *gc.
 		return []state.ModelSummary{summary}, nil
 	}
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.UserLastConnection, jc.DeepEquals, &now)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Result.UserLastConnection, tc.DeepEquals, &now)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *tc.C) {
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.MachineCount = int64(64)
 		return []state.ModelSummary{summary}, nil
 	}
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Machines, 64})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Result.Counts[0], tc.DeepEquals, params.ModelEntityCount{params.Machines, 64})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *tc.C) {
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.CoreCount = int64(43)
 		return []state.ModelSummary{summary}, nil
 	}
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Cores, 43})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Result.Counts[0], tc.DeepEquals, params.ModelEntityCount{params.Cores, 43})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetails(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetails(c *tc.C) {
 	now := time.Now()
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
@@ -198,8 +200,8 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 		return []state.ModelSummary{summary}, nil
 	}
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
 			{
 				Result: &params.ModelSummary{
@@ -225,31 +227,31 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 	})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *tc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
 	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: other.String()})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *tc.C) {
 	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: "invalid"})
-	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesStateError(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesStateError(c *tc.C) {
 	errMsg := "captain error for ModelSummariesForUser"
 	s.st.Stub.SetErrors(errors.New(errMsg))
 	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, gc.ErrorMatches, errMsg)
+	c.Assert(err, tc.ErrorMatches, errMsg)
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *tc.C) {
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		return []state.ModelSummary{}, nil
 	}
 	results, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 0)
 }

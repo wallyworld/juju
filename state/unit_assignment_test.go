@@ -4,9 +4,10 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -17,9 +18,11 @@ type UnitAssignmentSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&UnitAssignmentSuite{})
+func TestUnitAssignmentSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &UnitAssignmentSuite{})
+}
 
-func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
+func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *tc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "dummy", Charm: charm, NumUnits: 2,
@@ -29,55 +32,55 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 		}},
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 2)
 	for _, u := range units {
 		_, err := u.AssignedMachineId()
-		c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+		c.Assert(err, tc.Satisfies, errors.IsNotAssigned)
 	}
 
 	assignments, err := s.State.AllUnitAssignments()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(assignments, jc.SameContents, []state.UnitAssignment{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(assignments, tc.SameContents, []state.UnitAssignment{
 		{Unit: "dummy/0", Scope: s.State.ModelUUID(), Directive: "abc"},
 		{Unit: "dummy/1"},
 	})
 	return app, assignments
 }
 
-func (s *UnitAssignmentSuite) TestAddApplicationUnitAssignment(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAddApplicationUnitAssignment(c *tc.C) {
 	s.testAddApplicationUnitAssignment(c)
 }
 
-func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *tc.C) {
 	app, _ := s.testAddApplicationUnitAssignment(c)
 
 	results, err := s.State.AssignStagedUnits([]string{
 		"dummy/0", "dummy/1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.SameContents, []state.UnitAssignmentResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.SameContents, []state.UnitAssignmentResult{
 		{Unit: "dummy/0"},
 		{Unit: "dummy/1"},
 	})
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 2)
 	for _, u := range units {
 		_, err := u.AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// There should be no staged assignments now.
 	assignments, err := s.State.AllUnitAssignments()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(assignments, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(assignments, tc.HasLen, 0)
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMachine(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMachine(c *tc.C) {
 	// Enables juju deploy <charm> --to <container-type>
 	// It creates a new machine with a new container of that type.
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
@@ -93,28 +96,28 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 
 	err = s.State.AssignUnitWithPlacement(unit, &placement)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machine, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	parentId, isContainer := machine.ParentId()
-	c.Assert(isContainer, jc.IsTrue)
+	c.Assert(isContainer, tc.IsTrue)
 	_, err = s.State.Machine(parentId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *tc.C) {
 	specialSpace, err := s.State.AddSpace("special-space", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
@@ -131,39 +134,39 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 			"": specialSpace.Id(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 
 	err = s.State.AssignUnitWithPlacement(unit, &placement)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	guest, err := s.State.Machine(guestID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostID, _ := guest.ParentId()
 	host, err := s.State.Machine(hostID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, m := range []*state.Machine{guest, host} {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cons.IncludeSpaces(), gc.DeepEquals, []string{"special-space"})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(cons.IncludeSpaces(), tc.DeepEquals, []string{"special-space"})
 	}
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *tc.C) {
 	boundSpace, err := s.State.AddSpace("bound-space", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
@@ -182,34 +185,34 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 			"": boundSpace.Id(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 
 	err = s.State.AssignUnitWithPlacement(unit, &placement)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	guestID, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	guest, err := s.State.Machine(guestID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostID, _ := guest.ParentId()
 	host, err := s.State.Machine(hostID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, m := range []*state.Machine{guest, host} {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cons.IncludeSpaces(), jc.SameContents, []string{boundSpace.Name(), constrainedSpace.Name()})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(cons.IncludeSpaces(), tc.SameContents, []string{boundSpace.Name(), constrainedSpace.Name()})
 	}
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *tc.C) {
 	// Enables juju deploy <charm> --to <container-type>
 	// It creates a new machine with a new container of that type.
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
@@ -225,23 +228,23 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 
 	err = s.State.AssignUnitWithPlacement(unit, &placement)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machine, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Placement(), gc.Equals, "zone=test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machine.Placement(), tc.Equals, "zone=test")
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *tc.C) {
 	s.addLockedMachine(c, true)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -254,36 +257,36 @@ func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c
 		}},
 		NumUnits: 1,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 
 	unit := units[0]
 	_, err = unit.AssignToCleanEmptyMachine()
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
+	c.Assert(err, tc.ErrorMatches, eligibleMachinesInUse)
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *tc.C) {
 	machine, _ := s.addLockedMachine(c, false)
 	// As in --to 0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "#", Directive: machine.Id()})
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitContainerOnMachinePlacementUpgradeSeriesLockError(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitContainerOnMachinePlacementUpgradeSeriesLockError(c *tc.C) {
 	machine, _ := s.addLockedMachine(c, false)
 	// As in --to lxd:0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "lxd", Directive: machine.Id()})
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitExtantContainerOnMachinePlacementUpgradeSeriesLockError(c *gc.C) {
+func (s *UnitAssignmentSuite) TestAssignUnitExtantContainerOnMachinePlacementUpgradeSeriesLockError(c *tc.C) {
 	_, child := s.addLockedMachine(c, true)
 
 	// As in --to 0/lxd/0
 	s.testPlacementUpgradeSeriesLockError(c, &instance.Placement{Scope: "#", Directive: child.Id()})
 }
 
-func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, placement *instance.Placement) {
+func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *tc.C, placement *instance.Placement) {
 	charm := s.AddTestingCharm(c, "dummy")
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "dummy",
@@ -295,19 +298,19 @@ func (s *UnitAssignmentSuite) testPlacementUpgradeSeriesLockError(c *gc.C, place
 		NumUnits:  1,
 		Placement: []*instance.Placement{placement},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 
 	unit := units[0]
 	err = s.State.AssignUnitWithPlacement(unit, placement)
-	c.Assert(err, gc.ErrorMatches, ".* is locked for series upgrade")
+	c.Assert(err, tc.ErrorMatches, ".* is locked for series upgrade")
 }
 
-func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*state.Machine, *state.Machine) {
+func (s *UnitAssignmentSuite) addLockedMachine(c *tc.C, addContainer bool) (*state.Machine, *state.Machine) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var child *state.Machine
 	if addContainer {
@@ -316,9 +319,9 @@ func (s *UnitAssignmentSuite) addLockedMachine(c *gc.C, addContainer bool) (*sta
 			Jobs: []state.MachineJob{state.JobHostUnits},
 		}
 		child, err = s.State.AddMachineInsideMachine(template, machine.Id(), "lxd")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	c.Assert(machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("22.04")), jc.ErrorIsNil)
+	c.Assert(machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("22.04")), tc.ErrorIsNil)
 	return machine, child
 }

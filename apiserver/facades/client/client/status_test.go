@@ -4,16 +4,16 @@
 package client_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
@@ -34,89 +34,92 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type statusSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&statusSuite{})
+func TestStatusSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &statusSuite{})
+}
 
-func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
+func (s *statusSuite) addMachine(c *tc.C) *state.Machine {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return machine
 }
 
 // Complete testing of status functionality happens elsewhere in the codebase,
 // these tests just sanity-check the api itself.
 
-func (s *statusSuite) TestFullStatus(c *gc.C) {
+func (s *statusSuite) TestFullStatus(c *tc.C) {
 	machine := s.addMachine(c)
-	c.Assert(s.State.SetSLA("essential", "test-user", []byte("")), jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	c.Assert(s.State.SetSLA("essential", "test-user", []byte("")), tc.ErrorIsNil)
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.Model.Name, gc.Equals, "controller")
-	c.Check(status.Model.Type, gc.Equals, "iaas")
-	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
-	c.Check(status.Model.SLA, gc.Equals, "essential")
-	c.Check(status.Applications, gc.HasLen, 0)
-	c.Check(status.RemoteApplications, gc.HasLen, 0)
-	c.Check(status.Offers, gc.HasLen, 0)
-	c.Check(status.Machines, gc.HasLen, 1)
-	c.Check(status.ControllerTimestamp, gc.NotNil)
-	c.Check(status.Branches, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status.Model.Name, tc.Equals, "controller")
+	c.Check(status.Model.Type, tc.Equals, "iaas")
+	c.Check(status.Model.CloudTag, tc.Equals, "cloud-dummy")
+	c.Check(status.Model.SLA, tc.Equals, "essential")
+	c.Check(status.Applications, tc.HasLen, 0)
+	c.Check(status.RemoteApplications, tc.HasLen, 0)
+	c.Check(status.Offers, tc.HasLen, 0)
+	c.Check(status.Machines, tc.HasLen, 1)
+	c.Check(status.ControllerTimestamp, tc.NotNil)
+	c.Check(status.Branches, tc.HasLen, 0)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())
 	}
-	c.Check(resultMachine.Id, gc.Equals, machine.Id())
-	c.Check(resultMachine.Base, jc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
-	c.Check(resultMachine.LXDProfiles, gc.HasLen, 0)
+	c.Check(resultMachine.Id, tc.Equals, machine.Id())
+	c.Check(resultMachine.Base, tc.DeepEquals, params.Base{Name: "ubuntu", Channel: "12.10/stable"})
+	c.Check(resultMachine.LXDProfiles, tc.HasLen, 0)
 }
 
-func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {
+func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *tc.C) {
 	s.addMachine(c)
-	c.Assert(s.State.SetSLA("unsupported", "test-user", []byte("")), jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	c.Assert(s.State.SetSLA("unsupported", "test-user", []byte("")), tc.ErrorIsNil)
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.Model.SLA, gc.Equals, "unsupported")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status.Model.SLA, tc.Equals, "unsupported")
 }
 
-func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
+func (s *statusSuite) TestFullStatusUnitLeadership(c *tc.C) {
 	u := s.Factory.MakeUnit(c, nil)
 	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	c.Assert(err, tc.ErrorIsNil)
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, ok := status.Applications[u.ApplicationName()]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	unit, ok := app.Units[u.Name()]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(unit.Leader, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(unit.Leader, tc.IsTrue)
 }
 
-func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
+func (s *statusSuite) TestFullStatusUnitScaling(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Machine: machine,
 	})
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	_, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
 	c.Logf("initial query count: %d", queryCount)
@@ -126,7 +129,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	// status handling to just additional units, not additional machines
 	// or applications.
 	app, err := unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for i := 0; i < 5; i++ {
 		s.Factory.MakeUnit(c, &factory.UnitParams{
 			Application: app,
@@ -137,21 +140,21 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	tracker.Reset()
 
 	_, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The number of queries should be the same.
-	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
-		gc.Commentf("if the query count is not the same, there has been a regression "+
+	c.Check(tracker.ReadCount(), tc.Equals, queryCount,
+		tc.Commentf("if the query count is not the same, there has been a regression "+
 			"in the processing of units, please fix it"))
 }
 
-func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
+func (s *statusSuite) TestFullStatusMachineScaling(c *tc.C) {
 	s.Factory.MakeMachine(c, nil)
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	_, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
 	c.Logf("initial query count: %d", queryCount)
@@ -163,24 +166,24 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 	tracker.Reset()
 
 	_, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The number of queries should be the same.
-	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
-		gc.Commentf("if the query count is not the same, there has been a regression "+
+	c.Check(tracker.ReadCount(), tc.Equals, queryCount,
+		tc.Commentf("if the query count is not the same, there has been a regression "+
 			"in the processing of machines, please fix it"))
 }
 
-func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
+func (s *statusSuite) TestFullStatusInterfaceScaling(c *tc.C) {
 	machine := s.addMachine(c)
 	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
 	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
 	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	_, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryCount := tracker.ReadCount()
 	c.Logf("initial query count: %d", queryCount)
@@ -206,32 +209,32 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 			CIDRAddress:       "10.30.0.99/24",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tracker.Reset()
 
 	_, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The number of queries should be the same.
-	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
-		gc.Commentf("if the query count is not the same, there has been a regression "+
+	c.Check(tracker.ReadCount(), tc.Equals, queryCount,
+		tc.Commentf("if the query count is not the same, there has been a regression "+
 			"in the way the addresses are processed"))
 }
 
-func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
+func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *tc.C, spaceName, CIDR, providerSubnetID string) {
 	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddSubnet(network.SubnetInfo{
 		CIDR:       CIDR,
 		SpaceID:    space.Id(),
 		ProviderId: network.Id(providerSubnetID),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {
+func (s *statusSuite) createNICWithIP(c *tc.C, machine *state.Machine, deviceName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
@@ -240,7 +243,7 @@ func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceNam
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
@@ -248,54 +251,56 @@ func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceNam
 			ConfigMethod: network.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&statusUnitTestSuite{})
+func TestStatusUnitTestSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &statusUnitTestSuite{})
+}
 
 type statusUnitTestSuite struct {
 	baseSuite
 }
 
-func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
+func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *tc.C) {
 	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
 	container := s.Factory.MakeMachineNested(c, host.Id(), nil)
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(status.Machines, gc.HasLen, 1)
+	c.Check(status.Machines, tc.HasLen, 1)
 	mStatus, ok := status.Machines[host.Id()]
-	c.Check(ok, jc.IsTrue)
-	c.Check(mStatus.Containers, gc.HasLen, 1)
+	c.Check(ok, tc.IsTrue)
+	c.Check(mStatus.Containers, tc.HasLen, 1)
 
 	_, ok = mStatus.Containers[container.Id()]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 }
 
-func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
+func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *tc.C) {
 	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
 	s.Factory.MakeMachineNested(c, host.Id(), nil)
 	lxdHost := s.Factory.MakeMachineNested(c, host.Id(), nil)
 	s.Factory.MakeMachineNested(c, lxdHost.Id(), nil)
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(status.Machines, gc.HasLen, 1)
+	c.Check(status.Machines, tc.HasLen, 1)
 	mStatus, ok := status.Machines[host.Id()]
-	c.Check(ok, jc.IsTrue)
-	c.Check(mStatus.Containers, gc.HasLen, 2)
+	c.Check(ok, tc.IsTrue)
+	c.Check(mStatus.Containers, tc.HasLen, 2)
 
 	mStatus, ok = mStatus.Containers[lxdHost.Id()]
-	c.Check(ok, jc.IsTrue)
+	c.Check(ok, tc.IsTrue)
 
-	c.Check(mStatus.Containers, gc.HasLen, 1)
+	c.Check(mStatus.Containers, tc.HasLen, 1)
 }
 
-func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
+func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *tc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -304,16 +309,16 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 			ExposeToCIDRs:    []string{"10.0.0.0/24", "192.168.0.0/24"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	appStatus, ok := status.Applications[app.Name()]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
-	c.Assert(appStatus.ExposedEndpoints, gc.DeepEquals, map[string]params.ExposedEndpoint{
+	c.Assert(appStatus.ExposedEndpoints, tc.DeepEquals, map[string]params.ExposedEndpoint{
 		"": {
 			ExposeToSpaces: []string{network.AlphaSpaceName},
 			ExposeToCIDRs:  []string{"10.0.0.0/24", "192.168.0.0/24"},
@@ -321,7 +326,7 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	})
 }
 
-func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
+func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *tc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
 	meteredCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
@@ -329,26 +334,26 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 		Application: app,
 		SetCharmURL: true,
 	})
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	unitStatus, ok := status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(unitStatus.Charm, tc.Equals, "")
 
 	err = app.SetCharm(state.SetCharmConfig{
 		Charm:       meteredCharmNew,
 		CharmOrigin: defaultCharmOrigin(meteredCharmNew.URL()),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	status, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(unitStatus.Charm, tc.Equals, "ch:amd64/quantal/metered-3")
 }
 
 func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
@@ -387,7 +392,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
+func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *tc.C) {
 	principalCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/quantal/mysql"})
 	subordCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-1"})
 	subordCharmNew := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-2"})
@@ -404,73 +409,73 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	})
 
 	subEndpoint, err := subordApp.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	principalEndpoint, err := app.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rel, err := s.State.AddRelation(subEndpoint, principalEndpoint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ru, err := rel.Unit(pu)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	subordUnit, err := s.State.Unit("subord/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = subordUnit.SetCharmURL(subordCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	unitStatus, ok := status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(unitStatus.Charm, tc.Equals, "")
 
 	err = subordApp.SetCharm(state.SetCharmConfig{
 		Charm:       subordCharmNew,
 		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	status, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/logging-1")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(unitStatus.Charm, tc.Equals, "ch:amd64/quantal/logging-1")
 }
 
-func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
+func addUnitWithVersion(c *tc.C, application *state.Application, version string) *state.Unit {
 	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Ensure that the timestamp on this version record is different
 	// from the previous one.
 	// TODO(babbageclunk): when Application and Unit have clocks, change
 	// that instead of sleeping (lp:1558657)
 	time.Sleep(time.Millisecond * 1)
 	err = unit.SetWorkloadVersion(version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unit
 }
 
-func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Application,
+func (s *statusUnitTestSuite) checkAppVersion(c *tc.C, application *state.Application,
 	expectedVersion string) params.ApplicationStatus {
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appStatus, found := status.Applications[application.Name()]
-	c.Assert(found, jc.IsTrue)
-	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedVersion)
+	c.Assert(found, tc.IsTrue)
+	c.Check(appStatus.WorkloadVersion, tc.Equals, expectedVersion)
 	return appStatus
 }
 
-func checkUnitVersion(c *gc.C, appStatus params.ApplicationStatus, unit *state.Unit, expectedVersion string) {
+func checkUnitVersion(c *tc.C, appStatus params.ApplicationStatus, unit *state.Unit, expectedVersion string) {
 	unitStatus, found := appStatus.Units[unit.Name()]
-	c.Check(found, jc.IsTrue)
-	c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
+	c.Check(found, tc.IsTrue)
+	c.Check(unitStatus.WorkloadVersion, tc.Equals, expectedVersion)
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
+func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *tc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "voltron")
@@ -482,7 +487,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
 	checkUnitVersion(c, appStatus, unit3, "zarkon")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
+func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *tc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 
@@ -490,7 +495,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 	checkUnitVersion(c, appStatus, unit1, "voltron")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *tc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "")
@@ -500,27 +505,27 @@ func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
 	checkUnitVersion(c, appStatus, unit2, "")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
+func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *tc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	s.checkAppVersion(c, application, "")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
+func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *tc.C) {
 	application := s.Factory.MakeApplication(c, nil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
 	checkUnitVersion(c, appStatus, unit, "")
 }
 
-func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
+func (s *statusUnitTestSuite) TestMigrationInProgress(c *tc.C) {
 	setGenerationsControllerConfig(c, s.State)
 	// Create a host model because controller models can't be migrated.
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
 
 	model2, err := state2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, model2.UUID())
 
@@ -532,16 +537,16 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	s.EnsureCachedModel(c, model2.UUID())
 
 	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
+	c.Assert(err, tc.ErrorIsNil)
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 
 	checkMigStatus := func(expected string) {
 		status, err := client.Status(nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		if expected != "" {
 			expected = "migrating: " + expected
 		}
-		c.Check(status.Model.ModelStatus.Info, gc.Equals, expected)
+		c.Check(status.Model.ModelStatus.Info, tc.Equals, expected)
 	}
 
 	// Migration status should be empty when no migration is happening.
@@ -558,7 +563,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 			Password:      "password",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check initial message.
 	checkMigStatus("starting")
@@ -566,14 +571,14 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Check status is reported when set.
 	setAndCheckMigStatus := func(message string) {
 		err := mig.SetStatusMessage(message)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		checkMigStatus(message)
 	}
 	setAndCheckMigStatus("proceeding swimmingly")
 	setAndCheckMigStatus("oh noes")
 }
 
-func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
+func (s *statusUnitTestSuite) TestRelationFiltered(c *tc.C) {
 	// make application 1 with endpoint 1
 	a1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "abc",
@@ -582,7 +587,7 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 		}),
 	})
 	e1, err := a1.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// make application 2 with endpoint 2
 	a2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -592,50 +597,50 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 		}),
 	})
 	e2, err := a2.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// create relation between a1 and a2
 	r12 := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
-	c.Assert(r12, gc.NotNil)
+	c.Assert(r12, tc.NotNil)
 
 	// create another application 3 with an endpoint 3
 	a3 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
 	})
 	e3, err := a3.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// create endpoint 4 on application 1
 	e4, err := a1.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r13 := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e3, e4},
 	})
-	c.Assert(r13, gc.NotNil)
+	c.Assert(r13, tc.NotNil)
 
 	// Test status filtering with application 1: should get both relations
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(&apiclient.StatusArgs{
 		Patterns: []string{a1.Name()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
 	status, err = client.Status(&apiclient.StatusArgs{
 		Patterns: []string{a3.Name()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
 }
 
 // TestApplicationFilterIndependentOfAlphabeticUnitOrdering ensures we
 // do not regress and are carrying forward fix for lp#1592872.
-func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *gc.C) {
+func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *tc.C) {
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
 	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -669,14 +674,14 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 		Machine:     machine,
 	})
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
 		status, err := client.Status(&apiclient.StatusArgs{
 			Patterns: []string{applicationA.Name()},
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Applications, gc.HasLen, 2)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(status.Applications, tc.HasLen, 2)
 	}
 }
 
@@ -691,7 +696,7 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 // qualifies to be returned by the status result;
 //
 // application B's relations should not be returned.
-func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *gc.C) {
+func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *tc.C) {
 	// Application A has no touch points with application C
 	// but will have a unit on the same machine is a unit of an application B.
 	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -708,7 +713,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		}),
 	})
 	endpoint1, err := applicationB.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Application C has a relation to application B but has no touch points with
 	// an application A.
@@ -716,7 +721,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
 	})
 	endpoint2, err := applicationC.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{endpoint2, endpoint1},
 	})
@@ -739,43 +744,43 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// Filtering status on application A should get:
 	// * no relations;
 	// * two applications.
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(&apiclient.StatusArgs{
 		Patterns: []string{applicationA.Name()},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 2)
-	c.Assert(status.Relations, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.NotNil)
+	c.Assert(status.Applications, tc.HasLen, 2)
+	c.Assert(status.Relations, tc.HasLen, 0)
 }
 
-func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayNameSent(c *gc.C) {
+func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayNameSent(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("i-123"),
 	})
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Machines, gc.HasLen, 1)
-	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Machines, tc.HasLen, 1)
+	c.Assert(status.Machines[machine.Id()].DisplayName, tc.Equals, "")
 }
 
-func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *gc.C) {
+func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId:  instance.Id("i-123"),
 		DisplayName: "snowflake",
 	})
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Machines, gc.HasLen, 1)
-	c.Assert(status.Machines[machine.Id()].DisplayName, gc.Equals, "snowflake")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Machines, tc.HasLen, 1)
+	c.Assert(status.Machines[machine.Id()].DisplayName, tc.Equals, "snowflake")
 }
 
-func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
-	c.Assert(relations, gc.HasLen, expectedNumber)
+func assertApplicationRelations(c *tc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
+	c.Assert(relations, tc.HasLen, expectedNumber)
 	for _, relation := range relations {
 		belongs := false
 		for _, endpoint := range relation.Endpoints {
@@ -798,14 +803,16 @@ type statusUpgradeUnitSuite struct {
 	ctrl                 *gomock.Controller
 }
 
-var _ = gc.Suite(&statusUpgradeUnitSuite{})
+func TestStatusUpgradeUnitSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &statusUpgradeUnitSuite{})
+}
 
-func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
+func (s *statusUpgradeUnitSuite) SetUpSuite(c *tc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
 }
 
-func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
+func (s *statusUpgradeUnitSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
 
@@ -823,38 +830,38 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(state, clock.WallClock,
 		newCharmhubClient)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
+func (s *statusUpgradeUnitSuite) TearDownTest(c *tc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 	s.ctrl.Finish()
 }
 
-func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
+func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *tc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.AddMachine(c, "1", state.JobHostUnits)
 	s.AddCharmhubCharmWithRevision(c, "charmhubby", 41)
 	s.AddApplication(c, "charmhubby", "charmhubby")
 	s.AddUnit(c, "charmhubby", "1")
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	status, _ := client.Status(nil)
 
 	appStatus, ok := status.Applications["charmhubby"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(appStatus.CanUpgradeTo, tc.Equals, "")
 
 	// Update to the latest available charm revision.
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 
 	// Check if CanUpgradeTo suggests the latest revision.
 	status, _ = client.Status(nil)
 	appStatus, ok = status.Applications["charmhubby"]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "ch:amd64/jammy/charmhubby-42")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(appStatus.CanUpgradeTo, tc.Equals, "ch:amd64/jammy/charmhubby-42")
 }
 
 type CAASStatusSuite struct {
@@ -863,25 +870,27 @@ type CAASStatusSuite struct {
 	app *state.Application
 }
 
-var _ = gc.Suite(&CAASStatusSuite{})
+func TestCAASStatusSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &CAASStatusSuite{})
+}
 
-func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
+func (s *CAASStatusSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	s.CleanupSuite.AddCleanup(func(*tc.C) { st.Close() })
 	s.State = st
 	s.Factory = factory.NewFactory(s.State, nil)
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model = m
 
 	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hp, err := systemState.APIHostPortsForClients()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var addrs []network.SpaceAddress
 	for _, server := range hp {
 		for _, nhp := range server {
@@ -895,7 +904,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = jujutesting.AdminSecret
 	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Series: "kubernetes",
@@ -911,31 +920,31 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, st.ModelUUID())
 }
 
-func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *tc.C) {
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Applications, tc.HasLen, 1)
 	clearSinceTimes(status)
 	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
-func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *tc.C) {
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Applications, tc.HasLen, 1)
 	clearSinceTimes(status)
 	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "installing agent")
 }
 
-func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+func (s *CAASStatusSuite) TestStatusPodSpecSet(c *tc.C) {
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	cm, err := s.Model.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	spec := `
 containers:
@@ -943,47 +952,47 @@ containers:
     image: gitlab/latest
 `[1:]
 	err = cm.SetPodSpec(nil, s.app.ApplicationTag(), &spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Applications, tc.HasLen, 1)
 	clearSinceTimes(status)
 	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "waiting for container")
 }
 
-func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
+func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *tc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 
 	u, err := s.app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Updates = []*state.UpdateUnitOperation{
 		u[0].UpdateOperation(state.UnitUpdateProperties{
 			CloudContainerStatus: &status.StatusInfo{Status: status.Blocked, Message: "blocked"},
 		})}
 	err = s.app.UpdateUnits(&updateUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Applications, tc.HasLen, 1)
 	clearSinceTimes(status)
 	s.assertUnitStatus(c, status.Applications[s.app.Name()], "blocked", "blocked")
 }
 
-func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.ApplicationStatus, status, info string) {
+func (s *CAASStatusSuite) assertUnitStatus(c *tc.C, appStatus params.ApplicationStatus, status, info string) {
 	curl, _ := s.app.CharmURL()
 	parsedCurl, err := charm.ParseURL(*curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workloadVersion := ""
 	if info != "installing agent" && info != "blocked" {
 		workloadVersion = "gitlab/latest"
 	}
-	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
+	c.Assert(appStatus, tc.DeepEquals, params.ApplicationStatus{
 		Charm:           *curl,
 		CharmRev:        parsedCurl.Revision,
 		Base:            params.Base{Name: "ubuntu", Channel: "20.04/stable"},
@@ -1013,22 +1022,22 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 	})
 }
 
-func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
+func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *tc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	err := s.app.SetScale(1, 1, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := s.app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(u, tc.HasLen, 1)
 	err = u[0].SetWorkloadVersion("666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Applications, tc.HasLen, 1)
 	app := status.Applications[s.app.Name()]
-	c.Assert(app.WorkloadVersion, gc.Equals, "666")
-	c.Assert(app.Scale, gc.Equals, 1)
+	c.Assert(app.WorkloadVersion, tc.Equals, "666")
+	c.Assert(app.Scale, tc.Equals, 1)
 }
 
 type filteringBranchesSuite struct {
@@ -1040,9 +1049,11 @@ type filteringBranchesSuite struct {
 	leaders map[string]string
 }
 
-var _ = gc.Suite(&filteringBranchesSuite{})
+func TestFilteringBranchesSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &filteringBranchesSuite{})
+}
 
-func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
+func (s *filteringBranchesSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 	setGenerationsControllerConfig(c, s.State)
 
@@ -1066,7 +1077,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 		}),
 	})
 	endpoint1, err := applicationB.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: applicationA,
@@ -1081,73 +1092,73 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: s.subB}),
 	})
 	endpoint2, err := applicationC.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{endpoint2, endpoint1},
 	})
 	// Trigger the creation of the subordinate unit by entering scope
 	// on the principal unit.
 	ru, err := rel.Unit(appBUnit)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *tc.C) {
 	err := s.State.AddBranch("apple", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
 	status, err := client.FullStatus(params.StatusParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("%#v", status.Branches)
 	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{})
-	c.Assert(status.Applications, gc.HasLen, 3)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{})
+	c.Assert(status.Applications, tc.HasLen, 3)
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *tc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
 	err := s.State.AddBranch("banana", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
 	status, err := client.FullStatus(params.StatusParams{
 		Patterns: []string{s.appA + "/0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Branches, tc.HasLen, 1)
 	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
+	c.Assert(status.Applications, tc.HasLen, 1)
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnitLeader(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnitLeader(c *tc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
 	err := s.State.AddBranch("banana", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
 	status, err := client.FullStatus(params.StatusParams{
 		Patterns: []string{s.appA + "/leader"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Branches, tc.HasLen, 1)
 	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 1)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
+	c.Assert(status.Applications, tc.HasLen, 1)
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *tc.C) {
 	err := s.State.AddBranch("apple", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertBranchAssignApplication(c, "banana", s.appB)
 
 	client := s.clientForTest(c)
@@ -1155,35 +1166,35 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) 
 	status, err := client.FullStatus(params.StatusParams{
 		Patterns: []string{s.appB},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Branches, tc.HasLen, 1)
 	b, ok := status.Branches["banana"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {}})
-	c.Assert(status.Applications, gc.HasLen, 2)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.appB: {}})
+	c.Assert(status.Applications, tc.HasLen, 2)
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *tc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
 	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
 	err := s.State.AddBranch("cucumber", "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
 	status, err := client.FullStatus(params.StatusParams{
 		Patterns: []string{s.subB + "/0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Branches, tc.HasLen, 1)
 	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 2)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
+	c.Assert(status.Applications, tc.HasLen, 2)
 
 }
 
-func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *gc.C) {
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *tc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
 	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
 	s.assertBranchAssignUnit(c, "cucumber", s.appB+"/0")
@@ -1193,18 +1204,18 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 	status, err := client.FullStatus(params.StatusParams{
 		Patterns: []string{s.appB + "/0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Branches, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Branches, tc.HasLen, 2)
 	b, ok := status.Branches["apple"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
 	b, ok = status.Branches["cucumber"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {s.appB + "/0"}})
-	c.Assert(status.Applications, gc.HasLen, 2)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(b.AssignedUnits, tc.DeepEquals, map[string][]string{s.appB: {s.appB + "/0"}})
+	c.Assert(status.Applications, tc.HasLen, 2)
 }
 
-func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
+func (s *filteringBranchesSuite) clientForTest(c *tc.C) *client.Client {
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	ctx := &facadetest.Context{
@@ -1227,31 +1238,31 @@ func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
 	)
 
 	s.leaders, err = ctx.LeadershipReader_.Leaders()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client_, err = client.NewFacade(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return client_
 }
 
-func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {
+func (s *filteringBranchesSuite) assertBranchAssignUnit(c *tc.C, bName, uName string) {
 	err := s.State.AddBranch(bName, "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gen, err := s.State.Branch(bName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gen, tc.NotNil)
 	err = gen.AssignUnit(uName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
+func (s *filteringBranchesSuite) assertBranchAssignApplication(c *tc.C, bName, aName string) {
 	err := s.State.AddBranch(bName, "test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gen, err := s.State.Branch(bName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gen, tc.NotNil)
 	err = gen.AssignApplication(aName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type mockLeadershipReader struct {
@@ -1262,9 +1273,9 @@ func (m mockLeadershipReader) Leaders() (map[string]string, error) {
 	return m.leaders, nil
 }
 
-func setGenerationsControllerConfig(c *gc.C, st *state.State) {
+func setGenerationsControllerConfig(c *tc.C, st *state.State) {
 	err := st.UpdateControllerConfig(map[string]interface{}{
 		"features": []interface{}{feature.Branches},
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

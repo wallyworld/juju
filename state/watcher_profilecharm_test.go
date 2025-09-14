@@ -4,20 +4,20 @@
 package state_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/mgo/v3/bson"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 type watchLXDProfileUpgradeBaseSuite struct {
@@ -37,14 +37,14 @@ type watchLXDProfileUpgradeBaseSuite struct {
 	dead chan struct{}
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) SetUpTest(c *gc.C) {
+func (s *watchLXDProfileUpgradeBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.done = make(chan struct{})
 	s.dead = make(chan struct{})
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) setup(c *gc.C) *gomock.Controller {
+func (s *watchLXDProfileUpgradeBaseSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = mocks.NewMockClock(ctrl)
@@ -63,7 +63,7 @@ func (s *watchLXDProfileUpgradeBaseSuite) setup(c *gc.C) *gomock.Controller {
 
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
-func (s *watchLXDProfileUpgradeBaseSuite) cleanKill(c *gc.C, w worker.Worker) {
+func (s *watchLXDProfileUpgradeBaseSuite) cleanKill(c *tc.C, w worker.Worker) {
 	select {
 	case <-s.done:
 	case <-time.After(testing.LongWait):
@@ -76,18 +76,18 @@ func (s *watchLXDProfileUpgradeBaseSuite) close() {
 	close(s.done)
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) assertChanges(c *gc.C, w state.StringsWatcher, changes []string, closeFn func()) {
+func (s *watchLXDProfileUpgradeBaseSuite) assertChanges(c *tc.C, w state.StringsWatcher, changes []string, closeFn func()) {
 	select {
 	case chg, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(chg, gc.DeepEquals, changes)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(chg, tc.DeepEquals, changes)
 		closeFn()
 	case <-time.After(testing.LongWait):
 		c.Errorf("timed out waiting for watcher changes")
 	}
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) assertNoChanges(c *gc.C, w state.StringsWatcher) {
+func (s *watchLXDProfileUpgradeBaseSuite) assertNoChanges(c *tc.C, w state.StringsWatcher) {
 	select {
 	case <-w.Changes():
 		c.Errorf("timed out waiting for watcher changes")
@@ -95,10 +95,10 @@ func (s *watchLXDProfileUpgradeBaseSuite) assertNoChanges(c *gc.C, w state.Strin
 	}
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) assertWatcherChangesClosed(c *gc.C, w state.StringsWatcher) {
+func (s *watchLXDProfileUpgradeBaseSuite) assertWatcherChangesClosed(c *tc.C, w state.StringsWatcher) {
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -108,7 +108,7 @@ func (s *watchLXDProfileUpgradeBaseSuite) expectLoop() {
 	s.watcher.EXPECT().Dead().Return(s.dead).AnyTimes()
 }
 
-func (s *watchLXDProfileUpgradeBaseSuite) assertChangesSent(c *gc.C, done chan struct{}, close func()) {
+func (s *watchLXDProfileUpgradeBaseSuite) assertChangesSent(c *tc.C, done chan struct{}, close func()) {
 	select {
 	case <-done:
 		close()
@@ -127,13 +127,15 @@ type instanceCharmProfileWatcherCompatibilitySuite struct {
 	watchLXDProfileUpgradeBaseSuite
 }
 
-var _ = gc.Suite(&instanceCharmProfileWatcherCompatibilitySuite{})
+func TestInstanceCharmProfileWatcherCompatibilitySuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &instanceCharmProfileWatcherCompatibilitySuite{})
+}
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) SetUpTest(c *gc.C) {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) SetUpTest(c *tc.C) {
 	s.watchLXDProfileUpgradeBaseSuite.SetUpTest(c)
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	done := make(chan struct{})
@@ -156,7 +158,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 	s.assertWatcherChangesClosed(c, w)
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatusChange(c *gc.C) {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatusChange(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	done := make(chan struct{})
@@ -179,7 +181,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatu
 	s.assertWatcherChangesClosed(c, w)
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *tc.C, behaviours ...func()) state.StringsWatcher {
 	for _, b := range behaviours {
 		b()
 	}

@@ -3,14 +3,4 @@
 
 package mongo_test
 
-import (
-	stdtesting "testing"
-
-	gc "gopkg.in/check.v1"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -package mongotest -destination mongotest/mongoservice_mock.go github.com/juju/juju/mongo MongoSnapService
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}

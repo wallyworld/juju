@@ -4,9 +4,11 @@
 package block_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/block"
@@ -17,9 +19,11 @@ import (
 
 type blockMockSuite struct{}
 
-var _ = gc.Suite(&blockMockSuite{})
+func TestBlockMockSuite(t *tctesting.T) {
+	tc.Run(t, &blockMockSuite{})
+}
 
-func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
+func (s *blockMockSuite) TestSwitchBlockOn(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -37,10 +41,10 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn(blockType, msg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
+func (s *blockMockSuite) TestSwitchBlockOnError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,10 +64,10 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn("", "")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, errmsg)
 }
 
-func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
+func (s *blockMockSuite) TestSwitchBlockOff(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,10 +85,10 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff(blockType)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
+func (s *blockMockSuite) TestSwitchBlockOffError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -103,10 +107,10 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, errmsg)
 }
 
-func (s *blockMockSuite) TestList(c *gc.C) {
+func (s *blockMockSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -131,6 +135,6 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("List", nil, result).SetArg(2, results).Return(nil)
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	found, err := blockClient.List()
-	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)
-	c.Assert(found, gc.HasLen, 1)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, errmsg)
+	c.Assert(found, tc.HasLen, 1)
 }

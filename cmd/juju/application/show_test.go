@@ -5,20 +5,20 @@ package application_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ShowSuite struct {
@@ -28,9 +28,11 @@ type ShowSuite struct {
 	mockAPI *mockShowAPI
 }
 
-var _ = gc.Suite(&ShowSuite{})
+func TestShowSuite(t *tctesting.T) {
+	tc.Run(t, &ShowSuite{})
+}
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()
@@ -51,7 +53,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ShowSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ShowSuite) runShow(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, application.NewShowCommandForTest(s.mockAPI, s.store), args...)
 }
 
@@ -62,18 +64,18 @@ type showTest struct {
 	stderr string
 }
 
-func (s *ShowSuite) assertRunShow(c *gc.C, t showTest) {
+func (s *ShowSuite) assertRunShow(c *tc.C, t showTest) {
 	context, err := s.runShow(c, t.args...)
 	if t.err == "" {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, t.stdout)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, t.stderr)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, t.stdout)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, t.stderr)
 }
 
-func (s *ShowSuite) TestShowNoArguments(c *gc.C) {
+func (s *ShowSuite) TestShowNoArguments(c *tc.C) {
 	msg := "an application name must be supplied"
 	s.assertRunShow(c, showTest{
 		err:    fmt.Sprintf("%v", msg),
@@ -81,7 +83,7 @@ func (s *ShowSuite) TestShowNoArguments(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowInvalidName(c *gc.C) {
+func (s *ShowSuite) TestShowInvalidName(c *tc.C) {
 	msg := "application name so-42-far-not-good not valid"
 	s.assertRunShow(c, showTest{
 		args:   []string{"so-42-far-not-good"},
@@ -90,7 +92,7 @@ func (s *ShowSuite) TestShowInvalidName(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowInvalidValidNames(c *gc.C) {
+func (s *ShowSuite) TestShowInvalidValidNames(c *tc.C) {
 	msg := "application name so-42-far-not-good not valid"
 	s.assertRunShow(c, showTest{
 		args:   []string{"so-42-far-not-good", "wordpress"},
@@ -99,7 +101,7 @@ func (s *ShowSuite) TestShowInvalidValidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowInvalidNames(c *gc.C) {
+func (s *ShowSuite) TestShowInvalidNames(c *tc.C) {
 	msg := "application names so-42-far-not-good, oo/42 not valid"
 	s.assertRunShow(c, showTest{
 		args:   []string{"so-42-far-not-good", "oo/42"},
@@ -108,7 +110,7 @@ func (s *ShowSuite) TestShowInvalidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowInvalidAndValidNames(c *gc.C) {
+func (s *ShowSuite) TestShowInvalidAndValidNames(c *tc.C) {
 	msg := "application names so-42-far-not-good, oo/42 not valid"
 	s.assertRunShow(c, showTest{
 		args:   []string{"so-42-far-not-good", "wordpress", "oo/42"},
@@ -117,7 +119,7 @@ func (s *ShowSuite) TestShowInvalidAndValidNames(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowApiError(c *gc.C) {
+func (s *ShowSuite) TestShowApiError(c *tc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
 			{Error: &params.Error{Message: "boom"}},
@@ -160,7 +162,7 @@ func (s *ShowSuite) createTestApplicationInfoWithExposedEndpoints(name string, s
 	return app
 }
 
-func (s *ShowSuite) TestShow(c *gc.C) {
+func (s *ShowSuite) TestShow(c *tc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
 			{Result: s.createTestApplicationInfoWithExposedEndpoints("wordpress", "")},
@@ -195,7 +197,7 @@ wordpress:
 	})
 }
 
-func (s *ShowSuite) TestShowJSON(c *gc.C) {
+func (s *ShowSuite) TestShowJSON(c *tc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
 			{Result: s.createTestApplicationInfoWithExposedEndpoints("wordpress", "")},
@@ -207,7 +209,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowMix(c *gc.C) {
+func (s *ShowSuite) TestShowMix(c *tc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
 			{Result: s.createTestApplicationInfo("wordpress", "")},
@@ -220,7 +222,7 @@ func (s *ShowSuite) TestShowMix(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) TestShowMany(c *gc.C) {
+func (s *ShowSuite) TestShowMany(c *tc.C) {
 	s.mockAPI.applicationsInfoFunc = func([]names.ApplicationTag) ([]params.ApplicationInfoResult, error) {
 		return []params.ApplicationInfoResult{
 			{Result: s.createTestApplicationInfo("wordpress", "")},

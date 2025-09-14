@@ -6,26 +6,26 @@ package relation_test
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
 	"github.com/juju/juju/internal/worker/uniter/relation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type stateTrackerSuite struct {
@@ -46,14 +46,16 @@ type baseStateTrackerSuite struct {
 	watcher      *watchertest.MockNotifyWatcher
 }
 
-var _ = gc.Suite(&stateTrackerSuite{})
+func TestStateTrackerSuite(t *tctesting.T) {
+	tc.Run(t, &stateTrackerSuite{})
+}
 
-func (s *stateTrackerSuite) SetUpTest(c *gc.C) {
+func (s *stateTrackerSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 	s.unitTag, _ = names.ParseUnitTag("ntp/0")
 }
 
-func (s *stateTrackerSuite) TestLoadInitialStateNoRelations(c *gc.C) {
+func (s *stateTrackerSuite) TestLoadInitialStateNoRelations(c *tc.C) {
 	// Green field config, no known relations, no relation status.
 	defer s.setupMocks(c).Finish()
 	s.expectRelationsStatusEmpty()
@@ -61,10 +63,10 @@ func (s *stateTrackerSuite) TestLoadInitialStateNoRelations(c *gc.C) {
 
 	r := s.newStateTracker(c)
 	//No relations created.
-	c.Assert(r.GetInfo(), gc.HasLen, 0)
+	c.Assert(r.GetInfo(), tc.HasLen, 0)
 }
 
-func (s *stateTrackerSuite) TestLoadInitialState(c *gc.C) {
+func (s *stateTrackerSuite) TestLoadInitialState(c *tc.C) {
 	// The state manager knows about 2 relations, 1 & 2.
 	// Relation status returns 1 relation.
 	// Make sure we have 1 at the end and 2 has been deleted.
@@ -89,11 +91,11 @@ func (s *stateTrackerSuite) TestLoadInitialState(c *gc.C) {
 
 	r := s.newStateTracker(c)
 
-	c.Assert(r.RelationCreated(1), jc.IsTrue)
-	c.Assert(r.RelationCreated(2), jc.IsFalse)
+	c.Assert(r.RelationCreated(1), tc.IsTrue)
+	c.Assert(r.RelationCreated(2), tc.IsFalse)
 }
 
-func (s *stateTrackerSuite) TestLoadInitialStateSuspended(c *gc.C) {
+func (s *stateTrackerSuite) TestLoadInitialStateSuspended(c *tc.C) {
 	// The state manager knows about 1 suspended relation.
 	// Relation status returns 1 relation.
 	// Remove known suspended out of scope relation.
@@ -109,10 +111,10 @@ func (s *stateTrackerSuite) TestLoadInitialStateSuspended(c *gc.C) {
 
 	r := s.newStateTracker(c)
 
-	c.Assert(r.RelationCreated(1), jc.IsFalse)
+	c.Assert(r.RelationCreated(1), tc.IsFalse)
 }
 
-func (s *stateTrackerSuite) TestLoadInitialStateInScopeSuspended(c *gc.C) {
+func (s *stateTrackerSuite) TestLoadInitialStateInScopeSuspended(c *tc.C) {
 	// The state manager knows about 1 in-scope suspended relation.
 	// Relation status returns 1 relation.
 	defer s.setupMocks(c).Finish()
@@ -136,10 +138,10 @@ func (s *stateTrackerSuite) TestLoadInitialStateInScopeSuspended(c *gc.C) {
 
 	r := s.newStateTracker(c)
 
-	c.Assert(r.RelationCreated(1), jc.IsTrue)
+	c.Assert(r.RelationCreated(1), tc.IsTrue)
 }
 
-func (s *stateTrackerSuite) TestLoadInitialStateKnownOnly(c *gc.C) {
+func (s *stateTrackerSuite) TestLoadInitialStateKnownOnly(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationsStatusEmpty()
 	s.expectStateMgrKnownIDs([]int{1})
@@ -148,10 +150,10 @@ func (s *stateTrackerSuite) TestLoadInitialStateKnownOnly(c *gc.C) {
 	r := s.newStateTracker(c)
 
 	//No relations created.
-	c.Assert(r.GetInfo(), gc.HasLen, 0)
+	c.Assert(r.GetInfo(), tc.HasLen, 0)
 }
 
-func (s *stateTrackerSuite) TestPrepareHook(c *gc.C) {
+func (s *stateTrackerSuite) TestPrepareHook(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationerPrepareHook()
 	cfg := relation.StateTrackerForTestConfig{
@@ -159,86 +161,86 @@ func (s *stateTrackerSuite) TestPrepareHook(c *gc.C) {
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationJoined,
 		RelationId: 1,
 	}
 	hookString, err := rst.PrepareHook(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookString, gc.Equals, "testing")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookString, tc.Equals, "testing")
 }
 
-func (s *stateTrackerSuite) TestPrepareHookNotFound(c *gc.C) {
+func (s *stateTrackerSuite) TestPrepareHookNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg := relation.StateTrackerForTestConfig{
 		Relationers:   make(map[int]relation.Relationer),
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
 	_, err = rst.PrepareHook(info)
-	c.Assert(err, gc.ErrorMatches, "operation already executed")
+	c.Assert(err, tc.ErrorMatches, "operation already executed")
 }
 
-func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *gc.C) {
+func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg := relation.StateTrackerForTestConfig{
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.MeterStatusChanged,
 		RelationId: 1,
 	}
 	_, err = rst.PrepareHook(info)
-	c.Assert(err, gc.ErrorMatches, "not a relation hook.*")
+	c.Assert(err, tc.ErrorMatches, "not a relation hook.*")
 }
 
-func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg := relation.StateTrackerForTestConfig{
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.MeterStatusChanged,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, gc.ErrorMatches, "not a relation hook.*")
+	c.Assert(err, tc.ErrorMatches, "not a relation hook.*")
 }
 
-func (s *stateTrackerSuite) TestCommitHookNotFound(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg := relation.StateTrackerForTestConfig{
 		Relationers:   make(map[int]relation.Relationer),
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationerCommitHook()
 	cfg := relation.StateTrackerForTestConfig{
@@ -246,18 +248,18 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *gc.C) {
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rst.RelationCreated(1), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.RelationCreated(1), tc.IsTrue)
 }
 
-func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationerCommitHookFail()
 	cfg := relation.StateTrackerForTestConfig{
@@ -265,18 +267,18 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *gc.C) {
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, gc.NotNil)
-	c.Assert(rst.RelationCreated(1), jc.IsFalse)
+	c.Assert(err, tc.NotNil)
+	c.Assert(rst.RelationCreated(1), tc.IsFalse)
 }
 
-func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationerCommitHook()
 	cfg := relation.StateTrackerForTestConfig{
@@ -284,18 +286,18 @@ func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *gc.C) {
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rst.IsKnown(1), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.IsKnown(1), tc.IsFalse)
 }
 
-func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
+func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationerCommitHookFail()
 	cfg := relation.StateTrackerForTestConfig{
@@ -303,18 +305,18 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
 		RemoteAppName: make(map[int]string),
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(info)
-	c.Assert(err, gc.NotNil)
-	c.Assert(rst.IsKnown(1), jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(rst.IsKnown(1), tc.IsTrue)
 }
 
-func (s *baseStateTrackerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseStateTrackerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = mocks.NewMockStateTrackerState(ctrl)
 	s.unit = mocks.NewMockUnit(ctrl)
@@ -331,23 +333,25 @@ type syncScopesSuite struct {
 	charmDir string
 }
 
-var _ = gc.Suite(&syncScopesSuite{})
+func TestSyncScopesSuite(t *tctesting.T) {
+	tc.Run(t, &syncScopesSuite{})
+}
 
-func (s *syncScopesSuite) SetUpTest(c *gc.C) {
+func (s *syncScopesSuite) SetUpTest(c *tc.C) {
 	s.leadershipContext = &stubLeadershipContext{isLeader: true}
 	s.unitTag, _ = names.ParseUnitTag("wordpress/0")
 }
 
-func (s *syncScopesSuite) setupCharmDir(c *gc.C) {
+func (s *syncScopesSuite) setupCharmDir(c *tc.C) {
 	// cleanup?
 	s.charmDir = filepath.Join(c.MkDir(), "charm")
 	err := os.MkdirAll(s.charmDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(s.charmDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelations(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationsStatusEmpty()
 	s.expectStateMgrKnownIDs([]int{})
@@ -356,10 +360,10 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelations(c *gc.C) {
 
 	remote := remotestate.Snapshot{}
 	err := r.SynchronizeScopes(remote)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordinate(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRelationsStatusEmpty()
 	s.expectStateMgrKnownIDs([]int{})
@@ -377,24 +381,24 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 		},
 	}
 	rst, err := relation.NewStateTrackerForTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	remote := remotestate.Snapshot{}
 	err = rst.SynchronizeScopes(remote)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesDying(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesDying(c *tc.C) {
 	rst := s.testSynchronizeScopesDying(c, false)
-	c.Assert(rst.IsKnown(1), jc.IsTrue)
+	c.Assert(rst.IsKnown(1), tc.IsTrue)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesDyingImplicit(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesDyingImplicit(c *tc.C) {
 	rst := s.testSynchronizeScopesDying(c, true)
-	c.Assert(rst.IsKnown(1), jc.IsFalse)
+	c.Assert(rst.IsKnown(1), tc.IsFalse)
 }
 
-func (s *syncScopesSuite) testSynchronizeScopesDying(c *gc.C, implicit bool) relation.RelationStateTracker {
+func (s *syncScopesSuite) testSynchronizeScopesDying(c *tc.C, implicit bool) relation.RelationStateTracker {
 	// Setup
 	defer s.setupMocks(c).Finish()
 
@@ -424,11 +428,11 @@ func (s *syncScopesSuite) testSynchronizeScopesDying(c *gc.C, implicit bool) rel
 	}
 
 	err := rst.SynchronizeScopes(remoteState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return rst
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesSuspendedDying(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesSuspendedDying(c *tc.C) {
 	// Setup
 	defer s.setupMocks(c).Finish()
 
@@ -462,11 +466,11 @@ func (s *syncScopesSuite) TestSynchronizeScopesSuspendedDying(c *gc.C) {
 	}
 
 	err := rst.SynchronizeScopes(remoteState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rst.IsKnown(1), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.IsKnown(1), tc.IsFalse)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *tc.C) {
 	// wordpress unit with mysql relation
 	s.setupCharmDir(c)
 	defer s.setupMocks(c).Finish()
@@ -511,11 +515,11 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	}
 
 	err := rst.SynchronizeScopes(remoteState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
 
-func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, createCharmDir bool) {
+func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *tc.C, createCharmDir bool) {
 	if createCharmDir {
 		// wordpress unit with mysql relation
 		s.setupCharmDir(c)
@@ -555,18 +559,18 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, crea
 	}
 
 	err := rst.SynchronizeScopes(remoteState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesFailImplementedBy(c *tc.C) {
 	s.assertSynchronizeScopesFailImplementedBy(c, true)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesIgnoresMissingCharmDir(c *tc.C) {
 	s.assertSynchronizeScopesFailImplementedBy(c, false)
 }
 
-func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {
+func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *tc.C) {
 	// Setup
 	defer s.setupMocks(c).Finish()
 
@@ -595,8 +599,8 @@ func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {
 	}
 
 	err := rst.SynchronizeScopes(remoteState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rst.RemoteApplication(1), tc.Equals, "mysql")
 }
 
 // Relationer
@@ -705,7 +709,7 @@ func (s *baseStateTrackerSuite) expectRelationsStatus(status []uniter.RelationSt
 	s.unit.EXPECT().RelationsStatus().Return(status, nil)
 }
 
-func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
+func (s *baseStateTrackerSuite) expectWatch(c *tc.C) {
 	do := func() {
 		go func() {
 			select {
@@ -720,7 +724,7 @@ func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
 	s.unit.EXPECT().Watch().Return(s.watcher, nil).Do(do)
 }
 
-func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateTracker {
+func (s *baseStateTrackerSuite) newStateTracker(c *tc.C) relation.RelationStateTracker {
 	cfg := relation.StateTrackerForTestConfig{
 		St:                s.state,
 		Unit:              s.unit,
@@ -731,11 +735,11 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 		},
 	}
 	rst, err := relation.NewStateTrackerForTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return rst
 }
 
-func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int]relation.Relationer, appNames map[int]string) relation.RelationStateTracker {
+func (s *syncScopesSuite) newSyncScopesStateTracker(c *tc.C, relationers map[int]relation.Relationer, appNames map[int]string) relation.RelationStateTracker {
 	cfg := relation.StateTrackerForTestConfig{
 		St:                s.state,
 		Unit:              s.unit,
@@ -749,6 +753,6 @@ func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int
 		CharmDir:      s.charmDir,
 	}
 	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return rst
 }

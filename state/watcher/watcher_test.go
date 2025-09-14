@@ -7,10 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 // Test tuning parameters.
@@ -35,7 +35,7 @@ func TestPackage(t *stdtesting.T) {
 
 type M map[string]interface{}
 
-func assertChange(c *gc.C, watch <-chan watcher.Change, want watcher.Change) {
+func assertChange(c *tc.C, watch <-chan watcher.Change, want watcher.Change) {
 	select {
 	case got := <-watch:
 		if got != want {
@@ -46,7 +46,7 @@ func assertChange(c *gc.C, watch <-chan watcher.Change, want watcher.Change) {
 	}
 }
 
-func assertNoChange(c *gc.C, watch <-chan watcher.Change) {
+func assertNoChange(c *tc.C, watch <-chan watcher.Change) {
 	select {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)

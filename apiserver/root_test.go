@@ -8,26 +8,28 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	"github.com/juju/rpcreflect"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type pingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&pingSuite{})
+func TestPingSuite(t *tctesting.T) {
+	tc.Run(t, &pingSuite{})
+}
 
-func (r *pingSuite) TestPingTimeout(c *gc.C) {
+func (r *pingSuite) TestPingTimeout(c *tc.C) {
 	triggered := make(chan struct{})
 	action := func() {
 		close(triggered)
@@ -56,7 +58,7 @@ func (r *pingSuite) TestPingTimeout(c *gc.C) {
 	}
 }
 
-func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
+func (r *pingSuite) TestPingTimeoutStopped(c *tc.C) {
 	triggered := make(chan struct{})
 	action := func() {
 		close(triggered)
@@ -76,7 +78,7 @@ func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
 	}
 }
 
-func waitAlarm(c *gc.C, clock *testclock.Clock) {
+func waitAlarm(c *tc.C, clock *testclock.Clock) {
 	select {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("alarm never set")
@@ -88,14 +90,16 @@ type errRootSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&errRootSuite{})
+func TestErrRootSuite(t *tctesting.T) {
+	tc.Run(t, &errRootSuite{})
+}
 
-func (s *errRootSuite) TestErrorRoot(c *gc.C) {
+func (s *errRootSuite) TestErrorRoot(c *tc.C) {
 	origErr := fmt.Errorf("my custom error")
 	errRoot := apiserver.NewErrRoot(origErr)
 	st, err := errRoot.FindMethod("", 0, "")
-	c.Check(st, gc.IsNil)
-	c.Check(err, gc.Equals, origErr)
+	c.Check(st, tc.IsNil)
+	c.Check(err, tc.Equals, origErr)
 }
 
 type testingType struct{}
@@ -114,17 +118,19 @@ type rootSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&rootSuite{})
-
-func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	root := apiserver.TestingAPIRoot(new(facade.Registry))
-	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
-	c.Check(caller, gc.IsNil)
-	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches, `unknown object type "unknown-testing-facade"`)
+func TestRootSuite(t *tctesting.T) {
+	tc.Run(t, &rootSuite{})
 }
 
-func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
+func (r *rootSuite) TestFindMethodUnknownFacade(c *tc.C) {
+	root := apiserver.TestingAPIRoot(new(facade.Registry))
+	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
+	c.Check(caller, tc.IsNil)
+	c.Check(err, tc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, tc.ErrorMatches, `unknown object type "unknown-testing-facade"`)
+}
+
+func (r *rootSuite) TestFindMethodUnknownVersion(c *tc.C) {
 	registry := new(facade.Registry)
 	myGoodFacade := func(facade.Context) (facade.Facade, error) {
 		return &testingType{}, nil
@@ -132,12 +138,12 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
 	srvRoot := apiserver.TestingAPIRoot(registry)
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
-	c.Check(caller, gc.IsNil)
-	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches, `unknown version \(1\) of interface "my-testing-facade"`)
+	c.Check(caller, tc.IsNil)
+	c.Check(err, tc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, tc.ErrorMatches, `unknown version \(1\) of interface "my-testing-facade"`)
 }
 
-func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
+func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *tc.C) {
 	myBadFacade := func(facade.Context) (facade.Facade, error) {
 		return &badType{}, nil
 	}
@@ -158,25 +164,25 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	// Now, myGoodFacade returns the right type, so calling it should work
 	// fine
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = caller.Call(context.TODO(), "", reflect.Value{})
-	c.Check(err, gc.ErrorMatches, "Exposed was bogus")
+	c.Check(err, tc.ErrorMatches, "Exposed was bogus")
 
 	// However, myBadFacade returns the wrong type, so trying to access it
 	// should create an error
 	caller, err = srvRoot.FindMethod("my-testing-facade", 0, "Exposed")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = caller.Call(context.TODO(), "", reflect.Value{})
-	c.Check(err, gc.ErrorMatches,
+	c.Check(err, tc.ErrorMatches,
 		`internal error, my-testing-facade\(0\) claimed to return \*apiserver_test.testingType but returned \*apiserver_test.badType`)
 
 	// myErrFacade had the permissions change, so calling it returns an
 	// error, but that shouldn't trigger the type checking code.
 	caller, err = srvRoot.FindMethod("my-testing-facade", 2, "Exposed")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	res, err := caller.Call(context.TODO(), "", reflect.Value{})
-	c.Check(err, gc.ErrorMatches, `you shall not pass`)
-	c.Check(res.IsValid(), jc.IsFalse)
+	c.Check(err, tc.ErrorMatches, `you shall not pass`)
+	c.Check(res.IsValid(), tc.IsFalse)
 }
 
 type stringVar struct {
@@ -196,13 +202,13 @@ func (ct *countingType) AltCount() stringVar {
 	return stringVar{fmt.Sprintf("ALT-%s%d", ct.id, ct.count)}
 }
 
-func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expected string) {
+func assertCallResult(c *tc.C, caller rpcreflect.MethodCaller, id string, expected string) {
 	v, err := caller.Call(context.TODO(), id, reflect.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(v.Interface(), gc.Equals, stringVar{expected})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(v.Interface(), tc.Equals, stringVar{expected})
 }
 
-func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
+func (r *rootSuite) TestFindMethodCachesFacades(c *tc.C) {
 	registry := new(facade.Registry)
 	var count int64
 	newCounter := func(facade.Context) (facade.Facade, error) {
@@ -217,25 +223,25 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "", "1")
 	// The second time we ask for a method on the same facade, it should
 	// reuse that object, rather than creating another instance
 	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-1")
 	// But when we ask for a different version, we should get a new
 	// instance
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "Count")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "", "2")
 	// But it, too, should be cached
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-2")
 }
 
-func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
+func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *tc.C) {
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
 	// this counter
@@ -251,7 +257,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "orig-id", "orig-id1")
 	// However, if we place another call for a different Id, it should grab
 	// a new object
@@ -262,13 +268,13 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	assertCallResult(c, caller, "alt-id", "alt-id2")
 	// We get the same results asking for the other method
 	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "orig-id", "ALT-orig-id1")
 	assertCallResult(c, caller, "alt-id", "ALT-alt-id2")
 	assertCallResult(c, caller, "third-id", "ALT-third-id3")
 }
 
-func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
+func (r *rootSuite) TestFindMethodCacheRaceSafe(c *tc.C) {
 	var count int64
 	newIdCounter := func(context facade.Context) (facade.Facade, error) {
 		count += 1
@@ -280,7 +286,7 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// This is designed to trigger the race detector
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -320,7 +326,7 @@ func (*secondImpl) OneMethod() stringVar {
 	return stringVar{"second"}
 }
 
-func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
+func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *tc.C) {
 	registry := new(facade.Registry)
 	registry.MustRegister("my-interface-facade", 0, func(_ facade.Context) (facade.Facade, error) {
 		return &firstImpl{}, nil
@@ -331,42 +337,42 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller, "", "first")
 	caller2, err := srvRoot.FindMethod("my-interface-facade", 1, "OneMethod")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertCallResult(c, caller2, "", "second")
 	// We should *not* be able to see AMethod or ZMethod
 	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "AMethod")
-	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches,
+	c.Check(err, tc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, tc.ErrorMatches,
 		`no such request - method my-interface-facade\(1\)\.AMethod is not implemented`)
-	c.Check(caller, gc.IsNil)
+	c.Check(caller, tc.IsNil)
 	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "ZMethod")
-	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches,
+	c.Check(err, tc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, tc.ErrorMatches,
 		`no such request - method my-interface-facade\(1\)\.ZMethod is not implemented`)
-	c.Check(caller, gc.IsNil)
+	c.Check(caller, tc.IsNil)
 }
 
-func (r *rootSuite) TestDescribeFacades(c *gc.C) {
+func (r *rootSuite) TestDescribeFacades(c *tc.C) {
 	facades := apiserver.DescribeFacades(apiserver.AllFacades())
-	c.Check(facades, gc.Not(gc.HasLen), 0)
+	c.Check(facades, tc.Not(tc.HasLen), 0)
 	// As a sanity check, we should see that we have a Client v0 available
 	asMap := make(map[string][]int, len(facades))
 	for _, facade := range facades {
 		asMap[facade.Name] = facade.Versions
 	}
 	clientVersions := asMap["Client"]
-	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, clientFacadeVersion)
+	c.Assert(len(clientVersions), tc.GreaterThan, 0)
+	c.Check(clientVersions[0], tc.Equals, clientFacadeVersion)
 }
 
 type stubStateEntity struct{ tag names.Tag }
 
 func (e *stubStateEntity) Tag() names.Tag { return e.tag }
 
-func (r *rootSuite) TestAuthOwner(c *gc.C) {
+func (r *rootSuite) TestAuthOwner(c *tc.C) {
 
 	tag, err := names.ParseUnitTag("unit-postgresql-0")
 	if err != nil {
@@ -378,7 +384,7 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 	apiHandler := apiserver.APIHandlerWithEntity(entity)
 	authorized := apiHandler.AuthOwner(tag)
 
-	c.Check(authorized, jc.IsTrue)
+	c.Check(authorized, tc.IsTrue)
 
 	incorrectTag, err := names.ParseUnitTag("unit-mysql-0")
 	if err != nil {
@@ -387,5 +393,5 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 
 	authorized = apiHandler.AuthOwner(incorrectTag)
 
-	c.Check(authorized, jc.IsFalse)
+	c.Check(authorized, tc.IsFalse)
 }

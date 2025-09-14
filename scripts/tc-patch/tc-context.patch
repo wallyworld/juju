@@ -4,5 +4,6 @@ var tc, context identifier
 @@
  import context "context"
  import tc "github.com/juju/tc"
+tctesting "testing"
 -context.Background()
 +c.Context()

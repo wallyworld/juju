@@ -4,12 +4,13 @@
 package gce_test
 
 import (
+	tctesting "testing"
+
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -25,9 +26,11 @@ type environInstSuite struct {
 	zones []*computepb.Zone
 }
 
-var _ = gc.Suite(&environInstSuite{})
+func TestEnvironInstSuite(t *tctesting.T) {
+	tc.Run(t, &environInstSuite{})
+}
 
-func (s *environInstSuite) SetUpTest(c *gc.C) {
+func (s *environInstSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.zones = []*computepb.Zone{{
@@ -39,7 +42,7 @@ func (s *environInstSuite) SetUpTest(c *gc.C) {
 	}}
 }
 
-func (s *environInstSuite) TestInstancesNotFound(c *gc.C) {
+func (s *environInstSuite) TestInstancesNotFound(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -50,20 +53,20 @@ func (s *environInstSuite) TestInstancesNotFound(c *gc.C) {
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
 	_, err := env.Instances(s.CallCtx, ids)
-	c.Assert(err, jc.ErrorIs, environs.ErrNoInstances)
+	c.Assert(err, tc.ErrorIs, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
+func (s *environInstSuite) TestInstancesEmptyArg(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
 	_, err := env.Instances(s.CallCtx, nil)
-	c.Assert(err, jc.ErrorIs, environs.ErrNoInstances)
+	c.Assert(err, tc.ErrorIs, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
+func (s *environInstSuite) TestInstancesInstancesFailed(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -75,10 +78,10 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 
 	ids := []instance.Id{"inst-0"}
 	_, err := env.Instances(s.CallCtx, ids)
-	c.Assert(err, jc.ErrorIs, failure)
+	c.Assert(err, tc.ErrorIs, failure)
 }
 
-func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesPartialMatch(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -89,11 +92,11 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 
 	ids := []instance.Id{"inst-0", "inst-1"}
 	insts, err := env.Instances(s.CallCtx, ids)
-	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0"), nil})
-	c.Assert(err, jc.ErrorIs, environs.ErrPartialInstances)
+	c.Assert(insts, tc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0"), nil})
+	c.Assert(err, tc.ErrorIs, environs.ErrPartialInstances)
 }
 
-func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
+func (s *environInstSuite) TestInstancesNoMatch(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -105,11 +108,11 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	ids := []instance.Id{"inst-1"}
 	insts, err := env.Instances(s.CallCtx, ids)
 
-	c.Assert(insts, jc.DeepEquals, []instances.Instance{nil})
-	c.Assert(err, jc.ErrorIs, environs.ErrNoInstances)
+	c.Assert(insts, tc.DeepEquals, []instances.Instance{nil})
+	c.Assert(err, tc.ErrorIs, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestBasicInstances(c *gc.C) {
+func (s *environInstSuite) TestBasicInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -120,11 +123,11 @@ func (s *environInstSuite) TestBasicInstances(c *gc.C) {
 
 	ids := []instance.Id{"inst-0"}
 	insts, err := env.Instances(s.CallCtx, ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts, tc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
 }
 
-func (s *environInstSuite) TestControllerInstances(c *gc.C) {
+func (s *environInstSuite) TestControllerInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -142,11 +145,11 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 		Return([]*computepb.Instance{inst, s.NewComputeInstance("inst-1")}, nil)
 
 	ids, err := env.ControllerInstances(s.CallCtx, s.ControllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, jc.DeepEquals, []instance.Id{"inst-0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ids, tc.DeepEquals, []instance.Id{"inst-0"})
 }
 
-func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -156,42 +159,42 @@ func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
 		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	_, err := env.ControllerInstances(s.CallCtx, s.ControllerUUID)
-	c.Assert(err, jc.ErrorIs, environs.ErrNotBootstrapped)
+	c.Assert(err, tc.ErrorIs, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestParsePlacementZone(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementZone(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
 	placement, err := gce.ParsePlacementZone(env, "zone=home-zone")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(placement, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(placement, tc.Equals, "home-zone")
 }
 
-func (s *environInstSuite) TestParsePlacementSubnet(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementSubnet(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
 	subnet, err := gce.ParsePlacementSubnetSpec(env, "subnet=network666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnet, gc.Equals, "network666")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnet, tc.Equals, "network666")
 }
 
-func (s *environInstSuite) TestParsePlacementMissingDirective(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementMissingDirective(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	_, err := gce.ParsePlacementZone(env, "a-zone")
 
-	c.Assert(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
+	c.Assert(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
-func (s *environInstSuite) TestParsePlacementUnknownDirective(c *gc.C) {
+func (s *environInstSuite) TestParsePlacementUnknownDirective(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -199,26 +202,26 @@ func (s *environInstSuite) TestParsePlacementUnknownDirective(c *gc.C) {
 
 	_, err := gce.ParsePlacementZone(env, "inst=spam")
 
-	c.Assert(err, gc.ErrorMatches, `.*unknown placement directive: .*`)
+	c.Assert(err, tc.ErrorMatches, `.*unknown placement directive: .*`)
 }
 
-func (s *environInstSuite) TestInstanceInvalidCredentialError(c *gc.C) {
+func (s *environInstSuite) TestInstanceInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
 	mem := uint64(1025)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, gce.InvalidCredentialError)
 
 	_, err := env.InstanceTypes(s.CallCtx, constraints.Value{Mem: &mem})
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
+func (s *environInstSuite) TestListMachineTypes(c *tc.C) {
 	// If no zone is available, no machine types will be pulled.
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
@@ -238,7 +241,7 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 	}}, nil)
 
 	_, err := env.InstanceTypes(s.CallCtx, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "no instance types in us-east1 matching constraints.*")
+	c.Assert(err, tc.ErrorMatches, "no instance types in us-east1 matching constraints.*")
 
 	// If a non-empty list of zones is available , we will make an API call
 	// to fetch the available machine types.
@@ -249,8 +252,8 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 	mem := uint64(1025)
 	types, err := env.InstanceTypes(s.CallCtx, constraints.Value{Mem: &mem})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, jc.DeepEquals, []instances.InstanceType{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, tc.DeepEquals, []instances.InstanceType{{
 		Id:         "0",
 		Name:       "n1-standard-1",
 		CpuCores:   uint64(2),
@@ -262,7 +265,7 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 
 }
 
-func (s *environInstSuite) TestAdoptResources(c *gc.C) {
+func (s *environInstSuite) TestAdoptResources(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -274,21 +277,21 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	s.MockService.EXPECT().UpdateMetadata(gomock.Any(), tags.JujuController, "other-uuid", "inst-0")
 
 	err := env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *gc.C) {
+func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env),
 		"PENDING", "STAGING", "RUNNING", "DONE", "DOWN", "PROVISIONING", "STOPPED", "STOPPING", "UP").
 		Return(nil, gce.InvalidCredentialError)
 
 	err := env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }

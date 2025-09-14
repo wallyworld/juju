@@ -5,13 +5,13 @@ package controller_test
 
 import (
 	"regexp"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
@@ -30,9 +30,11 @@ type ShowControllerSuite struct {
 	modelConfigAPI func(controllerName string) controller.ModelConfigAPI
 }
 
-var _ = gc.Suite(&ShowControllerSuite{})
+func TestShowControllerSuite(t *tctesting.T) {
+	tc.Run(t, &ShowControllerSuite{})
+}
 
-func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
+func (s *ShowControllerSuite) SetUpTest(c *tc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{
 		machines: map[string][]base.Machine{
@@ -66,7 +68,7 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
+func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *tc.C) {
 	s.controllersYaml = `controllers:
   mallards:
     uuid: this-is-another-uuid
@@ -107,7 +109,7 @@ mallards:
 	s.assertShowController(c, "mallards")
 }
 
-func (s *ShowControllerSuite) TestShowK8sController(c *gc.C) {
+func (s *ShowControllerSuite) TestShowK8sController(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
 k8s-controller:
@@ -139,7 +141,7 @@ k8s-controller:
 	s.assertShowController(c, "k8s-controller")
 }
 
-func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *tc.C) {
 	s.controllersYaml = `controllers:
   mallards:
     uuid: this-is-another-uuid
@@ -181,7 +183,7 @@ mallards:
 	s.assertShowController(c, "mallards", "--show-password")
 }
 
-func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *tc.C) {
 	s.controllersYaml = `controllers:
   mallards:
     uuid: this-is-another-uuid
@@ -236,7 +238,7 @@ mallards:
 	s.assertShowController(c, "mallards")
 }
 
-func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
+func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
@@ -274,7 +276,7 @@ aws-test:
 	s.assertShowController(c, "aws-test")
 }
 
-func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
+func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
 aws-test:
@@ -325,7 +327,7 @@ mark-test-prodstack:
 	s.assertShowController(c, "aws-test", "mark-test-prodstack")
 }
 
-func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerJsonOne(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
@@ -335,7 +337,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.assertShowController(c, "--format", "json", "aws-test")
 }
 
-func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerJsonMany(c *tc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
 {"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
@@ -343,7 +345,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
 
-func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *tc.C) {
 	s.createTestClientStore(c)
 
 	msg := "fail getting controller"
@@ -356,7 +358,7 @@ func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
 	errStore.CheckCallNames(c, "ControllerByName")
 }
 
-func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerNoArgs(c *tc.C) {
 	store := s.createTestClientStore(c)
 	store.CurrentControllerName = "aws-test"
 
@@ -366,45 +368,45 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	s.assertShowController(c, "--format", "json")
 }
 
-func (s *ShowControllerSuite) TestShowControllerNoArgsNoCurrent(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerNoArgsNoCurrent(c *tc.C) {
 	store := s.createTestClientStore(c)
 	store.CurrentControllerName = ""
 	s.expectedErr = regexp.QuoteMeta(`there is no active controller`)
 	s.assertShowControllerFailed(c)
 }
 
-func (s *ShowControllerSuite) TestShowControllerNotFound(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerNotFound(c *tc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedErr = `controller whoops not found`
 	s.assertShowControllerFailed(c, "whoops")
 }
 
-func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerUnrecognizedFlag(c *tc.C) {
 	s.expectedErr = `option provided but not defined: -m`
 	s.assertShowControllerFailed(c, "-m", "my.world")
 }
 
-func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *tc.C) {
 	s.expectedErr = `option provided but not defined: --model`
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
 }
 
-func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *tc.C) {
 	store := s.createTestClientStore(c)
 	_, err := s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 1)
 	s.fakeController.machines["ghi"][0].HasVote = true
 	_, err = s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
-	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, tc.Equals, 3)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, tc.Equals, 2)
 }
 
-func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *tc.C) {
 	store := s.createTestClientStore(c)
-	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
 			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
@@ -412,8 +414,8 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
 		},
 	})
 	_, err := s.runShowController(c, "mallards")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(store.Models["mallards"], tc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
 			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
@@ -422,7 +424,7 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
 	})
 }
 
-func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerForUserWithLoginAccess(c *tc.C) {
 	s.controllersYaml = `controllers:
   mallards:
     uuid: this-is-another-uuid
@@ -448,25 +450,25 @@ mallards:
 `[1:]
 
 	store := s.createTestClientStore(c)
-	c.Assert(store.Models["mallards"].Models, gc.HasLen, 2)
+	c.Assert(store.Models["mallards"].Models, tc.HasLen, 2)
 	s.setAccess(permission.LoginAccess)
 	s.assertShowController(c, "mallards")
 }
 
-func (s *ShowControllerSuite) TestShowControllerWithIdentityProvider(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerWithIdentityProvider(c *tc.C) {
 	_ = s.createTestClientStore(c)
 	ctx, err := s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Not(jc.Contains), "identity-url")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Not(tc.Contains), "identity-url")
 
 	expURL := "https://api.jujucharms.com/identity"
 	s.fakeController.identityURL = expURL
 	ctx, err = s.runShowController(c, "aws-test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, "identity-url: "+expURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, "identity-url: "+expURL)
 }
 
-func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerWithCAFingerprint(c *tc.C) {
 	s.controllersYaml = `controllers:
   mallards:
     uuid: this-is-another-uuid
@@ -536,23 +538,23 @@ mallards:
 
 	s.assertShowController(c, "mallards", "--show-password")
 }
-func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ShowControllerSuite) runShowController(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(
 		s.store, s.api, s.modelConfigAPI), args...)
 }
 
-func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {
+func (s *ShowControllerSuite) assertShowControllerFailed(c *tc.C, args ...string) {
 	_, err := s.runShowController(c, args...)
-	c.Assert(err, gc.ErrorMatches, s.expectedErr)
+	c.Assert(err, tc.ErrorMatches, s.expectedErr)
 }
 
-func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
+func (s *ShowControllerSuite) assertShowController(c *tc.C, args ...string) {
 	context, err := s.runShowController(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, s.expectedOutput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, s.expectedOutput)
 }
 
-func (s *ShowControllerSuite) TestShowControllerPrimary(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerPrimary(c *tc.C) {
 	_ = s.createTestClientStore(c)
 	s.expectedOutput = `
 aws-test:
@@ -594,7 +596,7 @@ aws-test:
 	s.assertShowController(c, "aws-test")
 }
 
-func (s *ShowControllerSuite) TestShowControllerPrimaryModelStatusFail(c *gc.C) {
+func (s *ShowControllerSuite) TestShowControllerPrimaryModelStatusFail(c *tc.C) {
 	_ = s.createTestClientStore(c)
 	s.expectedOutput = `
 aws-test:

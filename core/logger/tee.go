@@ -9,12 +9,12 @@ import (
 
 // TeeLogger forwards log request to each underlying logger.
 type TeeLogger struct {
-	loggers []Logger
+	loggers []LogWriter
 }
 
 // NewTeeLogger returns a logger that forwards log requests to each one of the
 // provided loggers.
-func NewTeeLogger(loggers ...Logger) *TeeLogger {
+func NewTeeLogger(loggers ...LogWriter) *TeeLogger {
 	return &TeeLogger{loggers: loggers}
 }
 

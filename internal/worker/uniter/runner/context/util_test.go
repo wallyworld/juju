@@ -10,9 +10,8 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/uniter"
@@ -57,12 +56,12 @@ type HookContextSuite struct {
 	BlockHelper
 }
 
-func (s *HookContextSuite) SetUpTest(c *gc.C) {
+func (s *HookContextSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = NewBlockHelper(s.APIState)
-	c.Assert(s.BlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	c.Assert(s.BlockHelper, tc.NotNil)
+	s.AddCleanup(func(*tc.C) { s.BlockHelper.Close() })
 
 	// reset
 	s.machine = nil
@@ -76,24 +75,24 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	meteredUnit := s.addUnit(c, meteredApplication)
 
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter, err = uniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.payloads = uniter.NewPayloadFacadeClient(s.st)
-	c.Assert(s.uniter, gc.NotNil)
+	c.Assert(s.uniter, tc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = meteredUnit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := uniter.NewFromConnection(meteredState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The unit must always have a charm URL set.
 	// In theatre, this happens as part of the installation process,
@@ -104,9 +103,9 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	// handles synchronisation with the cache where the data must reside for
 	// config watching and retrieval to work.
 	err = s.apiUnit.SetCharmURL(sch.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.relCh = s.AddTestingCharm(c, "mysql")
 	s.relUnits = map[int]*state.RelationUnit{}
@@ -119,70 +118,70 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *HookContextSuite) GetContext(c *gc.C, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
+func (s *HookContextSuite) GetContext(c *tc.C, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return s.getHookContext(c, uuid.String(), relId, remoteName, storageTag)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit {
+func (s *HookContextSuite) addUnit(c *tc.C, app *state.Application) *state.Unit {
 	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if s.machine != nil {
 		err = unit.AssignToMachine(s.machine)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return unit
 	}
 
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.machine, err = s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	zone := "a-zone"
 	hwc := instance.HardwareCharacteristics{
 		AvailabilityZone: &zone,
 	}
 	err = s.machine.SetProvisioned("i-exist", "", "fake_nonce", &hwc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit {
+func (s *HookContextSuite) AddUnit(c *tc.C, app *state.Application) *state.Unit {
 	unit := s.addUnit(c, app)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewSpaceAddress(name+".testing.invalid", network.WithScope(network.ScopeCloudLocal))
 	err := s.machine.SetProviderAddresses(privateAddr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return unit
 }
 
-func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
+func (s *HookContextSuite) AddContextRelation(c *tc.C, name string) {
 	s.AddTestingApplication(c, name, s.relCh)
 	eps, err := s.State.InferEndpoints("u", name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ru, err := rel.Unit(s.unit)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.relUnits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
+func (s *HookContextSuite) getHookContext(c *tc.C, uuid string, relid int, remote string, storageTag names.StorageTag) *runnercontext.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
-		c.Assert(found, jc.IsTrue)
+		c.Assert(found, tc.IsTrue)
 	}
 	facade, err := uniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
@@ -191,7 +190,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	}
 
 	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
 		Unit:                s.apiUnit,
@@ -217,128 +216,128 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 		Clock:               s.clock,
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return context
 }
 
-func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {
-	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(runnercontext.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
+func (s *HookContextSuite) AssertCoreContext(c *tc.C, ctx *runnercontext.HookContext) {
+	c.Assert(ctx.UnitName(), tc.Equals, "u/0")
+	c.Assert(runnercontext.ContextMachineTag(ctx), tc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectErr := s.unit.PrivateAddress()
 	actual, actualErr := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect.Value)
-	c.Assert(actualErr, jc.DeepEquals, expectErr)
+	c.Assert(actual, tc.Equals, expect.Value)
+	c.Assert(actualErr, tc.DeepEquals, expectErr)
 
 	expect, expectErr = s.unit.PublicAddress()
 	actual, actualErr = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect.Value)
-	c.Assert(actualErr, jc.DeepEquals, expectErr)
+	c.Assert(actual, tc.Equals, expect.Value)
+	c.Assert(actualErr, tc.DeepEquals, expectErr)
 
 	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	name, uuid := runnercontext.ContextEnvInfo(ctx)
-	c.Assert(name, gc.Equals, env.Name())
-	c.Assert(uuid, gc.Equals, env.UUID())
+	c.Assert(name, tc.Equals, env.Name())
+	c.Assert(uuid, tc.Equals, env.UUID())
 
 	ids, err := ctx.RelationIds()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ids, tc.HasLen, 2)
 
 	r, err := ctx.Relation(0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:0")
 
 	r, err = ctx.Relation(1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:1")
 
 	az, err := ctx.AvailabilityZone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(az, gc.Equals, "a-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(az, tc.Equals, "a-zone")
 
 	info, err := ctx.SecretMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	for id, v := range info {
-		c.Assert(id, gc.Equals, "9m4e2mr0ui3e8a215n4g")
-		c.Assert(v.Label, gc.Equals, "label")
-		c.Assert(v.Owner.String(), gc.Equals, "application-mariadb")
-		c.Assert(v.Description, gc.Equals, "description")
-		c.Assert(v.RotatePolicy, gc.Equals, secrets.RotateHourly)
-		c.Assert(v.LatestRevision, gc.Equals, 666)
-		c.Assert(v.LatestChecksum, gc.Equals, "deadbeef")
+		c.Assert(id, tc.Equals, "9m4e2mr0ui3e8a215n4g")
+		c.Assert(v.Label, tc.Equals, "label")
+		c.Assert(v.Owner.String(), tc.Equals, "application-mariadb")
+		c.Assert(v.Description, tc.Equals, "description")
+		c.Assert(v.RotatePolicy, tc.Equals, secrets.RotateHourly)
+		c.Assert(v.LatestRevision, tc.Equals, 666)
+		c.Assert(v.LatestChecksum, tc.Equals, "deadbeef")
 	}
 }
 
-func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertNotActionContext(c *tc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
-	c.Assert(actionData, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "not running an action")
+	c.Assert(actionData, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "not running an action")
 }
 
-func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertActionContext(c *tc.C, ctx *runnercontext.HookContext) {
 	actionData, err := ctx.ActionData()
-	c.Assert(actionData, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actionData, tc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertNotStorageContext(c *tc.C, ctx *runnercontext.HookContext) {
 	storageAttachment, err := ctx.HookStorage()
-	c.Assert(storageAttachment, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(storageAttachment, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
+func (s *HookContextSuite) AssertStorageContext(c *tc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
 	fromCache, err := ctx.HookStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fromCache, gc.NotNil)
-	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
-	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
-	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fromCache, tc.NotNil)
+	c.Assert(fromCache.Tag().Id(), tc.Equals, id)
+	c.Assert(fromCache.Kind(), tc.Equals, attachment.Kind)
+	c.Assert(fromCache.Location(), tc.Equals, attachment.Location)
 }
 
-func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
+func (s *HookContextSuite) AssertRelationContext(c *tc.C, ctx *runnercontext.HookContext, relId int, remoteUnit string, remoteApp string) *runnercontext.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
-	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
+	c.Assert(actualRemoteUnit, tc.Equals, remoteUnit)
 	actualRemoteApp, _ := ctx.RemoteApplicationName()
-	c.Assert(actualRemoteApp, gc.Equals, remoteApp)
+	c.Assert(actualRemoteApp, tc.Equals, remoteApp)
 	rel, err := ctx.HookRelation()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.Id(), gc.Equals, relId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rel.Id(), tc.Equals, relId)
 	return rel.(*runnercontext.ContextRelation)
 }
 
-func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertNotRelationContext(c *tc.C, ctx *runnercontext.HookContext) {
 	rel, err := ctx.HookRelation()
-	c.Assert(rel, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(rel, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*")
 }
 
-func (s *HookContextSuite) AssertWorkloadContext(c *gc.C, ctx *runnercontext.HookContext, workloadName string) {
+func (s *HookContextSuite) AssertWorkloadContext(c *tc.C, ctx *runnercontext.HookContext, workloadName string) {
 	actualWorkloadName, _ := ctx.WorkloadName()
-	c.Assert(actualWorkloadName, gc.Equals, workloadName)
+	c.Assert(actualWorkloadName, tc.Equals, workloadName)
 }
 
-func (s *HookContextSuite) AssertNotWorkloadContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertNotWorkloadContext(c *tc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.WorkloadName()
-	c.Assert(err, gc.NotNil)
-	c.Assert(workloadName, gc.Equals, "")
+	c.Assert(err, tc.NotNil)
+	c.Assert(workloadName, tc.Equals, "")
 }
 
-func (s *HookContextSuite) AssertSecretContext(c *gc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
+func (s *HookContextSuite) AssertSecretContext(c *tc.C, ctx *runnercontext.HookContext, secretURI, label string, revision int) {
 	uri, _ := ctx.SecretURI()
-	c.Assert(uri, gc.Equals, secretURI)
-	c.Assert(ctx.SecretLabel(), gc.Equals, label)
-	c.Assert(ctx.SecretRevision(), gc.Equals, revision)
+	c.Assert(uri, tc.Equals, secretURI)
+	c.Assert(ctx.SecretLabel(), tc.Equals, label)
+	c.Assert(ctx.SecretRevision(), tc.Equals, revision)
 }
 
-func (s *HookContextSuite) AssertNotSecretContext(c *gc.C, ctx *runnercontext.HookContext) {
+func (s *HookContextSuite) AssertNotSecretContext(c *tc.C, ctx *runnercontext.HookContext) {
 	workloadName, err := ctx.SecretURI()
-	c.Assert(err, gc.NotNil)
-	c.Assert(workloadName, gc.Equals, "")
+	c.Assert(err, tc.NotNil)
+	c.Assert(workloadName, tc.Equals, "")
 }
 
 type BlockHelper struct {
@@ -355,25 +354,25 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s *BlockHelper) on(c *gc.C, blockType model.BlockType, msg string) {
-	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), gc.IsNil)
+func (s *BlockHelper) on(c *tc.C, blockType model.BlockType, msg string) {
+	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), tc.IsNil)
 }
 
 // BlockAllChanges switches changes block on.
 // This prevents all changes to juju environment.
-func (s *BlockHelper) BlockAllChanges(c *gc.C, msg string) {
+func (s *BlockHelper) BlockAllChanges(c *tc.C, msg string) {
 	s.on(c, model.BlockChange, msg)
 }
 
 // BlockRemoveObject switches remove block on.
 // This prevents any object/entity removal on juju environment
-func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
+func (s *BlockHelper) BlockRemoveObject(c *tc.C, msg string) {
 	s.on(c, model.BlockRemove, msg)
 }
 
 // BlockDestroyModel switches destroy block on.
 // This prevents juju environment destruction.
-func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
+func (s *BlockHelper) BlockDestroyModel(c *tc.C, msg string) {
 	s.on(c, model.BlockDestroy, msg)
 }
 

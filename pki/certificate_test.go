@@ -8,9 +8,9 @@ import (
 	"crypto/x509/pkix"
 	"net"
 	"net/url"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/pki"
 )
@@ -18,11 +18,13 @@ import (
 type CertificateSuite struct {
 }
 
-var _ = gc.Suite(&CertificateSuite{})
+func TestCertificateSuite(t *tctesting.T) {
+	tc.Run(t, &CertificateSuite{})
+}
 
-func (cs *CertificateSuite) VerifyCSRToCertificate(c *gc.C) {
+func (cs *CertificateSuite) VerifyCSRToCertificate(c *tc.C) {
 	jujuURL, err := url.Parse("https://discourse.juju.is")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	subject := pkix.Name{
 		CommonName:         "juju test",
@@ -47,10 +49,10 @@ func (cs *CertificateSuite) VerifyCSRToCertificate(c *gc.C) {
 	}
 
 	rCert := pki.CSRToCertificate(&csr)
-	c.Assert(rCert, jc.DeepEquals, &expectedCert)
+	c.Assert(rCert, tc.DeepEquals, &expectedCert)
 }
 
-func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *gc.C) {
+func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *tc.C) {
 	tests := []struct {
 		Template pkix.Name
 		Request  pkix.Name
@@ -77,6 +79,6 @@ func (cs *CertificateSuite) CheckPkixNameFromDefaults(c *gc.C) {
 
 	for _, test := range tests {
 		rval := pki.MakeX509NameFromDefaults(&test.Template, &test.Request)
-		c.Assert(rval, jc.DeepEquals, test.RVal)
+		c.Assert(rval, tc.DeepEquals, test.RVal)
 	}
 }

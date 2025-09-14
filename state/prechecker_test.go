@@ -5,11 +5,11 @@ package state_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
@@ -26,7 +26,9 @@ type PrecheckerSuite struct {
 	prechecker mockPrechecker
 }
 
-var _ = gc.Suite(&PrecheckerSuite{})
+func TestPrecheckerSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &PrecheckerSuite{})
+}
 
 type mockPrechecker struct {
 	precheckInstanceError error
@@ -38,7 +40,7 @@ func (p *mockPrechecker) PrecheckInstance(ctx context.ProviderCallContext, args 
 	return p.precheckInstanceError
 }
 
-func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
+func (s *PrecheckerSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.prechecker = mockPrechecker{}
 	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
@@ -46,7 +48,7 @@ func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckInstance(c *tc.C) {
 	// PrecheckInstance should be called with the specified
 	// series and no placement, and the specified constraints
 	// merged with the model constraints, when attempting
@@ -54,16 +56,16 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	modelCons := constraints.MustParse("mem=4G")
 	placement := ""
 	template, err := s.addOneMachine(c, modelCons, placement)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
-	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), tc.Equals, template.Base.String())
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, tc.Equals, placement)
 	validator := constraints.NewValidator()
 	cons, err := validator.Merge(modelCons, template.Constraints)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, cons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, tc.DeepEquals, cons)
 }
 
-func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *tc.C) {
 	// PrecheckInstance should be called with the specified
 	// series and placement. If placement is provided all
 	// model constraints should be ignored, otherwise they
@@ -72,56 +74,56 @@ func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
 	modelCons := constraints.MustParse("mem=4G")
 	placement := "abc123"
 	template, err := s.addOneMachine(c, modelCons, placement)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
-	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
-	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, template.Constraints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), tc.Equals, template.Base.String())
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, tc.Equals, placement)
+	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, tc.DeepEquals, template.Constraints)
 }
 
-func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckErrors(c *tc.C) {
 	// Ensure that AddOneMachine fails when PrecheckInstance returns an error.
 	s.prechecker.precheckInstanceError = fmt.Errorf("no instance for you")
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.ErrorMatches, ".*no instance for you")
+	c.Assert(err, tc.ErrorMatches, ".*no instance for you")
 
 	// If the policy's Prechecker method fails, that will be returned first.
 	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
 		return nil, fmt.Errorf("no prechecker for you")
 	}
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.ErrorMatches, ".*no prechecker for you")
+	c.Assert(err, tc.ErrorMatches, ".*no prechecker for you")
 }
 
-func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *tc.C) {
 	var precheckerErr error
 	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
 		return nil, precheckerErr
 	}
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
+	c.Assert(err, tc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
 	precheckerErr = errors.NotImplementedf("Prechecker")
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *tc.C) {
 	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
 	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
+func (s *PrecheckerSuite) addOneMachine(c *tc.C, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
 	_, template, err := s.addMachine(c, modelCons, placement)
 	return template, err
 }
 
-func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, placement string) (*state.Machine, state.MachineTemplate, error) {
+func (s *PrecheckerSuite) addMachine(c *tc.C, modelCons constraints.Value, placement string) (*state.Machine, state.MachineTemplate, error) {
 	err := s.State.SetModelConstraints(modelCons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
 	template := state.MachineTemplate{
@@ -134,7 +136,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, place
 	return machine, template, err
 }
 
-func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *tc.C) {
 	template := state.MachineTemplate{
 		InstanceId: instance.Id("bootstrap"),
 		Base:       state.UbuntuBase("22.04"),
@@ -143,14 +145,14 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Placement:  "anyoldthing",
 	}
 	_, err := s.State.AddOneMachine(template)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.
-	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, "")
-	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, "")
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), tc.Equals, "")
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, tc.Equals, "")
 }
 
-func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *tc.C) {
 	// Attempting to add a container to a new machine should cause
 	// PrecheckInstance to be called.
 	template := state.MachineTemplate{
@@ -159,12 +161,12 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 		Placement: "intertubes",
 	}
 	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
-	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, template.Placement)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), tc.Equals, template.Base.String())
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, tc.Equals, template.Placement)
 }
 
-func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckAddApplication(c *tc.C) {
 	// Deploy an application for the purpose of creating a
 	// storage instance. We'll then destroy the unit and detach
 	// the storage, so that it can be attached to a new
@@ -183,21 +185,21 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 			"allecto": {Count: 1, Pool: "modelscoped"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineTag := names.NewMachineTag(machineId)
 
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	storageAttachments, err := sb.UnitStorageAttachments(unit.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageAttachments, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageAttachments, tc.HasLen, 2)
 	storageTags := []names.StorageTag{
 		storageAttachments[0].StorageInstance(),
 		storageAttachments[1].StorageInstance(),
@@ -206,7 +208,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	volumeTags := make([]names.VolumeTag, len(storageTags))
 	for i, storageTag := range storageTags {
 		volume, err := sb.StorageInstanceVolume(storageTag)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		volumeTags[i] = volume.VolumeTag()
 	}
 	// Provision only the first volume.
@@ -214,19 +216,19 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		VolumeId: "foo",
 		Pool:     "modelscoped",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, storageTag := range storageTags {
 		err = sb.DetachStorage(storageTag, unit.UnitTag(), false, dontWait)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	for _, volumeTag := range volumeTags {
 		err = sb.DetachVolume(machineTag, volumeTag, false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = sb.RemoveVolumeAttachment(machineTag, volumeTag, false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
@@ -243,13 +245,13 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		}},
 		AttachStorage: storageTags,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The volume corresponding to the provisioned storage volume (only)
 	// should be presented to PrecheckInstance. The unprovisioned volume
 	// will be provisioned later by the storage provisioner.
-	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, "whatever")
-	c.Assert(s.prechecker.precheckInstanceArgs.VolumeAttachments, jc.DeepEquals, []storage.VolumeAttachmentParams{{
+	c.Assert(s.prechecker.precheckInstanceArgs.Placement, tc.Equals, "whatever")
+	c.Assert(s.prechecker.precheckInstanceArgs.VolumeAttachments, tc.DeepEquals, []storage.VolumeAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider: "modelscoped",
 		},
@@ -258,7 +260,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	}})
 }
 
-func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *tc.C) {
 	s.prechecker.precheckInstanceError = errors.Errorf("failed for some reason")
 	ch := s.AddTestingCharm(c, "wordpress")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -271,18 +273,18 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 		NumUnits:    1,
 		Constraints: constraints.MustParse("root-disk=20G"),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
-	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
+	c.Assert(err, tc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
+	c.Assert(s.prechecker.precheckInstanceArgs, tc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "12.10"),
 		Constraints: constraints.MustParse("arch=amd64 root-disk=20G"),
 	})
 }
 
-func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *tc.C) {
 	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m2, _, err := s.addMachine(c, constraints.MustParse(""), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make sure the prechecker isn't called.
 	s.prechecker.precheckInstanceError = errors.Errorf("boom!")
@@ -301,12 +303,12 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 			instance.MustParsePlacement(m2.Id()),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
+func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *tc.C) {
 	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make sure the prechecker still gets called if there's a machine
 	// placement and a directive that needs to be passed to the
@@ -327,8 +329,8 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 			{Scope: s.State.ModelUUID(), Directive: "somewhere"},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
-	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
+	c.Assert(err, tc.ErrorMatches, `cannot add application "wordpress": hey now`)
+	c.Assert(s.prechecker.precheckInstanceArgs, tc.DeepEquals, environs.PrecheckInstanceParams{
 		Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Placement:   "somewhere",
 		Constraints: constraints.MustParse("arch=amd64"),

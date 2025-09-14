@@ -4,6 +4,7 @@
 package user_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -11,8 +12,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/cmd/juju/user"
@@ -26,7 +26,9 @@ type UserListCommandSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&UserListCommandSuite{})
+func TestUserListCommandSuite(t *tctesting.T) {
+	tc.Run(t, &UserListCommandSuite{})
+}
 
 func (s *UserListCommandSuite) newUserListCommand() cmd.Command {
 	clock := &fakeClock{now: time.Date(2016, 9, 15, 12, 0, 0, 0, time.UTC)}
@@ -117,7 +119,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 	return result, nil
 }
 
-func (s *UserListCommandSuite) SetUpTest(c *gc.C) {
+func (s *UserListCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "adam",
@@ -125,10 +127,10 @@ func (s *UserListCommandSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
+func (s *UserListCommandSuite) TestUserInfo(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 Controller: testing
 
 Name     Display name    Access     Date created  Last connection
@@ -138,10 +140,10 @@ charlie  Charlie Xavier  superuser  6 hours ago   never connected
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
+func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "--all")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 Controller: testing
 
 Name     Display name    Access     Date created  Last connection
@@ -152,10 +154,10 @@ davey    Davey Willow               2014-10-09    35 minutes ago (disabled)
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
+func (s *UserListCommandSuite) TestUserInfoExactTime(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "--exact-time")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 Controller: testing
 
 Name     Display name    Access     Date created                   Last connection
@@ -165,20 +167,20 @@ charlie  Charlie Xavier  superuser  2016-09-15 06:00:00 +0000 UTC  never connect
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
+func (s *UserListCommandSuite) TestUserInfoFormatJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "["+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, "["+
 		`{"user-name":"adam","display-name":"Adam Zulu","access":"login","date-created":"2012-10-08","last-connection":"2014-01-01"},`+
 		`{"user-name":"barbara","display-name":"Barbara Yellow","access":"add-model","date-created":"2013-05-02","last-connection":"just now"},`+
 		`{"user-name":"charlie","display-name":"Charlie Xavier","access":"superuser","date-created":"6 hours ago","last-connection":"never connected"}`+
 		"]\n")
 }
 
-func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
+func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 - user-name: adam
   display-name: Adam Zulu
   access: login
@@ -197,10 +199,10 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
+func (s *UserListCommandSuite) TestModelUsers(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 Name                Display name  Access  Last connection
 adam*               Adam          read    2015-03-01
 admin                             write   2015-03-20
@@ -208,20 +210,20 @@ charlie@ubuntu.com  Charlie       read    never connected
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
+func (s *UserListCommandSuite) TestModelUsersFormatJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test", "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "{"+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, "{"+
 		`"adam":{"display-name":"Adam","access":"read","last-connection":"2015-03-01"},`+
 		`"admin":{"access":"write","last-connection":"2015-03-20"},`+
 		`"charlie@ubuntu.com":{"display-name":"Charlie","access":"read","last-connection":"never connected"}`+
 		"}\n")
 }
 
-func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
+func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "test", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, `
 adam:
   display-name: Adam
   access: read
@@ -236,7 +238,7 @@ charlie@ubuntu.com:
 `[1:])
 }
 
-func (s *UserListCommandSuite) TestTooManyArgs(c *gc.C) {
+func (s *UserListCommandSuite) TestTooManyArgs(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newUserListCommand(), "model", "whoops")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

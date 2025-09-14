@@ -4,22 +4,26 @@
 package sshserver
 
 import (
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+	"go.uber.org/mock/gomock"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type listenerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	listener *MockListener
 }
 
-var _ = gc.Suite(&listenerSuite{})
+func TestListenerSuite(t *tctesting.T) {
+	tc.Run(t, &listenerSuite{})
+}
 
-func (s *listenerSuite) TestSyncListenerAfterAccept(c *gc.C) {
+func (s *listenerSuite) TestSyncListenerAfterAccept(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.listener.EXPECT().Accept().Return(nil, nil)
@@ -29,7 +33,7 @@ func (s *listenerSuite) TestSyncListenerAfterAccept(c *gc.C) {
 	select {
 	case <-closeAllowed:
 		c.Error("closeAllowed channel should not be closed yet")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 	}
 
 	done := make(chan struct{})
@@ -43,12 +47,12 @@ func (s *listenerSuite) TestSyncListenerAfterAccept(c *gc.C) {
 	<-done
 	select {
 	case <-closeAllowed:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fail()
 	}
 }
 
-func (s *listenerSuite) TestSyncListenerAfterClose(c *gc.C) {
+func (s *listenerSuite) TestSyncListenerAfterClose(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.listener.EXPECT().Close().Return(nil)
@@ -58,7 +62,7 @@ func (s *listenerSuite) TestSyncListenerAfterClose(c *gc.C) {
 	select {
 	case <-closeAllowed:
 		c.Error("closeAllowed channel should not be closed yet")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 	}
 
 	done := make(chan struct{})
@@ -72,12 +76,12 @@ func (s *listenerSuite) TestSyncListenerAfterClose(c *gc.C) {
 	<-done
 	select {
 	case <-closeAllowed:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fail()
 	}
 }
 
-func (s *listenerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *listenerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.listener = NewMockListener(ctrl)

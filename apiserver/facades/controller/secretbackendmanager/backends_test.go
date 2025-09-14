@@ -4,28 +4,28 @@
 package secretbackendmanager_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
 type SecretsManagerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
@@ -39,9 +39,11 @@ type SecretsManagerSuite struct {
 	facade *secretbackendmanager.SecretBackendsManagerAPI
 }
 
-var _ = gc.Suite(&SecretsManagerSuite{})
+func TestSecretsManagerSuite(t *tctesting.T) {
+	tc.Run(t, &SecretsManagerSuite{})
+}
 
-func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *SecretsManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -58,7 +60,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	var err error
 	s.facade, err = secretbackendmanager.NewTestAPI(
 		s.authorizer, s.resources, s.backendState, s.backendRotate, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -71,7 +73,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
+func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.backendRotate.EXPECT().WatchSecretBackendRotationChanges().Return(
@@ -89,8 +91,8 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	s.backendRotateWatcher.EXPECT().Changes().Return(rotateChan)
 
 	result, err := s.facade.WatchSecretBackendsRotateChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.SecretBackendRotateWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.SecretBackendRotateWatchResult{
 		WatcherId: "1",
 		Changes: []params.SecretBackendRotateChange{{
 			ID:              "backend-id",
@@ -112,7 +114,7 @@ func (providerWithRefresh) RefreshAuth(adminCfg *provider.ModelBackendConfig, va
 	return &result.BackendConfig, nil
 }
 
-func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
+func (s *SecretsManagerSuite) TestRotateBackendTokens(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -142,8 +144,8 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
 
 	result, err := s.facade.RotateBackendTokens(params.RotateSecretBackendArgs{
 		BackendIDs: []string{"backend-id"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: `boom`},
@@ -152,7 +154,7 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
 	})
 }
 
-func (s *SecretsManagerSuite) TestRotateBackendTokensRetry(c *gc.C) {
+func (s *SecretsManagerSuite) TestRotateBackendTokensRetry(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -184,8 +186,8 @@ func (s *SecretsManagerSuite) TestRotateBackendTokensRetry(c *gc.C) {
 
 	result, err := s.facade.RotateBackendTokens(params.RotateSecretBackendArgs{
 		BackendIDs: []string{"backend-id"}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{Code: "", Message: `boom`},

@@ -9,9 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	gitjujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -333,7 +333,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 }
 
 type mockFilesystemAccessor struct {
-	testing.Stub
+	testhelpers.Stub
 	filesystemsWatcher             *mockStringsWatcher
 	attachmentsWatcher             *mockAttachmentsWatcher
 	provisionedMachines            map[string]instance.Id
@@ -850,7 +850,7 @@ func (a *mockMachineAccessor) InstanceIds(tags []names.MachineTag) ([]params.Str
 	return results, nil
 }
 
-func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
+func newMockMachineAccessor(c *tc.C) *mockMachineAccessor {
 	return &mockMachineAccessor{
 		instanceIds: make(map[names.MachineTag]instance.Id),
 		watcher:     newMockNotifyWatcher(),

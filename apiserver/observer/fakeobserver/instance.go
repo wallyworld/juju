@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc"
 )
 
 // Instance is a fake Observer used for testing.
 type Instance struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 // Join implements Observer.
@@ -45,7 +45,7 @@ func (f *Instance) RPCObserver() rpc.Observer {
 
 // RPCInstance is a fake RPCObserver used for testing.
 type RPCInstance struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 // ServerReply implements Observer.

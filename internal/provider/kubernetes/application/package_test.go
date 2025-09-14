@@ -4,10 +4,7 @@
 package application
 
 import (
-	"testing"
-
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -17,14 +14,6 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
-)
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
-
-type (
-	AnnotationUpdater = annotationUpdater
 )
 
 func (a *app) LabelVersion() constants.LabelVersion {

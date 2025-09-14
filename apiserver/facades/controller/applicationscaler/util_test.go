@@ -5,8 +5,7 @@ package applicationscaler_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -67,11 +66,11 @@ type watchFixture struct {
 	Resources *common.Resources
 }
 
-func newWatchFixture(c *gc.C, working bool) *watchFixture {
+func newWatchFixture(c *tc.C, working bool) *watchFixture {
 	backend := &watchBackend{working: working}
 	resources := common.NewResources()
 	facade, err := applicationscaler.NewFacade(backend, resources, auth(true))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &watchFixture{facade, resources}
 }
 
@@ -97,9 +96,9 @@ type rescaleFixture struct {
 	Facade *applicationscaler.Facade
 }
 
-func newRescaleFixture(c *gc.C) *rescaleFixture {
+func newRescaleFixture(c *tc.C) *rescaleFixture {
 	facade, err := applicationscaler.NewFacade(rescaleBackend{}, nil, auth(true))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &rescaleFixture{facade}
 }
 

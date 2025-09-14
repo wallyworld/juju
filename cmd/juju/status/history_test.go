@@ -5,29 +5,31 @@ package status_test
 
 import (
 	"os"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	statuscmd "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type StatusHistorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	api statuscmd.HistoryAPI
 	now time.Time
 }
 
-var _ = gc.Suite(&StatusHistorySuite{})
+func TestStatusHistorySuite(t *tctesting.T) {
+	tc.Run(t, &StatusHistorySuite{})
+}
 
-func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
+func (s *StatusHistorySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.now = time.Date(2017, 11, 28, 12, 34, 56, 0, time.UTC)
 	s.api = &fakeHistoryAPI{
@@ -87,15 +89,15 @@ func (s *StatusHistorySuite) next() *time.Time {
 	return &value
 }
 
-func (s *StatusHistorySuite) TestMissingEntity(c *gc.C) {
+func (s *StatusHistorySuite) TestMissingEntity(c *tc.C) {
 	s.api = &fakeHistoryAPI{err: errors.NotFoundf("missing/0")}
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0")
-	c.Assert(err, gc.ErrorMatches, "missing/0 not found")
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "missing/0 not found")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "")
 }
 
-func (s *StatusHistorySuite) TestTabular(c *gc.C) {
+func (s *StatusHistorySuite) TestTabular(c *tc.C) {
 	c.Log(os.Environ())
 	expected := `
 Time                  Type       Status       Message
@@ -109,12 +111,12 @@ Time                  Type       Status       Message
 2017-11-28 12:41:56Z  model      suspended    invalid credentials
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }
 
-func (s *StatusHistorySuite) TestYaml(c *gc.C) {
+func (s *StatusHistorySuite) TestYaml(c *tc.C) {
 	c.Log(os.Environ())
 	expected := `
 - status: allocating
@@ -152,9 +154,9 @@ func (s *StatusHistorySuite) TestYaml(c *gc.C) {
   type: model
 `[1:]
 	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }
 
 type fakeHistoryAPI struct {

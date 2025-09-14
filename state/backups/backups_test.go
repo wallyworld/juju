@@ -10,12 +10,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -33,9 +33,11 @@ type backupsSuite struct {
 	dbSizeMiB        int
 }
 
-var _ = gc.Suite(&backupsSuite{}) // Register the suite.
+func TestBackupsSuite(t *tctesting.T) {
+	tc.Run(t, &backupsSuite{})
+} // Register the suite.
 
-func (s *backupsSuite) SetUpTest(c *gc.C) {
+func (s *backupsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.paths = &backups.Paths{
@@ -64,7 +66,7 @@ func (*fakeDumper) IsSnap() bool {
 	return false
 }
 
-func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
+func (s *backupsSuite) checkFailure(c *tc.C, expected string) {
 	s.PatchValue(backups.GetDBDumper, func(*backups.DBInfo) (backups.DBDumper, error) {
 		return &fakeDumper{}, nil
 	})
@@ -78,10 +80,10 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	meta.Notes = "some notes"
 
 	_, err := s.api.Create(meta, &dbInfo)
-	c.Check(err, gc.ErrorMatches, expected)
+	c.Check(err, tc.ErrorMatches, expected)
 }
 
-func (s *backupsSuite) TestCreateOkay(c *gc.C) {
+func (s *backupsSuite) TestCreateOkay(c *tc.C) {
 	// Patch the internals.
 	archiveFile := io.NopCloser(bytes.NewBufferString("<compressed tarball>"))
 	result := backups.NewTestCreateResult(
@@ -114,31 +116,31 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
 	resultFilename, err := s.api.Create(meta, &dbInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resultFilename, gc.Equals, path.Join(s.paths.BackupDir, "test-backup.tar.gz"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resultFilename, tc.Equals, path.Join(s.paths.BackupDir, "test-backup.tar.gz"))
 
 	// Test the call values.
 	resultBackupDir, filesToBackUp, _ := backups.ExposeCreateArgs(received)
-	c.Check(resultBackupDir, gc.Equals, s.paths.BackupDir)
-	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
+	c.Check(resultBackupDir, tc.Equals, s.paths.BackupDir)
+	c.Check(filesToBackUp, tc.SameContents, []string{"<some file>"})
 
-	c.Check(receivedDBInfo.Address, gc.Equals, "a")
-	c.Check(receivedDBInfo.Username, gc.Equals, "b")
-	c.Check(receivedDBInfo.Password, gc.Equals, "c")
-	c.Check(receivedDBInfo.Targets, gc.DeepEquals, targets)
+	c.Check(receivedDBInfo.Address, tc.Equals, "a")
+	c.Check(receivedDBInfo.Username, tc.Equals, "b")
+	c.Check(receivedDBInfo.Password, tc.Equals, "c")
+	c.Check(receivedDBInfo.Targets, tc.DeepEquals, targets)
 
-	c.Check(rootDir, gc.Equals, "")
+	c.Check(rootDir, tc.Equals, "")
 
 	// Check the resulting metadata.
-	c.Check(meta.Size(), gc.Equals, int64(10))
-	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
-	c.Check(meta.Origin.Model, gc.Equals, "<model ID>")
-	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
-	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
-	c.Check(meta.Notes, gc.Equals, "some notes")
+	c.Check(meta.Size(), tc.Equals, int64(10))
+	c.Check(meta.Checksum(), tc.Equals, "<checksum>")
+	c.Check(meta.Origin.Model, tc.Equals, "<model ID>")
+	c.Check(meta.Origin.Machine, tc.Equals, "<machine ID>")
+	c.Check(meta.Origin.Hostname, tc.Equals, "<hostname>")
+	c.Check(meta.Notes, tc.Equals, "some notes")
 }
 
-func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
+func (s *backupsSuite) TestCreateFailToListFiles(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
@@ -146,7 +148,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 	s.checkFailure(c, "while listing files to back up: failed!")
 }
 
-func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
+func (s *backupsSuite) TestCreateFailToCreate(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
@@ -155,7 +157,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 	s.checkFailure(c, "while creating backup archive: failed!")
 }
 
-func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
+func (s *backupsSuite) TestCreateFailToFinishMeta(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
@@ -166,7 +168,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 	s.checkFailure(c, "while updating metadata: failed!")
 }
 
-func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
+func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
@@ -178,7 +180,7 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
 	s.checkFailure(c, "not enough free space in .*; want 5129MiB, have 10MiB")
 }
 
-func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
+func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
@@ -190,7 +192,7 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
 	s.checkFailure(c, "not enough free space in .*; want 61560MiB, have 10MiB")
 }
 
-func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *gc.C) {
+func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *tc.C) {
 	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
@@ -202,31 +204,31 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *gc.C) {
 	s.checkFailure(c, "not enough free space in .*; want 2057MiB, have 10MiB")
 }
 
-func (s *backupsSuite) TestGetFileName(c *gc.C) {
+func (s *backupsSuite) TestGetFileName(c *tc.C) {
 	backupSubDir := filepath.Join(s.paths.BackupDir, "a", "b")
 	err := os.MkdirAll(backupSubDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	backupFilename := path.Join(backupSubDir, "juju-backup-123.tar.gz")
 	backupFile, err := os.Create(backupFilename)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = backupFile.Write([]byte("archive file testing"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = s.api.Get("/etc/hostname")
-	c.Assert(err, gc.ErrorMatches, `backup file "/etc/hostname" not valid`)
+	c.Assert(err, tc.ErrorMatches, `backup file "/etc/hostname" not valid`)
 
 	resultMeta, resultArchive, err := s.api.Get(backupFilename)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer resultArchive.Close()
 	resultMeta.FileMetadata.Checksum()
 
 	// Purpose for metadata here is for the checksum to be used by the
 	// caller, so check it here.
-	c.Assert(resultMeta.FileMetadata.Checksum(), gc.NotNil)
+	c.Assert(resultMeta.FileMetadata.Checksum(), tc.NotNil)
 	b, err := io.ReadAll(resultArchive)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(b), gc.Equals, "archive file testing")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(b), tc.Equals, "archive file testing")
 
 	_, err = os.Stat(backupFilename)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("stat %s: no such file or directory", backupFilename))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("stat %s: no such file or directory", backupFilename))
 }

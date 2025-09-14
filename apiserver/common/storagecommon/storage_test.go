@@ -4,10 +4,11 @@
 package storagecommon_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/state"
@@ -27,9 +28,11 @@ type VolumeStorageAttachmentInfoSuite struct {
 	blockDevices         []state.BlockDeviceInfo
 }
 
-var _ = gc.Suite(&VolumeStorageAttachmentInfoSuite{})
+func TestVolumeStorageAttachmentInfoSuite(t *tctesting.T) {
+	tc.Run(t, &VolumeStorageAttachmentInfoSuite{})
+}
 
-func (s *VolumeStorageAttachmentInfoSuite) SetUpTest(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {
 	s.machineTag = names.NewMachineTag("0")
 	s.volumeTag = names.NewVolumeTag("0")
 	s.storageTag = names.NewStorageTag("osd-devices/0")
@@ -87,7 +90,7 @@ func (s *VolumeStorageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentPlanInfoDeviceNameSet(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentPlanInfoDeviceNameSet(c *tc.C) {
 	// Plan block info takes precedence to attachment info, planInfo is observed directly
 	// on the machine itself, as opposed to volumeInfo which is "guessed" by the provider
 	s.volumeAttachmentPlan.blockInfo.DeviceName = "sdb"
@@ -99,83 +102,83 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentPlanInfoDeviceNa
 	}}
 	s.volumeAttachment.info.DeviceName = "sda"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sdb",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceName(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceName(c *tc.C) {
 	s.volumeAttachment.info.DeviceName = "sda"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sda",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMissingBlockDevice(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMissingBlockDevice(c *tc.C) {
 	// If the block device has not shown up yet,
 	// then we should get a NotProvisioned error.
 	s.blockDevices = nil
 	s.volumeAttachment.info.DeviceName = "sda"
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, tc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNameIgnoresEmptyLinks(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNameIgnoresEmptyLinks(c *tc.C) {
 	s.volumeAttachment.info.DeviceLink = "/dev/disk/by-id/verbatim"
 	s.volumeAttachment.info.DeviceName = "sda"
 	// Clear the machine block device link to force a match on name.
 	s.blockDevices[0].DeviceLinks = nil
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sda",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceLink(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceLink(c *tc.C) {
 	s.volumeAttachment.info.DeviceLink = "/dev/disk/by-id/verbatim"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/disk/by-id/verbatim",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardwareId(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardwareId(c *tc.C) {
 	s.volume.info.HardwareId = "whatever"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/disk/by-id/whatever",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *tc.C) {
 	s.volume.info.WWN = "drbr"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/disk/by-id/wwn-drbr",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevice(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevice(c *tc.C) {
 	// The bus address alone is not enough to produce a path to the block
 	// device; we need to find a published block device with the matching
 	// bus address.
@@ -187,30 +190,30 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBloc
 		BusAddress: s.volumeAttachment.info.BusAddress,
 	}}
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sdb",
 	})
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevice(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevice(c *tc.C) {
 	// Neither the volume nor the volume attachment has enough information
 	// to persistently identify the path, so we must enquire about block
 	// devices; there are none (yet), so NotProvisioned is returned.
 	s.volumeAttachment.info.BusAddress = "scsi@1:2.3.4"
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, tc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
 }
 
-func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFound(c *gc.C) {
+func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFound(c *tc.C) {
 	s.st.storageInstanceVolume = func(tag names.StorageTag) (state.Volume, error) {
 		return nil, errors.NotFoundf("volume for storage %s", tag.Id())
 	}
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, tc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume")
 }
 
@@ -225,9 +228,11 @@ type FilesystemStorageAttachmentInfoSuite struct {
 	filesystemAttachment *fakeFilesystemAttachment
 }
 
-var _ = gc.Suite(&FilesystemStorageAttachmentInfoSuite{})
+func TestFilesystemStorageAttachmentInfoSuite(t *tctesting.T) {
+	tc.Run(t, &FilesystemStorageAttachmentInfoSuite{})
+}
 
-func (s *FilesystemStorageAttachmentInfoSuite) SetUpTest(c *gc.C) {
+func (s *FilesystemStorageAttachmentInfoSuite) SetUpTest(c *tc.C) {
 	s.hostTag = names.NewUnitTag("mysql/0")
 	s.filsystemTag = names.NewFilesystemTag("0")
 	s.storageTag = names.NewStorageTag("data/0")
@@ -263,22 +268,22 @@ func (s *FilesystemStorageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *FilesystemStorageAttachmentInfoSuite) TestStorageAttachmentInfo(c *gc.C) {
+func (s *FilesystemStorageAttachmentInfoSuite) TestStorageAttachmentInfo(c *tc.C) {
 	s.filesystemAttachment.info.MountPoint = "/path/to/here"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.hostTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceFilesystem", "FilesystemAttachment")
-	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+	c.Assert(info, tc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindFilesystem,
 		Location: "/path/to/here",
 	})
 }
 
-func (s *FilesystemStorageAttachmentInfoSuite) TestStorageAttachmentInfoFilesystemNotFound(c *gc.C) {
+func (s *FilesystemStorageAttachmentInfoSuite) TestStorageAttachmentInfoFilesystemNotFound(c *tc.C) {
 	s.st.storageInstanceFilesystem = func(tag names.StorageTag) (state.Filesystem, error) {
 		return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
 	}
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.hostTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, tc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceFilesystem")
 }

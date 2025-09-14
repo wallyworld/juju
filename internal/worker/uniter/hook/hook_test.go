@@ -4,19 +4,22 @@
 package hook_test
 
 import (
-	"github.com/juju/charm/v12/hooks"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/charm/v12/hooks"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
-	"github.com/juju/juju/testing"
 )
 
 type InfoSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&InfoSuite{})
+func TestInfoSuite(t *tctesting.T) {
+	tc.Run(t, &InfoSuite{})
+}
 
 var validateTests = []struct {
 	info hook.Info
@@ -98,14 +101,14 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.PreSeriesUpgrade, MachineUpgradeTarget: "ubuntu@20.04"}, ""},
 }
 
-func (s *InfoSuite) TestValidate(c *gc.C) {
+func (s *InfoSuite) TestValidate(c *tc.C) {
 	for i, t := range validateTests {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		}
 	}
 }

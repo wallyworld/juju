@@ -7,25 +7,27 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
 	"github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var _ = gc.Suite(&storageTestSuite{})
+func TestStorageTestSuite(t *tctesting.T) {
+	tc.Run(t, &storageTestSuite{})
+}
 
 type storageTestSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stateBackend   *mocks.MockStateBackend
 	uploadedCharm  *mocks.MockUploadedCharm
@@ -34,7 +36,7 @@ type storageTestSuite struct {
 	uuid           utils.UUID
 }
 
-func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
+func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := "ch:ubuntu-lite"
@@ -43,10 +45,10 @@ func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 	s.uploadedCharm.EXPECT().IsUploaded().Return(false)
 
 	err := s.storage.PrepareToStoreCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
+func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := "ch:ubuntu-lite"
@@ -57,10 +59,10 @@ func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 	err := s.storage.PrepareToStoreCharm(curl)
 
 	expErr := downloader.NewCharmAlreadyStoredError(curl)
-	c.Assert(err, gc.Equals, expErr)
+	c.Assert(err, tc.Equals, expErr)
 }
 
-func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
+func (s *storageTestSuite) TestStoreBlobFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := "ch:ubuntu-lite"
@@ -74,10 +76,10 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 	s.storageBackend.EXPECT().Put(expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(errors.New("failed"))
 
 	err := s.storage.Store(curl, dlCharm)
-	c.Assert(err, gc.ErrorMatches, "cannot add charm to storage.*")
+	c.Assert(err, tc.ErrorMatches, "cannot add charm to storage.*")
 }
 
-func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
+func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := "ch:ubuntu-lite"
@@ -103,10 +105,10 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	s.storageBackend.EXPECT().Remove(expStoreCharmPath).Return(nil)
 
 	err := s.storage.Store(curl, dlCharm)
-	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
+	c.Assert(err, tc.ErrorIsNil) // charm already uploaded by someone; no error
 }
 
-func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *storageTestSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 	s.uploadedCharm = mocks.NewMockUploadedCharm(ctrl)
@@ -114,7 +116,7 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.uuid, err = utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.storage = services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       loggo.GetLogger("test"),

@@ -4,44 +4,47 @@
 package cache
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/pubsub/v2"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type modelWatcherSuite struct {
 	EntitySuite
 }
 
-var _ = gc.Suite(&modelWatcherSuite{})
+func TestModelWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &modelWatcherSuite{})
+}
 
 var modelChange = ModelChange{
 	ModelUUID: "some-uuid",
 }
 
-func (s *modelWatcherSuite) TestWorkerNoModel(c *gc.C) {
+func (s *modelWatcherSuite) TestWorkerNoModel(c *tc.C) {
 	w := newModelWatcher("some-uuid", s.Hub, nil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *modelWatcherSuite) TestWorkerWithModel(c *gc.C) {
+func (s *modelWatcherSuite) TestWorkerWithModel(c *tc.C) {
 	w := newModelWatcher("some-uuid", s.Hub, s.NewModel(modelChange))
 	workertest.CleanKill(c, w)
 }
 
-func (s *modelWatcherSuite) TestChangesWithModel(c *gc.C) {
+func (s *modelWatcherSuite) TestChangesWithModel(c *tc.C) {
 	model := s.NewModel(modelChange)
 	w := newModelWatcher("some-uuid", s.Hub, model)
 	defer workertest.CleanKill(c, w)
 
 	select {
 	case m := <-w.Changes():
-		c.Assert(m.UUID(), gc.Equals, "some-uuid")
+		c.Assert(m.UUID(), tc.Equals, "some-uuid")
 	case <-time.After(testing.ShortWait):
 		// There should be no time needed to wait as the model should be immediately
 		// available on the changes channel.
@@ -53,7 +56,7 @@ func (s *modelWatcherSuite) TestChangesWithModel(c *gc.C) {
 
 	select {
 	case m := <-w.Changes():
-		c.Assert(m.UUID(), gc.Equals, "some-uuid")
+		c.Assert(m.UUID(), tc.Equals, "some-uuid")
 	case <-time.After(testing.ShortWait):
 		// There should be no time needed to wait as the model should be immediately
 		// available on the changes channel.
@@ -61,7 +64,7 @@ func (s *modelWatcherSuite) TestChangesWithModel(c *gc.C) {
 	}
 }
 
-func (s *modelWatcherSuite) TestChangesNoModel(c *gc.C) {
+func (s *modelWatcherSuite) TestChangesNoModel(c *tc.C) {
 	w := newModelWatcher("some-uuid", s.Hub, nil)
 	defer workertest.CleanKill(c, w)
 
@@ -76,7 +79,7 @@ func (s *modelWatcherSuite) TestChangesNoModel(c *gc.C) {
 
 	select {
 	case m := <-w.Changes():
-		c.Assert(m.UUID(), gc.Equals, "some-uuid")
+		c.Assert(m.UUID(), tc.Equals, "some-uuid")
 	case <-time.After(testing.ShortWait):
 		// There should be no time needed to wait as the model should be immediately
 		// available on the changes channel.
@@ -84,7 +87,7 @@ func (s *modelWatcherSuite) TestChangesNoModel(c *gc.C) {
 	}
 }
 
-func (s *modelWatcherSuite) TestChangesDifferentModel(c *gc.C) {
+func (s *modelWatcherSuite) TestChangesDifferentModel(c *tc.C) {
 	w := newModelWatcher("some-uuid", s.Hub, nil)
 	defer workertest.CleanKill(c, w)
 
@@ -100,7 +103,7 @@ func (s *modelWatcherSuite) TestChangesDifferentModel(c *gc.C) {
 	}
 }
 
-func (s *modelWatcherSuite) TestMultipleUpdates(c *gc.C) {
+func (s *modelWatcherSuite) TestMultipleUpdates(c *tc.C) {
 	w := newModelWatcher("some-uuid", s.Hub, nil)
 	defer workertest.CleanKill(c, w)
 
@@ -119,7 +122,7 @@ func (s *modelWatcherSuite) TestMultipleUpdates(c *gc.C) {
 
 	select {
 	case m := <-w.Changes():
-		c.Assert(m.UUID(), gc.Equals, "some-uuid")
+		c.Assert(m.UUID(), tc.Equals, "some-uuid")
 	case <-time.After(testing.ShortWait):
 		// There should be no time needed to wait as the model should be immediately
 		// available on the changes channel.

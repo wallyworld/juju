@@ -10,8 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/storage"
@@ -19,7 +18,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
+func (s *ListSuite) TestVolumeListEmpty(c *tc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, nil
 	}
@@ -30,20 +29,20 @@ func (s *ListSuite) TestVolumeListEmpty(c *gc.C) {
 	)
 }
 
-func (s *ListSuite) TestVolumeListError(c *gc.C) {
+func (s *ListSuite) TestVolumeListError(c *tc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		return nil, errors.New("just my luck")
 	}
 	context, err := s.runVolumeList(c, "--format", "yaml")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "just my luck")
 	s.assertUserFacingVolumeOutput(c, context, "", "")
 }
 
-func (s *ListSuite) TestVolumeListArgs(c *gc.C) {
+func (s *ListSuite) TestVolumeListArgs(c *tc.C) {
 	var called bool
 	expectedArgs := []string{"a", "b", "c"}
 	s.mockAPI.listVolumes = func(arg []string) ([]params.VolumeDetailsListResult, error) {
-		c.Assert(arg, jc.DeepEquals, expectedArgs)
+		c.Assert(arg, tc.DeepEquals, expectedArgs)
 		called = true
 		return nil, nil
 	}
@@ -52,10 +51,10 @@ func (s *ListSuite) TestVolumeListArgs(c *gc.C) {
 		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
 	)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *ListSuite) TestVolumeListYaml(c *gc.C) {
+func (s *ListSuite) TestVolumeListYaml(c *tc.C) {
 	s.assertUnmarshalledVolumeOutput(
 		c,
 		goyaml.Unmarshal,
@@ -63,7 +62,7 @@ func (s *ListSuite) TestVolumeListYaml(c *gc.C) {
 		"--format", "yaml")
 }
 
-func (s *ListSuite) TestVolumeListJSON(c *gc.C) {
+func (s *ListSuite) TestVolumeListJSON(c *tc.C) {
 	s.assertUnmarshalledVolumeOutput(
 		c,
 		json.Unmarshal,
@@ -71,7 +70,7 @@ func (s *ListSuite) TestVolumeListJSON(c *gc.C) {
 		"--format", "json")
 }
 
-func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
+func (s *ListSuite) TestVolumeListWithErrorResults(c *tc.C) {
 	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
 		var emptyMockAPI mockListAPI
 		results, _ := emptyMockAPI.ListVolumes(nil)
@@ -99,7 +98,7 @@ Machine  Unit         Storage ID   Volume ID  Provider ID                   Devi
 1                                  3                                                42 MiB   pending    
 `[1:]
 
-func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
+func (s *ListSuite) TestVolumeListTabular(c *tc.C) {
 	s.assertValidVolumeList(c, []string{}, expectedVolumeListTabular)
 
 	// Do it again, reversing the results returned by the API.
@@ -121,7 +120,7 @@ Unit     Storage ID   Volume ID  Provider ID                 Size     State     
 mysql/0  db-dir/1001  0          provider-supplied-volume-0  512 MiB  attached  
 `[1:]
 
-func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {
+func (s *ListSuite) TestCAASVolumeListTabular(c *tc.C) {
 	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
 
 	// Do it again, reversing the results returned by the API.
@@ -166,28 +165,28 @@ func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {
 	s.assertValidVolumeList(c, []string{}, expectedCAASVolumeListTabular)
 }
 
-func (s *ListSuite) assertUnmarshalledVolumeOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
+func (s *ListSuite) assertUnmarshalledVolumeOutput(c *tc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runVolumeList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var result struct {
 		Volumes map[string]storage.VolumeInfo
 	}
 	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := s.expectVolume(c, nil)
-	c.Assert(result.Volumes, jc.DeepEquals, expected)
+	c.Assert(result.Volumes, tc.DeepEquals, expected)
 
 	obtainedErr := cmdtesting.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, expectedErr)
+	c.Assert(obtainedErr, tc.Equals, expectedErr)
 }
 
 // expect returns the VolumeInfo mapping we should expect to unmarshal
 // from rendered YAML or JSON.
-func (s *ListSuite) expectVolume(c *gc.C, machines []string) map[string]storage.VolumeInfo {
+func (s *ListSuite) expectVolume(c *tc.C, machines []string) map[string]storage.VolumeInfo {
 	all, err := s.mockAPI.ListVolumes(machines)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var valid []params.VolumeDetails
 	for _, result := range all {
@@ -196,27 +195,27 @@ func (s *ListSuite) expectVolume(c *gc.C, machines []string) map[string]storage.
 		}
 	}
 	result, err := storage.ConvertToVolumeInfo(valid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result
 }
 
-func (s *ListSuite) assertValidVolumeList(c *gc.C, args []string, expectedOut string) {
+func (s *ListSuite) assertValidVolumeList(c *tc.C, args []string, expectedOut string) {
 	context, err := s.runVolumeList(c, args...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUserFacingVolumeOutput(c, context, expectedOut, "")
 }
 
-func (s *ListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *ListSuite) runVolumeList(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c,
 		storage.NewListCommandForTest(s.mockAPI, s.store), append(args, "--volume")...)
 }
 
-func (s *ListSuite) assertUserFacingVolumeOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
+func (s *ListSuite) assertUserFacingVolumeOutput(c *tc.C, context *cmd.Context, expectedOut, expectedErr string) {
 	obtainedOut := cmdtesting.Stdout(context)
-	c.Assert(obtainedOut, gc.Equals, expectedOut)
+	c.Assert(obtainedOut, tc.Equals, expectedOut)
 
 	obtainedErr := cmdtesting.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, expectedErr)
+	c.Assert(obtainedErr, tc.Equals, expectedErr)
 }
 
 func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {

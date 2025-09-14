@@ -6,19 +6,21 @@ package azurecli_test
 import (
 	"os/exec"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/azure/internal/azurecli"
 )
 
 type azSuite struct{}
 
-var _ = gc.Suite(&azSuite{})
+func TestAzSuite(t *tctesting.T) {
+	tc.Run(t, &azSuite{})
+}
 
-func (s *azSuite) TestShowAccount(c *gc.C) {
+func (s *azSuite) TestShowAccount(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -43,8 +45,8 @@ func (s *azSuite) TestShowAccount(c *gc.C) {
 		}.Exec,
 	}
 	acc, err := azcli.ShowAccount("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(acc, jc.DeepEquals, &azurecli.Account{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(acc, tc.DeepEquals, &azurecli.Account{
 		CloudName: "AzureCloud",
 		ID:        "5544b9a5-0000-0000-0000-fedceb5d3696",
 		IsDefault: true,
@@ -54,7 +56,7 @@ func (s *azSuite) TestShowAccount(c *gc.C) {
 	})
 }
 
-func (s *azSuite) TestShowAccountWithSubscription(c *gc.C) {
+func (s *azSuite) TestShowAccountWithSubscription(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -79,8 +81,8 @@ func (s *azSuite) TestShowAccountWithSubscription(c *gc.C) {
 		}.Exec,
 	}
 	acc, err := azcli.ShowAccount("5544b9a5-0000-0000-0000-fedceb5d3696")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(acc, jc.DeepEquals, &azurecli.Account{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(acc, tc.DeepEquals, &azurecli.Account{
 		CloudName: "AzureCloud",
 		ID:        "5544b9a5-0000-0000-0000-fedceb5d3696",
 		IsDefault: true,
@@ -90,7 +92,7 @@ func (s *azSuite) TestShowAccountWithSubscription(c *gc.C) {
 	})
 }
 
-func (s *azSuite) TestShowAccountError(c *gc.C) {
+func (s *azSuite) TestShowAccountError(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -101,11 +103,11 @@ func (s *azSuite) TestShowAccountError(c *gc.C) {
 		}.Exec,
 	}
 	acc, err := azcli.ShowAccount("")
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(acc, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `execution failure: test error`)
+	c.Assert(acc, tc.IsNil)
 }
 
-func (s *azSuite) TestListAccounts(c *gc.C) {
+func (s *azSuite) TestListAccounts(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -143,8 +145,8 @@ func (s *azSuite) TestListAccounts(c *gc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.ListAccounts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accs, jc.DeepEquals, []azurecli.Account{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accs, tc.DeepEquals, []azurecli.Account{{
 		CloudName: "AzureCloud",
 		ID:        "d7ad3057-0000-0000-0000-513d7136eec5",
 		IsDefault: false,
@@ -161,7 +163,7 @@ func (s *azSuite) TestListAccounts(c *gc.C) {
 	}})
 }
 
-func (s *azSuite) TestListAccountsError(c *gc.C) {
+func (s *azSuite) TestListAccountsError(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -172,11 +174,11 @@ func (s *azSuite) TestListAccountsError(c *gc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.ListAccounts()
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(accs, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `execution failure: test error`)
+	c.Assert(accs, tc.IsNil)
 }
 
-func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
+func (s *azSuite) TestFindAccountsWithCloudName(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -215,8 +217,8 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.FindAccountsWithCloudName("AzureCloud")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accs, jc.DeepEquals, []azurecli.Account{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accs, tc.DeepEquals, []azurecli.Account{{
 		CloudName:    "AzureCloud",
 		ID:           "d7ad3057-0000-0000-0000-513d7136eec5",
 		IsDefault:    false,
@@ -232,11 +234,11 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
 		State:     "Enabled",
 		TenantId:  "2da419a9-0000-0000-0000-ac7c24bbe2e7",
 	}})
-	c.Assert(accs[0].AuthTenantId(), gc.Equals, accs[0].HomeTenantId)
-	c.Assert(accs[1].AuthTenantId(), gc.Equals, accs[1].TenantId)
+	c.Assert(accs[0].AuthTenantId(), tc.Equals, accs[0].HomeTenantId)
+	c.Assert(accs[1].AuthTenantId(), tc.Equals, accs[1].TenantId)
 }
 
-func (s *azSuite) TestFindAccountsWithCloudNameError(c *gc.C) {
+func (s *azSuite) TestFindAccountsWithCloudNameError(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -247,11 +249,11 @@ func (s *azSuite) TestFindAccountsWithCloudNameError(c *gc.C) {
 		}.Exec,
 	}
 	accs, err := azcli.FindAccountsWithCloudName("AzureCloud")
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(accs, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `execution failure: test error`)
+	c.Assert(accs, tc.IsNil)
 }
 
-func (s *azSuite) TestShowCloud(c *gc.C) {
+func (s *azSuite) TestShowCloud(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -268,15 +270,15 @@ func (s *azSuite) TestShowCloud(c *gc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ShowCloud("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloud, tc.DeepEquals, &azurecli.Cloud{
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",
 	})
 }
 
-func (s *azSuite) TestShowCloudWithName(c *gc.C) {
+func (s *azSuite) TestShowCloudWithName(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -293,15 +295,15 @@ func (s *azSuite) TestShowCloudWithName(c *gc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ShowCloud("AzureUSGovernment")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloud, tc.DeepEquals, &azurecli.Cloud{
 		IsActive: false,
 		Name:     "AzureUSGovernment",
 		Profile:  "latest",
 	})
 }
 
-func (s *azSuite) TestShowCloudError(c *gc.C) {
+func (s *azSuite) TestShowCloudError(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -312,11 +314,11 @@ func (s *azSuite) TestShowCloudError(c *gc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ShowCloud("")
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(cloud, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `execution failure: test error`)
+	c.Assert(cloud, tc.IsNil)
 }
 
-func (s *azSuite) TestListClouds(c *gc.C) {
+func (s *azSuite) TestListClouds(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -351,8 +353,8 @@ func (s *azSuite) TestListClouds(c *gc.C) {
 		}.Exec,
 	}
 	clouds, err := azcli.ListClouds()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clouds, jc.DeepEquals, []azurecli.Cloud{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clouds, tc.DeepEquals, []azurecli.Cloud{{
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",
@@ -371,7 +373,7 @@ func (s *azSuite) TestListClouds(c *gc.C) {
 	}})
 }
 
-func (s *azSuite) TestListCloudsError(c *gc.C) {
+func (s *azSuite) TestListCloudsError(c *tc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
@@ -382,8 +384,8 @@ func (s *azSuite) TestListCloudsError(c *gc.C) {
 		}.Exec,
 	}
 	cloud, err := azcli.ListClouds()
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(cloud, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `execution failure: test error`)
+	c.Assert(cloud, tc.IsNil)
 }
 
 type result struct {

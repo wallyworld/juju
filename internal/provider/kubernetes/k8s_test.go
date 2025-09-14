@@ -7,17 +7,17 @@ import (
 	stdcontext "context"
 	"fmt"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -64,17 +64,19 @@ import (
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 type K8sSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&K8sSuite{})
+func TestK8sSuite(t *tctesting.T) {
+	tc.Run(t, &K8sSuite{})
+}
 
-func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *tc.C) {
 	podSpec := specs.PodSpec{
 		ServiceAccount: primeServiceAccount,
 	}
@@ -130,8 +132,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", &podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
@@ -190,7 +192,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *tc.C) {
 
 	podSpec := specs.PodSpec{
 		ServiceAccount: primeServiceAccount,
@@ -336,8 +338,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", &podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{},
 		Annotations: annotations.Annotation{},
 		PodSpec: core.PodSpec{
@@ -421,7 +423,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *tc.C) {
 	podSpec := specs.PodSpec{}
 	podSpec.Containers = []specs.ContainerSpec{
 		{
@@ -462,8 +464,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", &podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
 			Containers: []core.Container{
 				{
@@ -518,7 +520,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpec(c *tc.C) {
 
 	podSpec := specs.PodSpec{
 		ServiceAccount: primeServiceAccount,
@@ -557,8 +559,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", &podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		Labels:      map[string]string{"foo": "bax"},
 		Annotations: map[string]string{"foo": "baz"},
 		PodSpec: core.PodSpec{
@@ -597,7 +599,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *tc.C) {
 	podSpec := specs.PodSpec{ServiceAccount: primeServiceAccount}
 	podSpec.Containers = []specs.ContainerSpec{
 		{
@@ -611,8 +613,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", &podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
 			ServiceAccountName:           "app-name",
 			AutomountServiceAccountToken: pointer.BoolPtr(true),
@@ -711,10 +713,10 @@ var primeServiceAccount = &specs.PrimeServiceAccountSpecV3{
 	},
 }
 
-func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]string) *core.Secret {
+func (s *K8sBrokerSuite) getOCIImageSecret(c *tc.C, annotations map[string]string) *core.Secret {
 	details := getBasicPodspec().Containers[0].ImageDetails
 	secretData, err := k8sutils.CreateDockerConfigJSON(details.Username, details.Password, details.ImagePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
@@ -732,12 +734,12 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 	}
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *tc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", getBasicPodspec(), coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
 			ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
 			InitContainers:   initContainers(),
@@ -781,7 +783,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *tc.C) {
 	spec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", getBasicPodspec(),
 		coreresources.DockerImageDetails{
@@ -792,10 +794,10 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	initContainerSpec := initContainers()[0]
 	initContainerSpec.Image = "example.com/operator/image-path"
-	c.Assert(provider.Pod(spec), jc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
+	c.Assert(provider.Pod(spec), tc.DeepEquals, k8sspecs.PodSpecWithAnnotations{
 		PodSpec: core.PodSpec{
 			ImagePullSecrets: []core.LocalObjectReference{
 				{Name: "app-name-test-secret"},
@@ -846,18 +848,20 @@ type K8sBrokerSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&K8sBrokerSuite{})
+func TestK8sBrokerSuite(t *tctesting.T) {
+	tc.Run(t, &K8sBrokerSuite{})
+}
 
 type fileSetToVolumeResultChecker func(core.Volume, error)
 
-func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, resultChecker fileSetToVolumeResultChecker, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertFileSetToVolume(c *tc.C, fs specs.FileSet, resultChecker fileSetToVolumeResultChecker, assertCalls ...any) {
 
 	cfgMapName := func(n string) string { return n }
 
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", getBasicPodspec(), coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
 		"log-config": map[string]string{
 			"log_level": "INFO",
@@ -882,7 +886,7 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 	resultChecker(vol, err)
 }
 
-func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
+func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -902,11 +906,11 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	var err error
 	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, "", newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Test namespace is actually empty string and a namespaced method fails.
 	_, err = s.broker.GetPod("test")
-	c.Assert(err, gc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
+	c.Assert(err, tc.ErrorMatches, `bootstrap broker or no namespace not provisioned`)
 
 	nsInput := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -915,17 +919,17 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Times(2).
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).
 			Return(nsInput, nil),
 	)
 
 	// Check a cluster wide resource is still accessible.
 	ns, err := s.broker.GetNamespace("test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ns, gc.DeepEquals, nsInput)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ns, tc.DeepEquals, nsInput)
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -953,7 +957,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	s.setupBroker(c, ctrl, newControllerUUID, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -974,7 +978,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -989,7 +993,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
@@ -1012,7 +1016,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 	s.setupBroker(c, ctrl, testing.ControllerTag.Id(), newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, "").Finish()
 }
 
-func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
+func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1041,8 +1045,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 	s.assertFileSetToVolume(
 		c, fs,
 		func(vol core.Volume, err error) {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(vol, gc.DeepEquals, core.Volume{
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(vol, tc.DeepEquals, core.Volume{
 				Name: "configuration",
 				VolumeSource: core.VolumeSource{
 					ConfigMap: &core.ConfigMapVolumeSource{
@@ -1063,18 +1067,18 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
+func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	type tc struct {
+	type test struct {
 		fs            specs.FileSet
 		resultChecker fileSetToVolumeResultChecker
 	}
 
 	hostPathType := core.HostPathDirectory
 
-	for i, t := range []tc{
+	for i, t := range []test{
 		{
 			fs: specs.FileSet{
 				Name:      "myhostpath",
@@ -1087,8 +1091,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(vol core.Volume, err error) {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(vol, gc.DeepEquals, core.Volume{
+				c.Check(err, tc.ErrorIsNil)
+				c.Check(vol, tc.DeepEquals, core.Volume{
 					Name: "myhostpath",
 					VolumeSource: core.VolumeSource{
 						HostPath: &core.HostPathVolumeSource{
@@ -1110,8 +1114,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(vol core.Volume, err error) {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(vol, gc.DeepEquals, core.Volume{
+				c.Check(err, tc.ErrorIsNil)
+				c.Check(vol, tc.DeepEquals, core.Volume{
 					Name: "cache-volume",
 					VolumeSource: core.VolumeSource{
 						EmptyDir: &core.EmptyDirVolumeSource{
@@ -1140,8 +1144,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(vol core.Volume, err error) {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(vol, gc.DeepEquals, core.Volume{
+				c.Check(err, tc.ErrorIsNil)
+				c.Check(vol, tc.DeepEquals, core.Volume{
 					Name: "log_level",
 					VolumeSource: core.VolumeSource{
 						ConfigMap: &core.ConfigMapVolumeSource{
@@ -1180,7 +1184,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(_ core.Volume, err error) {
-				c.Check(err, gc.ErrorMatches, `cannot mount a volume using a config map if the config map "non-existing-config-map" is not specified in the pod spec YAML`)
+				c.Check(err, tc.ErrorMatches, `cannot mount a volume using a config map if the config map "non-existing-config-map" is not specified in the pod spec YAML`)
 			},
 		},
 		{
@@ -1202,8 +1206,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(vol core.Volume, err error) {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(vol, gc.DeepEquals, core.Volume{
+				c.Check(err, tc.ErrorIsNil)
+				c.Check(vol, tc.DeepEquals, core.Volume{
 					Name: "mysecret2",
 					VolumeSource: core.VolumeSource{
 						Secret: &core.SecretVolumeSource{
@@ -1240,7 +1244,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(_ core.Volume, err error) {
-				c.Check(err, gc.ErrorMatches, `cannot mount a volume using a secret if the secret "non-existing-secret" is not specified in the pod spec YAML`)
+				c.Check(err, tc.ErrorMatches, `cannot mount a volume using a secret if the secret "non-existing-secret" is not specified in the pod spec YAML`)
 			},
 		},
 	} {
@@ -1251,7 +1255,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
+func (s *K8sBrokerSuite) TestConfigurePodFiles(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1325,7 +1329,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
 		"log-config": map[string]string{
 			"log_level": "INFO",
@@ -1336,7 +1340,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	}
 
 	// before populate volumes to pod and volume mounts to containers.
-	c.Assert(workloadSpec.Pod.Volumes, gc.DeepEquals, dataVolumes())
+	c.Assert(workloadSpec.Pod.Volumes, tc.DeepEquals, dataVolumes())
 	workloadSpec.Pod.Containers = []core.Container{
 		{
 			Name:            "test",
@@ -1381,9 +1385,9 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	err = s.broker.ConfigurePodFiles(
 		"app-name", annotations, workloadSpec, basicPodSpec.Containers, cfgMapName,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hostPathType := core.HostPathDirectory
-	c.Assert(workloadSpec.Pod.Volumes, gc.DeepEquals, append(dataVolumes(), []core.Volume{
+	c.Assert(workloadSpec.Pod.Volumes, tc.DeepEquals, append(dataVolumes(), []core.Volume{
 		{
 			Name: "myhostpath",
 			VolumeSource: core.VolumeSource{
@@ -1402,7 +1406,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			},
 		},
 	}...))
-	c.Assert(workloadSpec.Pod.Containers, gc.DeepEquals, []core.Container{
+	c.Assert(workloadSpec.Pod.Containers, tc.DeepEquals, []core.Container{
 		{
 			Name:            "test",
 			Image:           "juju-repo.local/juju/image",
@@ -1427,7 +1431,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 			}...),
 		},
 	})
-	c.Assert(workloadSpec.Pod.InitContainers, gc.DeepEquals, []core.Container{
+	c.Assert(workloadSpec.Pod.InitContainers, tc.DeepEquals, []core.Container{
 		{
 			Name:  "test2",
 			Image: "juju-repo.local/juju/image2",
@@ -1445,7 +1449,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	})
 }
 
-func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
+func (s *K8sBrokerSuite) TestAPIVersion(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1456,26 +1460,26 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 	)
 
 	ver, err := s.broker.APIVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, "1.16.0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ver, tc.DeepEquals, "1.16.0")
 }
 
-func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
+func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	c.Assert(s.broker.Config(), jc.DeepEquals, s.cfg)
+	c.Assert(s.broker.Config(), tc.DeepEquals, s.cfg)
 }
 
-func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
+func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	err := s.broker.SetConfig(s.cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1488,12 +1492,12 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	}
 
 	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "config without operator-storage value not valid.*")
+	c.Assert(msg, tc.Matches, "config without operator-storage value not valid.*")
 }
 
-func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1521,25 +1525,25 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 			Return(sc, nil),
 	)
 	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.CaasBootstrapFinalizer, tc.NotNil)
 
 	bootstrapParams.BootstrapBase = base.MustParseBaseFromString("ubuntu@18.04")
 	_, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *gc.C) {
+func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *tc.C) {
 	cfg := s.broker.Config()
 	var err error
 	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.broker.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1564,12 +1568,12 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), tc.ErrorIsNil,
 	)
-	c.Assert(s.broker.Namespace(), jc.DeepEquals, "controller-ctrl-1")
+	c.Assert(s.broker.Namespace(), tc.DeepEquals, "controller-ctrl-1")
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1581,11 +1585,11 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 	)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), tc.Satisfies, errors.IsAlreadyExists,
 	)
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotations(c *gc.C) {
+func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotations(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1599,11 +1603,11 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 	)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), tc.Satisfies, errors.IsAlreadyExists,
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetNamespace(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1615,11 +1619,11 @@ func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 	)
 
 	out, err := s.broker.GetNamespace("test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, ns)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, ns)
 }
 
-func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1629,11 +1633,11 @@ func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
 	)
 
 	out, err := s.broker.GetNamespace("unknown-namespace")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(out, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(out, tc.IsNil)
 }
 
-func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
+func (s *K8sBrokerSuite) TestNamespaces(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1645,11 +1649,11 @@ func (s *K8sBrokerSuite) TestNamespaces(c *gc.C) {
 	)
 
 	result, err := s.broker.Namespaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []string{"test", "test2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.SameContents, []string{"test", "test2"})
 }
 
-func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc func() error) {
+func (s *K8sBrokerSuite) assertDestroy(c *tc.C, isController bool, destroyFunc func() error) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1919,28 +1923,28 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	}()
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-errCh:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		for _, watcher := range s.watchers {
-			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for destroyFunc return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
+func (s *K8sBrokerSuite) TestDestroyController(c *tc.C) {
 	s.assertDestroy(c, true, func() error {
 		return s.broker.DestroyController(context.NewEmptyCloudCallContext(), testing.ControllerTag.Id())
 	})
 }
 
-func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1953,7 +1957,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 	}
 
 	data, err := imageRepo.SecretData()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -1976,20 +1980,20 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 			Return(secret, nil),
 	)
 	err = s.broker.EnsureImageRepoSecret(imageRepo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
+func (s *K8sBrokerSuite) TestDestroy(c *tc.C) {
 	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewEmptyCloudCallContext()) })
 }
 
-func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.getNamespace())
+	c.Assert(s.broker.Namespace(), tc.DeepEquals, s.getNamespace())
 }
 
-func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2008,10 +2012,10 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 		&context.CloudCallContext{},
 		environs.CreateParams{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2030,7 +2034,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 		&context.CloudCallContext{},
 		environs.CreateParams{},
 	)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, tc.Satisfies, errors.IsAlreadyExists)
 }
 
 func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *appsv1.StatefulSet {
@@ -2086,7 +2090,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 	}
 }
 
-func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2267,10 +2271,10 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 	)
 
 	err := s.broker.DeleteService("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2294,10 +2298,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoUnits(c *gc.C) {
 		PodSpec: getBasicPodspec(),
 	}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 0, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceNoSpecProvided(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceNoSpecProvided(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2308,10 +2312,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoSpecProvided(c *gc.C) {
 
 	params := &caas.ServiceParams{}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 1, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceBothPodSpecAndRawK8sSpecProvided(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceBothPodSpecAndRawK8sSpecProvided(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2325,10 +2329,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceBothPodSpecAndRawK8sSpecProvided(c *gc
 		RawK8sSpec: `fake raw spec`,
 	}
 	err := s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 1, nil)
-	c.Assert(err, gc.ErrorMatches, `both pod spec and raw k8s spec provided not valid`)
+	c.Assert(err, tc.ErrorMatches, `both pod spec and raw k8s spec provided not valid`)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2342,7 +2346,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
@@ -2433,10 +2437,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *tc.C) {
 	// TODO: use this instead of gomock inside k8s testing.
 	k8sClientSet := k8sfake.NewSimpleClientset()
 	extClientSet := apiextensionsclientsetfake.NewSimpleClientset()
@@ -2444,10 +2448,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
 	restClient := &k8srestfake.RESTClient{}
 
 	newK8sClientFunc := func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
-		c.Assert(cfg.Username, gc.Equals, "fred")
-		c.Assert(cfg.Password, gc.Equals, "secret")
-		c.Assert(cfg.Host, gc.Equals, "some-host")
-		c.Assert(cfg.TLSClientConfig, jc.DeepEquals, rest.TLSClientConfig{
+		c.Assert(cfg.Username, tc.Equals, "fred")
+		c.Assert(cfg.Password, tc.Equals, "secret")
+		c.Assert(cfg.Host, tc.Equals, "some-host")
+		c.Assert(cfg.TLSClientConfig, tc.DeepEquals, rest.TLSClientConfig{
 			CertData: []byte("cert-data"),
 			KeyData:  []byte("cert-key"),
 			CAData:   []byte(testing.CACert),
@@ -2481,11 +2485,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	listFirst, err := k8sClientSet.AppsV1().Deployments(s.getNamespace()).List(stdcontext.TODO(), v1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listFirst.Items, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(listFirst.Items, tc.HasLen, 1)
 
 	// Update and swap the ports between containers
 	basicPodSpec2 := getBasicPodspec()
@@ -2510,43 +2514,43 @@ func (s *K8sBrokerSuite) TestEnsureServiceUpgrade(c *gc.C) {
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	listLast, err := k8sClientSet.AppsV1().Deployments(s.getNamespace()).List(stdcontext.TODO(), v1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listFirst.Items, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(listFirst.Items, tc.HasLen, 1)
 
 	before := listFirst.Items[0]
 	after := listLast.Items[0]
 
 	// Check the containers swapped their ports between them.
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].Name`, jc.Ignore)
-	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].ContainerPort`, jc.Ignore)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].Name`, tc.Ignore)
+	mc.AddExpr(`_.Spec.Template.Spec.Containers[_].Ports[_].ContainerPort`, tc.Ignore)
 	c.Assert(after, mc, before)
-	c.Assert(before.Spec.Template.Spec.Containers[0].Ports[0], gc.DeepEquals, core.ContainerPort{
+	c.Assert(before.Spec.Template.Spec.Containers[0].Ports[0], tc.DeepEquals, core.ContainerPort{
 		Name:          "",
 		ContainerPort: 80,
 		Protocol:      core.ProtocolTCP,
 	})
-	c.Assert(before.Spec.Template.Spec.Containers[1].Ports[0], gc.DeepEquals, core.ContainerPort{
+	c.Assert(before.Spec.Template.Spec.Containers[1].Ports[0], tc.DeepEquals, core.ContainerPort{
 		Name:          "fred",
 		ContainerPort: 8080,
 		Protocol:      core.ProtocolTCP,
 	})
-	c.Assert(after.Spec.Template.Spec.Containers[0].Ports[0], gc.DeepEquals, core.ContainerPort{
+	c.Assert(after.Spec.Template.Spec.Containers[0].Ports[0], tc.DeepEquals, core.ContainerPort{
 		Name:          "fred",
 		ContainerPort: 8080,
 		Protocol:      core.ProtocolTCP,
 	})
-	c.Assert(after.Spec.Template.Spec.Containers[1].Ports[0], gc.DeepEquals, core.ContainerPort{
+	c.Assert(after.Spec.Template.Spec.Containers[1].Ports[0], tc.DeepEquals, core.ContainerPort{
 		Name:          "",
 		ContainerPort: 80,
 		Protocol:      core.ProtocolTCP,
 	})
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2566,7 +2570,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
@@ -2663,10 +2667,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithUpdateStrategy(c *gc.
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2702,10 +2706,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, gc.ErrorMatches, `ScalePolicy is only supported for stateful applications`)
+	c.Assert(err, tc.ErrorMatches, `ScalePolicy is only supported for stateful applications`)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -2765,7 +2769,7 @@ password: shhhh`[1:],
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
@@ -2883,7 +2887,7 @@ password: shhhh`[1:],
 			"password": "MWYyZDFlMmU2N2Rm",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	secrets2 := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
@@ -2951,10 +2955,10 @@ password: shhhh`[1:],
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithExtraServicesConfigMapAndSecretsUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3014,7 +3018,7 @@ password: shhhh`[1:],
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	deploymentArg := &appsv1.Deployment{
@@ -3133,7 +3137,7 @@ password: shhhh`[1:],
 			"password": "MWYyZDFlMmU2N2Rm",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	secrets2 := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
@@ -3209,10 +3213,10 @@ password: shhhh`[1:],
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
+func (s *K8sBrokerSuite) TestVersion(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3223,11 +3227,11 @@ func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
 	)
 
 	ver, err := s.broker.Version()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 15})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ver, tc.DeepEquals, &version.Number{Major: 1, Minor: 15})
 }
 
-func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
+func (s *K8sBrokerSuite) TestSupportedFeatures(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3238,8 +3242,8 @@ func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
 	)
 
 	fs, err := s.broker.SupportedFeatures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fs.AsList(), gc.DeepEquals, []assumes.Feature{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fs.AsList(), tc.DeepEquals, []assumes.Feature{
 		{
 			Name:        "k8s-api",
 			Description: "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
@@ -3248,7 +3252,7 @@ func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
 	})
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3268,11 +3272,11 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 	)
 
 	caasSvc, err := s.broker.GetService("app-name", caas.ModeWorkload, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(caasSvc, tc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertGetService(c *tc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	if mode == caas.ModeOperator {
 		selectorLabels = map[string]string{
@@ -3338,11 +3342,11 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, exp
 	)
 
 	caasSvc, err := s.broker.GetService("app-name", mode, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caasSvc, gc.DeepEquals, expectedSvcResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(caasSvc, tc.DeepEquals, expectedSvcResult)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 	s.assertGetService(c,
@@ -3363,13 +3367,13 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *tc.C) {
 	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
 		s.assertGetServiceSvcFoundWithStatefulSet(c, mode)
 	}
 }
 
-func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode caas.DeploymentMode) {
+func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *tc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3386,7 +3390,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		appName, "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -3456,13 +3460,13 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *tc.C) {
 	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
 		s.assertGetServiceSvcFoundWithDeployment(c, mode)
 	}
 }
 
-func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode caas.DeploymentMode) {
+func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *tc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3479,7 +3483,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		appName, "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -3550,7 +3554,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 	)
 }
 
-func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3561,7 +3565,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	workload := &appsv1.DaemonSet{
@@ -3624,7 +3628,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3635,7 +3639,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -3710,10 +3714,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3721,7 +3725,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -3798,10 +3802,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3821,9 +3825,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 		v.Ports = []specs.ContainerPort{}
 		caasPodSpec.Containers[k] = v
 	}
-	c.Assert(caasPodSpec.OmitServiceFrontend, jc.IsFalse)
+	c.Assert(caasPodSpec.OmitServiceFrontend, tc.IsFalse)
 	for _, v := range caasPodSpec.Containers {
-		c.Check(len(v.Ports), jc.DeepEquals, 0)
+		c.Check(len(v.Ports), tc.DeepEquals, 0)
 	}
 	params := &caas.ServiceParams{
 		PodSpec: caasPodSpec,
@@ -3843,10 +3847,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			"kubernetes-service-externalname":    "ext-name",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `ports are required for kubernetes service "app-name"`)
+	c.Assert(err, tc.ErrorMatches, `ports are required for kubernetes service "app-name"`)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3857,7 +3861,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -4003,10 +4007,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -4017,7 +4021,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -4169,10 +4173,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -4199,7 +4203,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -4351,10 +4355,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -4381,7 +4385,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -4540,13 +4544,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for EnsureService return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountNameSpaced(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountNameSpaced(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -4585,7 +4589,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -4792,10 +4796,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountClusterScoped(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountClusterScoped(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -4844,7 +4848,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -5065,10 +5069,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountWithoutRoleNames(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccountWithoutRoleNames(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5125,7 +5129,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", podSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -5390,10 +5394,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5409,7 +5413,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -5419,7 +5423,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		MountPath: "path/to/there",
 	})
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -5488,10 +5492,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5509,7 +5513,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -5519,7 +5523,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		MountPath: "path/to/there",
 	})
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -5593,10 +5597,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithUpdateStrategy(c *gc
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5605,7 +5609,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
@@ -5688,10 +5692,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5700,7 +5704,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -5738,7 +5742,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 	})
 
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -5836,10 +5840,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -5848,7 +5852,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -5886,7 +5890,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 	})
 
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -5992,10 +5996,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6011,7 +6015,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
 		NodeAffinity: &core.NodeAffinity{
@@ -6102,7 +6106,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 	})
 
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -6202,10 +6206,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6223,7 +6227,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
 		NodeAffinity: &core.NodeAffinity{
@@ -6282,7 +6286,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 	})
 
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -6387,10 +6391,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6398,7 +6402,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Affinity = &core.Affinity{
 		NodeAffinity: &core.NodeAffinity{
@@ -6457,7 +6461,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 	})
 
 	size, err := resource.ParseQuantity("200Mi")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
 		Name: "logs-1",
 		VolumeSource: core.VolumeSource{EmptyDir: &core.EmptyDirVolumeSource{
@@ -6565,10 +6569,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6576,7 +6580,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
@@ -6684,10 +6688,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsC
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6695,7 +6699,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
@@ -6808,10 +6812,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6819,7 +6823,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -6894,10 +6898,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -6917,7 +6921,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -7029,10 +7033,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetUpdate(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7040,7 +7044,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -7110,10 +7114,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7121,7 +7125,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -7200,10 +7204,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7211,7 +7215,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, coreresources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 	podSpec.Containers[0].VolumeMounts = append(dataVolumeMounts(), core.VolumeMount{
 		Name:      "database-appuuid",
@@ -7282,10 +7286,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
+func (s *K8sBrokerSuite) TestUnits(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7370,9 +7374,9 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 	)
 
 	units, err := s.broker.Units("app-name", caas.ModeWorkload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := s.clock.Now()
-	c.Assert(units, jc.DeepEquals, []caas.Unit{{
+	c.Assert(units, tc.DeepEquals, []caas.Unit{{
 		Id:       "uuid",
 		Address:  "",
 		Ports:    nil,
@@ -7419,7 +7423,7 @@ func (s *K8sBrokerSuite) TestUnits(c *gc.C) {
 	}})
 }
 
-func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7432,12 +7436,12 @@ func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *gc.C) {
 	}
 
 	w, err := s.broker.WatchService("test", caas.ModeWorkload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Consume first dummy watcher event
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -7447,14 +7451,14 @@ func (s *K8sBrokerSuite) TestWatchServiceAggregate(c *gc.C) {
 		tickler()
 		select {
 		case _, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 		case <-time.After(testing.LongWait):
 			c.Fatal("timed out waiting for event")
 		}
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchService(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7464,17 +7468,17 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	}
 
 	w, err := s.broker.WatchService("test", caas.ModeWorkload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
+func (s *K8sBrokerSuite) TestAnnotateUnit(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7499,16 +7503,16 @@ func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
 	)
 
 	err := s.broker.AnnotateUnit("appname", caas.ModeWorkload, "pod-name", names.NewUnitTag("appname/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
+func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *tc.C) {
 	for _, mode := range []caas.DeploymentMode{caas.ModeOperator, caas.ModeWorkload} {
 		s.assertAnnotateUnitByUID(c, mode)
 	}
 }
 
-func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMode) {
+func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *tc.C, mode caas.DeploymentMode) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7540,33 +7544,33 @@ func (s *K8sBrokerSuite) assertAnnotateUnitByUID(c *gc.C, mode caas.DeploymentMo
 	)
 
 	err := s.broker.AnnotateUnit("appname", mode, "uuid", names.NewUnitTag("appname/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestWatchUnits(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchUnits(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	s.k8sWatcherFn = func(si cache.SharedIndexInformer, n string, _ jujuclock.Clock) (k8swatcher.KubernetesNotifyWatcher, error) {
-		c.Assert(n, gc.Equals, "test")
+		c.Assert(n, tc.Equals, "test")
 		return podWatcher, nil
 	}
 
 	w, err := s.broker.WatchUnits("test", caas.ModeWorkload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	podFirer()
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchContainerStart(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7610,12 +7614,12 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	)
 
 	w, err := s.broker.WatchContainerStart("test", caas.InitContainerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -7639,19 +7643,19 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	}
 
 	evt, ok := filter(k8swatcher.WatchEventUpdate, pod)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.DeepEquals, []string{"test-0"})
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7700,13 +7704,13 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 	)
 
 	w, err := s.broker.WatchContainerStart("test", "(?:first|third)-container")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Send an event to one of the watchers; multi-watcher should fire.
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -7721,13 +7725,13 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 		Phase: core.PodPending,
 	}
 	evt, ok := filter(k8swatcher.WatchEventUpdate, copyPod(pod))
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.DeepEquals, []string{"test-0"})
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -7742,7 +7746,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 		Phase: core.PodPending,
 	}
 	_, ok = filter(k8swatcher.WatchEventUpdate, copyPod(pod))
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 
 	select {
 	case <-w.Changes():
@@ -7760,19 +7764,19 @@ func (s *K8sBrokerSuite) TestWatchContainerStartRegex(c *gc.C) {
 		Phase: core.PodPending,
 	}
 	evt, ok = filter(k8swatcher.WatchEventUpdate, copyPod(pod))
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.DeepEquals, []string{"test-0"})
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7815,7 +7819,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 	)
 
 	w, err := s.broker.WatchContainerStart("test", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Send an event to one of the watchers; multi-watcher should fire.
 	pod := &core.Pod{
@@ -7839,26 +7843,26 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 
 	evt, ok := filter(k8swatcher.WatchEventUpdate, pod)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.DeepEquals, []string{"test-0"})
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
+func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -7897,12 +7901,12 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	)
 
 	w, err := s.broker.WatchContainerStart("test", "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.HasLen, 0)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
@@ -7925,30 +7929,30 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 		},
 	}
 	evt, ok := filter(k8swatcher.WatchEventUpdate, pod)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(v, tc.DeepEquals, []string{"test-0"})
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
 }
 
-func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	_, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{})
-	c.Assert(err, gc.ErrorMatches, `strategy type "" for daemonset not valid`)
+	c.Assert(err, tc.ErrorMatches, `strategy type "" for daemonset not valid`)
 
 	o, err := provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
 		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 	})
 
@@ -7956,7 +7960,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 		Type:          "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec maxUnavailable is missing`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec maxUnavailable is missing`)
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -7964,7 +7968,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 			Partition: pointer.Int32Ptr(10),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for daemonset not valid`)
 
 	_, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -7972,7 +7976,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 			MaxSurge: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for daemonset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for daemonset not valid`)
 
 	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -7980,8 +7984,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
 		Type: appsv1.RollingUpdateDaemonSetStrategyType,
 		RollingUpdate: &appsv1.RollingUpdateDaemonSet{
 			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
@@ -7991,8 +7995,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 	o, err = provider.UpdateStrategyForDaemonSet(specs.UpdateStrategy{
 		Type: "OnDelete",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DaemonSetUpdateStrategy{
 		Type: appsv1.OnDeleteDaemonSetStrategyType,
 	})
 
@@ -8002,21 +8006,21 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDaemonSet(c *gc.C) {
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 }
 
-func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	_, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{})
-	c.Assert(err, gc.ErrorMatches, `strategy type "" for deployment not valid`)
+	c.Assert(err, tc.ErrorMatches, `strategy type "" for deployment not valid`)
 
 	o, err := provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DeploymentStrategy{
 		Type: appsv1.RollingUpdateDeploymentStrategyType,
 	})
 
@@ -8024,7 +8028,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 		Type:          "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{},
 	})
-	c.Assert(err, gc.ErrorMatches, `empty rolling update spec`)
+	c.Assert(err, tc.ErrorMatches, `empty rolling update spec`)
 
 	_, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -8033,13 +8037,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for deployment not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for deployment not valid`)
 
 	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "Recreate",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DeploymentStrategy{
 		Type: appsv1.RecreateDeploymentStrategyType,
 	})
 
@@ -8050,7 +8054,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 			MaxSurge:       &specs.IntOrString{IntVal: 20},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "Recreate"`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec is not supported for "Recreate"`)
 
 	o, err = provider.UpdateStrategyForDeployment(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -8059,8 +8063,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 			MaxSurge:       &specs.IntOrString{IntVal: 20},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.DeploymentStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.DeploymentStrategy{
 		Type: appsv1.RollingUpdateDeploymentStrategyType,
 		RollingUpdate: &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{IntVal: 10},
@@ -8069,18 +8073,18 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForDeployment(c *gc.C) {
 	})
 }
 
-func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	_, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{})
-	c.Assert(err, gc.ErrorMatches, `strategy type "" for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `strategy type "" for statefulset not valid`)
 
 	o, err := provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
 		Type: appsv1.RollingUpdateStatefulSetStrategyType,
 	})
 
@@ -8088,7 +8092,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 		Type:          "RollingUpdate",
 		RollingUpdate: &specs.RollingUpdateSpec{},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec partition is missing`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec partition is missing`)
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -8097,7 +8101,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			MaxSurge:  &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
 	_, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -8106,13 +8110,13 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			MaxUnavailable: &specs.IntOrString{IntVal: 10},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec for statefulset not valid`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec for statefulset not valid`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "OnDelete",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
 		Type: appsv1.OnDeleteStatefulSetStrategyType,
 	})
 
@@ -8122,7 +8126,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			Partition: pointer.Int32Ptr(10),
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
+	c.Assert(err, tc.ErrorMatches, `rolling update spec is not supported for "OnDelete"`)
 
 	o, err = provider.UpdateStrategyForStatefulSet(specs.UpdateStrategy{
 		Type: "RollingUpdate",
@@ -8130,8 +8134,8 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 			Partition: pointer.Int32Ptr(10),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, jc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, appsv1.StatefulSetUpdateStrategy{
 		Type: appsv1.RollingUpdateStatefulSetStrategyType,
 		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
 			Partition: pointer.Int32Ptr(10),
@@ -8139,7 +8143,7 @@ func (s *K8sBrokerSuite) TestUpdateStrategyForStatefulSet(c *gc.C) {
 	})
 }
 
-func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
+func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -8209,10 +8213,10 @@ func (s *K8sBrokerSuite) TestExposeServiceIngressClassProvided(c *gc.C) {
 		"kubernetes-ingress-class": "foo",
 		"juju-external-hostname":   "172.0.0.1.xip.io",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *gc.C) {
+func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -8293,10 +8297,10 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClassFromResource(c *
 	err := s.broker.ExposeService("gitlab", nil, config.ConfigAttributes{
 		"juju-external-hostname": "172.0.0.1.xip.io",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
+func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -8367,7 +8371,7 @@ func (s *K8sBrokerSuite) TestExposeServiceGetDefaultIngressClass(c *gc.C) {
 	err := s.broker.ExposeService("gitlab", nil, config.ConfigAttributes{
 		"juju-external-hostname": "172.0.0.1.xip.io",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func initContainers() []core.Container {

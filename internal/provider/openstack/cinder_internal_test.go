@@ -4,13 +4,14 @@
 package openstack
 
 import (
+	tctesting "testing"
+
 	"github.com/go-goose/goose/v5/client"
 	"github.com/go-goose/goose/v5/identity"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // TODO(axw) 2016-10-03 #1629721
@@ -19,12 +20,14 @@ import (
 // it more easily testable.
 
 type cinderInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&cinderInternalSuite{})
+func TestCinderInternalSuite(t *tctesting.T) {
+	tc.Run(t, &cinderInternalSuite{})
+}
 
-func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
+func (s *cinderInternalSuite) TestStorageProviderTypes(c *tc.C) {
 	env := &Environ{
 		cloudUnlocked: environscloudspec.CloudSpec{
 			Region: "foo",
@@ -35,15 +38,15 @@ func (s *cinderInternalSuite) TestStorageProviderTypes(c *gc.C) {
 			},
 		}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types, tc.HasLen, 1)
 }
 
-func (s *cinderInternalSuite) TestStorageProviderTypesNotSupported(c *gc.C) {
+func (s *cinderInternalSuite) TestStorageProviderTypesNotSupported(c *tc.C) {
 	env := &Environ{clientUnlocked: &testAuthClient{}}
 	types, err := env.StorageProviderTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types, tc.HasLen, 0)
 }
 
 type testAuthClient struct {

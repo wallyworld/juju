@@ -5,10 +5,10 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -18,7 +18,9 @@ import (
 
 type unitsWatcherSuite struct{}
 
-var _ = gc.Suite(&unitsWatcherSuite{})
+func TestUnitsWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &unitsWatcherSuite{})
+}
 
 type fakeUnitsWatcher struct {
 	state.UnitsWatcher
@@ -55,7 +57,7 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.changes
 }
 
-func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchUnits(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeUnitsWatcher{fetchError: "x0 fails"},
@@ -76,8 +78,8 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
 	result, err := w.WatchUnits(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
 			{"1", []string{"foo", "bar"}, nil},
@@ -87,7 +89,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 	})
 }
 
-func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchUnitsError(c *tc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -98,10 +100,10 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
 		getCanWatch,
 	)
 	_, err := w.WatchUnits(params.Entities{[]params.Entity{{"x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
+func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *tc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
@@ -112,6 +114,6 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		getCanWatch,
 	)
 	result, err := w.WatchUnits(params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

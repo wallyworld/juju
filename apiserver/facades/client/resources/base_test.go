@@ -7,46 +7,45 @@ import (
 	"time"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type BaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	backend *mocks.MockBackend
 	factory *mocks.MockNewCharmRepository
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *BaseSuite) setUpTest(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setUpTest(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.factory = mocks.NewMockNewCharmRepository(ctrl)
 	s.backend = mocks.NewMockBackend(ctrl)
 	return ctrl
 }
 
-func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
+func (s *BaseSuite) newFacade(c *tc.C) *resources.API {
 	factoryFunc := func(_ *charm.URL) (resources.NewCharmRepository, error) {
 		return s.factory, nil
 	}
 	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
 
-func newResource(c *gc.C, name, username, data string) (coreresources.Resource, params.Resource) {
+func newResource(c *tc.C, name, username, data string) (coreresources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username

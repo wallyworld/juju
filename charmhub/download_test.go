@@ -5,17 +5,16 @@ package charmhub
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/testcharms/repo"
 )
 
@@ -23,20 +22,22 @@ const defaultSeries = "bionic"
 const localCharmRepo = "../testcharms/charm-repo"
 
 type DownloadSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&DownloadSuite{})
+func TestDownloadSuite(t *tctesting.T) {
+	tc.Run(t, &DownloadSuite{})
+}
 
-func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndRead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	tmpFile, err := os.CreateTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	fileSystem := NewMockFileSystem(ctrl)
@@ -53,22 +54,22 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.DownloadAndRead(c.Context(), serverURL, tmpFile.Name())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	tmpFile, err := os.CreateTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	fileSystem := NewMockFileSystem(ctrl)
@@ -83,22 +84,22 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
+	_, err = client.DownloadAndRead(c.Context(), serverURL, tmpFile.Name())
+	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
 
-func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
+func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	tmpFile, err := os.CreateTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := os.Remove(tmpFile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	fileSystem := NewMockFileSystem(ctrl)
@@ -114,21 +115,21 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	})
 
 	serverURL, err := url.Parse("http://meshuggah.rocks")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
-	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
+	_, err = client.DownloadAndRead(c.Context(), serverURL, tmpFile.Name())
+	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 
-func (s *DownloadSuite) createCharmArchieve(c *gc.C) []byte {
+func (s *DownloadSuite) createCharmArchieve(c *tc.C) []byte {
 	tmpDir, err := os.MkdirTemp("", "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	repo := repo.NewRepo(localCharmRepo, defaultSeries)
 	charmPath := repo.CharmArchivePath(tmpDir, "dummy")
 
 	path, err := os.ReadFile(charmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return path
 }

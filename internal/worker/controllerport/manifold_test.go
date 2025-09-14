@@ -4,20 +4,21 @@
 package controllerport_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/controllerport"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -25,7 +26,7 @@ import (
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config           controllerport.ManifoldConfig
 	manifold         dependency.Manifold
@@ -37,23 +38,25 @@ type ManifoldSuite struct {
 	controllerConfig controller.Config
 	worker           worker.Worker
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
+func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -86,12 +89,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = controllerport.Manifold(s.config)
 }
 
-func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
+func (s *ManifoldSuite) TearDownSuite(c *tc.C) {
 	s.StateSuite.TearDownSuite(c)
 	s.IsolationSuite.TearDownSuite(c)
 }
 
-func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+func (s *ManifoldSuite) TearDownTest(c *tc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.IsolationSuite.TearDownTest(c)
 }
@@ -130,21 +133,21 @@ func (s *ManifoldSuite) newWorker(config controllerport.Config) (worker.Worker, 
 
 var expectedInputs = []string{"state", "agent", "hub"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestValidate(c *gc.C) {
+func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	type test struct {
 		f      func(*controllerport.ManifoldConfig)
 		expect string
@@ -178,24 +181,24 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		manifold := controllerport.Manifold(config)
 		w, err := manifold.Start(s.context)
 		workertest.CheckNilOrKill(c, w)
-		c.Check(err, gc.ErrorMatches, test.expect)
+		c.Check(err, tc.ErrorMatches, test.expect)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	s.startWorkerClean(c)
 
 	s.stub.CheckCallNames(c, "GetControllerConfig", "NewWorker")
 	args := s.stub.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, controllerport.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, controllerport.Config{})
 	config := args[0].(controllerport.Config)
 
 	// Can't directly compare functions, so blank it out.
-	c.Assert(config.UpdateControllerAPIPort(3), gc.ErrorMatches, "braincake")
+	c.Assert(config.UpdateControllerAPIPort(3), tc.ErrorMatches, "braincake")
 	config.UpdateControllerAPIPort = nil
 
-	c.Assert(config, jc.DeepEquals, controllerport.Config{
+	c.Assert(config, tc.DeepEquals, controllerport.Config{
 		AgentConfig:       &s.agent.conf,
 		Hub:               s.hub,
 		Logger:            s.logger,
@@ -203,15 +206,15 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.Equals, s.worker)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.Equals, s.worker)
 	return w
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool *state.StatePool
 }
 

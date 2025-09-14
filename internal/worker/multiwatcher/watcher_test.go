@@ -4,29 +4,31 @@
 package multiwatcher_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/internal/testhelpers"
 	mwWorker "github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/internal/worker/multiwatcher/testbacking"
 	"github.com/juju/juju/state"
 )
 
 type watcherSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
-func (s *watcherSuite) startWorker(c *gc.C, backing state.AllWatcherBacking) *mwWorker.Worker {
+func (s *watcherSuite) startWorker(c *tc.C, backing state.AllWatcherBacking) *mwWorker.Worker {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 	config := mwWorker.Config{
@@ -36,21 +38,21 @@ func (s *watcherSuite) startWorker(c *gc.C, backing state.AllWatcherBacking) *mw
 		PrometheusRegisterer: noopRegisterer{},
 	}
 	w, err := mwWorker.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, w)
 	})
 	return w
 }
 
-func (s *watcherSuite) TestEmptyModel(c *gc.C) {
+func (s *watcherSuite) TestEmptyModel(c *tc.C) {
 	b := testbacking.New(nil)
 	f := s.startWorker(c, b)
 	w := f.WatchController()
 	checkNext(c, w, nil, "")
 }
 
-func (s *watcherSuite) TestRun(c *gc.C) {
+func (s *watcherSuite) TestRun(c *tc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid", ID: "0"},
 		&multiwatcher.ApplicationInfo{ModelUUID: "uuid", Name: "logging"},
@@ -76,7 +78,7 @@ func (s *watcherSuite) TestRun(c *gc.C) {
 	}, "")
 }
 
-func (s *watcherSuite) TestMultipleModels(c *gc.C) {
+func (s *watcherSuite) TestMultipleModels(c *tc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", ID: "0"},
 		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"},
@@ -115,7 +117,7 @@ func (s *watcherSuite) TestMultipleModels(c *gc.C) {
 	}, "")
 }
 
-func (s *watcherSuite) TestModelFiltering(c *gc.C) {
+func (s *watcherSuite) TestModelFiltering(c *tc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", ID: "0"},
 		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"},
@@ -148,16 +150,16 @@ func (s *watcherSuite) TestModelFiltering(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestWatcherStop(c *gc.C) {
+func (s *watcherSuite) TestWatcherStop(c *tc.C) {
 	mw := s.startWorker(c, testbacking.New(nil))
 	w := mw.WatchController()
 
 	err := w.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkNext(c, w, nil, multiwatcher.NewErrStopped().Error())
 }
 
-func (s *watcherSuite) TestWatcherStopBecauseBackingError(c *gc.C) {
+func (s *watcherSuite) TestWatcherStopBecauseBackingError(c *tc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{&multiwatcher.MachineInfo{ID: "0"}})
 	mw := s.startWorker(c, b)
 	w := mw.WatchController()
@@ -173,7 +175,7 @@ func (s *watcherSuite) TestWatcherStopBecauseBackingError(c *gc.C) {
 	checkNext(c, w, nil, "some error")
 }
 
-func (s *watcherSuite) TestWatcherErrorWhenWorkerStopped(c *gc.C) {
+func (s *watcherSuite) TestWatcherErrorWhenWorkerStopped(c *tc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{&multiwatcher.MachineInfo{ID: "0"}})
 	mw := s.startWorker(c, b)
 	w := mw.WatchController()
@@ -187,12 +189,12 @@ func (s *watcherSuite) TestWatcherErrorWhenWorkerStopped(c *gc.C) {
 	b.UpdateEntity(&multiwatcher.MachineInfo{ID: "1"})
 
 	d, err := w.Next()
-	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
-	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
-	c.Assert(d, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, "shared state watcher was stopped")
+	c.Assert(err, tc.Satisfies, multiwatcher.IsErrStopped)
+	c.Assert(d, tc.HasLen, 0)
 }
 
-func getNext(c *gc.C, w multiwatcher.Watcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
+func getNext(c *tc.C, w multiwatcher.Watcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
 	var deltas []multiwatcher.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -208,19 +210,19 @@ func getNext(c *gc.C, w multiwatcher.Watcher, timeout time.Duration) ([]multiwat
 	return nil, errors.New("no change received in sufficient time")
 }
 
-func checkNext(c *gc.C, w multiwatcher.Watcher, deltas []multiwatcher.Delta, expectErr string) {
+func checkNext(c *tc.C, w multiwatcher.Watcher, deltas []multiwatcher.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
-		c.Check(err, gc.ErrorMatches, expectErr)
+		c.Check(err, tc.ErrorMatches, expectErr)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	checkDeltasEqual(c, d, deltas)
 }
 
-func checkDeltasEqual(c *gc.C, d0, d1 []multiwatcher.Delta) {
+func checkDeltasEqual(c *tc.C, d0, d1 []multiwatcher.Delta) {
 	// Deltas are returned in arbitrary order, so we compare them as maps.
-	c.Check(deltaMap(d0), jc.DeepEquals, deltaMap(d1))
+	c.Check(deltaMap(d0), tc.DeepEquals, deltaMap(d1))
 }
 
 func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityInfo {
@@ -239,14 +241,14 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 // Need a way to test Next calls that block. This is needed to test filtering.
 
 type watcher struct {
-	c      *gc.C
+	c      *tc.C
 	inner  multiwatcher.Watcher
 	next   chan []multiwatcher.Delta
 	err    chan error
 	logger loggo.Logger
 }
 
-func watchWatcher(c *gc.C, w multiwatcher.Watcher) *watcher {
+func watchWatcher(c *tc.C, w multiwatcher.Watcher) *watcher {
 	result := &watcher{
 		c:     c,
 		inner: w,
@@ -271,7 +273,7 @@ func (w *watcher) loop() {
 		select {
 		case w.next <- deltas:
 			w.logger.Tracef("sent %d deltas down next", len(deltas))
-		case <-time.After(testing.LongWait):
+		case <-time.After(testhelpers.LongWait):
 			w.c.Fatalf("no one listening")
 		}
 	}
@@ -283,14 +285,14 @@ func (w *watcher) assertNext(deltas []multiwatcher.Delta) {
 		w.c.Fatalf("watcher had err: %v", err)
 	case next := <-w.next:
 		checkDeltasEqual(w.c, next, deltas)
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		w.c.Fatalf("no results returned")
 	}
 }
 
 func (w *watcher) assertNoChange() {
 	select {
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		// all good
 	case err := <-w.err:
 		w.c.Fatalf("watcher had err: %v", err)

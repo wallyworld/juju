@@ -4,71 +4,73 @@
 package singular_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/singular"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type APISuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&APISuite{})
+func TestAPISuite(t *tctesting.T) {
+	tc.Run(t, &APISuite{})
+}
 
 var machine123 = names.NewMachineTag("123")
 
-func (s *APISuite) TestBadClaimantTag(c *gc.C) {
+func (s *APISuite) TestBadClaimantTag(c *tc.C) {
 	apiCaller := apiCaller(c, nil, nil)
 	badTag := names.NewMachineTag("")
 	api, err := singular.NewAPI(apiCaller, badTag, nil)
-	c.Check(api, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "claimant tag not valid")
+	c.Check(api, tc.IsNil)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "claimant tag not valid")
 }
 
-func (s *APISuite) TestBadEntityTag(c *gc.C) {
+func (s *APISuite) TestBadEntityTag(c *tc.C) {
 	apiCaller := apiCaller(c, nil, nil)
 
 	api, err := singular.NewAPI(apiCaller, machine123, nil)
-	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "nil entity supplied")
+	c.Check(api, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil entity supplied")
 
 	api, err = singular.NewAPI(apiCaller, machine123, machine123)
-	c.Check(api, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `invalid entity kind "machine" for singular API`)
+	c.Check(api, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, `invalid entity kind "machine" for singular API`)
 }
 
-func (s *APISuite) TestNoCalls(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestNoCalls(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, nil, nil)
 	_, err := singular.NewAPI(apiCaller, machine123, coretesting.ControllerTag)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	stub.CheckCallNames(c)
 }
 
-func (s *APISuite) TestClaimSuccess(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestClaimSuccess(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{}}
 		return nil
 	})
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Claim(time.Minute)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
 			EntityTag:   "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -78,8 +80,8 @@ func (s *APISuite) TestClaimSuccess(c *gc.C) {
 	})
 }
 
-func (s *APISuite) TestClaimDenied(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestClaimDenied(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
 			Error: apiservererrors.ServerError(lease.ErrClaimDenied),
@@ -87,10 +89,10 @@ func (s *APISuite) TestClaimDenied(c *gc.C) {
 		return nil
 	})
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Claim(time.Hour)
-	c.Check(err, gc.Equals, lease.ErrClaimDenied)
+	c.Check(err, tc.Equals, lease.ErrClaimDenied)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
 			EntityTag:   "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -100,8 +102,8 @@ func (s *APISuite) TestClaimDenied(c *gc.C) {
 	})
 }
 
-func (s *APISuite) TestClaimError(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestClaimError(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
 			Error: apiservererrors.ServerError(errors.New("zap pow splat oof")),
@@ -109,10 +111,10 @@ func (s *APISuite) TestClaimError(c *gc.C) {
 		return nil
 	})
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Claim(time.Second)
-	c.Check(err, gc.ErrorMatches, "zap pow splat oof")
+	c.Check(err, tc.ErrorMatches, "zap pow splat oof")
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
 			EntityTag:   "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -122,17 +124,17 @@ func (s *APISuite) TestClaimError(c *gc.C) {
 	})
 }
 
-func (s *APISuite) TestWaitSuccess(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestWaitSuccess(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{}}
 		return nil
 	})
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Wait()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{
 			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -140,8 +142,8 @@ func (s *APISuite) TestWaitSuccess(c *gc.C) {
 	})
 }
 
-func (s *APISuite) TestWaitError(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *APISuite) TestWaitError(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	apiCaller := apiCaller(c, stub, func(result *params.ErrorResults) error {
 		result.Results = []params.ErrorResult{{
 			Error: apiservererrors.ServerError(errors.New("crunch squelch")),
@@ -149,10 +151,10 @@ func (s *APISuite) TestWaitError(c *gc.C) {
 		return nil
 	})
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.Wait()
-	c.Check(err, gc.ErrorMatches, "crunch squelch")
+	c.Check(err, tc.ErrorMatches, "crunch squelch")
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{
 			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -162,7 +164,7 @@ func (s *APISuite) TestWaitError(c *gc.C) {
 
 type setResultFunc func(result *params.ErrorResults) error
 
-func apiCaller(c *gc.C, stub *testing.Stub, setResult setResultFunc) base.APICaller {
+func apiCaller(c *tc.C, stub *testhelpers.Stub, setResult setResultFunc) base.APICaller {
 	return basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -171,14 +173,14 @@ func apiCaller(c *gc.C, stub *testing.Stub, setResult setResultFunc) base.APICal
 		) error {
 			stub.AddCall(objType, version, id, request, args)
 			result, ok := response.(*params.ErrorResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			return setResult(result)
 		},
 	)
 }
 
-func checkCall(c *gc.C, stub *testing.Stub, method string, args interface{}) {
-	stub.CheckCalls(c, []testing.StubCall{{
+func checkCall(c *tc.C, stub *testhelpers.Stub, method string, args interface{}) {
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Singular",
 		Args:     []interface{}{0, "", method, args},
 	}})

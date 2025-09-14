@@ -5,21 +5,23 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	ocicommon "github.com/oracle/oci-go-sdk/v65/common"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/provider/oci/common"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type errorsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&errorsSuite{})
+func TestErrorsSuite(t *tctesting.T) {
+	tc.Run(t, &errorsSuite{})
+}
 
 type MockServiceError struct {
 	ocicommon.ServiceError
@@ -33,28 +35,28 @@ func (a MockServiceError) Error() string {
 
 func (a MockServiceError) GetCode() string { return a.code }
 
-func (s *errorsSuite) TestServiceErrorsCanTriggerIsAuthorisationFailure(c *gc.C) {
+func (s *errorsSuite) TestServiceErrorsCanTriggerIsAuthorisationFailure(c *tc.C) {
 	err := MockServiceError{code: "NotAuthenticated"}
 	result := common.IsAuthorisationFailure(err)
-	c.Assert(result, jc.IsTrue)
+	c.Assert(result, tc.IsTrue)
 
 	err = MockServiceError{code: "InternalServerError"}
 	result = common.IsAuthorisationFailure(err)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }
 
-func (s *errorsSuite) TestUnknownErrorsDoNotTriggerIsAuthorisationFailure(c *gc.C) {
+func (s *errorsSuite) TestUnknownErrorsDoNotTriggerIsAuthorisationFailure(c *tc.C) {
 	err1 := errors.New("unknown")
 	for _, err := range []error{
 		err1,
 		errors.Trace(err1),
 		errors.Annotate(err1, "really unknown"),
 	} {
-		c.Assert(common.IsAuthorisationFailure(err), jc.IsFalse)
+		c.Assert(common.IsAuthorisationFailure(err), tc.IsFalse)
 	}
 }
 
-func (s *errorsSuite) TestNilDoesNotTriggerIsAuthorisationFailure(c *gc.C) {
+func (s *errorsSuite) TestNilDoesNotTriggerIsAuthorisationFailure(c *tc.C) {
 	result := common.IsAuthorisationFailure(nil)
-	c.Assert(result, jc.IsFalse)
+	c.Assert(result, tc.IsFalse)
 }

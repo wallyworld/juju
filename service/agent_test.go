@@ -6,13 +6,13 @@ package service_test
 import (
 	"path/filepath"
 	"strings"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/shell"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -23,19 +23,21 @@ var (
 )
 
 type agentSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&agentSuite{})
+func TestAgentSuite(t *tctesting.T) {
+	tc.Run(t, &agentSuite{})
+}
 
-func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 	// We use two distinct directories to ensure the paths don't get
 	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
 	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud")
@@ -53,7 +55,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 		"--machine-id", "0",
 		"--debug",
 	}
-	c.Check(conf, jc.DeepEquals, common.Conf{
+	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju agent for machine-0",
 		ExecStart:     cmd,
 		Logfile:       filepath.Join(logDir, "machine-0.log"),
@@ -65,12 +67,12 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
+func (*agentSuite) TestAgentConfMachineUbuntu(c *tc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
 	info := service.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
 	jujud := dataDir + "/tools/machine-0/jujud"
@@ -88,7 +90,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 		"--machine-id", "0",
 		"--debug",
 	}
-	c.Check(conf, jc.DeepEquals, common.Conf{
+	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju agent for machine-0",
 		ExecStart:     cmd,
 		Logfile:       logDir + "/machine-0.log",
@@ -100,12 +102,12 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestAgentConfUnit(c *gc.C) {
+func (*agentSuite) TestAgentConfUnit(c *tc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
 
 	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
@@ -123,7 +125,7 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 		"--unit-name", "wordpress/0",
 		"--debug",
 	}
-	c.Check(conf, jc.DeepEquals, common.Conf{
+	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju unit agent for wordpress/0",
 		ExecStart:     cmd,
 		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
@@ -134,12 +136,12 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestContainerAgentConf(c *gc.C) {
+func (*agentSuite) TestContainerAgentConf(c *tc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
 	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf := service.ContainerAgentConf(info, renderer, "cont")
 
 	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud")
@@ -159,7 +161,7 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	}
 	env := osenv.FeatureFlags()
 	env[osenv.JujuContainerTypeEnvKey] = "cont"
-	c.Check(conf, jc.DeepEquals, common.Conf{
+	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju unit agent for wordpress/0",
 		ExecStart:     cmd,
 		Logfile:       filepath.Join(logDir, "unit-wordpress-0.log"),
@@ -170,24 +172,24 @@ func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	})
 }
 
-func (*agentSuite) TestShutdownAfterConf(c *gc.C) {
+func (*agentSuite) TestShutdownAfterConf(c *tc.C) {
 	conf, err := service.ShutdownAfterConf("spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, common.Conf{
+	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:         "juju shutdown job",
 		Transient:    true,
 		AfterStopped: "spam",
 		ExecStart:    "/sbin/shutdown -h now",
 	})
 	renderer := &shell.BashRenderer{}
-	c.Check(conf.Validate(renderer), jc.ErrorIsNil)
+	c.Check(conf.Validate(renderer), tc.ErrorIsNil)
 }
 
-func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *gc.C) {
+func (*agentSuite) TestShutdownAfterConfMissingServiceName(c *tc.C) {
 	_, err := service.ShutdownAfterConf("")
 
-	c.Check(err, gc.ErrorMatches, `.*missing "after" service name.*`)
+	c.Check(err, tc.ErrorMatches, `.*missing "after" service name.*`)
 }
 
 var expectedLimits = map[string]string{

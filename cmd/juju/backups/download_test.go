@@ -4,11 +4,12 @@
 package backups_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/backups"
 )
@@ -19,14 +20,16 @@ type downloadSuite struct {
 	command        *backups.DownloadCommand
 }
 
-var _ = gc.Suite(&downloadSuite{})
+func TestDownloadSuite(t *tctesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
 
-func (s *downloadSuite) SetUpTest(c *gc.C) {
+func (s *downloadSuite) SetUpTest(c *tc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewDownloadCommandForTest(s.store)
 }
 
-func (s *downloadSuite) TearDownTest(c *gc.C) {
+func (s *downloadSuite) TearDownTest(c *tc.C) {
 	filename := s.command.ResolveFilename()
 	if s.command.LocalFilename == "" {
 		filename = s.filename
@@ -35,7 +38,7 @@ func (s *downloadSuite) TearDownTest(c *gc.C) {
 	if s.filename == "" {
 		s.filename = filename
 	} else {
-		c.Check(filename, gc.Equals, s.filename)
+		c.Check(filename, tc.Equals, s.filename)
 	}
 
 	s.BaseBackupsSuite.TearDownTest(c)
@@ -46,30 +49,30 @@ func (s *downloadSuite) setSuccess() *fakeAPIClient {
 	return client
 }
 
-func (s *downloadSuite) TestOkay(c *gc.C) {
+func (s *downloadSuite) TestOkay(c *tc.C) {
 	s.setSuccess()
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.filename)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.filename+"\n")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.filename+"\n")
 	s.checkArchive(c)
 }
 
-func (s *downloadSuite) TestFilename(c *gc.C) {
+func (s *downloadSuite) TestFilename(c *tc.C) {
 	s.setSuccess()
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID, "--filename", "backup.tar.gz")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.filename+"\n")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, s.filename+"\n")
 	s.checkArchive(c)
 }
 
-func (s *downloadSuite) TestError(c *gc.C) {
+func (s *downloadSuite) TestError(c *tc.C) {
 	s.setFailure("failed!")
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, s.metaresult.ID)
-	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
+	c.Check(errors.Cause(err), tc.ErrorMatches, "failed!")
 }

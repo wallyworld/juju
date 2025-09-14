@@ -4,24 +4,27 @@
 package payloads_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/payloads"
 )
 
 type contextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&contextSuite{})
+func TestContextSuite(t *tctesting.T) {
+	tc.Run(t, &contextSuite{})
+}
 
-func (s *contextSuite) TestNewContext(c *gc.C) {
+func (s *contextSuite) TestNewContext(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -41,17 +44,17 @@ func (s *contextSuite) TestNewContext(c *gc.C) {
 	}}, nil)
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{
 		"class": pl,
 	})
 	result, err := ctx.Payloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corepayloads.Payload{pl})
 
 }
 
-func (s *contextSuite) TestTrackPayloads(c *gc.C) {
+func (s *contextSuite) TestTrackPayloads(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,19 +85,19 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 	}
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.TrackPayload(pl2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl, pl2})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corepayloads.Payload{pl, pl2})
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
 
-func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
+func (s *contextSuite) TestTrackPayloadsFlush(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -126,22 +129,22 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 	client.EXPECT().Track(pl2)
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.TrackPayload(pl2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.FlushPayloads()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl, pl2})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corepayloads.Payload{pl, pl2})
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id":  pl,
 		"class2/id": pl2,
 	})
 }
 
-func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
+func (s *contextSuite) TestFlushNotDirty(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -162,19 +165,19 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 	}}, nil)
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.FlushPayloads()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corepayloads.Payload{pl})
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
 
-func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
+func (s *contextSuite) TestTrackOverwritePayloads(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -201,21 +204,21 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 	client.EXPECT().Track(pl)
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.TrackPayload(pl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.FlushPayloads()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []corepayloads.Payload{pl})
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []corepayloads.Payload{pl})
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{
 		"class/id": pl,
 	})
 }
 
-func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
+func (s *contextSuite) TestUnTrackPayloads(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -238,14 +241,14 @@ func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
 	client.EXPECT().Untrack("class/id")
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.UntrackPayload("class", "id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{})
+	c.Assert(payloads.ContextPayloads(ctx), tc.DeepEquals, map[string]corepayloads.Payload{})
 }
 
-func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
+func (s *contextSuite) TestSetPayloadStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -268,12 +271,12 @@ func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
 	client.EXPECT().SetStatus("stopping", "class/id")
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.SetPayloadStatus("class", "id", "stopping")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *contextSuite) TestGetPayload(c *gc.C) {
+func (s *contextSuite) TestGetPayload(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -294,13 +297,13 @@ func (s *contextSuite) TestGetPayload(c *gc.C) {
 	}}, nil)
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := ctx.GetPayload("class", "id")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &pl)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &pl)
 }
 
-func (s *contextSuite) TestTrackedPayload(c *gc.C) {
+func (s *contextSuite) TestTrackedPayload(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -326,10 +329,10 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 	pl.Status = "stopping"
 
 	ctx, err := payloads.NewContext(client)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.TrackPayload(pl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := ctx.GetPayload("class", "id")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, &pl)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, &pl)
 }

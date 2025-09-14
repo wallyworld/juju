@@ -4,20 +4,21 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	jujutxn "github.com/juju/txn/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type applicationOffersSuite struct {
@@ -25,15 +26,17 @@ type applicationOffersSuite struct {
 	mysql *state.Application
 }
 
-var _ = gc.Suite(&applicationOffersSuite{})
+func TestApplicationOffersSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &applicationOffersSuite{})
+}
 
-func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
+func (s *applicationOffersSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "mysql")
 	s.mysql = s.AddTestingApplication(c, "mysql", ch)
 }
 
-func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.ApplicationOffer {
+func (s *applicationOffersSuite) createDefaultOffer(c *tc.C) crossmodel.ApplicationOffer {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
@@ -45,34 +48,34 @@ func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.Applicat
 		Owner:                  owner.Name(),
 	}
 	offer, err := sd.AddOffer(offerArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return *offer
 }
 
-func (s *applicationOffersSuite) TestDetectingOfferConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestDetectingOfferConnections(c *tc.C) {
 	connected, err := state.ApplicationHasConnectedOffers(s.State, "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(connected, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connected, tc.IsFalse)
 
 	offer := s.createDefaultOffer(c)
 	connected, err = state.ApplicationHasConnectedOffers(s.State, "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(connected, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connected, tc.IsFalse)
 
 	s.addOfferConnection(c, offer.OfferUUID)
 	connected, err = state.ApplicationHasConnectedOffers(s.State, "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(connected, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connected, tc.IsTrue)
 }
 
-func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
+func (s *applicationOffersSuite) TestEndpoints(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	_, err := state.ApplicationOfferEndpoint(offer, "foo")
-	c.Assert(err, gc.ErrorMatches, `relation "foo" on application offer "mysql" not found`)
+	c.Assert(err, tc.ErrorMatches, `relation "foo" on application offer "mysql" not found`)
 
 	serverEP, err := state.ApplicationOfferEndpoint(offer, "server")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serverEP, gc.DeepEquals, state.Endpoint{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serverEP, tc.DeepEquals, state.Endpoint{
 		ApplicationName: "mysql",
 		Relation: charm.Relation{
 			Interface: "mysql",
@@ -83,27 +86,27 @@ func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
 	})
 }
 
-func (s *applicationOffersSuite) TestRemove(c *gc.C) {
+func (s *applicationOffersSuite) TestRemove(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	r := s.State.RemoteEntities()
 	_, err := r.ExportLocalEntity(names.NewApplicationTag(offer.OfferName))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sd := state.NewApplicationOffers(s.State)
 	err = sd.Remove(offer.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = sd.ApplicationOffer(offer.OfferName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(userPerms, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(userPerms, tc.HasLen, 0)
 }
 
-func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
+func (s *applicationOffersSuite) TestAddApplicationOffer(c *tc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
@@ -116,21 +119,21 @@ func (s *applicationOffersSuite) TestAddApplicationOffer(c *gc.C) {
 		HasRead:                []string{"everyone@external"},
 	}
 	offer, err := sd.AddOffer(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedOffer, err := sd.ApplicationOffer(offer.OfferName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*offer, jc.DeepEquals, *expectedOffer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*offer, tc.DeepEquals, *expectedOffer)
 
 	access, err := s.State.GetOfferAccess(offer.OfferUUID, owner.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.AdminAccess)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.Equals, permission.AdminAccess)
 
 	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("everyone@external"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.ReadAccess)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.Equals, permission.ReadAccess)
 }
 
-func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *gc.C) {
+func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
 	args := crossmodel.AddApplicationOfferArgs{
@@ -142,10 +145,10 @@ func (s *applicationOffersSuite) TestAddApplicationOfferInvalidApplication(c *gc
 		HasRead:                []string{"everyone@external"},
 	}
 	_, err := sd.AddOffer(args)
-	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application "invalid" not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot add application offer "hosted-mysql": application "invalid" not found`)
 }
 
-func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
+func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *tc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "admin"}
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
@@ -157,17 +160,17 @@ func (s *applicationOffersSuite) TestAddApplicationOfferBadEndpoints(c *gc.C) {
 		Owner:                  owner.Name(),
 	}
 	_, err := sd.AddOffer(args)
-	c.Assert(err, gc.ErrorMatches, `.*application "mysql" has no "admin" relation`)
+	c.Assert(err, tc.ErrorMatches, `.*application "mysql" has no "admin" relation`)
 
 	// Fix the endpoints and try again.
 	// There was a bug where this failed so we test it.
 	eps = map[string]string{"db": "server", "db-admin": "server-admin"}
 	args.Endpoints = eps
 	_, err = sd.AddOffer(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationOffersSuite) TestFailAddApplicationOfferNonGlobalEndpoint(c *gc.C) {
+func (s *applicationOffersSuite) TestFailAddApplicationOfferNonGlobalEndpoint(c *tc.C) {
 	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	// logging-dir is a container scoped relation.
 	eps := map[string]string{"logging-dir": "logging-dir"}
@@ -180,17 +183,17 @@ func (s *applicationOffersSuite) TestFailAddApplicationOfferNonGlobalEndpoint(c 
 		Owner:           owner.Name(),
 	}
 	_, err := sd.AddOffer(args)
-	c.Assert(err, gc.ErrorMatches, `.*can only offer endpoints with global scope, provided scope "container".*`)
+	c.Assert(err, tc.ErrorMatches, `.*can only offer endpoints with global scope, provided scope "container".*`)
 }
 
-func (s *applicationOffersSuite) TestListOffersNone(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersNone(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offers, err := sd.ListOffers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 0)
 }
 
-func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) (crossmodel.ApplicationOffer, string) {
+func (s *applicationOffersSuite) createOffer(c *tc.C, name, description string) (crossmodel.ApplicationOffer, string) {
 	eps := map[string]string{
 		"db": "server",
 	}
@@ -204,27 +207,27 @@ func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) 
 		Owner:                  owner.Name(),
 	}
 	offer, err := sd.AddOffer(offerArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return *offer, owner.Name()
 }
 
-func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
+func (s *applicationOffersSuite) TestApplicationOffer(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	expectedOffer := s.createDefaultOffer(c)
 	offer, err := sd.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*offer, jc.DeepEquals, expectedOffer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*offer, tc.DeepEquals, expectedOffer)
 }
 
-func (s *applicationOffersSuite) TestApplicationOfferForUUID(c *gc.C) {
+func (s *applicationOffersSuite) TestApplicationOfferForUUID(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	expectedOffer := s.createDefaultOffer(c)
 	offer, err := sd.ApplicationOfferForUUID(expectedOffer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*offer, jc.DeepEquals, expectedOffer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*offer, tc.DeepEquals, expectedOffer)
 }
 
-func (s *applicationOffersSuite) TestAllApplicationOffers(c *gc.C) {
+func (s *applicationOffersSuite) TestAllApplicationOffers(c *tc.C) {
 	eps := map[string]string{"db": "server", "db-admin": "server-admin"}
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
@@ -238,31 +241,31 @@ func (s *applicationOffersSuite) TestAllApplicationOffers(c *gc.C) {
 		HasRead:                []string{"everyone@external"},
 	}
 	anotherOffer, err := sd.AddOffer(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	offers, err := sd.AllApplicationOffers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Ensure ordering doesn't matter.
 	offersMap := make(map[string]*crossmodel.ApplicationOffer)
 	for _, offer := range offers {
 		offersMap[offer.OfferName] = offer
 	}
-	c.Assert(offersMap, jc.DeepEquals, map[string]*crossmodel.ApplicationOffer{
+	c.Assert(offersMap, tc.DeepEquals, map[string]*crossmodel.ApplicationOffer{
 		anOffer.OfferName:      &anOffer,
 		anotherOffer.OfferName: anotherOffer,
 	})
 }
 
-func (s *applicationOffersSuite) TestListOffersAll(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersAll(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer := s.createDefaultOffer(c)
 	offers, err := sd.ListOffers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersOneFilter(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
@@ -274,12 +277,12 @@ func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 			Interface: "mysql",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersExact(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersExact(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
@@ -287,17 +290,17 @@ func (s *applicationOffersSuite) TestListOffersExact(c *gc.C) {
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		OfferName: "^offer1$",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 	offers, err = sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		OfferName: "^offer$",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 0)
 }
 
-func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	s.createOffer(c, "offer1", "description for offer1")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
@@ -305,11 +308,11 @@ func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *gc.C) {
 			Interface: "db2",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 0)
 }
 
-func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersManyFilters(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	offer2, _ := s.createOffer(c, "offer2", "description for offer2")
@@ -324,12 +327,12 @@ func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {
 			ApplicationDescription: "offer2",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 2)
-	c.Assert(offers, jc.DeepEquals, []crossmodel.ApplicationOffer{offer, offer2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 2)
+	c.Assert(offers, tc.DeepEquals, []crossmodel.ApplicationOffer{offer, offer2})
 }
 
-func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	s.createOffer(c, "offer1", "description for offer1")
 	offer, _ := s.createOffer(c, "offer2", "description for offer2")
@@ -337,12 +340,12 @@ func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *gc.C) 
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		ApplicationDescription: "for offer2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "hosted-offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
@@ -350,12 +353,12 @@ func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		OfferName: "offer1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersAllowedConsumersOwner(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersAllowedConsumersOwner(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, owner := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
@@ -363,12 +366,12 @@ func (s *applicationOffersSuite) TestListOffersAllowedConsumersOwner(c *gc.C) {
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{owner, "mary"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	offer2, _ := s.createOffer(c, "offer2", "description for offer2")
@@ -378,19 +381,19 @@ func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
 	mary := names.NewUserTag("mary")
 	err := s.State.CreateOfferAccess(
 		names.NewApplicationOfferTag(offer.OfferUUID), mary, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
 		names.NewApplicationOfferTag(offer2.OfferUUID), mary, permission.ReadAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{"mary"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestListOffersConnectedUsers(c *gc.C) {
+func (s *applicationOffersSuite) TestListOffersConnectedUsers(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
@@ -402,16 +405,16 @@ func (s *applicationOffersSuite) TestListOffersConnectedUsers(c *gc.C) {
 		Username:        "mary",
 		OfferUUID:       offer.OfferUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		ConnectedUsers: []string{"mary"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(offers), gc.Equals, 1)
-	c.Assert(offers[0], jc.DeepEquals, offer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(offers), tc.Equals, 1)
+	c.Assert(offers[0], tc.DeepEquals, offer)
 }
 
-func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *gc.C) {
+func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -419,16 +422,16 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicate(c *gc.C) {
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
+	c.Assert(err, tc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
 
-func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterInitial(c *gc.C) {
+func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterInitial(c *tc.C) {
 	// Check that a record with a URL conflict cannot be added if
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
@@ -440,17 +443,17 @@ func (s *applicationOffersSuite) TestAddApplicationOfferDuplicateAddedAfterIniti
 			ApplicationName: "mysql",
 			Owner:           owner.Name(),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}).Check()
 	_, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
+	c.Assert(err, tc.ErrorMatches, `cannot add application offer "hosted-mysql": application offer already exists`)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
 	original, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -458,15 +461,15 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:              "hosted-mysql",
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a better database",
 		Owner:                  owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(offer, tc.DeepEquals, &crossmodel.ApplicationOffer{
 		OfferName:              "hosted-mysql",
 		OfferUUID:              original.OfferUUID,
 		ApplicationName:        "mysql",
@@ -476,7 +479,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
 	original, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -484,15 +487,15 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *gc.C)
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
 	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "foo",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(offer, tc.DeepEquals, &crossmodel.ApplicationOffer{
 		OfferName:       "hosted-mysql",
 		OfferUUID:       original.OfferUUID,
 		ApplicationName: "foo",
@@ -502,7 +505,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *gc.C)
 	assertOffersRef(c, s.State, "foo", 1)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *tc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	owner := s.Factory.MakeUser(c, nil)
 	_, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
@@ -510,10 +513,10 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c *tc.C) {
 	// Check that a record with a URL conflict cannot be added if
 	// there is no conflict initially but a record is added
 	// before the transaction is run.
@@ -524,20 +527,20 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := sd.Remove("hosted-mysql", false)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}).Check()
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           owner.Name(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "hosted-mysql": offer "hosted-mysql" not found`)
 }
 
-func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *state.RemoteApplication {
+func (s *applicationOffersSuite) addOfferConnection(c *tc.C, offerUUID string) *state.RemoteApplication {
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "wordpress",
 		SourceModel:     testing.ModelTag,
@@ -548,11 +551,11 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *
 			Role:      charm.RoleRequirer,
 			Scope:     charm.ScopeGlobal,
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		OfferUUID:       offerUUID,
@@ -561,12 +564,12 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *
 		Username:        "admin",
 		SourceModelUUID: testing.ModelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return app
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointInUse(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointInUse(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).Name()
 	sd := state.NewApplicationOffers(s.State)
 	offer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -578,7 +581,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointInUse
 			"server-admin": "server-admin",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
@@ -587,7 +590,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointInUse
 		Username:        "admin",
 		OfferUUID:       offer.OfferUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
@@ -600,10 +603,10 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointInUse
 			"server-admin": "server-admin",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": updating offer mysql:server-admin would remove endpoint "server" which has active consumers`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "hosted-mysql": updating offer mysql:server-admin would remove endpoint "server" which has active consumers`)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUse(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUse(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).Name()
 	sd := state.NewApplicationOffers(s.State)
 	offer, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -616,7 +619,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUs
 			"router":       "db-router",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
@@ -625,7 +628,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUs
 		Username:        "admin",
 		OfferUUID:       offer.OfferUUID,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
@@ -638,10 +641,10 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovingEndpointsInUs
 			"server-admin": "server-admin",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "hosted-mysql": updating offer mysql:server-admin would remove endpoints "db-router, server" which have active consumers`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "hosted-mysql": updating offer mysql:server-admin would remove endpoints "db-router, server" which have active consumers`)
 }
 
-func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).Name()
 	sd := state.NewApplicationOffers(s.State)
 
@@ -653,8 +656,8 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c 
 			"db": "server",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(originalOffer, tc.DeepEquals, &crossmodel.ApplicationOffer{
 		OfferName:       "myoffer",
 		OfferUUID:       originalOffer.OfferUUID,
 		ApplicationName: "mysql",
@@ -676,15 +679,15 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidApplication(c 
 			"invalid-endpoint": "invalid-endpoint",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": application "invalid" not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "myoffer": application "invalid" not found`)
 
 	newOffer, err := sd.ApplicationOffer("myoffer")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(newOffer, jc.DeepEquals, originalOffer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newOffer, tc.DeepEquals, originalOffer)
 }
 
 // regression test for https://bugs.launchpad.net/juju/+bug/1954830
-func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *gc.C) {
+func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).Name()
 	sd := state.NewApplicationOffers(s.State)
 
@@ -696,8 +699,8 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *gc
 			"db": "server",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(originalOffer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(originalOffer, tc.DeepEquals, &crossmodel.ApplicationOffer{
 		OfferName:       "myoffer",
 		OfferUUID:       originalOffer.OfferUUID,
 		ApplicationName: "mysql",
@@ -719,81 +722,81 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferInvalidEndpoint(c *gc
 			"invalid-endpoint": "invalid-endpoint",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot update application offer "myoffer": getting relation endpoint for relation "invalid-endpoint" and application "mysql": application "mysql" has no "invalid-endpoint" relation`)
+	c.Assert(err, tc.ErrorMatches, `cannot update application offer "myoffer": getting relation endpoint for relation "invalid-endpoint" and application "mysql": application "mysql" has no "invalid-endpoint" relation`)
 
 	newOffer, err := sd.ApplicationOffer("myoffer")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(newOffer, jc.DeepEquals, originalOffer)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newOffer, tc.DeepEquals, originalOffer)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *tc.C) {
 	s.createDefaultOffer(c)
 	ao := state.NewApplicationOffers(s.State)
 	err := ao.Remove("hosted-mysql", false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
-func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnections(c *tc.C) {
 	s.createDefaultOffer(c)
 
 	err := s.mysql.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
-func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnectionsRace(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnectionsRace(c *tc.C) {
 	addOffer := func() {
 		s.createDefaultOffer(c)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 	err := s.mysql.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
-func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnections(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
+	c.Assert(err, tc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
-func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnectionsRace(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnectionsRace(c *tc.C) {
 	addConnectedOffer := func() {
 		offer := s.createDefaultOffer(c)
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addConnectedOffer).Check()
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
+	c.Assert(err, tc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 consumer`)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnections(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
 	err := ao.Remove("hosted-mysql", false)
-	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+	c.Assert(err, tc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnectionsRace(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnectionsRace(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	ao := state.NewApplicationOffers(s.State)
 	addOfferConnection := func() {
@@ -803,33 +806,33 @@ func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnectionsRace(c *gc.
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
 
 	err := ao.Remove("hosted-mysql", false)
-	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+	c.Assert(err, tc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersSucceedsWhenLocalRelationAdded(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersSucceedsWhenLocalRelationAdded(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	_, err := s.State.Application(offer.ApplicationName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("local-wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ao := state.NewApplicationOffers(s.State)
 
 	err = ao.Remove(offer.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *applicationOffersSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+func (s *applicationOffersSuite) assertInScope(c *tc.C, relUnit *state.RelationUnit, inScope bool) {
 	ok, err := relUnit.InScope()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, gc.Equals, inScope)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.Equals, inScope)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *tc.C) {
 	offer := s.createDefaultOffer(c)
 	rwordpress, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "remote-wordpress",
@@ -843,29 +846,29 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wordpressEP, err := rwordpress.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mysql, err := s.State.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysqlUnit, err := mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysqlru, err := rel.Unit(mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mysqlru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertInScope(c, mysqlru, true)
 
 	wpru, err := rel.RemoteUnit("remote-wordpress/0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = wpru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertInScope(c, wpru, true)
 
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
@@ -875,7 +878,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 		Username:        "admin",
 		SourceModelUUID: testing.ModelTag.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ao := state.NewApplicationOffersExposingOps(s.State)
 
@@ -883,10 +886,10 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	// any removals are last in the ops list.
 	// RemoveOfferOperation is called internally by Remove further down.
 	modelOp, err := ao.RemoveOfferOperation("hosted-mysql", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ops, err := modelOp.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var observedRemoval bool
 	for _, op := range ops {
@@ -894,30 +897,30 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 			observedRemoval = true
 			continue
 		}
-		c.Assert(observedRemoval, jc.IsFalse)
+		c.Assert(observedRemoval, tc.IsFalse)
 	}
 
 	// Now run it all.
 	err = ao.Remove("hosted-mysql", true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.HasLen, 1)
 
 	offerRel, err := s.State.Relation(conn[0].RelationId())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(offerRel.Life(), gc.Equals, state.Dying)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(offerRel.Life(), tc.Equals, state.Dying)
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
 	err = rwordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *tc.C) {
 	offer, owner := s.createOffer(c, "hosted-mysql", "offer one")
 	sd := state.NewApplicationOffers(s.State)
 	offerArgs := crossmodel.AddApplicationOfferArgs{
@@ -928,44 +931,44 @@ func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
 		Owner:                  owner,
 	}
 	offer2, err := sd.AddOffer(offerArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
 
 	err = ao.Remove(offer2.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("mysql-admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	// The other offer is unaffected.
 	appOffer, err := ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn, err := s.State.OfferConnections(appOffer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.HasLen, 1)
 }
 
-func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
+func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *tc.C) {
 	s.createDefaultOffer(c)
 	wp := s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints(wp.Name(), s.mysql.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addRelation := func() {
 		_, err := s.State.AddRelation(eps...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	rmRelations := func() {
 		rels, err := s.State.AllRelations()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		for _, rel := range rels {
 			err = rel.Destroy()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			err = s.mysql.Refresh()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 
@@ -974,20 +977,20 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
 	err = s.mysql.Destroy()
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(err, gc.ErrorMatches, "cannot destroy application.*")
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, tc.ErrorMatches, "cannot destroy application.*")
 	s.mysql.Refresh()
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *tc.C) {
 	// Create a local wordpress application to relate to the local mysql,
 	// to show that we count remote relations correctly.
 	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("local-wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	localRel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ao := state.NewApplicationOffers(s.State)
 	offer := s.createDefaultOffer(c)
@@ -995,29 +998,29 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
 		// Remove the local relation and add a remote relation,
 		// so that the relation count remains stable. We should
 		// be checking the *remote* relation count.
-		c.Assert(localRel.Destroy(), jc.ErrorIsNil)
+		c.Assert(localRel.Destroy(), tc.ErrorIsNil)
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
 
 	err = ao.Remove(offer.OfferName, false)
-	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+	c.Assert(err, tc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
-func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
+func (s *applicationOffersSuite) TestWatchOfferStatus(c *tc.C) {
 	ao := state.NewApplicationOffers(s.State)
 	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           s.Owner.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w, err := s.State.WatchOfferStatus(offer.OfferUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -1025,12 +1028,12 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	wc.AssertOneChange()
 
 	app, err := s.State.Application(offer.ApplicationName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = app.SetStatus(status.StatusInfo{
 		Status:  status.Waiting,
 		Message: "waiting for replication",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -1040,36 +1043,36 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	err = u.SetStatus(status.StatusInfo{
 		Status: status.Blocked,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 	err = u.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	err = ao.Remove(offer.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	err = app.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
+func (s *applicationOffersSuite) TestWatchOffer(c *tc.C) {
 	ao := state.NewApplicationOffers(s.State)
 	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "mysql",
 		Owner:           s.Owner.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	anotherOffer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-postgresql",
 		ApplicationName: "mysql",
 		Owner:           s.Owner.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that all the creation events have flowed through the system.
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -1082,10 +1085,10 @@ func (s *applicationOffersSuite) TestWatchOffer(c *gc.C) {
 	wc.AssertOneChange()
 
 	err = ao.Remove(offer.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	err = ao.Remove(anotherOffer.OfferName, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertNoChange()
 }

@@ -4,6 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -11,11 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -23,13 +23,15 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&ApplicationWorkerSuite{})
+func TestApplicationWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &ApplicationWorkerSuite{})
+}
 
 type ApplicationWorkerSuite struct {
 	coretesting.BaseSuite
@@ -38,14 +40,14 @@ type ApplicationWorkerSuite struct {
 	logger   loggo.Logger
 }
 
-func (s *ApplicationWorkerSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggo.GetLogger("test")
 }
 
-func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
+func (s *ApplicationWorkerSuite) waitDone(c *tc.C, done chan struct{}) {
 	select {
 	case <-done:
 	case <-time.After(coretesting.LongWait):
@@ -54,7 +56,7 @@ func (s *ApplicationWorkerSuite) waitDone(c *gc.C, done chan struct{}) {
 }
 
 func (s *ApplicationWorkerSuite) startAppWorker(
-	c *gc.C,
+	c *tc.C,
 	clk clock.Clock,
 	facade caasapplicationprovisioner.CAASProvisionerFacade,
 	broker caasapplicationprovisioner.CAASBroker,
@@ -74,14 +76,14 @@ func (s *ApplicationWorkerSuite) startAppWorker(
 		StatusOnly: statusOnly,
 	}
 	startFunc := caasapplicationprovisioner.NewAppWorker(config)
-	c.Assert(startFunc, gc.NotNil)
+	c.Assert(startFunc, tc.NotNil)
 	appWorker, err := startFunc()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appWorker, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appWorker, tc.NotNil)
 	return appWorker
 }
 
-func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestLifeNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -104,7 +106,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestLifeDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -132,7 +134,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 	workertest.CleanKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -167,7 +169,7 @@ func (s *ApplicationWorkerSuite) TestUpgradePodSpec(c *gc.C) {
 	workertest.DirtyKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -271,7 +273,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	workertest.CheckKill(c, appWorker)
 }
 
-func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
+func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

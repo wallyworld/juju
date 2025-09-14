@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -20,7 +20,9 @@ type rawK8sSpecSetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&rawK8sSpecSetSuite{})
+func TestRawK8sSpecSetSuite(t *tctesting.T) {
+	tc.Run(t, &rawK8sSpecSetSuite{})
+}
 
 var rawPodSpecYaml = `
 apiVersion: apps/v1
@@ -53,60 +55,60 @@ var rawK8sSpecSetInitTests = []struct {
 	{[]string{"--file", "file", "extra"}, `unrecognized args: \["extra"\]`},
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetInit(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetInit(c *tc.C) {
 	for i, t := range rawK8sSpecSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), t.args, t.err)
 	}
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetNoData(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetNoData(c *tc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
-	c.Check(code, gc.Equals, 1)
+	c.Check(code, tc.Equals, 1)
 	c.Assert(bufferString(
-		ctx.Stderr), gc.Matches,
+		ctx.Stderr), tc.Matches,
 		".*no k8s raw spec specified: pipe k8s raw spec to command, or specify a file with --file\n")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSet(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSet(c *tc.C) {
 	s.assertRawK8sSpecSet(c, "specfile.yaml")
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetStdIn(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetStdIn(c *tc.C) {
 	s.assertRawK8sSpecSet(c, "-")
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetWithK8sResource(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetWithK8sResource(c *tc.C) {
 	s.assertRawK8sSpecSet(c, "specfile.yaml")
 }
 
-func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetStdInWithK8sResource(c *gc.C) {
+func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetStdInWithK8sResource(c *tc.C) {
 	s.assertRawK8sSpecSet(c, "-")
 }
 
-func (s *rawK8sSpecSetSuite) assertRawK8sSpecSet(c *gc.C, filename string) {
+func (s *rawK8sSpecSetSuite) assertRawK8sSpecSet(c *tc.C, filename string) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, args, ctx := s.initCommand(c, hctx, rawPodSpecYaml, filename)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
-	c.Check(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	expectedSpecYaml := rawPodSpecYaml
-	c.Assert(hctx.info.RawK8sSpec, gc.Equals, expectedSpecYaml)
+	c.Assert(hctx.info.RawK8sSpec, tc.Equals, expectedSpecYaml)
 }
 
-func (s *rawK8sSpecSetSuite) initCommand(c *gc.C, hctx jujuc.Context, yaml string, filename string) (cmd.Command, []string, *cmd.Context) {
+func (s *rawK8sSpecSetSuite) initCommand(c *tc.C, hctx jujuc.Context, yaml string, filename string) (cmd.Command, []string, *cmd.Context) {
 	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
 	var args []string
@@ -115,7 +117,7 @@ func (s *rawK8sSpecSetSuite) initCommand(c *gc.C, hctx jujuc.Context, yaml strin
 	} else if filename != "" {
 		filename = filepath.Join(c.MkDir(), filename)
 		err := os.WriteFile(filename, []byte(yaml), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		args = append(args, "--file", filename)
 	}
 	return jujuc.NewJujucCommandWrappedForTest(com), args, ctx

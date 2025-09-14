@@ -4,13 +4,14 @@
 package caas_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/schema"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 var baseFields = environschema.Fields{
@@ -34,15 +35,17 @@ type ConfigSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
-
-func (s *ConfigSuite) TestConfigSchemaNoProviderFields(c *gc.C) {
-	fields, err := caas.ConfigSchema(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fields, jc.DeepEquals, baseFields)
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ConfigSuite{})
 }
 
-func (s *ConfigSuite) TestConfigSchemaProviderFields(c *gc.C) {
+func (s *ConfigSuite) TestConfigSchemaNoProviderFields(c *tc.C) {
+	fields, err := caas.ConfigSchema(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fields, tc.DeepEquals, baseFields)
+}
+
+func (s *ConfigSuite) TestConfigSchemaProviderFields(c *tc.C) {
 	extraFields := environschema.Fields{
 		"extra": {
 			Description: "some field",
@@ -50,7 +53,7 @@ func (s *ConfigSuite) TestConfigSchemaProviderFields(c *gc.C) {
 		},
 	}
 	fields, err := caas.ConfigSchema(extraFields)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedFields := make(environschema.Fields)
 	for name, f := range baseFields {
@@ -59,10 +62,10 @@ func (s *ConfigSuite) TestConfigSchemaProviderFields(c *gc.C) {
 	for name, f := range extraFields {
 		expectedFields[name] = f
 	}
-	c.Assert(fields, jc.DeepEquals, expectedFields)
+	c.Assert(fields, tc.DeepEquals, expectedFields)
 }
 
-func (s *ConfigSuite) TestConfigSchemaProviderFieldsConflict(c *gc.C) {
+func (s *ConfigSuite) TestConfigSchemaProviderFieldsConflict(c *tc.C) {
 	extraFields := environschema.Fields{
 		"juju-external-hostname": {
 			Description: "some field",
@@ -70,15 +73,15 @@ func (s *ConfigSuite) TestConfigSchemaProviderFieldsConflict(c *gc.C) {
 		},
 	}
 	_, err := caas.ConfigSchema(extraFields)
-	c.Assert(err, gc.ErrorMatches, `config field "juju-external-hostname" clashes with common config`)
+	c.Assert(err, tc.ErrorMatches, `config field "juju-external-hostname" clashes with common config`)
 }
 
-func (s *ConfigSuite) TestConfigDefaultsNoProviderDefaults(c *gc.C) {
+func (s *ConfigSuite) TestConfigDefaultsNoProviderDefaults(c *tc.C) {
 	defaults := caas.ConfigDefaults(nil)
-	c.Assert(defaults, jc.DeepEquals, baseDefaults)
+	c.Assert(defaults, tc.DeepEquals, baseDefaults)
 }
 
-func (s *ConfigSuite) TestConfigSchemaProviderDefaults(c *gc.C) {
+func (s *ConfigSuite) TestConfigSchemaProviderDefaults(c *tc.C) {
 	extraDefaults := schema.Defaults{
 		"extra": "extra default",
 	}
@@ -91,5 +94,5 @@ func (s *ConfigSuite) TestConfigSchemaProviderDefaults(c *gc.C) {
 	for name, d := range defaults {
 		expectedDefaults[name] = d
 	}
-	c.Assert(defaults, jc.DeepEquals, expectedDefaults)
+	c.Assert(defaults, tc.DeepEquals, expectedDefaults)
 }

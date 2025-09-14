@@ -7,16 +7,18 @@ package exec_test
 
 import (
 	"os"
+	tctesting "testing"
 	"time"
 
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sys/unix"
-	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/provider/kubernetes/exec/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type termSizeSuite struct {
@@ -27,9 +29,11 @@ type termSizeSuite struct {
 	nCh       chan os.Signal
 }
 
-var _ = gc.Suite(&termSizeSuite{})
+func TestTermSizeSuite(t *tctesting.T) {
+	tc.Run(t, &termSizeSuite{})
+}
 
-func (s *termSizeSuite) TearDownTest(c *gc.C) {
+func (s *termSizeSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 
 	if s.sizeQueue != nil {
@@ -40,7 +44,7 @@ func (s *termSizeSuite) TearDownTest(c *gc.C) {
 	s.nCh = nil
 }
 
-func (s *termSizeSuite) setupQ(c *gc.C) *gomock.Controller {
+func (s *termSizeSuite) setupQ(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.getSize = mocks.NewMockSizeGetter(ctrl)
 	s.nCh = make(chan os.Signal, 1)
@@ -51,7 +55,7 @@ func (s *termSizeSuite) setupQ(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *termSizeSuite) TestWatch(c *gc.C) {
+func (s *termSizeSuite) TestWatch(c *tc.C) {
 	ctrl := s.setupQ(c)
 	defer ctrl.Finish()
 
@@ -81,14 +85,14 @@ func (s *termSizeSuite) TestWatch(c *gc.C) {
 		s.getSize.EXPECT().Get(gomock.Any()).DoAndReturn(
 			// get initial window size.
 			func(fd int) *remotecommand.TerminalSize {
-				c.Assert(fd, gc.DeepEquals, 1)
+				c.Assert(fd, tc.DeepEquals, 1)
 				return size1
 			},
 		),
 		s.getSize.EXPECT().Get(gomock.Any()).DoAndReturn(
 			func(fd int) *remotecommand.TerminalSize {
 				// get the latest changed window size.
-				c.Assert(fd, gc.DeepEquals, 1)
+				c.Assert(fd, tc.DeepEquals, 1)
 				return size2
 			},
 		),
@@ -101,7 +105,7 @@ func (s *termSizeSuite) TestWatch(c *gc.C) {
 	} {
 		select {
 		case o := <-outChan:
-			c.Assert(o, gc.DeepEquals, expected)
+			c.Assert(o, tc.DeepEquals, expected)
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for result")
 		}

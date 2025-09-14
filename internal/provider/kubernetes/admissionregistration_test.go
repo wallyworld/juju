@@ -6,9 +6,8 @@ package kubernetes_test
 import (
 	"encoding/base64"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
@@ -24,10 +23,10 @@ import (
 	"github.com/juju/juju/core/status"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sMutatingWebhook, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *tc.C, cfgs []k8sspecs.K8sMutatingWebhook, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -38,7 +37,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -128,10 +127,10 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -152,7 +151,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c 
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -201,7 +200,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c 
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upgrade(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upgrade(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -222,7 +221,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upg
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -269,7 +268,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upg
 		}
 		webhookRuleWithOperations2.Rule = webhook2Rule1
 		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		webhook2FailurePolicy := admissionregistrationv1.Ignore
 		sideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
 		webhook2 := admissionregistrationv1.MutatingWebhook{
@@ -310,7 +309,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upg
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -331,7 +330,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -383,7 +382,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -404,7 +403,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -460,7 +459,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -481,7 +480,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -530,7 +529,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -551,7 +550,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -603,7 +602,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -624,7 +623,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
@@ -677,7 +676,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 	)
 }
 
-func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sValidatingWebhook, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *tc.C, cfgs []k8sspecs.K8sValidatingWebhook, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -688,7 +687,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -774,10 +773,10 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -798,7 +797,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -847,7 +846,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1Upgrade(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1Upgrade(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -868,7 +867,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1U
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -915,7 +914,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1U
 		}
 		webhookRuleWithOperations2.Rule = webhook2Rule1
 		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		webhook2FailurePolicy := admissionregistrationv1.Ignore
 		return admissionregistrationv1.ValidatingWebhook{
 			Name:          "example.validatingwebhookconfiguration.com",
@@ -954,7 +953,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1U
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepNameV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepNameV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -975,7 +974,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -1027,7 +1026,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1048,7 +1047,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
 	webhook1 := admissionregistrationv1beta1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -1104,7 +1103,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1125,7 +1124,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -1174,7 +1173,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepNameV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepNameV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1195,7 +1194,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",
@@ -1247,7 +1246,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1268,7 +1267,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc
 	}
 	webhookRuleWithOperations1.Rule = webhook1Rule1
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	webhook1FailurePolicy := admissionregistrationv1.Ignore
 	webhook1 := admissionregistrationv1.ValidatingWebhook{
 		Name:          "example.validatingwebhookconfiguration.com",

@@ -6,13 +6,13 @@ package firewaller_test
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -23,7 +23,7 @@ type mockCloudSpecAPI struct {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 
@@ -66,7 +66,7 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 }
 
 type mockRelation struct {
-	testing.Stub
+	testhelpers.Stub
 	firewall.Relation
 	id      int
 	ruw     *mockRelationUnitsWatcher
@@ -117,7 +117,7 @@ func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 }
 
 type mockMachine struct {
-	testing.Stub
+	testhelpers.Stub
 	firewall.Machine
 
 	id               string

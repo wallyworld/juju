@@ -4,21 +4,24 @@
 package state
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MachinePortsOpsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&MachinePortsOpsSuite{})
+func TestMachinePortsOpsSuite(t *tctesting.T) {
+	tc.Run(t, MachinePortsOpsSuite{})
+}
 
-func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
+func (MachinePortsOpsSuite) TestPruneOpenPorts(c *tc.C) {
 	op := &openClosePortRangesOperation{
 		updatedUnitPortRanges: map[string]network.GroupedPortRanges{
 			"enigma/0": {
@@ -40,7 +43,7 @@ func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
 	}
 
 	modified := op.pruneOpenPorts()
-	c.Assert(modified, jc.IsTrue, gc.Commentf("expected pruneOpenPorts to modify the port list"))
+	c.Assert(modified, tc.IsTrue, tc.Commentf("expected pruneOpenPorts to modify the port list"))
 
 	exp := map[string]network.GroupedPortRanges{
 		"enigma/0": {
@@ -54,10 +57,10 @@ func (MachinePortsOpsSuite) TestPruneOpenPorts(c *gc.C) {
 			"public": []network.PortRange{},
 		},
 	}
-	c.Assert(op.updatedUnitPortRanges, gc.DeepEquals, exp, gc.Commentf("expected pruneOpenPorts to remove redundant sections for the dmz, public endpoints"))
+	c.Assert(op.updatedUnitPortRanges, tc.DeepEquals, exp, tc.Commentf("expected pruneOpenPorts to remove redundant sections for the dmz, public endpoints"))
 }
 
-func (MachinePortsOpsSuite) TestPruneEmptySections(c *gc.C) {
+func (MachinePortsOpsSuite) TestPruneEmptySections(c *tc.C) {
 	op := &openClosePortRangesOperation{
 		updatedUnitPortRanges: map[string]network.GroupedPortRanges{
 			"enigma/0": {
@@ -80,7 +83,7 @@ func (MachinePortsOpsSuite) TestPruneEmptySections(c *gc.C) {
 	}
 
 	modified := op.pruneEmptySections()
-	c.Assert(modified, jc.IsTrue, gc.Commentf("expected pruneEmptySections to modify the port list"))
+	c.Assert(modified, tc.IsTrue, tc.Commentf("expected pruneEmptySections to modify the port list"))
 
 	exp := map[string]network.GroupedPortRanges{
 		"enigma/0": {
@@ -91,10 +94,10 @@ func (MachinePortsOpsSuite) TestPruneEmptySections(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(op.updatedUnitPortRanges, gc.DeepEquals, exp, gc.Commentf("expected prineEmptySections to remove all empty sections and unit docs"))
+	c.Assert(op.updatedUnitPortRanges, tc.DeepEquals, exp, tc.Commentf("expected prineEmptySections to remove all empty sections and unit docs"))
 }
 
-func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *gc.C) {
+func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *tc.C) {
 	op := &openClosePortRangesOperation{
 		mpr: &machinePortRanges{
 			doc: machinePortRangesDoc{
@@ -122,10 +125,10 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangesConflict(c *gc.C) {
 	op.buildPortRangeToUnitMap()
 
 	_, err := op.mergePendingOpenPortRanges()
-	c.Assert(err, gc.ErrorMatches, `.*port ranges 1234-1337/tcp \("enigma/0"\) and 1242/tcp \("enigma/1"\) conflict`)
+	c.Assert(err, tc.ErrorMatches, `.*port ranges 1234-1337/tcp \("enigma/0"\) and 1242/tcp \("enigma/1"\) conflict`)
 }
 
-func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *gc.C) {
+func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *tc.C) {
 	specs := []struct {
 		descr       string
 		existing    map[string]network.GroupedPortRanges
@@ -207,13 +210,13 @@ func (MachinePortsOpsSuite) TestMergePendingOpenPortRangeDupHandling(c *gc.C) {
 		op.buildPortRangeToUnitMap()
 
 		modified, err := op.mergePendingOpenPortRanges()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(modified, gc.Equals, spec.expModified)
-		c.Assert(op.updatedUnitPortRanges, gc.DeepEquals, spec.exp)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(modified, tc.Equals, spec.expModified)
+		c.Assert(op.updatedUnitPortRanges, tc.DeepEquals, spec.exp)
 	}
 }
 
-func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
+func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *tc.C) {
 	specs := []struct {
 		descr              string
 		endpointNamesByApp map[string]set.Strings
@@ -310,13 +313,13 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRanges(c *gc.C) {
 		op.buildPortRangeToUnitMap()
 
 		modified, err := op.mergePendingClosePortRanges()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(modified, gc.Equals, spec.expModified)
-		c.Assert(op.updatedUnitPortRanges, gc.DeepEquals, spec.exp)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(modified, tc.Equals, spec.expModified)
+		c.Assert(op.updatedUnitPortRanges, tc.DeepEquals, spec.exp)
 	}
 }
 
-func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *gc.C) {
+func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *tc.C) {
 	op := &openClosePortRangesOperation{
 		mpr: &machinePortRanges{
 			doc: machinePortRangesDoc{
@@ -344,10 +347,10 @@ func (MachinePortsOpsSuite) TestMergePendingClosePortRangesConflict(c *gc.C) {
 	op.buildPortRangeToUnitMap()
 
 	_, err := op.mergePendingClosePortRanges()
-	c.Assert(err, gc.ErrorMatches, `.*port ranges 1234-1337/tcp \("enigma/0"\) and 1242/tcp \("codebreaker/0"\) conflict`)
+	c.Assert(err, tc.ErrorMatches, `.*port ranges 1234-1337/tcp \("enigma/0"\) and 1242/tcp \("codebreaker/0"\) conflict`)
 }
 
-func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
+func (MachinePortsOpsSuite) TestValidatePendingChanges(c *tc.C) {
 	specs := []struct {
 		descr              string
 		endpointNamesByApp map[string]set.Strings
@@ -416,9 +419,9 @@ func (MachinePortsOpsSuite) TestValidatePendingChanges(c *gc.C) {
 
 		err := op.validatePendingChanges()
 		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, spec.expErr)
+			c.Assert(err, tc.ErrorMatches, spec.expErr)
 		}
 	}
 }

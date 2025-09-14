@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // This file holds helper functions for mocking pieces of State and replicaset

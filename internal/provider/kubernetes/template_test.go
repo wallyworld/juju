@@ -4,20 +4,23 @@
 package kubernetes_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	provider "github.com/juju/juju/internal/provider/kubernetes"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type templateSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&templateSuite{})
+func TestTemplateSuite(t *tctesting.T) {
+	tc.Run(t, &templateSuite{})
+}
 
-func (t *templateSuite) TestToYaml(c *gc.C) {
+func (t *templateSuite) TestToYaml(c *tc.C) {
 	in := struct {
 		Command []string `yaml:"command,omitempty"`
 	}{
@@ -27,8 +30,8 @@ echo "do some stuff here for gitlab container"
 `[1:]},
 	}
 	out, err := provider.ToYaml(in)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, `
 command:
 - sh
 - -c
@@ -38,12 +41,12 @@ command:
 `[1:])
 }
 
-func (t *templateSuite) TestIndent(c *gc.C) {
+func (t *templateSuite) TestIndent(c *tc.C) {
 	out := provider.Indent(6, `
 line 1
 line 2
 line 3`[1:])
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(out, tc.DeepEquals, `
       line 1
       line 2
       line 3
@@ -53,7 +56,7 @@ line 3`[1:])
 line 1
 line 2
 line 3`[1:])
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(out, tc.DeepEquals, `
         line 1
         line 2
         line 3

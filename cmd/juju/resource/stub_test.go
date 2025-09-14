@@ -8,14 +8,14 @@ import (
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type stubCharmStore struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnListResources [][]charmresource.Resource
 }
@@ -30,7 +30,7 @@ func (s *stubCharmStore) ListResources(charms []jujuresource.CharmID) ([][]charm
 }
 
 type stubAPIClient struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	resources resources.ApplicationResources
 }
@@ -64,7 +64,7 @@ func (s *stubAPIClient) Close() error {
 type stubFile struct {
 	// No one actually tries to read from this during tests.
 	io.ReadSeeker
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (s *stubFile) Close() error {

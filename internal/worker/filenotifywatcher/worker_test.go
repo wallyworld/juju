@@ -4,23 +4,25 @@
 package filenotifywatcher
 
 import (
-	time "time"
+	tctesting "testing"
+	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) TestChanges(c *gc.C) {
+func (s *workerSuite) TestChanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -45,24 +47,24 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	watcher, ok := w.(FileNotifyWatcher)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement FileNotifyWatcher"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement FileNotifyWatcher"))
 
 	ch1, err := watcher.Changes("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v := <-ch1:
-		c.Assert(v, jc.IsTrue)
+		c.Assert(v, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for changes")
 	}
 
 	ch2, err := watcher.Changes("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case v := <-ch2:
-		c.Assert(v, jc.IsTrue)
+		c.Assert(v, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for changes")
 	}
@@ -76,7 +78,7 @@ func (s *workerSuite) TestChanges(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	cfg := WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
@@ -86,6 +88,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	}
 
 	w, err := newWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

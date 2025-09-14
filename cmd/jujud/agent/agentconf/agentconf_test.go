@@ -4,33 +4,36 @@
 package agentconf_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&agentConfSuite{})
+func TestAgentConfSuite(t *tctesting.T) {
+	tc.Run(t, &agentConfSuite{})
+}
 
 type agentConfSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
+func (s *agentConfSuite) TestChangeConfigSuccess(c *tc.C) {
 	mcsw := &mockConfigSetterWriter{}
 	conf := agentconf.NewAgentConfForTest(c.MkDir(), mcsw)
 	err := conf.ChangeConfig(func(agent.ConfigSetter) error {
 		return nil
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mcsw.WriteCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mcsw.WriteCalled, tc.IsTrue)
 }
 
-func (s *agentConfSuite) TestChangeConfigMutateFailure(c *gc.C) {
+func (s *agentConfSuite) TestChangeConfigMutateFailure(c *tc.C) {
 	mcsw := &mockConfigSetterWriter{}
 	conf := agentconf.NewAgentConfForTest(c.MkDir(), mcsw)
 
@@ -38,11 +41,11 @@ func (s *agentConfSuite) TestChangeConfigMutateFailure(c *gc.C) {
 		return errors.New("blam")
 	})
 
-	c.Assert(err, gc.ErrorMatches, "blam")
-	c.Assert(mcsw.WriteCalled, jc.IsFalse)
+	c.Assert(err, tc.ErrorMatches, "blam")
+	c.Assert(mcsw.WriteCalled, tc.IsFalse)
 }
 
-func (s *agentConfSuite) TestChangeConfigWriteFailure(c *gc.C) {
+func (s *agentConfSuite) TestChangeConfigWriteFailure(c *tc.C) {
 	mcsw := &mockConfigSetterWriter{
 		WriteError: errors.New("boom"),
 	}
@@ -51,8 +54,8 @@ func (s *agentConfSuite) TestChangeConfigWriteFailure(c *gc.C) {
 		return nil
 	})
 
-	c.Assert(err, gc.ErrorMatches, "cannot write agent configuration: boom")
-	c.Assert(mcsw.WriteCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "cannot write agent configuration: boom")
+	c.Assert(mcsw.WriteCalled, tc.IsTrue)
 }
 
 type mockConfigSetterWriter struct {

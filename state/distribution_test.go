@@ -5,15 +5,16 @@ package state_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +26,9 @@ type InstanceDistributorSuite struct {
 	hwChar      *instance.HardwareCharacteristics
 }
 
-var _ = gc.Suite(&InstanceDistributorSuite{})
+func TestInstanceDistributorSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &InstanceDistributorSuite{})
+}
 
 type mockInstanceDistributor struct {
 	candidates        []instance.Id
@@ -46,7 +49,7 @@ func (p *mockInstanceDistributor) DistributeInstances(
 	return result, p.err
 }
 
-func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
+func (s *InstanceDistributorSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.distributor = mockInstanceDistributor{}
@@ -68,7 +71,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: constraints.MustParse("arch=amd64"),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		hwChar := *s.hwChar
 		if i <= 1 {
@@ -78,103 +81,103 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 
 		instId := instance.Id(fmt.Sprintf("i-blah-%d", i))
 		err = m.SetProvisioned(instId, "", "fake-nonce", &hwChar)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		s.machines[i] = m
 	}
 }
 
-func (s *InstanceDistributorSuite) setupScenario(c *gc.C) {
+func (s *InstanceDistributorSuite) setupScenario(c *tc.C) {
 	// Assign a unit so we have a non-empty distribution group, and
 	// provision all instances so we have candidates.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machines[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstances(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstances(c *tc.C) {
 	s.setupScenario(c)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.distributor.candidates, jc.SameContents, []instance.Id{"i-blah-1", "i-blah-2"})
-	c.Assert(s.distributor.distributionGroup, jc.SameContents, []instance.Id{"i-blah-0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.distributor.candidates, tc.SameContents, []instance.Id{"i-blah-1", "i-blah-2"})
+	c.Assert(s.distributor.distributionGroup, tc.SameContents, []instance.Id{"i-blah-0"})
 	s.distributor.result = []instance.Id{}
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
+	c.Assert(err, tc.ErrorMatches, eligibleMachinesInUse)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesInvalidInstances(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesInvalidInstances(c *tc.C) {
 	s.setupScenario(c)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.distributor.result = []instance.Id{"notthere"}
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: invalid instance returned: notthere`)
+	c.Assert(err, tc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: invalid instance returned: notthere`)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesNoEmptyMachines(c *tc.C) {
 	for range s.machines {
 		// Assign a unit so we have a non-empty distribution group.
 		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		_, err = unit.AssignToCleanMachine()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// InstanceDistributor is not called if there are no empty instances.
 	s.distributor.err = fmt.Errorf("no assignment for you")
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
+	c.Assert(err, tc.ErrorMatches, eligibleMachinesInUse)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *tc.C) {
 	s.setupScenario(c)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that assignment fails when DistributeInstances returns an error.
 	s.distributor.err = fmt.Errorf("no assignment for you")
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
+	c.Assert(err, tc.ErrorMatches, ".*no assignment for you")
 	_, err = unit.AssignToCleanEmptyMachine()
-	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
+	c.Assert(err, tc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
 	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, ".*incapable of InstanceDistributor")
+	c.Assert(err, tc.ErrorMatches, ".*incapable of InstanceDistributor")
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesDistributionGroup(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesDistributionGroup(c *tc.C) {
 	unit0, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit0.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Distribution group is not empty, because the machine assigned.
 	unit1, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit1.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup(c *tc.C) {
 	s.distributor.err = fmt.Errorf("no assignment for you")
 
 	// InstanceDistributor is not called if the distribution group is empty.
 	unit0, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit0.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroupAfterAssignWithNonProvision(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroupAfterAssignWithNonProvision(c *tc.C) {
 	s.distributor.err = fmt.Errorf("no assignment for you")
 
 	// InstanceDistributor is not called if the distribution group is empty.
@@ -184,22 +187,22 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 		Constraints:             constraints.MustParse("arch=amd64"),
 		HardwareCharacteristics: *s.hwChar,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unit0, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit0.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Distribution group is still empty, because the machine assigned to has
 	// not been provisioned.
 	unit1, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit1.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
+func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *tc.C) {
 	s.setupScenario(c)
 
 	var distributorErr error
@@ -207,48 +210,48 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: policy returned nil instance distributor without an error`)
+	c.Assert(err, tc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: policy returned nil instance distributor without an error`)
 
 	distributorErr = errors.NotImplementedf("InstanceDistributor")
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *tc.C) {
 	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
 	state.SetPolicy(s.State, nil)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c *gc.C) {
+func (s *InstanceDistributorSuite) TestDistributeInstancesWithZoneConstraints(c *tc.C) {
 	err := s.wordpress.SetConstraints(constraints.MustParse("zones=az1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Initial unit, assigned to machine 0, to get a distribution group.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machines[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unit, err = s.wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Only machine 1 is empty, and in the desired AZ.
 	s.distributor.result = []instance.Id{"i-blah-1"}
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Machine 2 filtered by zone constraint.
-	c.Check(s.distributor.candidates, jc.SameContents, []instance.Id{"i-blah-1"})
-	c.Check(s.distributor.distributionGroup, jc.SameContents, []instance.Id{"i-blah-0"})
+	c.Check(s.distributor.candidates, tc.SameContents, []instance.Id{"i-blah-1"})
+	c.Check(s.distributor.distributionGroup, tc.SameContents, []instance.Id{"i-blah-0"})
 }
 
 type ApplicationMachinesSuite struct {
@@ -258,9 +261,11 @@ type ApplicationMachinesSuite struct {
 	machines  []*state.Machine
 }
 
-var _ = gc.Suite(&ApplicationMachinesSuite{})
+func TestApplicationMachinesSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ApplicationMachinesSuite{})
+}
 
-func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationMachinesSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.wordpress = s.AddTestingApplication(
@@ -281,33 +286,33 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	for _, i := range []int{0, 1, 4} {
 		unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	for _, i := range []int{2, 3} {
 		unit, err := s.mysql.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *ApplicationMachinesSuite) TestApplicationMachines(c *gc.C) {
+func (s *ApplicationMachinesSuite) TestApplicationMachines(c *tc.C) {
 	machines, err := state.ApplicationMachines(s.State, "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.DeepEquals, []string{"2", "3"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.DeepEquals, []string{"2", "3"})
 
 	machines, err = state.ApplicationMachines(s.State, "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.DeepEquals, []string{"0", "1", "4"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.DeepEquals, []string{"0", "1", "4"})
 
 	machines, err = state.ApplicationMachines(s.State, "fred")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(machines), tc.Equals, 0)
 }

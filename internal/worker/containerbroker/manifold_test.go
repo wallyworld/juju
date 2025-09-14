@@ -4,25 +4,29 @@
 package containerbroker_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	worker "github.com/juju/worker/v3"
+	"github.com/juju/tc"
+	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerbroker/mocks"
 )
 
 type manifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&manifoldConfigSuite{})
+func TestManifoldConfigSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldConfigSuite{})
+}
 
-func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
+func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -81,11 +85,11 @@ func (s *manifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
 		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Assert(err, tc.ErrorMatches, test.err)
 	}
 }
 
-func (s *manifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
+func (s *manifoldConfigSuite) TestValidConfigValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -101,11 +105,11 @@ func (s *manifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 		},
 	}
 	err := config.Validate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	context     *mocks.MockContext
 	agent       *mocks.MockAgent
@@ -116,9 +120,11 @@ type manifoldSuite struct {
 	machineLock *mocks.MockLock
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) setup(c *gc.C) *gomock.Controller {
+func (s *manifoldSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.context = mocks.NewMockContext(ctrl)
@@ -132,7 +138,7 @@ func (s *manifoldSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *manifoldSuite) TestNewTrackerIsCalled(c *gc.C) {
+func (s *manifoldSuite) TestNewTrackerIsCalled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -151,11 +157,11 @@ func (s *manifoldSuite) TestNewTrackerIsCalled(c *gc.C) {
 	}
 	manifold := containerbroker.Manifold(config)
 	result, err := manifold.Start(s.context)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, s.worker)
+	c.Assert(err, tc.IsNil)
+	c.Assert(result, tc.Equals, s.worker)
 }
 
-func (s *manifoldSuite) TestNewTrackerReturnsError(c *gc.C) {
+func (s *manifoldSuite) TestNewTrackerReturnsError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.behaviourContext()
@@ -174,7 +180,7 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *gc.C) {
 	}
 	manifold := containerbroker.Manifold(config)
 	_, err := manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "errored")
+	c.Assert(err, tc.ErrorMatches, "errored")
 }
 
 func (s *manifoldSuite) behaviourContext() {

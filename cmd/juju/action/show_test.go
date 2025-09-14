@@ -6,11 +6,11 @@ package action_test
 import (
 	"errors"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -22,14 +22,16 @@ type ShowSuite struct {
 	command        *action.ShowCommand
 }
 
-var _ = gc.Suite(&ShowSuite{})
+func TestShowSuite(t *tctesting.T) {
+	tc.Run(t, &ShowSuite{})
+}
 
-func (s *ShowSuite) SetUpTest(c *gc.C) {
+func (s *ShowSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewShowCommandForTest(s.store)
 }
 
-func (s *ShowSuite) TestInit(c *gc.C) {
+func (s *ShowSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should         string
 		args           []string
@@ -67,17 +69,17 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(err, jc.ErrorIsNil)
-				c.Check(s.command.ApplicationName(), gc.Equals, t.expectedApp)
-				c.Check(s.command.ActionName(), gc.Equals, t.expectedAction)
+				c.Check(err, tc.ErrorIsNil)
+				c.Check(s.command.ApplicationName(), tc.Equals, t.expectedApp)
+				c.Check(s.command.ActionName(), tc.Equals, t.expectedAction)
 			} else {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
+				c.Check(err, tc.ErrorMatches, t.expectedErr)
 			}
 		}
 	}
 }
 
-func (s *ShowSuite) TestShow(c *gc.C) {
+func (s *ShowSuite) TestShow(c *tc.C) {
 	simpleOutput := `
 Take a snapshot of the database.
 
@@ -144,15 +146,15 @@ prefix:
 				ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
-					c.Check(err, gc.ErrorMatches, t.expectedErr)
+					c.Check(err, tc.ErrorMatches, t.expectedErr)
 					if t.expectMessage != "" {
 						msg := cmdtesting.Stderr(ctx)
 						msg = strings.Replace(msg, "\n", "", -1)
-						c.Check(msg, gc.Matches, t.expectMessage)
+						c.Check(msg, tc.Matches, t.expectMessage)
 					}
 				} else {
-					c.Assert(err, gc.IsNil)
-					c.Check(cmdtesting.Stdout(ctx), gc.Equals, simpleOutput)
+					c.Assert(err, tc.IsNil)
+					c.Check(cmdtesting.Stdout(ctx), tc.Equals, simpleOutput)
 				}
 
 			}()

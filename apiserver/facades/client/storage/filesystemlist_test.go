@@ -4,9 +4,10 @@
 package storage_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -16,7 +17,9 @@ type filesystemSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&filesystemSuite{})
+func TestFilesystemSuite(t *tctesting.T) {
+	tc.Run(t, &filesystemSuite{})
+}
 
 func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	return params.FilesystemDetails{
@@ -51,17 +54,17 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 	}
 }
 
-func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsEmptyFilter(c *tc.C) {
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], gc.DeepEquals, s.expectedFilesystemDetails())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedFilesystemDetails())
 }
 
-func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsError(c *tc.C) {
 	msg := "inventing error"
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, errors.New(msg)
@@ -69,43 +72,43 @@ func (s *filesystemSuite) TestListFilesystemsError(c *gc.C) {
 	results, err := s.api.ListFilesystems(params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, msg)
 }
 
-func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsNoFilesystems(c *tc.C) {
 	s.storageAccessor.allFilesystems = func() ([]state.Filesystem, error) {
 		return nil, nil
 	}
 	results, err := s.api.ListFilesystems(params.FilesystemFilters{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 0)
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilter(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilter(c *tc.C) {
 	filters := []params.FilesystemFilter{{
 		Machines: []string{s.machineTag.String()},
 	}}
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, s.expectedFilesystemDetails())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, s.expectedFilesystemDetails())
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilterNonMatching(c *tc.C) {
 	filters := []params.FilesystemFilter{{
 		Machines: []string{"machine-42"},
 	}}
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{filters})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error, gc.IsNil)
-	c.Assert(found.Results[0].Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Error, tc.IsNil)
+	c.Assert(found.Results[0].Result, tc.HasLen, 0)
 }
 
-func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *tc.C) {
 	s.filesystem.info = &state.FilesystemInfo{
 		Size: 123,
 	}
@@ -114,13 +117,13 @@ func (s *filesystemSuite) TestListFilesystemsFilesystemInfo(c *gc.C) {
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
-func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *tc.C) {
 	s.filesystemAttachment.info = &state.FilesystemAttachmentInfo{
 		MountPoint: "/tmp",
 		ReadOnly:   true,
@@ -140,21 +143,21 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }
 
-func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *gc.C) {
+func (s *filesystemSuite) TestListFilesystemsVolumeBacked(c *tc.C) {
 	s.filesystem.volume = &s.volumeTag
 	expected := s.expectedFilesystemDetails()
 	expected.VolumeTag = s.volumeTag.String()
 	found, err := s.api.ListFilesystems(params.FilesystemFilters{
 		[]params.FilesystemFilter{{}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result, gc.HasLen, 1)
-	c.Assert(found.Results[0].Result[0], jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Results, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result, tc.HasLen, 1)
+	c.Assert(found.Results[0].Result[0], tc.DeepEquals, expected)
 }

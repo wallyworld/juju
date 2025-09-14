@@ -4,42 +4,47 @@
 package model_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type upgradeSeriesGraphSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&upgradeSeriesGraphSuite{})
-
-func (*upgradeSeriesGraphSuite) TestUpgradeSeriesGraphValidate(c *gc.C) {
-	graph := model.UpgradeSeriesGraph()
-	err := graph.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+func TestUpgradeSeriesGraphSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSeriesGraphSuite{})
 }
 
-func (*upgradeSeriesGraphSuite) TestValidate(c *gc.C) {
+func (*upgradeSeriesGraphSuite) TestUpgradeSeriesGraphValidate(c *tc.C) {
+	graph := model.UpgradeSeriesGraph()
+	err := graph.Validate()
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (*upgradeSeriesGraphSuite) TestValidate(c *tc.C) {
 	graph := model.Graph(map[model.UpgradeSeriesStatus][]model.UpgradeSeriesStatus{
 		model.UpgradeSeriesNotStarted: {
 			model.UpgradeSeriesPrepareStarted,
 		},
 	})
 	err := graph.Validate()
-	c.Assert(err, gc.ErrorMatches, `vertex "not started" edge to vertex "prepare started" is not valid`)
+	c.Assert(err, tc.ErrorMatches, `vertex "not started" edge to vertex "prepare started" is not valid`)
 }
 
 type upgradeSeriesFSMSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&upgradeSeriesFSMSuite{})
+func TestUpgradeSeriesFSMSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSeriesFSMSuite{})
+}
 
-func (*upgradeSeriesFSMSuite) TestTransitionTo(c *gc.C) {
+func (*upgradeSeriesFSMSuite) TestTransitionTo(c *tc.C) {
 	for _, t := range []struct {
 		expected model.UpgradeSeriesStatus
 		state    model.UpgradeSeriesStatus
@@ -57,40 +62,40 @@ func (*upgradeSeriesFSMSuite) TestTransitionTo(c *gc.C) {
 		},
 	} {
 		fsm, err := model.NewUpgradeSeriesFSM(model.UpgradeSeriesGraph(), model.UpgradeSeriesNotStarted)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		allowed := fsm.TransitionTo(t.state)
-		c.Assert(allowed, gc.Equals, t.valid)
-		c.Assert(fsm.State(), gc.Equals, t.expected)
+		c.Assert(allowed, tc.Equals, t.valid)
+		c.Assert(fsm.State(), tc.Equals, t.expected)
 	}
 }
 
-func (*upgradeSeriesFSMSuite) TestTransitionGraph(c *gc.C) {
+func (*upgradeSeriesFSMSuite) TestTransitionGraph(c *tc.C) {
 	dag := model.UpgradeSeriesGraph()
 	for state, vertices := range dag {
 		c.Logf("current state %q", state)
 
 		for _, vertex := range vertices {
 			fsm, err := model.NewUpgradeSeriesFSM(dag, state)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			allowed := fsm.TransitionTo(vertex)
-			c.Assert(allowed, jc.IsTrue, gc.Commentf("transition %q to %q", fsm.State(), vertex))
+			c.Assert(allowed, tc.IsTrue, tc.Commentf("transition %q to %q", fsm.State(), vertex))
 		}
 	}
 }
 
-func (*upgradeSeriesFSMSuite) TestTransitionGraphChildren(c *gc.C) {
+func (*upgradeSeriesFSMSuite) TestTransitionGraphChildren(c *tc.C) {
 	dag := model.UpgradeSeriesGraph()
 	for state, vertices := range dag {
 		c.Logf("current state %q", state)
 
 		for _, vertex := range vertices {
 			fsm, err := model.NewUpgradeSeriesFSM(dag, state)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			allowed := fsm.TransitionTo(vertex)
-			c.Assert(allowed, jc.IsTrue)
+			c.Assert(allowed, tc.IsTrue)
 
 			// Can we transition to the child vertex?
 			children := dag[vertex]
@@ -98,7 +103,7 @@ func (*upgradeSeriesFSMSuite) TestTransitionGraphChildren(c *gc.C) {
 				continue
 			}
 			allowed = fsm.TransitionTo(children[0])
-			c.Assert(allowed, jc.IsTrue, gc.Commentf("transition %q to %q", fsm.State(), children[0]))
+			c.Assert(allowed, tc.IsTrue, tc.Commentf("transition %q to %q", fsm.State(), children[0]))
 		}
 	}
 }

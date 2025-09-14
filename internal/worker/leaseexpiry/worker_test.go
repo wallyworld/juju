@@ -5,16 +5,16 @@ package leaseexpiry_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
@@ -24,9 +24,11 @@ type workerSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) TestConfigValidate(c *gc.C) {
+func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	validCfg := leaseexpiry.Config{
 		Clock:     clock.WallClock,
 		Logger:    leaseexpiry.StubLogger{},
@@ -35,18 +37,18 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 
 	cfg := validCfg
 	cfg.Clock = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = validCfg
 	cfg.TrackedDB = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 }
 
-func (s *workerSuite) TestWorkerDeletesExpiredLeases(c *gc.C) {
+func (s *workerSuite) TestWorkerDeletesExpiredLeases(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -77,13 +79,13 @@ INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 
 	stmt, err := s.DB().Prepare(q)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "redis", "redis/0", "-2 minutes")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	wmutex.Lock()
 	w, err = leaseexpiry.NewWorker(leaseexpiry.Config{
@@ -92,17 +94,17 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 		TrackedDB: s.TrackedDB(),
 	})
 	wmutex.Unlock()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Only the postgresql lease (expiring in the future) should remain.
 	row := s.DB().QueryRow("SELECT name FROM LEASE")
 	var name string
 	err = row.Scan(&name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(row.Err(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(row.Err(), tc.ErrorIsNil)
 
-	c.Check(name, gc.Equals, "postgresql")
+	c.Check(name, tc.Equals, "postgresql")
 }

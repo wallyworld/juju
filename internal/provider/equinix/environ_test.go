@@ -5,13 +5,12 @@ package equinix
 
 import (
 	"context"
+	tctesting "testing"
 
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/packethost/packngo"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -25,31 +24,34 @@ import (
 	environContext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/equinix/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/tools"
 )
 
 type environProviderSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = gc.Suite(&environProviderSuite{})
+func TestEnvironProviderSuite(t *tctesting.T) {
+	tc.Run(t, &environProviderSuite{})
+}
 
-func (s *environProviderSuite) SetUpSuite(c *gc.C) {
+func (s *environProviderSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func (s *environProviderSuite) TearDownSuite(c *gc.C) {
+func (s *environProviderSuite) TearDownSuite(c *tc.C) {
 	s.IsolationSuite.TearDownSuite(c)
 }
 
-func (s *environProviderSuite) TearDownTest(c *gc.C) {
+func (s *environProviderSuite) TearDownTest(c *tc.C) {
 	s.IsolationSuite.TearDownTest(c)
 }
 
-func (s *environProviderSuite) SetUpTest(c *gc.C) {
+func (s *environProviderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.provider = NewProvider()
 	s.spec = environscloudspec.CloudSpec{
@@ -72,26 +74,26 @@ func fakeServicePrincipalCredential() *cloud.Credential {
 	return &cred
 }
 
-func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
+func (s *environProviderSuite) TestPrepareConfig(c *tc.C) {
 	cfg := makeTestModelConfig(c)
 	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
 		Cloud:  s.spec,
 		Config: cfg,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.NotNil)
 }
 
-func (s *environProviderSuite) TestOpen(c *gc.C) {
+func (s *environProviderSuite) TestOpen(c *tc.C) {
 	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 }
 
-func (s *environProviderSuite) TestDestroy(c *gc.C) {
+func (s *environProviderSuite) TestDestroy(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -117,13 +119,13 @@ func (s *environProviderSuite) TestDestroy(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	err = env.Destroy(environContext.NewEmptyCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environProviderSuite) TestGetPacketInstancesByTag(c *gc.C) {
+func (s *environProviderSuite) TestGetPacketInstancesByTag(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -155,14 +157,14 @@ func (s *environProviderSuite) TestGetPacketInstancesByTag(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 
 	err = env.DestroyController(environContext.NewEmptyCloudCallContext(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environProviderSuite) TestAllInstances(c *gc.C) {
+func (s *environProviderSuite) TestAllInstances(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -189,14 +191,14 @@ func (s *environProviderSuite) TestAllInstances(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	ii, err := env.AllInstances(environContext.NewCloudCallContext(context.TODO()))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(ii) == 2, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(ii) == 2, tc.IsTrue)
 }
 
-func (s *environProviderSuite) TestInstances(c *gc.C) {
+func (s *environProviderSuite) TestInstances(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -214,14 +216,14 @@ func (s *environProviderSuite) TestInstances(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	ii, err := env.Instances(environContext.NewCloudCallContext(context.TODO()), []instance.Id{"10"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(ii[0].Id()), jc.Contains, "10")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(ii[0].Id()), tc.Contains, "10")
 }
 
-func (s *environProviderSuite) TestStopInstance(c *gc.C) {
+func (s *environProviderSuite) TestStopInstance(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -235,13 +237,13 @@ func (s *environProviderSuite) TestStopInstance(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	err = env.StopInstances(environContext.NewCloudCallContext(context.TODO()), "100")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environProviderSuite) TestMapJujuSubnetsToReservationIDs(c *gc.C) {
+func (s *environProviderSuite) TestMapJujuSubnetsToReservationIDs(c *tc.C) {
 	in := []map[network.Id][]string{
 		{
 			"subnet-abcdef-aa": []string{"fr"},
@@ -252,7 +254,7 @@ func (s *environProviderSuite) TestMapJujuSubnetsToReservationIDs(c *gc.C) {
 	}
 	exp := []string{"abcdef-aa"}
 	got := mapJujuSubnetsToReservationIDs(in)
-	c.Assert(got, gc.DeepEquals, exp, gc.Commentf("expected FAN subnet to be filtered out"))
+	c.Assert(got, tc.DeepEquals, exp, tc.Commentf("expected FAN subnet to be filtered out"))
 }
 
 type packngoCreateDeviceMatcher struct {
@@ -290,7 +292,7 @@ func (m *packngoCreateDeviceMatcher) Matches(x interface{}) bool {
 	return true
 }
 
-func (s *environProviderSuite) TestStartInstance(c *gc.C) {
+func (s *environProviderSuite) TestStartInstance(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	expDev := packngo.Device{
@@ -641,12 +643,12 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	cons := constraints.Value{}
 	base := corebase.MakeDefaultBase("ubuntu", "20.04")
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),
 		AvailabilityZone: "yes",
@@ -660,10 +662,10 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
+func makeTestModelConfig(c *tc.C, extra ...testing.Attrs) *config.Config {
 	attrs := testing.Attrs{
 		"type":          "equinix",
 		"agent-version": "1.2.3",
@@ -673,17 +675,19 @@ func makeTestModelConfig(c *gc.C, extra ...testing.Attrs) *config.Config {
 	}
 	attrs = testing.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
 type EquinixUtils struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&EquinixUtils{})
+func TestEquinixUtils(t *tctesting.T) {
+	tc.Run(t, &EquinixUtils{})
+}
 
-func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
+func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cl := &packngo.Client{}
@@ -698,10 +702,10 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
 	cl.Devices = device
 	_, err := waitDeviceActive(environContext.NewCloudCallContext(context.TODO()), cl, "100")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
+func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cl := &packngo.Client{}
@@ -712,10 +716,10 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
 	}, nil, nil).Times(1)
 	cl.Devices = device
 	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
+func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cl := &packngo.Client{}
@@ -726,10 +730,10 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
 	}, nil, nil).Times(1)
 	cl.Devices = device
 	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
+func (*EquinixUtils) TestIsDistroSupported(c *tc.C) {
 	for _, s := range []struct {
 		os     packngo.OS
 		ic     *instances.InstanceConstraint
@@ -753,7 +757,7 @@ func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
 	}
 }
 
-func (*EquinixUtils) TestGetArchitectureFromPlan(c *gc.C) {
+func (*EquinixUtils) TestGetArchitectureFromPlan(c *tc.C) {
 	for _, s := range []struct {
 		plan   string
 		expect string
@@ -778,7 +782,7 @@ func (*EquinixUtils) TestGetArchitectureFromPlan(c *gc.C) {
 	}
 }
 
-func (*EquinixUtils) TestValidPlan(c *gc.C) {
+func (*EquinixUtils) TestValidPlan(c *tc.C) {
 	const UNEXPECTED = "unexpected"
 
 	plan := func(f func(*packngo.Plan)) packngo.Plan {
@@ -836,7 +840,7 @@ func (*EquinixUtils) TestValidPlan(c *gc.C) {
 	} {
 		o := validPlan(s.plan, s.region)
 		if o != s.expect {
-			c.Errorf("for plan \"%s\" expected \"%s\" got \"%s\"", s.name, s.expect, o)
+			c.Errorf("for plan \"%s\" expected \"%v\" got \"%v\"", s.name, s.expect, o)
 		}
 	}
 }

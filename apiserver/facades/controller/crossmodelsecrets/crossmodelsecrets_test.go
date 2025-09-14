@@ -5,6 +5,7 @@ package crossmodelsecrets_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -12,9 +13,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -23,12 +23,14 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&CrossModelSecretsSuite{})
+func TestCrossModelSecretsSuite(t *tctesting.T) {
+	tc.Run(t, &CrossModelSecretsSuite{})
+}
 
 type CrossModelSecretsSuite struct {
 	coretesting.BaseSuite
@@ -75,13 +77,13 @@ func (m *mockBakery) NewMacaroon(ctx context.Context, version bakery.Version, ca
 	return m.Bakery.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
-func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
+func (s *CrossModelSecretsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 
 	key, err := bakery.GenerateKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	locator := testLocator{key.Public}
 	bakery := bakery.New(bakery.BakeryParams{
 		Locator:       locator,
@@ -92,10 +94,10 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(
 		nil, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *CrossModelSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
@@ -107,9 +109,9 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
 	backendConfigGetter := func(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
-		c.Assert(sameController, jc.IsFalse)
-		c.Assert(backendID, gc.Equals, "backend-id")
-		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
+		c.Assert(sameController, tc.IsFalse)
+		c.Assert(backendID, tc.Equals, "backend-id")
+		c.Assert(consumer.String(), tc.Equals, "unit-remote-app-666")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "active-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -136,7 +138,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 		s.crossModelState,
 		s.stateBackend,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -145,15 +147,15 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *gc.C) {
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	s.assertGetSecretContentInfo(c, false)
 }
 
-func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNewConsumer(c *gc.C) {
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNewConsumer(c *tc.C) {
 	s.assertGetSecretContentInfo(c, true)
 }
 
-func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer bool) {
+func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *tc.C, newConsumer bool) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
@@ -199,7 +201,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 			checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 			checkers.DeclaredCaveat("relation-key", relation.Id()),
 		}, bakery.Op{"consume", "mysql-uuid"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
@@ -225,8 +227,8 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
 			Content: params.SecretContentParams{
 				ValueRef: &params.SecretValueRef{

@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
@@ -28,7 +28,9 @@ type handlerSuite struct {
 	logger Logger
 }
 
-var _ = gc.Suite(&handlerSuite{})
+func TestHandlerSuite(t *tctesting.T) {
+	tc.Run(t, &handlerSuite{})
+}
 
 type handlerTest struct {
 	// Request
@@ -41,12 +43,12 @@ type handlerTest struct {
 	ignoreBody bool   // if true, test will not read the request body
 }
 
-func (s *handlerSuite) SetUpTest(c *gc.C) {
+func (s *handlerSuite) SetUpTest(c *tc.C) {
 	s.state = &fakeState{}
 	s.logger = loggo.GetLogger(c.TestName())
 }
 
-func (s *handlerSuite) runHandlerTest(c *gc.C, test handlerTest) {
+func (s *handlerSuite) runHandlerTest(c *tc.C, test handlerTest) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
@@ -55,7 +57,7 @@ func (s *handlerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 		Logger:     s.logger,
 		SocketName: socket,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serverURL := "http://localhost:8080"
 	req, err := http.NewRequest(
@@ -63,41 +65,41 @@ func (s *handlerSuite) runHandlerTest(c *gc.C, test handlerTest) {
 		serverURL+test.endpoint,
 		strings.NewReader(test.body),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := client(socket).Do(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, test.statusCode)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, test.statusCode)
 
 	if test.ignoreBody {
 		return
 	}
 	data, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = resp.Body.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Response should be valid JSON
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
+	c.Check(resp.Header.Get("Content-Type"), tc.Equals, "application/json")
 	err = json.Unmarshal(data, &struct{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if test.response != "" {
-		c.Check(string(data), gc.Matches, test.response)
+		c.Check(string(data), tc.Matches, test.response)
 	}
 }
 
-func (s *handlerSuite) assertState(c *gc.C, users []fakeUser) {
-	c.Assert(len(s.state.users), gc.Equals, len(users))
+func (s *handlerSuite) assertState(c *tc.C, users []fakeUser) {
+	c.Assert(len(s.state.users), tc.Equals, len(users))
 
 	for _, expected := range users {
 		actual, ok := s.state.users[expected.name]
-		c.Assert(ok, gc.Equals, true)
-		c.Check(actual.creator, gc.Equals, expected.creator)
-		c.Check(actual.password, gc.Equals, expected.password)
+		c.Assert(ok, tc.Equals, true)
+		c.Check(actual.creator, tc.Equals, expected.creator)
+		c.Check(actual.password, tc.Equals, expected.password)
 	}
 }
 
-func (s *handlerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users",
@@ -106,7 +108,7 @@ func (s *handlerSuite) TestMetricsUsersAddInvalidMethod(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddMissingBody(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -115,7 +117,7 @@ func (s *handlerSuite) TestMetricsUsersAddMissingBody(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddInvalidBody(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -125,7 +127,7 @@ func (s *handlerSuite) TestMetricsUsersAddInvalidBody(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddMissingUsername(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -135,7 +137,7 @@ func (s *handlerSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddMissingPassword(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -145,7 +147,7 @@ func (s *handlerSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/metrics-users",
@@ -155,7 +157,7 @@ func (s *handlerSuite) TestMetricsUsersAddUsernameMissingPrefix(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddSuccess(c *tc.C) {
 	s.state = newFakeState(nil)
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodPost,
@@ -169,7 +171,7 @@ func (s *handlerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddAlreadyExists(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "bar", creator: "not-you"},
 	})
@@ -186,7 +188,7 @@ func (s *handlerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddDifferentPassword(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddDifferentPassword(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "foo", creator: userCreator},
 	})
@@ -203,7 +205,7 @@ func (s *handlerSuite) TestMetricsUsersAddDifferentPassword(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddAddErr(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddAddErr(c *tc.C) {
 	s.state = newFakeState(nil)
 	s.state.addErr = fmt.Errorf("spanner in the works")
 
@@ -218,7 +220,7 @@ func (s *handlerSuite) TestMetricsUsersAddAddErr(c *gc.C) {
 	s.assertState(c, nil)
 }
 
-func (s *handlerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddIdempotent(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
 	})
@@ -235,7 +237,7 @@ func (s *handlerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersAddFailed(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersAddFailed(c *tc.C) {
 	s.state = newFakeState(nil)
 	s.state.model.err = fmt.Errorf("spanner in the works")
 
@@ -249,7 +251,7 @@ func (s *handlerSuite) TestMetricsUsersAddFailed(c *gc.C) {
 	s.assertState(c, nil)
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveInvalidMethod(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodGet,
 		endpoint:   "/metrics-users/foo",
@@ -258,7 +260,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveInvalidMethod(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *tc.C) {
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
 		endpoint:   "/metrics-users/foo",
@@ -267,7 +269,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveUsernameMissingPrefix(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveSuccess(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "bar", creator: "controller@juju"},
 	})
@@ -280,7 +282,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
 	s.assertState(c, nil)
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveForbidden(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "foo", creator: "not-you"},
 	})
@@ -296,7 +298,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveForbidden(c *gc.C) {
 	})
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveNotFound(c *tc.C) {
 	s.state = newFakeState(nil)
 	s.runHandlerTest(c, handlerTest{
 		method:     http.MethodDelete,
@@ -307,7 +309,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveNotFound(c *gc.C) {
 	s.assertState(c, nil)
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveIdempotent(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveIdempotent(c *tc.C) {
 	s.state = newFakeState(nil)
 	s.state.userErr = stateerrors.NewDeletedUserError("juju-metrics-r0")
 
@@ -321,7 +323,7 @@ func (s *handlerSuite) TestMetricsUsersRemoveIdempotent(c *gc.C) {
 	s.assertState(c, nil)
 }
 
-func (s *handlerSuite) TestMetricsUsersRemoveFailed(c *gc.C) {
+func (s *handlerSuite) TestMetricsUsersRemoveFailed(c *tc.C) {
 	s.state = newFakeState([]fakeUser{
 		{name: "juju-metrics-r0", password: "bar", creator: userCreator},
 	})

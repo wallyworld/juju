@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	. "gopkg.in/check.v1"
 
 	ssh "github.com/juju/juju/internal/worker/simplesignalhandler"
@@ -30,12 +30,12 @@ func (_ *signalSuite) TestSignalHandling(c *C) {
 	sigChan := make(chan os.Signal, 0)
 
 	watcher, err := ssh.NewSignalWatcher(loggo.Logger{}, sigChan, handler)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sigChan <- syscall.SIGTERM
 
 	err = watcher.Wait()
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(errors.Is(err, testErr), tc.IsTrue)
 }
 
 func (_ *signalSuite) TestSignalHandlingClosed(c *C) {
@@ -46,7 +46,7 @@ func (_ *signalSuite) TestSignalHandlingClosed(c *C) {
 	sigChan := make(chan os.Signal, 0)
 
 	watcher, err := ssh.NewSignalWatcher(loggo.Logger{}, sigChan, handler)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(sigChan)
 
@@ -57,7 +57,7 @@ func (_ *signalSuite) TestSignalHandlingClosed(c *C) {
 func (_ *signalSuite) TestDefaultSignalHandlerNilMap(c *C) {
 	testErr := errors.ConstError("test")
 	err := ssh.SignalHandler(testErr, nil)(syscall.SIGTERM)
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(errors.Is(err, testErr), tc.IsTrue)
 }
 
 func (_ *signalSuite) TestDefaultSignalHandlerNoMap(c *C) {
@@ -65,7 +65,7 @@ func (_ *signalSuite) TestDefaultSignalHandlerNoMap(c *C) {
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGTERM)
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(errors.Is(err, testErr), tc.IsTrue)
 }
 
 func (_ *signalSuite) TestDefaultSignalHandlerMap(c *C) {
@@ -73,6 +73,6 @@ func (_ *signalSuite) TestDefaultSignalHandlerMap(c *C) {
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGINT)
-	c.Assert(errors.Is(err, testErr), jc.IsFalse)
+	c.Assert(errors.Is(err, testErr), tc.IsFalse)
 	c.Assert(err.Error(), Equals, "test error")
 }

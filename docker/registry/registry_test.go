@@ -4,8 +4,9 @@
 package registry_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
@@ -14,17 +15,19 @@ import (
 type registrySuite struct {
 }
 
-var _ = gc.Suite(&registrySuite{})
+func TestRegistrySuite(t *tctesting.T) {
+	tc.Run(t, &registrySuite{})
+}
 
-func (s *registrySuite) TestErrorsOnDockerDefault(c *gc.C) {
+func (s *registrySuite) TestErrorsOnDockerDefault(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "jujusolutions",
 	})
-	c.Assert(err, gc.ErrorMatches, `oci reference "jujusolutions" must have a domain`)
-	c.Assert(reg, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `oci reference "jujusolutions" must have a domain`)
+	c.Assert(reg, tc.IsNil)
 }
 
-func (s *registrySuite) TestSelectsAWSPrivate(c *gc.C) {
+func (s *registrySuite) TestSelectsAWSPrivate(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "123456.dkr.ecr.eu-west-1.amazonaws.com",
 		BasicAuthConfig: docker.BasicAuthConfig{
@@ -33,34 +36,34 @@ func (s *registrySuite) TestSelectsAWSPrivate(c *gc.C) {
 		},
 		Region: "us-west-1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reg, gc.NotNil)
-	c.Assert(reg.String(), gc.Equals, "*.dkr.ecr.*.amazonaws.com")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reg, tc.NotNil)
+	c.Assert(reg.String(), tc.Equals, "*.dkr.ecr.*.amazonaws.com")
 }
 
-func (s *registrySuite) TestSelectsDockerHub(c *gc.C) {
+func (s *registrySuite) TestSelectsDockerHub(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "docker.io/jujusolutions",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reg, gc.NotNil)
-	c.Assert(reg.String(), gc.Equals, "docker.io")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reg, tc.NotNil)
+	c.Assert(reg.String(), tc.Equals, "docker.io")
 }
 
-func (s *registrySuite) TestSelectsGithubContainerRegistry(c *gc.C) {
+func (s *registrySuite) TestSelectsGithubContainerRegistry(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "ghcr.io/juju",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reg, gc.NotNil)
-	c.Assert(reg.String(), gc.Equals, "ghcr.io")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reg, tc.NotNil)
+	c.Assert(reg.String(), tc.Equals, "ghcr.io")
 }
 
-func (s *registrySuite) TestSelectsAWSPublic(c *gc.C) {
+func (s *registrySuite) TestSelectsAWSPublic(c *tc.C) {
 	reg, err := registry.New(docker.ImageRepoDetails{
 		Repository: "public.ecr.aws/juju",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reg, gc.NotNil)
-	c.Assert(reg.String(), gc.Equals, "public.ecr.aws")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reg, tc.NotNil)
+	c.Assert(reg.String(), tc.Equals, "public.ecr.aws")
 }

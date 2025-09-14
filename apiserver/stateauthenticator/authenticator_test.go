@@ -5,18 +5,19 @@ package stateauthenticator_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 // TODO update these tests (moved from apiserver) to test
@@ -26,26 +27,28 @@ type agentAuthenticatorSuite struct {
 	authenticator *stateauthenticator.Authenticator
 }
 
-var _ = gc.Suite(&agentAuthenticatorSuite{})
+func TestAgentAuthenticatorSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &agentAuthenticatorSuite{})
+}
 
-func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
+func (s *agentAuthenticatorSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 }
 
-func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *tc.C) {
 	_, err := s.authenticator.AuthenticateLoginRequest(context.TODO(), "", "", authentication.AuthParams{Token: "token"})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *tc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, user.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(authenticator, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(authenticator, tc.NotNil)
 	userFinder := userFinder{user}
 
 	entity, err := authenticator.Authenticate(context.TODO(), userFinder, authentication.AuthParams{
@@ -53,35 +56,35 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 		Credentials: "password",
 		Nonce:       "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.DeepEquals, user)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity, tc.DeepEquals, user)
 }
 
-func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *tc.C) {
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewMachineTag("0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *tc.C) {
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *tc.C) {
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewUnitTag("wordpress/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *tc.C) {
 	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewCloudTag("not-support"))
-	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
-	c.Assert(authenticator, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "unexpected login entity tag: invalid request")
+	c.Assert(authenticator, tc.IsNil)
 }
 
 type userFinder struct {

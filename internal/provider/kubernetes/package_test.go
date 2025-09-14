@@ -4,15 +4,8 @@
 package kubernetes
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
-
-func TestAll(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func (k *kubernetesClient) EnsureRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, []func(), error) {
 	return k.ensureRoleBinding(rb)

@@ -4,41 +4,45 @@
 package charm
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type kubernetesSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&kubernetesSuite{})
+func TestKubernetesSuite(t *tctesting.T) {
+	tc.Run(t, &kubernetesSuite{})
+}
 
-func (s *kubernetesSuite) TestMetadataV1NoKubernetes(c *gc.C) {
+func (s *kubernetesSuite) TestMetadataV1NoKubernetes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
 	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"bionic"}}).MinTimes(2)
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	c.Assert(IsKubernetes(cm), jc.IsFalse)
+	c.Assert(IsKubernetes(cm), tc.IsFalse)
 }
 
-func (s *kubernetesSuite) TestMetadataV1Kubernetes(c *gc.C) {
+func (s *kubernetesSuite) TestMetadataV1Kubernetes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
 	cm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"kubernetes"}}).MinTimes(2)
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 
-	c.Assert(IsKubernetes(cm), jc.IsTrue)
+	c.Assert(IsKubernetes(cm), tc.IsTrue)
 }
 
-func (s *kubernetesSuite) TestMetadataV2NoKubernetes(c *gc.C) {
+func (s *kubernetesSuite) TestMetadataV2NoKubernetes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -53,10 +57,10 @@ func (s *kubernetesSuite) TestMetadataV2NoKubernetes(c *gc.C) {
 		},
 	}}).AnyTimes()
 
-	c.Assert(IsKubernetes(cm), jc.IsFalse)
+	c.Assert(IsKubernetes(cm), tc.IsFalse)
 }
 
-func (s *kubernetesSuite) TestMetadataV2Kubernetes(c *gc.C) {
+func (s *kubernetesSuite) TestMetadataV2Kubernetes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cm := NewMockCharmMeta(ctrl)
@@ -81,5 +85,5 @@ func (s *kubernetesSuite) TestMetadataV2Kubernetes(c *gc.C) {
 		},
 	}}).AnyTimes()
 
-	c.Assert(IsKubernetes(cm), jc.IsTrue)
+	c.Assert(IsKubernetes(cm), tc.IsTrue)
 }

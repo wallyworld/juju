@@ -3,16 +3,6 @@
 
 package bundlechanges
 
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-)
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 func NewAddMachineParamsMachine(id string) AddMachineParams {
 	return AddMachineParams{
 		machineID: id,

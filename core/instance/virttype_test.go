@@ -4,16 +4,19 @@
 package instance
 
 import (
+	tctesting "testing"
+
 	"github.com/canonical/lxd/shared/api"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type VirtTypeSuite struct{}
 
-var _ = gc.Suite(&VirtTypeSuite{})
+func TestVirtTypeSuite(t *tctesting.T) {
+	tc.Run(t, &VirtTypeSuite{})
+}
 
-func (s *VirtTypeSuite) TestParseVirtType(c *gc.C) {
+func (s *VirtTypeSuite) TestParseVirtType(c *tc.C) {
 	parseVirtTypeTests := []struct {
 		arg   string
 		value VirtType
@@ -35,15 +38,15 @@ func (s *VirtTypeSuite) TestParseVirtType(c *gc.C) {
 		c.Logf("test %d: %s", i, t.arg)
 		v, err := ParseVirtType(t.arg)
 		if t.err == "" {
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(v, gc.Equals, t.value)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(v, tc.Equals, t.value)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
+			c.Check(err, tc.ErrorMatches, t.err)
 		}
 	}
 }
 
-func (s *VirtTypeSuite) TestNormaliseVirtType(c *gc.C) {
+func (s *VirtTypeSuite) TestNormaliseVirtType(c *tc.C) {
 	virtTypes := []struct {
 		arg      VirtType
 		expected VirtType
@@ -60,6 +63,6 @@ func (s *VirtTypeSuite) TestNormaliseVirtType(c *gc.C) {
 	for i, t := range virtTypes {
 		c.Logf("test %d: %s", i, t.arg)
 		v := NormaliseVirtType(t.arg)
-		c.Check(v, gc.Equals, t.expected)
+		c.Check(v, tc.Equals, t.expected)
 	}
 }

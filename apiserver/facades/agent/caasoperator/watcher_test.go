@@ -4,23 +4,26 @@
 package caasoperator_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&IDWatcherSuite{})
+func TestIDWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &IDWatcherSuite{})
+}
 
 type IDWatcherSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *IDWatcherSuite) TestWatcher(c *gc.C) {
+func (s *IDWatcherSuite) TestWatcher(c *tc.C) {
 	m := &mockModel{}
 	m.containers = []state.CloudContainer{
 		&mockCloudContainer{unit: "A", providerID: "a"},
@@ -33,7 +36,7 @@ func (s *IDWatcherSuite) TestWatcher(c *gc.C) {
 	wc <- []string{"b"}
 	srcWatcher := watchertest.NewMockStringsWatcher(wc)
 	idWatcher, err := caasoperator.NewUnitIDWatcher(m, srcWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	testWatcher := testing.NewStringsWatcherC(c, idWatcher)
 	testWatcher.AssertChangeInSingleEvent("A")
@@ -41,5 +44,5 @@ func (s *IDWatcherSuite) TestWatcher(c *gc.C) {
 	testWatcher.AssertChangeInSingleEvent("C")
 
 	err = idWatcher.Stop()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -6,9 +6,9 @@ package simplestreams_test
 import (
 	"bytes"
 	"io"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/simplestreams/testing"
@@ -23,13 +23,15 @@ type fetchDataSuite struct {
 	expectedCalls            []string
 }
 
-var _ = gc.Suite(&fetchDataSuite{})
+func TestFetchDataSuite(t *tctesting.T) {
+	tc.Run(t, &fetchDataSuite{})
+}
 
-func (s *fetchDataSuite) SetUpTest(c *gc.C) {
+func (s *fetchDataSuite) SetUpTest(c *tc.C) {
 	s.source = testing.NewStubDataSource()
 }
 
-func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithoutPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithoutPublicKey(c *tc.C) {
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
@@ -38,7 +40,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithoutPu
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: failed to parse public key: openpgp: invalid argument: no armored data found`)
 }
 
-func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrongPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrongPublicKey(c *tc.C) {
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
@@ -47,7 +49,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrong
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: openpgp: signature made by unknown entity`)
 }
 
-func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPublicKey(c *tc.C) {
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey"}
 	s.readerData = signedData
@@ -56,7 +58,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPubli
 	s.assertFetchData(c)
 }
 
-func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithPublicKey(c *tc.C) {
 	s.requireSigned = false
 	s.expectedCalls = []string{"Fetch"}
 	s.readerData = signedData
@@ -69,7 +71,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithPu
 	s.assertFetchData(c)
 }
 
-func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithoutPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithoutPublicKey(c *tc.C) {
 	s.requireSigned = false
 	s.expectedCalls = []string{"Fetch"}
 	s.readerData = signedData
@@ -82,7 +84,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithNotRequireSignedDataSourceWithou
 	s.assertFetchData(c)
 }
 
-func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithoutPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithoutPublicKey(c *tc.C) {
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.expectedData = unsignedData
@@ -91,7 +93,7 @@ func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithout
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: no PGP signature embedded in plain text data`)
 }
 
-func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithPublicKey(c *tc.C) {
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.expectedData = unsignedData
@@ -100,7 +102,7 @@ func (s *fetchDataSuite) TestFetchUnsignedDataWithRequireSignedDataSourceWithPub
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: no PGP signature embedded in plain text data`)
 }
 
-func (s *fetchDataSuite) TestFetchUnsignedDataWithNotRequireSignedDataSourceWithPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchUnsignedDataWithNotRequireSignedDataSourceWithPublicKey(c *tc.C) {
 	s.requireSigned = false
 	s.expectedCalls = []string{"Fetch"}
 	s.expectedData = unsignedData
@@ -109,7 +111,7 @@ func (s *fetchDataSuite) TestFetchUnsignedDataWithNotRequireSignedDataSourceWith
 	s.assertFetchData(c)
 }
 
-func (s *fetchDataSuite) TestFetchUnsignedDataWithNotRequireSignedDataSourceWithoutPublicKey(c *gc.C) {
+func (s *fetchDataSuite) TestFetchUnsignedDataWithNotRequireSignedDataSourceWithoutPublicKey(c *tc.C) {
 	s.requireSigned = false
 	s.expectedCalls = []string{"Fetch"}
 	s.readerData = unsignedData
@@ -129,16 +131,16 @@ func (s *fetchDataSuite) setupDataSource(key string) {
 	}
 }
 
-func (s *fetchDataSuite) assertFetchData(c *gc.C) {
+func (s *fetchDataSuite) assertFetchData(c *tc.C) {
 	data, _, err := simplestreams.FetchData(s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert([]byte(s.expectedData), gc.DeepEquals, data)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert([]byte(s.expectedData), tc.DeepEquals, data)
 	s.source.CheckCallNames(c, s.expectedCalls...)
 }
 
-func (s *fetchDataSuite) assertFetchDataFail(c *gc.C, msg string) {
+func (s *fetchDataSuite) assertFetchDataFail(c *tc.C, msg string) {
 	data, _, err := simplestreams.FetchData(s.source, "this.path.doesnt.matter.for.test.either", s.requireSigned)
-	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(data, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, msg)
+	c.Assert(data, tc.IsNil)
 	s.source.CheckCallNames(c, s.expectedCalls...)
 }

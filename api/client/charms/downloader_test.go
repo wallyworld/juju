@@ -8,25 +8,27 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type charmDownloaderSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&charmDownloaderSuite{})
+func TestCharmDownloaderSuite(t *tctesting.T) {
+	tc.Run(t, &charmDownloaderSuite{})
+}
 
-func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
+func (s *charmDownloaderSuite) TestCharmOpener(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,13 +54,13 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 	).Return(resp, nil).MinTimes(1)
 
 	opener, err := charms.NewCharmOpener(mockCaller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	reader, err := opener.OpenCharm("ch:mycharm")
 
 	defer reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, []byte(charmData))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.DeepEquals, []byte(charmData))
 }

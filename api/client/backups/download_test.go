@@ -8,9 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
 )
 
@@ -18,15 +18,17 @@ type downloadSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&downloadSuite{})
+func TestDownloadSuite(t *tctesting.T) {
+	tc.Run(t, &downloadSuite{})
+}
 
-func (s *downloadSuite) TestDownload(c *gc.C) {
+func (s *downloadSuite) TestDownload(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c.Assert(r.URL.String(), gc.Equals, "/backups")
+		c.Assert(r.URL.String(), tc.Equals, "/backups")
 		_, err := w.Write([]byte("success"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}))
 	defer srv.Close()
 	httpClient := &httprequest.Client{BaseURL: srv.URL}
@@ -36,10 +38,10 @@ func (s *downloadSuite) TestDownload(c *gc.C) {
 
 	client := s.newClient()
 	rdr, err := client.Download("/path/to/backup")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rdr.Close() }()
 
 	data, err := io.ReadAll(rdr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "success")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "success")
 }

@@ -4,25 +4,29 @@
 package config_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type AuthKeysSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&AuthKeysSuite{})
+func TestAuthKeysSuite(t *tctesting.T) {
+	tc.Run(t, &AuthKeysSuite{})
+}
 
-func (s *AuthKeysSuite) TestConcatAuthKeys(c *gc.C) {
+func (s *AuthKeysSuite) TestConcatAuthKeys(c *tc.C) {
 	for _, test := range []struct{ a, b, result string }{
 		{"a", "", "a"},
 		{"", "b", "b"},
 		{"a", "b", "a\nb"},
 		{"a\n", "b", "a\nb"},
 	} {
-		c.Check(config.ConcatAuthKeys(test.a, test.b), gc.Equals, test.result)
+		c.Check(config.ConcatAuthKeys(test.a, test.b), tc.Equals, test.result)
 	}
 }

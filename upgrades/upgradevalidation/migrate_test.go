@@ -4,16 +4,17 @@
 package upgradevalidation_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
@@ -56,17 +57,19 @@ func makeBases(os string, vers []string) []state.Base {
 	return bases
 }
 
-var _ = gc.Suite(&migrateSuite{})
+func TestMigrateSuite(t *tctesting.T) {
+	tc.Run(t, &migrateSuite{})
+}
 
 type migrateSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	st        *mocks.MockState
 	statePool *mocks.MockStatePool
 	model     *mocks.MockModel
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
+func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *tc.C) {
 	ctrl, cloudSpec := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -75,11 +78,11 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
+func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *tc.C) {
 	ctrl, cloudSpec := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -88,11 +91,11 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
+func (s *migrateSuite) initializeMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.st = mocks.NewMockState(ctrl)
@@ -100,7 +103,7 @@ func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspec.CloudSpec) {
+func (s *migrateSuite) setupMocks(c *tc.C) (*gomock.Controller, environscloudspec.CloudSpec) {
 	ctrl := s.initializeMocks(c)
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)

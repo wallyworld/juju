@@ -4,24 +4,22 @@
 package presence_test
 
 import (
-	"testing"
+	tctesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+func TestImportTest(t *tctesting.T) {
+	tc.Run(t, &ImportTest{})
+}
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/presence")
 
 	// This package brings in nothing else from juju/juju
-	c.Assert(found, gc.HasLen, 0)
+	c.Assert(found, tc.HasLen, 0)
 }

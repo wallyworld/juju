@@ -4,25 +4,28 @@
 package model_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+func TestManifoldsSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
-func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
+func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -33,7 +36,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	}
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
-	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+	c.Check(actual.SortedValues(), tc.DeepEquals, []string{
 		"action-pruner",
 		"agent",
 		"api-caller",
@@ -71,7 +74,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
+func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	actual := set.NewStrings()
 	manifolds := model.CAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -82,7 +85,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	}
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
-	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
+	c.Check(actual.SortedValues(), tc.DeepEquals, []string{
 		"action-pruner",
 		"agent",
 		"api-caller",
@@ -120,7 +123,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 	exclusions := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -147,26 +150,26 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		}
 		inputs := set.NewStrings(manifold.Inputs...)
 		if !inputs.Contains("is-responsible-flag") {
-			c.Check(inputs.Contains("migration-fortress"), jc.IsTrue)
-			c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
+			c.Check(inputs.Contains("migration-fortress"), tc.IsTrue)
+			c.Check(inputs.Contains("migration-inactive-flag"), tc.IsTrue)
 		}
 	}
 }
 
-func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
+func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *tc.C) {
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
 		LoggingContext: loggo.DefaultContext(),
 	})
 	manifold, found := manifolds["state-cleaner"]
-	c.Assert(found, jc.IsTrue)
+	c.Assert(found, tc.IsTrue)
 
 	inputs := set.NewStrings(manifold.Inputs...)
-	c.Check(inputs.Contains("not-alive-flag"), jc.IsFalse)
-	c.Check(inputs.Contains("not-dead-flag"), jc.IsFalse)
+	c.Check(inputs.Contains("not-alive-flag"), tc.IsFalse)
+	c.Check(inputs.Contains("not-dead-flag"), tc.IsFalse)
 }
 
-func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
+func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
 	expectClock := &fakeClock{}
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
@@ -174,20 +177,20 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 		LoggingContext: loggo.DefaultContext(),
 	})
 	manifold, ok := manifolds["clock"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	worker, err := manifold.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CheckKill(c, worker)
 
 	var aClock clock.Clock
 	err = manifold.Output(worker, &aClock)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(aClock, gc.Equals, expectClock)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(aClock, tc.Equals, expectClock)
 }
 
 type fakeClock struct{ clock.Clock }
 
-func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
+func (s *ManifoldsSuite) TestIAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.IAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},
@@ -197,7 +200,7 @@ func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
+func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.CAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},

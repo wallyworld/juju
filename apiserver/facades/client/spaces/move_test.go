@@ -4,28 +4,31 @@
 package spaces_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 // moveSubsetOpSuite tests the model operation used to
 // move subnets to a new space.
 type moveSubnetsOpSuite struct{}
 
-var _ = gc.Suite(&moveSubnetsOpSuite{})
+func TestMoveSubnetsOpSuite(t *tctesting.T) {
+	tc.Run(t, &moveSubnetsOpSuite{})
+}
 
-func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
+func (s *moveSubnetsOpSuite) TestSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -46,8 +49,8 @@ func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
 	op := spaces.NewMoveSubnetsOp(subBacking1, spaceID, []spaces.MovingSubnet{sub1, sub2})
 
 	txnOps, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(txnOps, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(txnOps, tc.HasLen, 2)
 
 	// Now test that we get the correct return for GetMovedSubnets.
 	sub1.EXPECT().SpaceName().Return("space-1")
@@ -56,8 +59,8 @@ func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
 	sub2.EXPECT().SpaceName().Return("space-2")
 	sub2.EXPECT().CIDR().Return("10.0.1.10/16")
 
-	c.Assert(op.Done(err), jc.ErrorIsNil)
-	c.Check(op.GetMovedSubnets(), gc.DeepEquals, []spaces.MovedSubnet{
+	c.Assert(op.Done(err), tc.ErrorIsNil)
+	c.Check(op.GetMovedSubnets(), tc.DeepEquals, []spaces.MovedSubnet{
 		{
 			ID:        "1",
 			FromSpace: "space-1",
@@ -71,7 +74,7 @@ func (s *moveSubnetsOpSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-func (s *moveSubnetsOpSuite) TestError(c *gc.C) {
+func (s *moveSubnetsOpSuite) TestError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -87,23 +90,25 @@ func (s *moveSubnetsOpSuite) TestError(c *gc.C) {
 	op := spaces.NewMoveSubnetsOp(subBacking1, spaceID, []spaces.MovingSubnet{sub1})
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now simulate getting an error when running the txn,
 	// and having it passed into the Done method.
 	err = errors.New("belch")
-	c.Assert(op.Done(err), gc.ErrorMatches, "belch")
+	c.Assert(op.Done(err), tc.ErrorMatches, "belch")
 
-	c.Check(op.GetMovedSubnets(), gc.IsNil)
+	c.Check(op.GetMovedSubnets(), tc.IsNil)
 }
 
 type moveSubnetsAPISuite struct {
 	spaces.APISuite
 }
 
-var _ = gc.Suite(&moveSubnetsAPISuite{})
+func TestMoveSubnetsAPISuite(t *tctesting.T) {
+	tc.Run(t, &moveSubnetsAPISuite{})
+}
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -117,12 +122,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	}, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals, "subnet 3 not found")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, tc.Equals, "subnet 3 not found")
 }
 
-func (s *moveSubnetsAPISuite) TestEnsureSpacesNotProviderSourcedControllerConfigFail(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestEnsureSpacesNotProviderSourcedControllerConfigFail(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -135,11 +140,11 @@ func (s *moveSubnetsAPISuite) TestEnsureSpacesNotProviderSourcedControllerConfig
 	// ensureSpacesNotProviderSourced is a private method, so use MoveSubnets() as the top level method
 	// because it invokes ensureSpacesNotProviderSourced
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, gc.ErrorMatches, "getting controller config: broken controller")
-	c.Assert(res, gc.DeepEquals, params.MoveSubnetsResults{})
+	c.Assert(err, tc.ErrorMatches, "getting controller config: broken controller")
+	c.Assert(res, tc.DeepEquals, params.MoveSubnetsResults{})
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -193,8 +198,8 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.DeepEquals, []params.MoveSubnetsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
 			SubnetTag:   "subnet-3",
 			OldSpaceTag: "space-from",
@@ -204,7 +209,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	}})
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -263,12 +268,12 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 	bExp.ApplyOperation(moveSubnetsOp).Return(nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.IsNil)
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -313,13 +318,13 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, tc.Equals,
 		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverlayNoForceError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverlayNoForceError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -388,13 +393,13 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverl
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, tc.Equals,
 		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
 }
 
-func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -449,8 +454,8 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 
 	// Supplying force=true succeeds despite the violation.
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, true))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.DeepEquals, []params.MoveSubnetsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
 			SubnetTag:   "subnet-3",
 			OldSpaceTag: "space-from",
@@ -460,7 +465,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	}})
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -519,14 +524,14 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, tc.Equals,
 		`moving subnet(s) to space "destination" violates space constraints for application "mysql": from
 	units not connected to the space: mysql/1, mysql/2`)
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -585,14 +590,14 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	bExp.MovingSubnet(subnetID).Return(subnet, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error.Message, tc.Equals,
 		`moving subnet(s) to space "destination" violates endpoint binding db:from for application "mysql"
 	units not connected to the space: mysql/1, mysql/2`)
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *tc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
 	defer unReg()
@@ -609,10 +614,10 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
 	}, nil)
 
 	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.NotNil)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Assert(res.Results[0].Error, tc.NotNil)
+	c.Assert(res.Results[0].Error.Message, tc.Equals,
 		`subnet "10.0.0.0/8" is a fan overlay of "20.0.0.0/24" and cannot be moved; move the underlay instead`)
 }
 

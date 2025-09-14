@@ -6,32 +6,34 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type ModelSummariesSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ModelSummariesSuite{})
+func TestModelSummariesSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ModelSummariesSuite{})
+}
 
-func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
+func (s *ModelSummariesSuite) Setup4Models(c *tc.C) map[string]string {
 	modelUUIDs := make(map[string]string)
 	user1 := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "user1write",
@@ -80,7 +82,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 			},
 		},
 	}, s.Owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -88,7 +90,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	})
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("stratus/%v/foobar", owner.Name()))
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "shared",
@@ -100,40 +102,40 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	modelUUIDs["shared"] = sharedSt.ModelUUID()
 	defer sharedSt.Close()
 	sharedModel, err := sharedSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = sharedModel.AddUser(state.UserAccessSpec{
 		User:      user1.UserTag(),
 		CreatedBy: owner,
 		Access:    "write",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// User 2 has read access to the shared model
 	_, err = sharedModel.AddUser(state.UserAccessSpec{
 		User:      user2.UserTag(),
 		CreatedBy: owner,
 		Access:    "read",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = sharedModel.AddUser(state.UserAccessSpec{
 		User:      user3.UserTag(),
 		CreatedBy: owner,
 		Access:    "admin",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return modelUUIDs
 }
 
-func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string, isSuperuser bool) []string {
+func (s *ModelSummariesSuite) modelNamesForUser(c *tc.C, user string, isSuperuser bool) []string {
 	tag := names.NewUserTag(user)
 	modelQuery, closer, err := s.State.ModelQueryForUser(tag, isSuperuser)
 	defer closer()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var docs []struct {
 		Name string `bson:"name"`
 	}
 	modelQuery.Select(bson.M{"name": 1})
 	err = modelQuery.All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	names := make([]string, 0)
 	for _, doc := range docs {
 		names = append(names, doc.Name)
@@ -142,29 +144,29 @@ func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string, isSuperuse
 	return names
 }
 
-func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *tc.C) {
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, s.Model.Owner().Name(), true)
 	// Admin always gets to see all models
-	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
 
-func (s *ModelSummariesSuite) TestModelsForSuperuserWithoutAll(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForSuperuserWithoutAll(c *tc.C) {
 	s.Setup4Models(c)
 	summaries, err := s.State.ModelSummariesForUser(s.Model.Owner(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	names := make([]string, len(summaries))
 	for i, summary := range summaries {
 		names[i] = summary.Name
 	}
 	sort.Strings(names)
-	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "testmodel"})
 }
 
-func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *tc.C) {
 	s.Setup4Models(c)
 	summaries, err := s.State.ModelSummariesForUser(s.Model.Owner(), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	names := make([]string, len(summaries))
 	access := make(map[string]string)
 	isController := make(map[string]bool)
@@ -174,15 +176,15 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 		isController[summary.Name] = summary.IsController
 	}
 	sort.Strings(names)
-	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
-	c.Check(access, gc.DeepEquals, map[string]string{
+	c.Check(names, tc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
+	c.Check(access, tc.DeepEquals, map[string]string{
 		"shared":     "admin",
 		"testmodel":  "admin",
 		"user1model": "",
 		"user2model": "",
 		"user3model": "",
 	})
-	c.Check(isController, gc.DeepEquals, map[string]bool{
+	c.Check(isController, tc.DeepEquals, map[string]bool{
 		"shared":     false,
 		"testmodel":  true,
 		"user1model": false,
@@ -191,30 +193,30 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 	})
 }
 
-func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForUser1(c *tc.C) {
 	// User1 is only added to the model they own and the shared model as write
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user1write", false)
-	c.Check(names, gc.DeepEquals, []string{"shared", "user1model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "user1model"})
 }
 
-func (s *ModelSummariesSuite) TestModelsForUser2(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForUser2(c *tc.C) {
 	// User2 is only added to the model they own and the shared model as read
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user2read", false)
-	c.Check(names, gc.DeepEquals, []string{"shared", "user2model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "user2model"})
 }
 
-func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForUser3(c *tc.C) {
 	// User2 is only added to the model they own and the shared model as admin
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user3admin", false)
-	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "user3model"})
 }
 
 // NOTE: (jam 2017-12-11) We probably only ever stripped Importing models because there details might not be complete.
 // We probably actually want to include importing models, and just handle when they don't have complete data.
-func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *tc.C) {
 	s.Setup4Models(c)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "importing",
@@ -232,52 +234,52 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	defer stImporting.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Since the new model is importing, when we do the list we shouldn't see it.
 	names := s.modelNamesForUser(c, "user3admin", false)
-	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "user3model"})
 	// Superuser doesn't see importing models, either
 	names = s.modelNamesForUser(c, s.Model.Owner().Name(), true)
-	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
+	c.Check(names, tc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
 
-func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsConfigInformation(c *tc.C) {
 	s.Setup4Models(c)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	// We don't guarantee the order of the summaries, but the data for each model should match the same
 	// information you would get if you instantiate the model directly
 	summaryA := summaries[0]
 	model, ph, err := s.StatePool.GetModel(summaryA.UUID)
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaryA.ProviderType, gc.Equals, conf.Type())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaryA.ProviderType, tc.Equals, conf.Type())
 	version, ok := conf.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(summaryA.AgentVersion, gc.NotNil)
-	c.Check(*summaryA.AgentVersion, gc.Equals, version)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(summaryA.AgentVersion, tc.NotNil)
+	c.Check(*summaryA.AgentVersion, tc.Equals, version)
 }
 
-func (s *ModelSummariesSuite) TestContainsProviderType(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsProviderType(c *tc.C) {
 	s.Setup4Models(c)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	// We don't guarantee the order of the summaries, but both should have the same ProviderType
 	summaryA := summaries[0]
 	model, ph, err := s.StatePool.GetModel(summaryA.UUID)
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conf, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaryA.ProviderType, gc.Equals, conf.Type())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaryA.ProviderType, tc.Equals, conf.Type())
 }
 
-func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsModelStatus(c *tc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	expectedStatus := map[string]status.StatusInfo{
 		"shared": {
@@ -291,17 +293,17 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 	}
 	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = shared.SetStatus(expectedStatus["shared"])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = user1.SetStatus(expectedStatus["user1model"])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	statuses := make(map[string]status.StatusInfo)
 	for _, summary := range summaries {
 		// We nil the time, because we don't want to compare it, we nil the Data map to avoid comparing an
@@ -311,10 +313,10 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 		st.Data = nil
 		statuses[summary.Name] = st
 	}
-	c.Check(statuses, jc.DeepEquals, expectedStatus)
+	c.Check(statuses, tc.DeepEquals, expectedStatus)
 }
 
-func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *tc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	expectedStatus := map[string]status.StatusInfo{
 		"shared": {
@@ -330,17 +332,17 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 	}
 	shared, err := s.StatePool.Get(modelNameToUUID["shared"])
 	defer shared.Release()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shared.InvalidateModelCredential("test"), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(shared.InvalidateModelCredential("test"), tc.ErrorIsNil)
 
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = user1.SetStatus(expectedStatus["user1model"])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	statuses := make(map[string]status.StatusInfo)
 	for _, summary := range summaries {
 		// We nil the time, because we don't want to compare it, we nil the Data map to avoid comparing an
@@ -349,124 +351,124 @@ func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
 		st.Since = nil
 		statuses[summary.Name] = st
 	}
-	c.Check(statuses, jc.DeepEquals, expectedStatus)
+	c.Check(statuses, tc.DeepEquals, expectedStatus)
 }
 
-func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsAccessInformation(c *tc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = shared.UpdateLastModelConnection(names.NewUserTag("auser"))
 	s.Clock.Advance(time.Hour)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	timeShared := s.Clock.Now().Round(time.Second).UTC()
 	err = shared.UpdateLastModelConnection(names.NewUserTag("user1write"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Clock.Advance(time.Hour) // give a different time for user2 accessing the shared model
 	err = shared.UpdateLastModelConnection(names.NewUserTag("user2read"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Clock.Advance(time.Hour)
 	timeUser1 := s.Clock.Now().Round(time.Second).UTC()
 	err = user1.UpdateLastModelConnection(names.NewUserTag("user1write"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	times := make(map[string]time.Time)
 	access := make(map[string]permission.Access)
 	for _, summary := range summaries {
-		c.Assert(summary.UserLastConnection, gc.NotNil, gc.Commentf("nil time for %v", summary.Name))
+		c.Assert(summary.UserLastConnection, tc.NotNil, tc.Commentf("nil time for %v", summary.Name))
 		times[summary.Name] = summary.UserLastConnection.UTC()
 		access[summary.Name] = summary.Access
 	}
-	c.Check(times, gc.DeepEquals, map[string]time.Time{
+	c.Check(times, tc.DeepEquals, map[string]time.Time{
 		"shared":     timeShared,
 		"user1model": timeUser1,
 	})
-	c.Check(access, gc.DeepEquals, map[string]permission.Access{
+	c.Check(access, tc.DeepEquals, map[string]permission.Access{
 		"shared":     permission.WriteAccess,
 		"user1model": permission.AdminAccess,
 	})
 }
 
-func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsMachineInformation(c *tc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	shared, err := s.StatePool.Get(modelNameToUUID["shared"])
 	defer shared.Release()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	onecore := uint64(1)
 	twocores := uint64(2)
 	threecores := uint64(3)
 	m0, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Alive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m0.Life(), tc.Equals, state.Alive)
 	err = m0.SetInstanceInfo("i-12345", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &onecore,
 	}, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m1, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m1.SetInstanceInfo("i-45678", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &twocores,
 	}, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m2, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m2.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// No instance
 	_, err = shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Dying instance, should not count to Cores or Machine count
 	mDying, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mDying.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mDying.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Instance data, but no core count
 	m4, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	arch := arch.DefaultArchitecture
 	err = m4.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(summaries, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(summaries, tc.HasLen, 2)
 	summaryMap := make(map[string]*state.ModelSummary)
 	for i := range summaries {
 		summaryMap[summaries[i].Name] = &summaries[i]
 	}
 	sharedSummary := summaryMap["shared"]
-	c.Assert(sharedSummary, gc.NotNil)
-	c.Check(sharedSummary.MachineCount, gc.Equals, int64(5))
-	c.Check(sharedSummary.CoreCount, gc.Equals, int64(1+2+3))
+	c.Assert(sharedSummary, tc.NotNil)
+	c.Check(sharedSummary.MachineCount, tc.Equals, int64(5))
+	c.Check(sharedSummary.CoreCount, tc.Equals, int64(1+2+3))
 	userSummary := summaryMap["user1model"]
-	c.Assert(userSummary, gc.NotNil)
-	c.Check(userSummary.MachineCount, gc.Equals, int64(0))
-	c.Check(userSummary.CoreCount, gc.Equals, int64(0))
+	c.Assert(userSummary, tc.NotNil)
+	c.Check(userSummary.MachineCount, tc.Equals, int64(0))
+	c.Check(userSummary.CoreCount, tc.Equals, int64(0))
 }
 
-func (s *ModelSummariesSuite) TestContainsMigrationInformation(c *gc.C) {
+func (s *ModelSummariesSuite) TestContainsMigrationInformation(c *tc.C) {
 	//modelNameToUUID := s.Setup4Models(c)
 	// TODO: Figure out how to create a multiple-attempt migration information, and assert that we expose the right info
 }
 
-func (s *ModelSummariesSuite) namedSummariesForUser(c *gc.C, user string) map[string]*state.ModelSummary {
+func (s *ModelSummariesSuite) namedSummariesForUser(c *tc.C, user string) map[string]*state.ModelSummary {
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag(user), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	summaryMap := make(map[string]*state.ModelSummary, len(summaries))
 	for i := range summaries {
 		summaryMap[summaries[i].Name] = &summaries[i]
@@ -474,63 +476,63 @@ func (s *ModelSummariesSuite) namedSummariesForUser(c *gc.C, user string) map[st
 	return summaryMap
 }
 
-func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *tc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	m2uuid := modelNameToUUID["user2model"]
 	// Mark the model as dying, and move to start tearing it down
 	model, ph, err := s.StatePool.GetModel(m2uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ph.Release()
 	err = model.SetStatus(status.StatusInfo{
 		Status:  status.Available,
 		Message: "running",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	summaryMap := s.namedSummariesForUser(c, "user2read")
 	// Even though user2model is dying/dead, it should still be in the output.
-	c.Check(summaryMap, gc.HasLen, 2)
+	c.Check(summaryMap, tc.HasLen, 2)
 	userSummary := summaryMap["user2model"]
-	c.Assert(userSummary, gc.NotNil)
-	c.Check(userSummary.Status.Message, gc.Equals, "running")
+	c.Assert(userSummary, tc.NotNil)
+	c.Check(userSummary.Status.Message, tc.Equals, "running")
 
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = model.SetStatus(status.StatusInfo{
 		Status:  status.Destroying,
 		Message: "stopping",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	summaryMap = s.namedSummariesForUser(c, "user2read")
 	// Even though user2model is dying/dead, it should still be in the output.
-	c.Check(summaryMap, gc.HasLen, 2)
+	c.Check(summaryMap, tc.HasLen, 2)
 	userSummary = summaryMap["user2model"]
-	c.Assert(userSummary, gc.NotNil)
-	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
+	c.Assert(userSummary, tc.NotNil)
+	c.Check(userSummary.Status.Message, tc.Equals, "stopping")
 
 	// Now we start tearing down some of the collections for this model, and see that it still shows up.
 	settings := s.Session.DB("juju").C("settings")
 	// The settings document for this model
 	err = settings.Remove(bson.M{"_id": m2uuid + ":e"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	summaryMap = s.namedSummariesForUser(c, "user2read")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Even though user2model is dying/dead, it should still be in the output.
-	c.Check(summaryMap, gc.HasLen, 2)
+	c.Check(summaryMap, tc.HasLen, 2)
 	userSummary = summaryMap["user2model"]
-	c.Assert(userSummary, gc.NotNil)
-	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
+	c.Assert(userSummary, tc.NotNil)
+	c.Check(userSummary.Status.Message, tc.Equals, "stopping")
 }
 
-func (s *ModelSummariesSuite) TestCAASModel(c *gc.C) {
+func (s *ModelSummariesSuite) TestCAASModel(c *tc.C) {
 	s.Setup4Models(c)
 
 	summaryMap := s.namedSummariesForUser(c, "user2read")
-	c.Check(summaryMap, gc.HasLen, 2)
+	c.Check(summaryMap, tc.HasLen, 2)
 	userSummary := summaryMap["user2model"]
-	c.Assert(userSummary, gc.NotNil)
-	c.Assert(userSummary.MachineCount, gc.Equals, int64(0))
-	c.Assert(userSummary.CoreCount, gc.Equals, int64(0))
-	c.Assert(userSummary.UnitCount, gc.Equals, int64(1))
+	c.Assert(userSummary, tc.NotNil)
+	c.Assert(userSummary.MachineCount, tc.Equals, int64(0))
+	c.Assert(userSummary.CoreCount, tc.Equals, int64(0))
+	c.Assert(userSummary.UnitCount, tc.Equals, int64(1))
 }

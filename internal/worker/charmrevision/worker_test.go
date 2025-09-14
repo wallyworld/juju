@@ -4,26 +4,29 @@
 package charmrevision_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/charmrevision"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *gc.C) {
+func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *tc.C) {
 	fix := newFixture(time.Minute)
 	fix.cleanTest(c, func(_ worker.Worker) {
 		fix.clock.Advance(time.Minute - time.Nanosecond)
@@ -31,10 +34,10 @@ func (s *WorkerSuite) TestNoMoreUpdatesUntilPeriod(c *gc.C) {
 	})
 }
 
-func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
+func (s *WorkerSuite) TestUpdatesAfterPeriod(c *tc.C) {
 	fix := newFixture(time.Minute)
 	fix.cleanTest(c, func(_ worker.Worker) {
-		if err := fix.clock.WaitAdvance(time.Minute*2, testing.LongWait, 1); err != nil {
+		if err := fix.clock.WaitAdvance(time.Minute*2, testhelpers.LongWait, 1); err != nil {
 			c.Fatal(err)
 		}
 		fix.waitCall(c)
@@ -43,17 +46,17 @@ func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
 	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
 }
 
-func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
+func (s *WorkerSuite) TestDelayedUpdateError(c *tc.C) {
 	fix := newFixture(time.Minute)
 	fix.revisionUpdater.stub.SetErrors(
 		errors.New("no more updates for you"),
 	)
 	fix.dirtyTest(c, func(w worker.Worker) {
-		if err := fix.clock.WaitAdvance(time.Minute*2, testing.LongWait, 1); err != nil {
+		if err := fix.clock.WaitAdvance(time.Minute*2, testhelpers.LongWait, 1); err != nil {
 			c.Fatal(err)
 		}
 		fix.waitCall(c)
-		c.Check(w.Wait(), gc.ErrorMatches, "no more updates for you")
+		c.Check(w.Wait(), tc.ErrorMatches, "no more updates for you")
 		fix.waitNoCall(c)
 	})
 	fix.revisionUpdater.stub.CheckCallNames(c, "UpdateLatestRevisions")
@@ -76,32 +79,32 @@ func newFixture(period time.Duration) workerFixture {
 
 type testFunc func(worker.Worker)
 
-func (fix workerFixture) cleanTest(c *gc.C, test testFunc) {
+func (fix workerFixture) cleanTest(c *tc.C, test testFunc) {
 	fix.runTest(c, test, true)
 }
 
-func (fix workerFixture) dirtyTest(c *gc.C, test testFunc) {
+func (fix workerFixture) dirtyTest(c *tc.C, test testFunc) {
 	fix.runTest(c, test, false)
 }
 
-func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
+func (fix workerFixture) runTest(c *tc.C, test testFunc, checkWaitErr bool) {
 	w, err := charmrevision.NewWorker(charmrevision.Config{
 		RevisionUpdater: fix.revisionUpdater,
 		Clock:           fix.clock,
 		Period:          fix.period,
-		Logger:          coretesting.NoopLogger{},
+		Logger:          loggertesting.WrapCheckLog(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := worker.Stop(w)
 		if checkWaitErr {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}()
 	test(w)
 }
 
-func (fix workerFixture) waitCall(c *gc.C) {
+func (fix workerFixture) waitCall(c *tc.C) {
 	select {
 	case <-fix.revisionUpdater.calls:
 	case <-time.After(coretesting.LongWait):
@@ -109,7 +112,7 @@ func (fix workerFixture) waitCall(c *gc.C) {
 	}
 }
 
-func (fix workerFixture) waitNoCall(c *gc.C) {
+func (fix workerFixture) waitNoCall(c *tc.C) {
 	select {
 	case <-fix.revisionUpdater.calls:
 		c.Fatalf("unexpected revisionUpdater call")
@@ -119,13 +122,13 @@ func (fix workerFixture) waitNoCall(c *gc.C) {
 
 // mockRevisionUpdater records (and notifies of) calls made to UpdateLatestRevisions.
 type mockRevisionUpdater struct {
-	stub  *testing.Stub
+	stub  *testhelpers.Stub
 	calls chan struct{}
 }
 
 func newMockRevisionUpdater() mockRevisionUpdater {
 	return mockRevisionUpdater{
-		stub:  &testing.Stub{},
+		stub:  &testhelpers.Stub{},
 		calls: make(chan struct{}, 1000),
 	}
 }

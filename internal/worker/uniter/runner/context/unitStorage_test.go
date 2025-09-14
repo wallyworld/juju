@@ -4,14 +4,16 @@
 package context_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/internal/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -29,19 +31,21 @@ type unitStorageSuite struct {
 	initialStorageInstancesCount int
 }
 
-var _ = gc.Suite(&unitStorageSuite{})
+func TestUnitStorageSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &unitStorageSuite{})
+}
 
 const (
 	testPool           = "block"
 	testPersistentPool = "block-persistent"
 )
 
-func (s *unitStorageSuite) SetUpTest(c *gc.C) {
+func (s *unitStorageSuite) SetUpTest(c *tc.C) {
 	s.HookContextSuite.SetUpTest(c)
 	setupTestStorageSupport(c, s.State)
 }
 
-func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorage(c *tc.C) {
 	s.createStorageBlockUnit(c)
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
@@ -49,7 +53,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 			"allecto": {Count: &count}})
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *tc.C) {
 	s.createStorageBlockUnit(c)
 	count := uint64(1)
 	s.BlockDestroyModel(c, "TestAddUnitStorageIgnoresBlocks")
@@ -60,7 +64,7 @@ func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 			"allecto": {Count: &count}})
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *tc.C) {
 	s.createStorageBlockUnit(c)
 	cons := map[string]params.StorageConstraints{
 		"allecto": {}}
@@ -69,18 +73,18 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 
 	// Flush the context with a success.
 	err := ctx.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
+	c.Assert(err, tc.ErrorMatches, `.*count must be specified.*`)
 
 	// Make sure no storage instances was added
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	after, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, tc.Equals, 0)
 	s.assertExistingStorage(c, after)
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *tc.C) {
 	s.createStorageBlockUnit(c)
 	size := uint64(1)
 	cons := map[string]params.StorageConstraints{
@@ -90,18 +94,18 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 
 	// Flush the context with a success.
 	err := ctx.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
+	c.Assert(err, tc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	after, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, tc.Equals, 0)
 	s.assertExistingStorage(c, after)
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *tc.C) {
 	s.createStorageBlockUnit(c)
 	cons := map[string]params.StorageConstraints{
 		"allecto": {Pool: "loop"}}
@@ -110,18 +114,18 @@ func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 
 	// Flush the context with a success.
 	err := ctx.Flush("success", nil)
-	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
+	c.Assert(err, tc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	after, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, tc.Equals, 0)
 	s.assertExistingStorage(c, after)
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *tc.C) {
 	s.createStorageBlock2Unit(c)
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
@@ -131,7 +135,7 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulated(c *gc.C) {
 			"multi1to10": {Count: &count}})
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
+func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *tc.C) {
 	s.createStorageBlock2Unit(c)
 	count := uint64(1)
 	s.assertUnitStorageAdded(c,
@@ -141,19 +145,19 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 			"multi2up": {Count: &count}})
 }
 
-func setupTestStorageSupport(c *gc.C, s *state.State) {
+func setupTestStorageSupport(c *tc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
 		dummy.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = poolManager.Create(testPersistentPool, "modelscoped", map[string]interface{}{"persistent": true})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
+func (s *unitStorageSuite) createStorageEnabledUnit(c *tc.C) {
 	s.ch = s.AddTestingCharm(c, s.charmName)
 	s.application = s.AddTestingApplicationWithStorage(c, s.charmName, s.ch, s.initCons)
 	s.unit = s.AddUnit(c, s.application)
@@ -162,7 +166,7 @@ func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
 	s.createHookSupport(c)
 }
 
-func (s *unitStorageSuite) createStorageBlockUnit(c *gc.C) {
+func (s *unitStorageSuite) createStorageBlockUnit(c *tc.C) {
 	s.charmName = "storage-block"
 	s.initCons = map[string]state.StorageConstraints{
 		"data": makeStorageCons("block", 1024, 1),
@@ -172,7 +176,7 @@ func (s *unitStorageSuite) createStorageBlockUnit(c *gc.C) {
 	s.createHookSupport(c)
 }
 
-func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
+func (s *unitStorageSuite) createStorageBlock2Unit(c *tc.C) {
 	s.charmName = "storage-block2"
 	s.initCons = map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("loop", 0, 3),
@@ -182,11 +186,11 @@ func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 	s.createHookSupport(c)
 }
 
-func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
+func (s *unitStorageSuite) assertStorageCreated(c *tc.C) {
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	all, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.initialStorageInstancesCount = len(all)
 	s.expectedStorageNames = set.NewStrings()
 	for _, one := range all {
@@ -194,30 +198,30 @@ func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
 	}
 }
 
-func (s *unitStorageSuite) createHookSupport(c *gc.C) {
+func (s *unitStorageSuite) createHookSupport(c *tc.C) {
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter, err = uniter.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.uniter, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.uniter, tc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.unit.SetCharmURL(s.ch.URL())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {
+func (s *unitStorageSuite) addUnitStorage(c *tc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {
 	// Get the context.
 	ctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
-	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
+	c.Assert(ctx.UnitName(), tc.Equals, s.unit.Name())
 
 	for _, one := range cons {
 		for storage := range one {
@@ -228,23 +232,23 @@ func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.Sto
 	return ctx
 }
 
-func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]params.StorageConstraints) {
+func (s *unitStorageSuite) assertUnitStorageAdded(c *tc.C, cons ...map[string]params.StorageConstraints) {
 	ctx := s.addUnitStorage(c, cons...)
 
 	// Flush the context with a success.
 	err := ctx.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	after, err := sb.AllStorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, len(cons))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(after)-s.initialStorageInstancesCount, tc.Equals, len(cons))
 	s.assertExistingStorage(c, after)
 }
 
-func (s *unitStorageSuite) assertExistingStorage(c *gc.C, all []state.StorageInstance) {
+func (s *unitStorageSuite) assertExistingStorage(c *tc.C, all []state.StorageInstance) {
 	for _, one := range all {
-		c.Assert(s.expectedStorageNames.Contains(one.StorageName()), jc.IsTrue)
+		c.Assert(s.expectedStorageNames.Contains(one.StorageName()), tc.IsTrue)
 	}
 }

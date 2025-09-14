@@ -4,9 +4,10 @@
 package modelconfig_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/modelconfig"
@@ -17,9 +18,11 @@ import (
 
 type modelconfigSuite struct{}
 
-var _ = gc.Suite(&modelconfigSuite{})
+func TestModelconfigSuite(t *tctesting.T) {
+	tc.Run(t, &modelconfigSuite{})
+}
 
-func (s *modelconfigSuite) TestModelGet(c *gc.C) {
+func (s *modelconfigSuite) TestModelGet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -34,13 +37,13 @@ func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("ModelGet", args, res).SetArg(2, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
 
-func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
+func (s *modelconfigSuite) TestModelGetWithMetadata(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,13 +58,13 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("ModelGet", args, res).SetArg(2, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGetWithMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, config.ConfigValues{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, config.ConfigValues{
 		"foo": {"bar", "model"},
 	})
 }
 
-func (s *modelconfigSuite) TestModelSet(c *gc.C) {
+func (s *modelconfigSuite) TestModelSet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -79,10 +82,10 @@ func (s *modelconfigSuite) TestModelSet(c *gc.C) {
 		"some-name":  "value",
 		"other-name": true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
+func (s *modelconfigSuite) TestModelUnset(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -94,10 +97,10 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("ModelUnset", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.ModelUnset("foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
+func (s *modelconfigSuite) TestSetSupport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -113,10 +116,10 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("SetSLALevel", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetSLALevel("foobar", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
+func (s *modelconfigSuite) TestGetSupport(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -129,11 +132,11 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("SLALevel", args, res).SetArg(2, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	level, err := client.SLALevel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(level, gc.Equals, "level")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(level, tc.Equals, "level")
 }
 
-func (s *modelconfigSuite) TestSequences(c *gc.C) {
+func (s *modelconfigSuite) TestSequences(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -146,11 +149,11 @@ func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("Sequences", args, res).SetArg(2, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	sequences, err := client.Sequences()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sequences, jc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sequences, tc.DeepEquals, map[string]int{"foo": 5, "bar": 2})
 }
 
-func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestGetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -163,11 +166,11 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("GetModelConstraints", args, res).SetArg(2, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, constraints.MustParse("arch=amd64"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, constraints.MustParse("arch=amd64"))
 }
 
-func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
+func (s *modelconfigSuite) TestSetModelConstraints(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -179,5 +182,5 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("SetModelConstraints", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelConstraints(constraints.MustParse("arch=amd64"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

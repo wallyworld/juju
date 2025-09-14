@@ -11,17 +11,11 @@ import (
 	"github.com/juju/errors"
 )
 
-// Logger provides an interface for writing log records.
-type Logger interface {
-	// Log writes the given log records to the logger's storage.
-	Log([]LogRecord) error
-}
-
 // BufferedLogger wraps a Logger, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.
 type BufferedLogger struct {
-	l             Logger
+	l             LogWriter
 	clock         clock.Clock
 	flushInterval time.Duration
 
@@ -33,7 +27,7 @@ type BufferedLogger struct {
 // NewBufferedLogger returns a new BufferedLogger, wrapping the given
 // Logger with a buffer of the specified size and flush interval.
 func NewBufferedLogger(
-	l Logger,
+	l LogWriter,
 	bufferSize int,
 	flushInterval time.Duration,
 	clock clock.Clock,

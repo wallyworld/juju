@@ -4,11 +4,11 @@
 package modelgeneration_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/modelgeneration"
@@ -22,17 +22,19 @@ type modelGenerationSuite struct {
 	branchName string
 }
 
-var _ = gc.Suite(&modelGenerationSuite{})
+func TestModelGenerationSuite(t *tctesting.T) {
+	tc.Run(t, &modelGenerationSuite{})
+}
 
-func (s *modelGenerationSuite) SetUpTest(c *gc.C) {
+func (s *modelGenerationSuite) SetUpTest(c *tc.C) {
 	s.branchName = "new-branch"
 }
 
-func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
+func (s *modelGenerationSuite) TearDownTest(c *tc.C) {
 	s.fCaller = nil
 }
 
-func (s *modelGenerationSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *modelGenerationSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	caller := mocks.NewMockAPICallCloser(ctrl)
@@ -44,7 +46,7 @@ func (s *modelGenerationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *modelGenerationSuite) TestAddBranch(c *gc.C) {
+func (s *modelGenerationSuite) TestAddBranch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.ErrorResult{}
@@ -53,10 +55,10 @@ func (s *modelGenerationSuite) TestAddBranch(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AddBranch(s.branchName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *modelGenerationSuite) TestAbortBranch(c *gc.C) {
+func (s *modelGenerationSuite) TestAbortBranch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.ErrorResult{}
@@ -65,10 +67,10 @@ func (s *modelGenerationSuite) TestAbortBranch(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AbortBranch(s.branchName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
+func (s *modelGenerationSuite) TestTrackBranchSuccess(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultsSource := params.ErrorResults{Results: []params.ErrorResult{
@@ -87,18 +89,18 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql"}, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *modelGenerationSuite) TestTrackBranchError(c *gc.C) {
+func (s *modelGenerationSuite) TestTrackBranchError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql", "machine-3"}, 0)
-	c.Assert(err, gc.ErrorMatches, `"machine-3" is not an application or a unit`)
+	c.Assert(err, tc.ErrorMatches, `"machine-3" is not an application or a unit`)
 }
 
-func (s *modelGenerationSuite) TestCommitBranch(c *gc.C) {
+func (s *modelGenerationSuite) TestCommitBranch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.IntResult{Result: 2}
@@ -107,11 +109,11 @@ func (s *modelGenerationSuite) TestCommitBranch(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	newGenID, err := api.CommitBranch("new-branch")
-	c.Assert(err, gc.IsNil)
-	c.Check(newGenID, gc.Equals, 2)
+	c.Assert(err, tc.IsNil)
+	c.Check(newGenID, tc.Equals, 2)
 }
 
-func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
+func (s *modelGenerationSuite) TestHasActiveBranch(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.BoolResult{Result: true}
@@ -120,11 +122,11 @@ func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	has, err := api.HasActiveBranch(s.branchName)
-	c.Assert(err, gc.IsNil)
-	c.Check(has, jc.IsTrue)
+	c.Assert(err, tc.IsNil)
+	c.Check(has, tc.IsTrue)
 }
 
-func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
+func (s *modelGenerationSuite) TestBranchInfo(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.BranchResults{Generations: []params.Generation{{
@@ -155,8 +157,8 @@ func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
 	}
 
 	apps, err := api.BranchInfo(s.branchName, true, formatTime)
-	c.Assert(err, gc.IsNil)
-	c.Check(apps, jc.DeepEquals, map[string]model.Generation{
+	c.Assert(err, tc.IsNil)
+	c.Check(apps, tc.DeepEquals, map[string]model.Generation{
 		s.branchName: {
 			Created:   "0001-01-01 00:00:00",
 			CreatedBy: "test-user",

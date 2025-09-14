@@ -9,38 +9,40 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&pathsSuite{})
+func TestPathsSuite(t *tctesting.T) {
+	tc.Run(t, &pathsSuite{})
+}
 
 type pathsSuite struct {
 	testing.BaseSuite
 }
 
-func (s *pathsSuite) SetUpTest(c *gc.C) {
+func (s *pathsSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&getMongodPath, func() (string, error) {
 		return "path/to/mongod", nil
 	})
 }
 
-func (s *pathsSuite) TestPathDefaultMongoExists(c *gc.C) {
+func (s *pathsSuite) TestPathDefaultMongoExists(c *tc.C) {
 	calledWithPaths := []string{}
 	osStat := func(aPath string) (os.FileInfo, error) {
 		calledWithPaths = append(calledWithPaths, aPath)
 		return nil, nil
 	}
 	mongoPath, err := getMongoToolPath("tool", osStat, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "path/to/juju-db.tool")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{"path/to/juju-db.tool"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mongoPath, tc.Equals, "path/to/juju-db.tool")
+	c.Assert(calledWithPaths, tc.DeepEquals, []string{"path/to/juju-db.tool"})
 }
 
-func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
+func (s *pathsSuite) TestPathNoDefaultMongo(c *tc.C) {
 	calledWithPaths := []string{}
 	osStat := func(aPath string) (os.FileInfo, error) {
 		calledWithPaths = append(calledWithPaths, aPath)
@@ -54,15 +56,15 @@ func (s *pathsSuite) TestPathNoDefaultMongo(c *gc.C) {
 	}
 
 	mongoPath, err := getMongoToolPath("tool", osStat, execLookPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
-	c.Assert(calledWithPaths, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mongoPath, tc.Equals, "/a/fake/mongo/path")
+	c.Assert(calledWithPaths, tc.DeepEquals, []string{
 		"path/to/juju-db.tool",
 	})
-	c.Assert(calledWithLookup, gc.DeepEquals, []string{"tool"})
+	c.Assert(calledWithLookup, tc.DeepEquals, []string{"tool"})
 }
 
-func (s *pathsSuite) TestPathSnapMongo(c *gc.C) {
+func (s *pathsSuite) TestPathSnapMongo(c *tc.C) {
 	statPaths := []string{}
 	mockStat := func(path string) (os.FileInfo, error) {
 		statPaths = append(statPaths, path)
@@ -75,9 +77,9 @@ func (s *pathsSuite) TestPathSnapMongo(c *gc.C) {
 	}
 
 	path, err := getMongoToolPath("mongodump", mockStat, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.Equals, "path/to/juju-db.mongodump")
-	c.Assert(statPaths, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(path, tc.Equals, "path/to/juju-db.mongodump")
+	c.Assert(statPaths, tc.DeepEquals, []string{
 		"path/to/juju-db.mongodump",
 	})
 }

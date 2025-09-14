@@ -5,11 +5,11 @@ package firewaller_test
 
 import (
 	"sort"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -34,13 +35,15 @@ type firewallerSuite struct {
 	ctrl *gomock.Controller
 }
 
-var _ = gc.Suite(&firewallerSuite{})
+func TestFirewallerStateSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &firewallerSuite{})
+}
 
-func (s *firewallerSuite) SetUpTest(c *gc.C) {
+func (s *firewallerSuite) SetUpTest(c *tc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
 	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.subnet = subnet
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
@@ -62,12 +65,12 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		cloudSpecAPI,
 		controllerConfigAPI,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
 }
 
-func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
+func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	constructor := func(context facade.Context) error {
@@ -77,41 +80,41 @@ func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 	s.testFirewallerFailsWithNonControllerUser(c, constructor)
 }
 
-func (s *firewallerSuite) TestLife(c *gc.C) {
+func (s *firewallerSuite) TestLife(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	s.testLife(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestInstanceId(c *gc.C) {
+func (s *firewallerSuite) TestInstanceId(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	s.testInstanceId(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
+func (s *firewallerSuite) TestWatchModelMachines(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	s.testWatchModelMachines(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestWatch(c *gc.C) {
+func (s *firewallerSuite) TestWatch(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	s.testWatch(c, s.firewaller, cannotWatchUnits)
 }
 
-func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
+func (s *firewallerSuite) TestWatchUnits(c *tc.C) {
 	s.testWatchUnits(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
+func (s *firewallerSuite) TestGetAssignedMachine(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
-func (s *firewallerSuite) openPorts(c *gc.C) {
+func (s *firewallerSuite) openPorts(c *tc.C) {
 	// Open some ports on the units.
 	allEndpoints := ""
 	s.mustOpenPorts(c, s.units[0], allEndpoints, []network.PortRange{
@@ -123,21 +126,21 @@ func (s *firewallerSuite) openPorts(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName string, portRanges []network.PortRange) {
+func (s *firewallerSuite) mustOpenPorts(c *tc.C, unit *state.Unit, endpointName string, portRanges []network.PortRange) {
 	unitPortRanges, err := unit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, pr := range portRanges {
 		unitPortRanges.Open(endpointName, pr)
 	}
 
-	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), tc.ErrorIsNil)
 }
 
-func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSuite) TestWatchOpenedPorts(c *tc.C) {
 	defer s.ctrl.Finish()
 
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	s.openPorts(c)
 	expectChanges := []string{ // machine IDs
@@ -154,8 +157,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	}})
 	result, err := s.firewaller.WatchOpenedPorts(args)
 	sort.Strings(result.Results[0].Changes)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Changes: expectChanges, StringsWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -171,8 +174,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(s.resources.Count(), tc.Equals, 1)
+	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
@@ -182,7 +185,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
+func (s *firewallerSuite) TestAreManuallyProvisioned(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -191,7 +194,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 		InstanceId: "2",
 		Nonce:      "manual:",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -202,8 +205,8 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	}})
 
 	result, err := s.firewaller.AreManuallyProvisioned(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: false, Error: nil},
 			{Result: false, Error: nil},
@@ -220,7 +223,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
+func (s *firewallerSuite) TestGetExposeInfo(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	// Set the application to exposed first.
@@ -230,14 +233,14 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 			ExposeToCIDRs:    []string{"10.0.0.0/0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.application.Tag().String()},
 	}})
 	result, err := s.firewaller.GetExposeInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ExposeInfoResults{
 		Results: []params.ExposeInfoResult{
 			{
 				Exposed: true,
@@ -259,41 +262,41 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 
 	// Now reset the exposed flag for the application and check again.
 	err = s.application.ClearExposed()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.application.Tag().String()},
 	}}
 	result, err = s.firewaller.GetExposeInfo(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ExposeInfoResults{
 		Results: []params.ExposeInfoResult{
 			{Exposed: false},
 		},
 	})
 }
 
-func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
+func (s *firewallerSuite) TestWatchSubnets(c *tc.C) {
 	defer s.ctrl.Finish()
 
 	// Set up a spaces with two subnets
 	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.0.0/24",
 		SpaceID:   sp.Id(),
 		SpaceName: sp.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sub2, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.42.0/24",
 		SpaceID:   sp.Id(),
 		SpaceName: sp.Name(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	watchSubnetTags := []names.SubnetTag{
 		names.NewSubnetTag(sub2.ID()),
@@ -306,16 +309,16 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	}
 
 	got, err := s.firewaller.WatchSubnets(entities)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{sub2.ID()},
 	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
+	c.Assert(got.StringsWatcherId, tc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, tc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 

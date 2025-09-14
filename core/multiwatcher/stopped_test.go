@@ -4,22 +4,25 @@
 package multiwatcher_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&stoppedSuite{})
-
-type stoppedSuite struct {
-	testing.IsolationSuite
+func TestStoppedSuite(t *tctesting.T) {
+	tc.Run(t, &stoppedSuite{})
 }
 
-func (*stoppedSuite) TestIsErrStopped(c *gc.C) {
-	c.Assert(multiwatcher.NewErrStopped(), jc.Satisfies, multiwatcher.IsErrStopped)
+type stoppedSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (*stoppedSuite) TestIsErrStopped(c *tc.C) {
+	c.Assert(multiwatcher.NewErrStopped(), tc.Satisfies, multiwatcher.IsErrStopped)
 	err := multiwatcher.ErrStoppedf("something")
-	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
-	c.Assert(err.Error(), gc.Equals, "something was stopped")
+	c.Assert(err, tc.Satisfies, multiwatcher.IsErrStopped)
+	c.Assert(err.Error(), tc.Equals, "something was stopped")
 }

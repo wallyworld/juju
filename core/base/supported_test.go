@@ -4,21 +4,25 @@
 package base
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type SupportedSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SupportedSuite{})
+func TestSupportedSuite(t *tctesting.T) {
+	tc.Run(t, &SupportedSuite{})
+}
 
-func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -69,14 +73,14 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }
 
-func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersWithOverride(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -101,14 +105,14 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }
 
-func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -133,14 +137,14 @@ func (s *SupportedSuite) TestCompileForControllersNoUpdate(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{})
 }
 
-func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersUpdated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -165,14 +169,14 @@ func (s *SupportedSuite) TestCompileForControllersUpdated(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{})
 }
 
-func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
+func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -196,14 +200,14 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{})
 }
 
-func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
+func (s *SupportedSuite) TestCompileForWorkloads(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -291,15 +295,15 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 
 	info := newSupportedInfo(mockDistroSource, preset)
 	err := info.compile(now)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workloadBases := info.workloadBases(false)
 
-	c.Assert(workloadBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1"), MustParseBaseFromString("foo@1.1.5")})
+	c.Assert(workloadBases, tc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1"), MustParseBaseFromString("foo@1.1.5")})
 
 	// Double check that controller series doesn't change when we have workload
 	// types.
 	ctrlBases := info.controllerBases()
 
-	c.Assert(ctrlBases, jc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
+	c.Assert(ctrlBases, tc.DeepEquals, []Base{MustParseBaseFromString("foo@1.1.1")})
 }

@@ -26,12 +26,10 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
@@ -66,6 +64,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/modelcache"
@@ -76,7 +76,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -128,7 +127,7 @@ func SampleConfig() testing.Attrs {
 // and the instance's state will eventually go to error, while the
 // received string will appear in the info field of the machine's status
 func PatchTransientErrorInjectionChannel(c chan error) func() {
-	return gitjujutesting.PatchValue(&transientErrorInjection, c)
+	return testhelpers.PatchValue(&transientErrorInjection, c)
 }
 
 // mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
@@ -317,7 +316,7 @@ var dummy = environProvider{
 // Reset resets the entire dummy environment and forgets any registered
 // operation listener. All opened environments after Reset will share
 // the same underlying state.
-func Reset(c *gc.C) {
+func Reset(c tc.LikeC) {
 	logger.Infof("reset model")
 	dummy.mu.Lock()
 	dummy.ops = discardOperations
@@ -357,7 +356,7 @@ func Reset(c *gc.C) {
 				logger.Infof("retrying MgoServer.Reset() after attempt %d: %v", attempt, lastError)
 			},
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 

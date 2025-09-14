@@ -4,10 +4,11 @@
 package credentialmanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/credentialmanager"
@@ -15,12 +16,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&CredentialManagerSuite{})
+func TestCredentialManagerSuite(t *tctesting.T) {
+	tc.Run(t, &CredentialManagerSuite{})
+}
 
 type CredentialManagerSuite struct {
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{Reason: "auth fail"}
@@ -32,10 +35,10 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("auth fail")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{}
@@ -47,10 +50,10 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	args := params.InvalidateCredentialArg{}
@@ -61,5 +64,5 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("")
-	c.Assert(err, gc.ErrorMatches, "foo")
+	c.Assert(err, tc.ErrorMatches, "foo")
 }

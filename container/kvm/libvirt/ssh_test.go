@@ -4,16 +4,19 @@
 package libvirt
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 )
 
 // libvirtSSHSuite is gocheck boilerplate
 type libvirtSSHSuite struct{}
 
 // gocheck boilerplate
-var _ = gc.Suite(libvirtSSHSuite{})
+func TestNetworkUbuntuSuite(t *tctesting.T) {
+	tc.Run(t, libvirtSSHSuite{})
+}
 
-func (libvirtSSHSuite) TestKeepTheImports(c *gc.C) {
-	c.Assert(true, jc.IsTrue)
+func (libvirtSSHSuite) TestKeepTheImports(c *tc.C) {
+	c.Assert(true, tc.IsTrue)
 }

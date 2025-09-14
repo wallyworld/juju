@@ -7,14 +7,14 @@ import (
 	stdcontext "context"
 	"net/http"
 	"path"
+	tctesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type instanceSuite struct {
@@ -44,9 +44,11 @@ type instanceSuite struct {
 	invalidteCredential bool
 }
 
-var _ = gc.Suite(&instanceSuite{})
+func TestInstanceSuite(t *tctesting.T) {
+	tc.Run(t, &instanceSuite{})
+}
 
-func (s *instanceSuite) SetUpTest(c *gc.C) {
+func (s *instanceSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           &s.sender,
@@ -165,16 +167,16 @@ func makeSecurityRule(name, ipAddress, ports string) *armnetwork.SecurityRule {
 	}
 }
 
-func (s *instanceSuite) getInstance(c *gc.C, instID instance.Id) instances.Instance {
+func (s *instanceSuite) getInstance(c *tc.C, instID instance.Id) instances.Instance {
 	instances := s.getInstances(c, instID)
-	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances, tc.HasLen, 1)
 	return instances[0]
 }
 
-func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instances.Instance {
+func (s *instanceSuite) getInstances(c *tc.C, ids ...instance.Id) []instances.Instance {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(s.callCtx, ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
 	return instances
@@ -210,18 +212,18 @@ func networkSecurityGroupSender(rules []*armnetwork.SecurityRule) *azuretesting.
 	return nsgSender
 }
 
-func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
+func (s *instanceSuite) TestInstanceStatus(c *tc.C) {
 	inst := s.getInstance(c, "machine-0")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Running, "")
 }
 
-func (s *instanceSuite) TestInstanceStatusDeploying(c *gc.C) {
+func (s *instanceSuite) TestInstanceStatusDeploying(c *tc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Provisioning, "")
 }
 
-func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
+func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *tc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateFailed)
 	s.deployments[1].Properties.Error = &armresources.ErrorResponse{
 		Details: []*armresources.ErrorResponse{{
@@ -232,32 +234,32 @@ func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "boom")
 }
 
-func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
+func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *tc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCanceled)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
 }
 
-func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *gc.C) {
+func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *tc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateNotSpecified)
 	inst := s.getInstance(c, "machine-1")
 	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
 }
 
-func assertInstanceStatus(c *gc.C, actual instance.Status, status status.Status, message string) {
-	c.Assert(actual, jc.DeepEquals, instance.Status{
+func assertInstanceStatus(c *tc.C, actual instance.Status, status status.Status, message string) {
+	c.Assert(actual, tc.DeepEquals, instance.Status{
 		Status:  status,
 		Message: message,
 	})
 }
 
-func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
+func (s *instanceSuite) TestInstanceAddressesEmpty(c *tc.C) {
 	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addresses, tc.HasLen, 0)
 }
 
-func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
+func (s *instanceSuite) TestInstanceAddresses(c *tc.C) {
 	nic0IPConfigurations := []*armnetwork.InterfaceIPConfiguration{
 		makeIPConfiguration("10.0.0.4"),
 		makeIPConfiguration("10.0.0.5"),
@@ -279,13 +281,13 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
 	}
 	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
 	}).AsProviderAddresses())
 }
 
-func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
+func (s *instanceSuite) TestMultipleInstanceAddresses(c *tc.C) {
 	nic0IPConfiguration := makeIPConfiguration("10.0.0.4")
 	nic1IPConfiguration := makeIPConfiguration("10.0.0.5")
 	s.networkInterfaces = []*armnetwork.Interface{
@@ -297,30 +299,30 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 		makePublicIPAddress("pip-1", "machine-1", "1.2.3.5"),
 	}
 	instances := s.getInstances(c, "machine-0", "machine-1")
-	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances, tc.HasLen, 2)
 
 	inst0Addresses, err := instances[0].Addresses(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst0Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inst0Addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "1.2.3.4",
 	}).AsProviderAddresses())
 
 	inst1Addresses, err := instances[1].Addresses(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst1Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inst1Addresses, tc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.5", "1.2.3.5",
 	}).AsProviderAddresses())
 }
 
-func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
+func (s *instanceSuite) TestIngressRulesEmpty(c *tc.C) {
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
 	rules, err := fwInst.IngressRules(s.callCtx, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 }
 
 func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.SecurityRule) *azuretesting.Senders {
@@ -353,7 +355,7 @@ func (s *instanceSuite) setupSecurityGroupRules(nsgRules ...*armnetwork.Security
 	}
 }
 
-func (s *instanceSuite) TestIngressRules(c *gc.C) {
+func (s *instanceSuite) TestIngressRules(c *tc.C) {
 	nsgRules := []*armnetwork.SecurityRule{{
 		Name: to.Ptr("machine-0-xyzzy"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
@@ -444,11 +446,11 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	s.sender = *nsgSender
 
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwInst.IngressRules(s.callCtx, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.DeepEquals, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/tcp"), firewall.AllNetworksIPV4CIDR, "192.168.1.0/24", "10.0.0.0/24"),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1-65535/udp"), firewall.AllNetworksIPV4CIDR),
@@ -456,11 +458,11 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	})
 }
 
-func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
+func (s *instanceSuite) TestInstanceClosePorts(c *tc.C) {
 	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	sender := &azuretesting.MockSender{}
 	notFoundSender := &azuretesting.MockSender{}
@@ -474,26 +476,26 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp"), "192.168.1.0/24", "10.0.0.0/24"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 5)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
-	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
-	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
-	c.Assert(s.requests[3].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-10-0-0-0-24"))
-	c.Assert(s.requests[4].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[4].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-192-168-1-0-24"))
+	c.Assert(s.requests, tc.HasLen, 5)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
+	c.Assert(s.requests[1].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000"))
+	c.Assert(s.requests[2].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	c.Assert(s.requests[3].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[3].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[4].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[4].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000-cidr-192-168-1-0-24"))
 }
 
-func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
+func (s *instanceSuite) TestInstanceOpenPorts(c *tc.C) {
 	nsgSender := s.setupSecurityGroupRules()
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	okSender := &azuretesting.MockSender{}
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
@@ -504,13 +506,13 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 5)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000"))
+	c.Assert(s.requests, tc.HasLen, 5)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000"))
 	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              to.Ptr("1000/tcp from *"),
@@ -524,8 +526,8 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[2].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              to.Ptr("1000-2000/udp from *"),
@@ -539,8 +541,8 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[3].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[3].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[3].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-10-0-0-0-24"))
 	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              to.Ptr("1000-2000/tcp from 10.0.0.0/24"),
@@ -554,8 +556,8 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
-	c.Assert(s.requests[4].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[4].URL.Path, gc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-192-168-1-0-24"))
+	c.Assert(s.requests[4].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[4].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1000-2000-cidr-192-168-1-0-24"))
 	assertRequestBody(c, s.requests[4], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              to.Ptr("1000-2000/tcp from 192.168.1.0/24"),
@@ -571,7 +573,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	})
 }
 
-func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
+func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *tc.C) {
 	nsgRule := &armnetwork.SecurityRule{
 		Name: to.Ptr("machine-0-tcp-1000"),
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
@@ -585,7 +587,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	nsgSender := s.setupSecurityGroupRules(nsgRule)
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	okSender := &azuretesting.MockSender{}
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
@@ -595,13 +597,13 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 2)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSubnetPath)
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
-	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-udp-1000-2000"))
 	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              to.Ptr("1000-2000/udp from *"),
@@ -617,52 +619,52 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	})
 }
 
-func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
+func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *tc.C) {
 	s.networkInterfaces = []*armnetwork.Interface{
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	err := fwInst.OpenPorts(s.callCtx, "0", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.requests, tc.HasLen, 0)
 }
 
-func (s *instanceSuite) TestAllInstances(c *gc.C) {
+func (s *instanceSuite) TestAllInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.AllInstances(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
-	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 2)
+	c.Assert(instances[0].Id(), tc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), tc.Equals, instance.Id("machine-1"))
 }
 
-func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
+func (s *instanceSuite) TestAllRunningInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	instances, err := s.env.AllRunningInstances(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 2)
-	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
-	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 2)
+	c.Assert(instances[0].Id(), tc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), tc.Equals, instance.Id("machine-1"))
 }
 
-func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
+func (s *instanceSuite) TestControllerInstancesSomePending(c *tc.C) {
 	*((s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.HasLen, 2)
-	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
-	c.Assert(ids[1], gc.Equals, instance.Id("machine-1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ids, tc.HasLen, 2)
+	c.Assert(ids[0], tc.Equals, instance.Id("machine-0"))
+	c.Assert(ids[1], tc.Equals, instance.Id("machine-1"))
 }
 
-func (s *instanceSuite) TestControllerInstances(c *gc.C) {
+func (s *instanceSuite) TestControllerInstances(c *tc.C) {
 	s.sender = s.getInstancesSender()
 	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids, gc.HasLen, 1)
-	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ids, tc.HasLen, 1)
+	c.Assert(ids[0], tc.Equals, instance.Id("machine-0"))
 }
 
 var internalSecurityGroupPath = path.Join(

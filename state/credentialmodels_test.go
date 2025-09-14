@@ -5,18 +5,18 @@ package state_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 type CredentialModelsSuite struct {
@@ -26,28 +26,30 @@ type CredentialModelsSuite struct {
 	abcModelTag   names.ModelTag
 }
 
-var _ = gc.Suite(&CredentialModelsSuite{})
+func TestCredentialModelsSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &CredentialModelsSuite{})
+}
 
-func (s *CredentialModelsSuite) SetUpTest(c *gc.C) {
+func (s *CredentialModelsSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.credentialTag = s.createCloudCredential(c, "foobar")
 	s.abcModelTag = s.addModel(c, "abcmodel", s.credentialTag)
 }
 
-func (s *CredentialModelsSuite) createCloudCredential(c *gc.C, credentialName string) names.CloudCredentialTag {
+func (s *CredentialModelsSuite) createCloudCredential(c *tc.C, credentialName string) names.CloudCredentialTag {
 	// Cloud name is always "dummy" as deep within the testing infrastructure,
 	// we create a testing controller on a cloud "dummy".
 	// Test cloud "dummy" only allows credentials with an empty auth type.
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", "dummy", s.Owner.Id(), credentialName))
 	err := s.State.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return tag
 }
 
-func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.CloudCredentialTag) names.ModelTag {
+func (s *CredentialModelsSuite) addModel(c *tc.C, modelName string, tag names.CloudCredentialTag) names.ModelTag {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": modelName,
 		"uuid": uuid.String(),
@@ -61,20 +63,20 @@ func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.Cl
 		CloudCredential:         tag,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer st.Close()
 	return names.NewModelTag(uuid.String())
 }
 
-func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccess(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccess(c *tc.C) {
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, []state.CredentialOwnerModelAccess{
 		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 	})
 }
 
-func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *tc.C) {
 	// add another model with the same credential
 	xyzModelTag := s.addModel(c, "xyzmodel", s.credentialTag)
 
@@ -83,37 +85,37 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) 
 	s.addModel(c, "dontshow", anotherCredential)
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.SameContents, []state.CredentialOwnerModelAccess{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.SameContents, []state.CredentialOwnerModelAccess{
 		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelUUID: xyzModelTag.Id()},
 	})
 }
 
-func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessNoModels(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessNoModels(c *tc.C) {
 	anotherCredential := s.createCloudCredential(c, "another")
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(anotherCredential)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(out, tc.HasLen, 0)
 }
 
-func (s *CredentialModelsSuite) TestCredentialModels(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialModels(c *tc.C) {
 	out, err := s.State.CredentialModels(s.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, map[string]string{s.abcModelTag.Id(): "abcmodel"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, map[string]string{s.abcModelTag.Id(): "abcmodel"})
 }
 
-func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *tc.C) {
 	checkModels := func(expected ...string) {
 		out, err := s.State.CredentialModels(s.credentialTag)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		var obtained []string
 		for k := range out {
 			obtained = append(obtained, k)
 		}
-		c.Assert(obtained, jc.SameContents, expected)
+		c.Assert(obtained, tc.SameContents, expected)
 	}
 
 	// Add another model with the same credential.
@@ -122,19 +124,19 @@ func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *gc.C) 
 
 	// Set one of the models to Dead.
 	m, r, err := s.StatePool.GetModel(s.abcModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer r.Release()
 
 	err = m.SetDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	checkModels(xyzModelTag.Id())
 }
 
-func (s *CredentialModelsSuite) TestCredentialNoModels(c *gc.C) {
+func (s *CredentialModelsSuite) TestCredentialNoModels(c *tc.C) {
 	anotherCredential := s.createCloudCredential(c, "another")
 
 	out, err := s.State.CredentialModels(anotherCredential)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(out, gc.HasLen, 0)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(out, tc.HasLen, 0)
 }

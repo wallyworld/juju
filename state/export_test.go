@@ -20,13 +20,12 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
 	jutils "github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
@@ -104,12 +103,12 @@ func EnsureWorkersStarted(st *State) {
 	st.workers.txnLogWatcher()
 }
 
-func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
+func SetTestHooks(c *tc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
 
-func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+func SetBeforeHooks(c *tc.C, st *State, fs ...func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetBeforeHooks(c, newRunnerForHooks(st), fs...)
 }
@@ -117,22 +116,22 @@ func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChec
 // SetFailIfTransaction will set a transaction hook that marks the test as an error
 // if there is a transaction run. This is used if you know a given set of operations
 // should *not* trigger database updates.
-func SetFailIfTransaction(c *gc.C, st *State) txntesting.TransactionChecker {
+func SetFailIfTransaction(c *tc.C, st *State) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetFailIfTransaction(c, newRunnerForHooks(st))
 }
 
-func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+func SetAfterHooks(c *tc.C, st *State, fs ...func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetAfterHooks(c, newRunnerForHooks(st), fs...)
 }
 
-func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
+func SetRetryHooks(c *tc.C, st *State, block, check func()) txntesting.TransactionChecker {
 	EnsureWorkersStarted(st)
 	return txntesting.SetRetryHooks(c, newRunnerForHooks(st), block, check)
 }
 
-func SetMaxTxnAttempts(c *gc.C, st *State, n int) {
+func SetMaxTxnAttempts(c *tc.C, st *State, n int) {
 	st.maxTxnAttempts = n
 	db := st.database.(*database)
 	db.maxTxnAttempts = n
@@ -224,11 +223,11 @@ func SecretBackendRefCount(st *State, backendID string) (int, error) {
 	return nsRefcounts.read(refcounts, key)
 }
 
-func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
+func AddTestingCharm(c *tc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
-func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *Charm {
+func AddTestingCharmWithSeries(c *tc.C, st *State, name string, series string) *Charm {
 	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
 }
 
@@ -240,13 +239,13 @@ func getCharmRepo(series string) *repo.CharmRepo {
 	return testcharms.Repo
 }
 
-func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
+func AddTestingCharmForSeries(c *tc.C, st *State, series, name string) *Charm {
 	// Existing logic!
 	// Get charm from `quantal` dir or `kubernetes`.
 	return addCharm(c, st, series, getCharmRepo(series).CharmDir(name))
 }
 
-func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
+func AddTestingCharmhubCharmForSeries(c *tc.C, st *State, series, name string) *Charm {
 	ch := getCharmRepo(series).CharmDir(name)
 	ident := fmt.Sprintf("amd64/%s/%s-%d", series, name, ch.Revision())
 	curl := "ch:" + ident
@@ -257,11 +256,11 @@ func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *
 		SHA256:      ident + "-sha256",
 	}
 	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sch
 }
 
-func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
+func AddTestingCharmMultiSeries(c *tc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := "ch:" + ident
@@ -272,11 +271,11 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 		SHA256:      ident + "-sha256",
 	}
 	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sch
 }
 
-func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
+func AddTestingApplication(c *tc.C, st *State, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:   st,
 		name: name,
@@ -284,7 +283,7 @@ func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Applicat
 	})
 }
 
-func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
+func AddTestingApplicationForBase(c *tc.C, st *State, base Base, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st: st,
 		origin: &CharmOrigin{Platform: &Platform{
@@ -296,7 +295,7 @@ func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch
 	})
 }
 
-func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name string, ch *Charm) *Application {
+func AddTestingApplicationWithNumUnits(c *tc.C, st *State, numUnits int, name string, ch *Charm) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:       st,
 		numUnits: numUnits,
@@ -305,14 +304,14 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 	})
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(c *tc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	series := curl.Series
 	if series == "kubernetes" {
 		series = "focal"
 	}
 	base, err := corebase.GetBaseFromSeries(series)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var source string
 	switch curl.Schema {
 	case "local":
@@ -339,7 +338,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 }
 
 func AddTestingApplicationWithAttachStorage(
-	c *gc.C, st *State, name string, ch *Charm,
+	c *tc.C, st *State, name string, ch *Charm,
 	numUnits int,
 	storage map[string]StorageConstraints,
 	attachStorage []names.StorageTag,
@@ -354,7 +353,7 @@ func AddTestingApplicationWithAttachStorage(
 	})
 }
 
-func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+func AddTestingApplicationWithDevices(c *tc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
@@ -363,7 +362,7 @@ func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+func AddTestingApplicationWithBindings(c *tc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
 	return addTestingApplication(c, addTestingApplicationParams{
 		st:       st,
 		name:     name,
@@ -384,13 +383,13 @@ type addTestingApplicationParams struct {
 	attachStorage []names.StorageTag
 }
 
-func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
-	c.Assert(params.ch, gc.NotNil)
+func addTestingApplication(c *tc.C, params addTestingApplicationParams) *Application {
+	c.Assert(params.ch, tc.NotNil)
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
 	if origin == nil {
 		base, err := corebase.GetBaseFromSeries(curl.Series)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		var channel *Channel
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
@@ -424,11 +423,11 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		NumUnits:         params.numUnits,
 		AttachStorage:    params.attachStorage,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func addCustomCharmWithManifest(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {
+func addCustomCharmWithManifest(c *tc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int, manifest bool) *Charm {
 	path := repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		if manifest {
@@ -439,38 +438,38 @@ bases:
 `
 			manifestYAML := filepath.Join(path, "manifest.yaml")
 			err := os.WriteFile(manifestYAML, []byte(manifestContent), 0644)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		config := filepath.Join(path, filename)
 		err := os.WriteFile(config, []byte(content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if revision != -1 {
 		ch.SetRevision(revision)
 	}
 	return addCharm(c, st, series, ch)
 }
 
-func addCustomCharm(c *gc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int) *Charm {
+func addCustomCharm(c *tc.C, st *State, repo *repo.CharmRepo, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharmWithManifest(c, st, repo, name, filename, content, series, revision, false)
 }
 
-func AddCustomCharmWithManifest(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+func AddCustomCharmWithManifest(c *tc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharmWithManifest(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision, true)
 }
 
-func AddCustomCharmForSeries(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+func AddCustomCharmForSeries(c *tc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	// Copy charm from `series` dir.
 	return addCustomCharm(c, st, testcharms.RepoForSeries(series), name, filename, content, series, revision)
 }
 
-func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
+func AddCustomCharm(c *tc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	return addCustomCharm(c, st, getCharmRepo(series), name, filename, content, series, revision)
 }
 
-func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
+func addCharm(c *tc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := "local:" + series + "/" + ident
 	if series == "" {
@@ -484,7 +483,7 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 		SHA256:      ident + "-sha256",
 	}
 	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sch
 }
 
@@ -649,9 +648,9 @@ func (st *State) SetDyingModelToDead() error {
 	return st.setDyingModelToDead()
 }
 
-func HostedModelCount(c *gc.C, st *State) int {
+func HostedModelCount(c *tc.C, st *State) int {
 	count, err := hostedModelCount(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return count
 }
 
@@ -670,10 +669,10 @@ var (
 	TagToCollectionAndId              = (*State).tagToCollectionAndId
 )
 
-func AssertAddressConversion(c *gc.C, netAddr network.SpaceAddress) {
+func AssertAddressConversion(c *tc.C, netAddr network.SpaceAddress) {
 	addr := fromNetworkAddress(netAddr, network.OriginUnknown)
 	newNetAddr := addr.networkAddress()
-	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
+	c.Assert(netAddr, tc.DeepEquals, newNetAddr)
 
 	size := 5
 	netAddrs := make(network.SpaceAddresses, size)
@@ -682,13 +681,13 @@ func AssertAddressConversion(c *gc.C, netAddr network.SpaceAddress) {
 	}
 	addrs := fromNetworkAddresses(netAddrs, network.OriginUnknown)
 	newNetAddrs := networkAddresses(addrs)
-	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
+	c.Assert(netAddrs, tc.DeepEquals, newNetAddrs)
 }
 
-func AssertHostPortConversion(c *gc.C, netHostPort network.SpaceHostPort) {
+func AssertHostPortConversion(c *tc.C, netHostPort network.SpaceHostPort) {
 	hostPort := fromNetworkHostPort(netHostPort)
 	newNetHostPort := hostPort.networkHostPort()
-	c.Assert(netHostPort, gc.DeepEquals, newNetHostPort)
+	c.Assert(netHostPort, tc.DeepEquals, newNetHostPort)
 
 	size := 5
 	netHostsPorts := make([]network.SpaceHostPorts, size)
@@ -700,7 +699,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.SpaceHostPort) {
 	}
 	hostsPorts := fromNetworkHostsPorts(netHostsPorts)
 	newNetHostsPorts := networkHostsPorts(hostsPorts)
-	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
+	c.Assert(netHostsPorts, tc.DeepEquals, newNetHostsPorts)
 }
 
 // MakeLogDoc creates a database document for a single log message.
@@ -759,32 +758,32 @@ func SetWantsVote(st *State, id string, wantsVote bool) error {
 	return st.runRawTransaction([]txn.Op{op})
 }
 
-func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {
+func RemoveEndpointBindingsForApplication(c *tc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
 	txnError := app.st.db().RunTransaction([]txn.Op{removeOp})
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func RemoveOfferConnectionsForRelation(c *gc.C, rel *Relation) {
+func RemoveOfferConnectionsForRelation(c *tc.C, rel *Relation) {
 	removeOps := removeOfferConnectionsForRelationOps(rel.Id())
 	txnError := rel.st.db().RunTransaction(removeOps)
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func RelationCount(app *Application) int {
 	return app.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
+func AssertEndpointBindingsNotFoundForApplication(c *tc.C, app *Application) {
 	globalKey := app.globalKey()
 	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
-	c.Assert(storedBindings, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(storedBindings, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func StorageAttachmentCount(instance StorageInstance) int {
@@ -795,7 +794,7 @@ func StorageAttachmentCount(instance StorageInstance) int {
 	return internal.doc.AttachmentCount
 }
 
-func ResetMigrationMode(c *gc.C, st *State) {
+func ResetMigrationMode(c *tc.C, st *State) {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     st.ModelUUID(),
@@ -805,7 +804,7 @@ func ResetMigrationMode(c *gc.C, st *State) {
 		},
 	}}
 	err := st.db().RunTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (a *RemoteApplication) SetDead() error {
@@ -817,26 +816,26 @@ func (a *RemoteApplication) SetDead() error {
 	return a.st.db().RunTransaction(ops)
 }
 
-func RemoveRelationStatus(c *gc.C, rel *Relation) {
+func RemoveRelationStatus(c *tc.C, rel *Relation) {
 	st := rel.st
 	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}
 	err := st.db().RunTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func RemoveUnitRelations(c *gc.C, rel *Relation) {
+func RemoveUnitRelations(c *tc.C, rel *Relation) {
 	st := rel.st
 	scopes, closer := st.db().GetCollection(relationScopesC)
 	defer closer()
 	scopesW := scopes.Writeable()
 	_, err := scopesW.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(
-	c *gc.C, clock testclock.AdvanceableClock,
+	c *tc.C, clock testclock.AdvanceableClock,
 	unit *Unit, statusVal status.Status,
 	count, batchSize int,
 	nextData func(int) map[string]interface{},
@@ -865,7 +864,7 @@ func PrimeUnitStatusHistory(
 			i++
 		}
 		err := historyW.Insert(docs...)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	// Set the status for the unit itself.
 	doc := statusDoc{
@@ -879,14 +878,14 @@ func PrimeUnitStatusHistory(
 	}
 
 	err := unit.st.db().Run(buildTxn)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // PrimeOperations generates operations and tasks to be pruned.
 // The method pads each entry with a 1MB string. This should allow us to infer the
 // approximate size of the entry and limit the number of entries that
 // must be generated for size related tests.
-func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperation int) {
+func PrimeOperations(c *tc.C, age time.Time, unit *Unit, count, actionsPerOperation int) {
 	operationsCollection, closer := unit.st.db().GetCollection(operationsC)
 	defer closer()
 	actionCollection, closer := unit.st.db().GetCollection(actionsC)
@@ -901,7 +900,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 	var actionDocs []interface{}
 	for i := 0; i < count; i++ {
 		nextID, err := sequenceWithMin(unit.st, "task", 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		operationID := strconv.Itoa(nextID)
 		operationDocs = append(operationDocs, operationDoc{
 			DocId:     operationID,
@@ -912,7 +911,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 		})
 		for j := 0; j < actionsPerOperation; j++ {
 			id, err := jutils.NewUUID()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			actionDocs = append(actionDocs, actionDoc{
 				DocId:     id.String(),
 				ModelUUID: unit.st.ModelUUID(),
@@ -926,13 +925,13 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 	}
 
 	err := operationsCollectionWriter.Insert(operationDocs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = actionCollectionWriter.Insert(actionDocs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // PrimeLegacyActions creates actions without a parent operation.
-func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
+func PrimeLegacyActions(c *tc.C, age time.Time, unit *Unit, count int) {
 	actionCollection, closer := unit.st.db().GetCollection(actionsC)
 	defer closer()
 
@@ -944,7 +943,7 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 	var ids []string
 	for i := 0; i < count; i++ {
 		nextID, err := sequenceWithMin(unit.st, "task", 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ids = append(ids, fmt.Sprintf("%v:%d", unit.st.ModelUUID(), nextID))
 		actionDocs = append(actionDocs, actionDoc{
 			DocId:     strconv.Itoa(nextID),
@@ -957,10 +956,10 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 	}
 
 	err := actionCollectionWriter.Insert(actionDocs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, id := range ids {
 		err = actionCollectionWriter.UpdateId(id, bson.D{{"$unset", bson.M{"operation": 1}}})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
@@ -977,24 +976,24 @@ func GetInternalWorkers(st *State) worker.Worker {
 
 // ResourceStoragePath returns the path used to store resource content
 // in the managed blob store, given the resource ID.
-func ResourceStoragePath(c *gc.C, st *State, id string) string {
+func ResourceStoragePath(c *tc.C, st *State, id string) string {
 	p := st.Resources().(*resourcePersistence)
 	_, storagePath, err := p.getResource(id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return storagePath
 }
 
-func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
+func StagedResourceForTest(c *tc.C, st *State, res resources.Resource) *StagedResource {
 	persist := st.Resources().(*resourcePersistence)
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	r, err := persist.stageResource(res, storagePath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return r
 }
 
 // IsBlobStored returns true if a given storage path is in used in the
 // managed blob store.
-func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
+func IsBlobStored(c *tc.C, st *State, storagePath string) bool {
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	r, _, err := stor.Get(storagePath)
 	if err != nil {
@@ -1010,12 +1009,12 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 
 // AssertNoCleanupsWithKind checks that there are no cleanups
 // of a given kind scheduled.
-func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
+func AssertNoCleanupsWithKind(c *tc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, doc := range docs {
 		if doc.Kind == kind {
 			c.Fatalf("found cleanup of kind %q", kind)
@@ -1025,12 +1024,12 @@ func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 
 // AssertNoCleanupsWithKind checks that there is at least
 // one cleanup of a given kind scheduled.
-func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
+func AssertCleanupsWithKind(c *tc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, doc := range docs {
 		if doc.Kind == kind {
 			return
@@ -1040,12 +1039,12 @@ func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 }
 
 // AssertNoCleanups checks that there are no cleanups scheduled.
-func AssertNoCleanups(c *gc.C, st *State) {
+func AssertNoCleanups(c *tc.C, st *State) {
 	var docs []cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if len(docs) > 0 {
 		c.Fatalf("unexpected cleanups: %+v", docs)
 	}
@@ -1092,14 +1091,14 @@ func AppStorageConstraints(app *Application) (map[string]StorageConstraints, err
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
 
-func RemoveRelation(c *gc.C, rel *Relation, force bool) {
+func RemoveRelation(c *tc.C, rel *Relation, force bool) {
 	op := &ForcedOperation{Force: force}
 	ops, err := rel.removeOps("", "", op)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Logf("operational errors %v", op.Errors)
-	c.Assert(op.Errors, gc.HasLen, 0)
+	c.Assert(op.Errors, tc.HasLen, 0)
 	err = rel.st.db().RunTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
@@ -1162,23 +1161,23 @@ func ApplicationPortOps(st *State, a description.Application) ([]txn.Op, error) 
 	return []txn.Op{resolver.applicationPortsOp(a)}, nil
 }
 
-func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
+func GetSecretNextRotateTime(c *tc.C, st *State, id string) time.Time {
 	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
 	defer closer()
 
 	var doc secretRotationDoc
 	err := secretRotateCollection.FindId(id).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return doc.NextRotateTime.UTC()
 }
 
-func GetSecretBackendNextRotateInfo(c *gc.C, st *State, id string) (string, time.Time) {
+func GetSecretBackendNextRotateInfo(c *tc.C, st *State, id string) (string, time.Time) {
 	secretBackendRotateCollection, closer := st.db().GetCollection(secretBackendsRotateC)
 	defer closer()
 
 	var doc secretBackendRotationDoc
 	err := secretBackendRotateCollection.FindId(id).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return doc.Name, doc.NextRotateTime.UTC()
 }
 
@@ -1288,7 +1287,7 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) {
+func AddVirtualHostKey(c *tc.C, st *State, tag names.Tag, key []byte) {
 	var docID string
 	switch tag.Kind() {
 	case names.UnitTagKind:
@@ -1309,9 +1308,9 @@ func AddVirtualHostKey(c *gc.C, st *State, tag names.Tag, key []byte) {
 		Assert: txn.DocMissing,
 	}}
 	err := st.db().RunTransaction(op)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
-func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
+func RemoveVirtualHostKey(c *tc.C, st *State, key *VirtualHostKey) {
 	op := []txn.Op{{
 		C:      virtualHostKeysC,
 		Id:     key.doc.DocId,
@@ -1319,7 +1318,7 @@ func RemoveVirtualHostKey(c *gc.C, st *State, key *VirtualHostKey) {
 		Assert: txn.DocExists,
 	}}
 	err := st.db().RunTransaction(op)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 // UpdateStorageConstraints updates an application's storage constraints.

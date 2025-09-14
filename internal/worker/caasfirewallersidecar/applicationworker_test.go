@@ -4,23 +4,23 @@
 package caasfirewallersidecar_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type appWorkerSuite struct {
@@ -40,9 +40,11 @@ type appWorkerSuite struct {
 	portsWatcher watcher.StringsWatcher
 }
 
-var _ = gc.Suite(&appWorkerSuite{})
+func TestAppWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &appWorkerSuite{})
+}
 
-func (s *appWorkerSuite) SetUpTest(c *gc.C) {
+func (s *appWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.appName = "app1"
@@ -50,7 +52,7 @@ func (s *appWorkerSuite) SetUpTest(c *gc.C) {
 	s.portsChanges = make(chan []string)
 }
 
-func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
+func (s *appWorkerSuite) getController(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appsWatcher = watchertest.NewMockNotifyWatcher(s.applicationChanges)
@@ -65,7 +67,7 @@ func (s *appWorkerSuite) getController(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
+func (s *appWorkerSuite) getWorker(c *tc.C) worker.Worker {
 	w, err := caasfirewallersidecar.NewApplicationWorker(
 		testing.ControllerTag.Id(),
 		testing.ModelTag.Id(),
@@ -75,11 +77,11 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		s.lifeGetter,
 		loggo.GetLogger("test"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *appWorkerSuite) TestWorker(c *gc.C) {
+func (s *appWorkerSuite) TestWorker(c *tc.C) {
 	ctrl := s.getController(c)
 	defer ctrl.Finish()
 

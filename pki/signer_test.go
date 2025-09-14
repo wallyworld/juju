@@ -4,7 +4,9 @@
 package pki_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/pki"
 )
@@ -12,9 +14,11 @@ import (
 type SignerSuite struct {
 }
 
-var _ = gc.Suite(&SignerSuite{})
+func TestSignerSuite(t *tctesting.T) {
+	tc.Run(t, &SignerSuite{})
+}
 
-func (s *SignerSuite) TestKeyProfilesForErrors(c *gc.C) {
+func (s *SignerSuite) TestKeyProfilesForErrors(c *tc.C) {
 	tests := []struct {
 		name    string
 		profile pki.KeyProfile

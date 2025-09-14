@@ -5,9 +5,9 @@ package dummy
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/storage"
 )
 
@@ -15,7 +15,7 @@ import (
 // testing. Each method's default behaviour may be overridden by setting
 // the corresponding Func field.
 type FilesystemSource struct {
-	testing.Stub
+	testhelpers.Stub
 
 	CreateFilesystemsFunc        func(context.ProviderCallContext, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
 	DestroyFilesystemsFunc       func(context.ProviderCallContext, []string) ([]error, error)

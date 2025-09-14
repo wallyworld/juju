@@ -4,8 +4,9 @@
 package cloudspec_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
@@ -13,9 +14,11 @@ import (
 type cloudSpecSuite struct {
 }
 
-var _ = gc.Suite(&cloudSpecSuite{})
+func TestCloudSpecSuite(t *tctesting.T) {
+	tc.Run(t, &cloudSpecSuite{})
+}
 
-func (s *cloudSpecSuite) TestNewRegionSpec(c *gc.C) {
+func (s *cloudSpecSuite) TestNewRegionSpec(c *tc.C) {
 	tests := []struct {
 		description, cloud, region, errMatch string
 		nilErr                               bool
@@ -45,10 +48,10 @@ func (s *cloudSpecSuite) TestNewRegionSpec(c *gc.C) {
 		c.Logf("Test %d: %s", i, test.description)
 		rspec, err := environscloudspec.NewCloudRegionSpec(test.cloud, test.region)
 		if !test.nilErr {
-			c.Check(err, gc.ErrorMatches, test.errMatch)
+			c.Check(err, tc.ErrorMatches, test.errMatch)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
-		c.Check(rspec, jc.DeepEquals, test.want)
+		c.Check(rspec, tc.DeepEquals, test.want)
 	}
 }

@@ -4,24 +4,21 @@
 package initialize_test
 
 import (
-	"testing"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type importSuite struct{}
 
-var _ = gc.Suite(&importSuite{})
+func TestImportSuite(t *tctesting.T) {
+	tc.Run(t, &importSuite{})
+}
 
-func (*importSuite) TestImports(c *gc.C) {
+func (*importSuite) TestImports(c *tc.C) {
 	found := set.NewStrings(
 		coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/containeragent/initialize")...)
 
@@ -117,9 +114,9 @@ func (*importSuite) TestImports(c *gc.C) {
 	// TODO: review if there are any un-expected imports!
 	// Show the values rather than just checking the length so a failing
 	// test shows them.
-	c.Check(unexpected.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unexpected.SortedValues(), tc.DeepEquals, []string{})
 	// If unneeded show any values this is good as we've reduced
 	// dependencies, and they should be removed from expected above.
 	unneeded := expected.Difference(found)
-	c.Check(unneeded.SortedValues(), jc.DeepEquals, []string{})
+	c.Check(unneeded.SortedValues(), tc.DeepEquals, []string{})
 }

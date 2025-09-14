@@ -9,31 +9,33 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/client"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type clientSuite struct{}
 
-var _ = gc.Suite(&clientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	tc.Run(t, &clientSuite{})
+}
 
 // TODO(jam) 2013-08-27 http://pad.lv/1217282
 // Right now most of the direct tests for client.Client behavior are in
 // apiserver/client/*_test.go
 
-func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
+func (s *clientSuite) TestAbortCurrentUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -43,15 +45,15 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	cl := client.NewClientFromFacadeCaller(mockFacadeCaller)
 
 	err := cl.AbortCurrentUpgrade()
-	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
+	c.Assert(err, tc.Equals, someErr) // Confirms that the correct facade was called
 }
 
-func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *gc.C) {
+func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *tc.C) {
 	errorResult := params.ErrorResult{
 		Error: apiservererrors.ServerError(errors.New("kablooie")),
 	}
 	data, err := json.Marshal(errorResult)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cw := closeWatcher{Reader: bytes.NewReader(data)}
 	d := fakeDialer{
 		resp: &http.Response{
@@ -63,12 +65,12 @@ func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *gc.C) {
 	}
 	d.SetErrors(websocket.ErrBadHandshake)
 	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
-	c.Assert(stream, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "kablooie")
-	c.Assert(cw.closed, gc.Equals, true)
+	c.Assert(stream, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "kablooie")
+	c.Assert(cw.closed, tc.Equals, true)
 }
 
-func (s *clientSuite) TestWebsocketDialWithErrorsNoJSON(c *gc.C) {
+func (s *clientSuite) TestWebsocketDialWithErrorsNoJSON(c *tc.C) {
 	cw := closeWatcher{Reader: strings.NewReader("wowee zowee")}
 	d := fakeDialer{
 		resp: &http.Response{
@@ -78,34 +80,34 @@ func (s *clientSuite) TestWebsocketDialWithErrorsNoJSON(c *gc.C) {
 	}
 	d.SetErrors(websocket.ErrBadHandshake)
 	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
-	c.Assert(stream, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `wowee zowee \(Not Found\)`)
-	c.Assert(cw.closed, gc.Equals, true)
+	c.Assert(stream, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `wowee zowee \(Not Found\)`)
+	c.Assert(cw.closed, tc.Equals, true)
 }
 
-func (s *clientSuite) TestWebsocketDialWithErrorsOtherError(c *gc.C) {
+func (s *clientSuite) TestWebsocketDialWithErrorsOtherError(c *tc.C) {
 	var d fakeDialer
 	d.SetErrors(errors.New("jammy pac"))
 	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
-	c.Assert(stream, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "jammy pac")
+	c.Assert(stream, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "jammy pac")
 }
 
-func (s *clientSuite) TestWebsocketDialWithErrorsSetsDeadline(c *gc.C) {
+func (s *clientSuite) TestWebsocketDialWithErrorsSetsDeadline(c *tc.C) {
 	// I haven't been able to find a way to actually test the
 	// websocket deadline stream, so instead test that the stream
 	// returned from websocketDialWithErrors is actually a
 	// DeadlineStream with the expected timeout.
 	d := fakeDialer{}
 	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	deadlineStream, ok := stream.(*api.DeadlineStream)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(deadlineStream.Timeout, gc.Equals, 30*time.Second)
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(deadlineStream.Timeout, tc.Equals, 30*time.Second)
 }
 
 type fakeDialer struct {
-	testing.Stub
+	testhelpers.Stub
 
 	conn *websocket.Conn
 	resp *http.Response

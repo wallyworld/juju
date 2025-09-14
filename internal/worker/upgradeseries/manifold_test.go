@@ -4,38 +4,41 @@
 package upgradeseries_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/upgradeseries"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	cfg, _, _ := validManifoldConfig(ctrl)
 	cfg.NewFacade = nil
 
-	c.Check(upgradeseries.Manifold(cfg).Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+	c.Check(upgradeseries.Manifold(cfg).Inputs, tc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
-func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
+func (*ManifoldSuite) TestStartMissingNewFacade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -43,11 +46,11 @@ func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
 	cfg.NewFacade = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
-	c.Check(work, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "nil NewFacade function not valid")
+	c.Check(work, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil NewFacade function not valid")
 }
 
-func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
+func (*ManifoldSuite) TestStartMissingNewWorker(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,11 +58,11 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
 	cfg.NewWorker = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
-	c.Check(work, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "nil NewWorker function not valid")
+	c.Check(work, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil NewWorker function not valid")
 }
 
-func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
+func (*ManifoldSuite) TestStartMissingLogger(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -67,11 +70,11 @@ func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
 	cfg.Logger = nil
 
 	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
-	c.Check(work, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
+	c.Check(work, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "nil Logger not valid")
 }
 
-func (s *ManifoldSuite) TestStartMissingAgentName(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAgentName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,11 +85,11 @@ func (s *ManifoldSuite) TestStartMissingAgentName(c *gc.C) {
 	})
 
 	work, err := upgradeseries.Manifold(cfg).Start(ctx)
-	c.Check(work, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(work, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAPICallerName(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -97,22 +100,22 @@ func (s *ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
 	})
 
 	work, err := upgradeseries.Manifold(cfg).Start(ctx)
-	c.Check(work, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(work, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	cfg, _, _ := validManifoldConfig(ctrl)
 
 	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
-	c.Check(work, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(work, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestStartError(c *gc.C) {
+func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -120,8 +123,8 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	cfg.NewWorker = func(_ upgradeseries.Config) (worker.Worker, error) { return nil, errors.New("WHACK!") }
 
 	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
-	c.Check(work, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "starting machine upgrade series worker: WHACK!")
+	c.Check(work, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "starting machine upgrade series worker: WHACK!")
 }
 
 type dummyAPICaller struct {

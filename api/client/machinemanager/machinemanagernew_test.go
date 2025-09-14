@@ -15,19 +15,22 @@ The plan is to start moving those old style tests and when finished delete the o
 package machinemanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/machinemanager"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&NewMachineManagerSuite{})
+func TestNewMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &NewMachineManagerSuite{})
+}
 
 type NewMachineManagerSuite struct {
 	jujutesting.BaseSuite
@@ -40,14 +43,14 @@ type NewMachineManagerSuite struct {
 	client *machinemanager.Client
 }
 
-func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *NewMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
+func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	args := params.UpdateChannelArgs{
@@ -65,11 +68,11 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
 
 	unitNames, err := s.client.UpgradeSeriesValidate(s.tag.String(), "16.04/stable")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames, gc.DeepEquals, result.UnitNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unitNames, tc.DeepEquals, result.UnitNames)
 }
 
-func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc.C) {
+func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	arg := params.UpdateChannelArg{
@@ -86,10 +89,10 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc
 	s.facade.EXPECT().FacadeCall("UpgradeSeriesPrepare", arg, gomock.Any()).SetArg(2, resultSource)
 
 	err := s.client.UpgradeSeriesPrepare(s.tag.Id(), "16.04/stable", true)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(errors.IsAlreadyExists(err), tc.IsTrue)
 }
 
-func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *NewMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clientFacade = mocks.NewMockClientFacade(ctrl)

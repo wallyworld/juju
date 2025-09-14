@@ -5,9 +5,9 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type AvailabilityZoneSuite struct {
@@ -25,9 +25,11 @@ type AvailabilityZoneSuite struct {
 	callCtx context.ProviderCallContext
 }
 
-var _ = gc.Suite(&AvailabilityZoneSuite{})
+func TestAvailabilityZoneSuite(t *tctesting.T) {
+	tc.Run(t, &AvailabilityZoneSuite{})
+}
 
-func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
+func (s *AvailabilityZoneSuite) SetUpSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 
 	s.callCtx = context.NewEmptyCloudCallContext()
@@ -51,10 +53,10 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		called++
 		return map[instance.Id]string{
 			"inst0": "az0",
@@ -63,11 +65,11 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 		}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
 	// az0 is unavailable, so az1 and az2 come out as equal best;
 	// az1 comes first due to lexicographical ordering on the name.
-	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName:  "az1",
 		Instances: []instance.Id{"inst1"},
 	}, {
@@ -76,28 +78,28 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstanc
 	}})
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *tc.C) {
 	resultErr := fmt.Errorf("oh noes")
 	s.PatchValue(&s.env.allInstances, func(context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(err, tc.Equals, resultErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
 		called++
 		return map[instance.Id]string{"inst1": "az1", "inst2": "az1"}, environs.ErrPartialInstances
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, []instance.Id{"nichts", "inst1", "null", "inst2"})
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
-	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+	c.Assert(zoneInstances, tc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName: "az2",
 	}, {
 		ZoneName:  "az1",
@@ -105,7 +107,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 	}})
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *tc.C) {
 	returnErr := fmt.Errorf("whatever")
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
@@ -113,27 +115,27 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 		return nil, returnErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, gc.Equals, returnErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.Equals, returnErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *tc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 		called++
 		return nil, environs.ErrNoInstances
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zoneInstances, gc.HasLen, 2)
+	c.Assert(called, tc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zoneInstances, tc.HasLen, 2)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *tc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return make(map[instance.Id]string, 3), nil
 	})
@@ -142,15 +144,15 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 		return network.AvailabilityZones{}, nil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *tc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
+		c.Assert(ids, tc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		calls = append(calls, "InstanceAvailabilityZoneNames")
 		return make(map[instance.Id]string, 3), nil
 	})
@@ -160,34 +162,34 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 		return nil, resultErr
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, s.callCtx, nil)
-	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(zoneInstances, gc.HasLen, 0)
+	c.Assert(calls, tc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
+	c.Assert(err, tc.Equals, resultErr)
+	c.Assert(zoneInstances, tc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *tc.C) {
 	expectedGroup := []instance.Id{"0", "1", "2"}
 	var called bool
 	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
-		c.Assert(group, gc.DeepEquals, expectedGroup)
+		c.Assert(group, tc.DeepEquals, expectedGroup)
 		called = true
 		return nil, nil
 	})
 	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, expectedGroup, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *tc.C) {
 	resultErr := fmt.Errorf("whatever")
 	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return nil, resultErr
 	})
 	_, err := common.DistributeInstances(&s.env, s.callCtx, nil, nil, nil)
-	c.Assert(err, gc.Equals, resultErr)
+	c.Assert(err, tc.Equals, resultErr)
 }
 
-func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestDistributeInstances(c *tc.C) {
 	var zoneInstances []common.AvailabilityZoneInstances
 	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return zoneInstances, nil
@@ -279,7 +281,7 @@ func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
 		c.Logf("test %d", i)
 		zoneInstances = test.zoneInstances
 		eligible, err := common.DistributeInstances(&s.env, s.callCtx, test.candidates, nil, test.limitZones)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(eligible, jc.SameContents, test.eligible)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(eligible, tc.SameContents, test.eligible)
 	}
 }

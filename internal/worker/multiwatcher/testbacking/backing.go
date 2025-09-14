@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 // Backing is a test state AllWatcherBacking

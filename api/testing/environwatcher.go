@@ -4,8 +4,7 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -36,22 +35,22 @@ func NewModelWatcherTests(
 	}
 }
 
-func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
+func (s *ModelWatcherTests) TestModelConfig(c *tc.C) {
 	modelConfig, err := s.model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	conf, err := s.facade.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conf, jc.DeepEquals, modelConfig)
+	c.Assert(conf, tc.DeepEquals, modelConfig)
 }
 
-func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
+func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *tc.C) {
 	modelConfig, err := s.model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := s.facade.WatchForModelConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -61,23 +60,23 @@ func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 	// Change the model configuration by updating an existing attribute, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
 	err = s.model.UpdateModelConfig(newAttrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by adding a new attribute, check it's detected.
 	newAttrs = map[string]interface{}{"foo": "bar"}
 	err = s.model.UpdateModelConfig(newAttrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by removing an attribute, check it's detected.
 	err = s.model.UpdateModelConfig(map[string]interface{}{}, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": modelConfig.AllAttrs()["logging-config"]}
 	err = s.model.UpdateModelConfig(oldAttrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 }

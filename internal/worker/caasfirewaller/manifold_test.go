@@ -4,24 +4,25 @@
 package caasfirewaller_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 	manifold dependency.Manifold
 	context  dependency.Context
 
@@ -30,9 +31,11 @@ type ManifoldSuite struct {
 	client    fakeClient
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ResetCalls()
 
@@ -63,7 +66,7 @@ func (s *ManifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -78,78 +81,78 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) TestMissingControllerUUID(c *gc.C) {
+func (s *ManifoldSuite) TestMissingControllerUUID(c *tc.C) {
 	config := s.validConfig()
 	config.ControllerUUID = ""
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
-func (s *ManifoldSuite) TestMissingModelUUID(c *gc.C) {
+func (s *ManifoldSuite) TestMissingModelUUID(c *tc.C) {
 	config := s.validConfig()
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
-func (s *ManifoldSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldSuite) TestMissingAPICallerName(c *tc.C) {
 	config := s.validConfig()
 	config.APICallerName = ""
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingBrokerName(c *gc.C) {
+func (s *ManifoldSuite) TestMissingBrokerName(c *tc.C) {
 	config := s.validConfig()
 	config.BrokerName = ""
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
+func (s *ManifoldSuite) TestMissingNewWorker(c *tc.C) {
 	config := s.validConfig()
 	config.NewWorker = nil
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
-func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *ManifoldSuite) TestMissingLogger(c *tc.C) {
 	config := s.validConfig()
 	config.Logger = nil
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }
 
-func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
+func (s *ManifoldSuite) checkConfigInvalid(c *tc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
 var expectedInputs = []string{"api-caller", "broker"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
 	s.CheckCallNames(c, "NewClient", "NewWorker")
 	s.CheckCall(c, 0, "NewClient", &s.apiCaller)
 
 	args := s.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, caasfirewaller.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, caasfirewaller.Config{})
 	config := args[0].(caasfirewaller.Config)
 
-	c.Assert(config, jc.DeepEquals, caasfirewaller.Config{
+	c.Assert(config, tc.DeepEquals, caasfirewaller.Config{
 		ControllerUUID:    coretesting.ControllerTag.Id(),
 		ModelUUID:         coretesting.ModelTag.Id(),
 		ApplicationGetter: &s.client,

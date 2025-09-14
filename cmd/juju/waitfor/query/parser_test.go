@@ -4,22 +4,25 @@
 package query
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 )
 
 type parserSuite struct{}
 
-var _ = gc.Suite(&parserSuite{})
+func TestParserSuite(t *tctesting.T) {
+	tc.Run(t, &parserSuite{})
+}
 
-func (p *parserSuite) TestParserMultipleExpressions(c *gc.C) {
+func (p *parserSuite) TestParserMultipleExpressions(c *tc.C) {
 	query := `life; abc;`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Identifier{
@@ -53,14 +56,14 @@ func (p *parserSuite) TestParserMultipleExpressions(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserIdent(c *gc.C) {
+func (p *parserSuite) TestParserIdent(c *tc.C) {
 	query := `life`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Identifier{
@@ -80,14 +83,14 @@ func (p *parserSuite) TestParserIdent(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserString(c *gc.C) {
+func (p *parserSuite) TestParserString(c *tc.C) {
 	query := `"abc"`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &String{
@@ -109,14 +112,14 @@ func (p *parserSuite) TestParserString(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserInteger(c *gc.C) {
+func (p *parserSuite) TestParserInteger(c *tc.C) {
 	query := `1`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Integer{
@@ -137,14 +140,14 @@ func (p *parserSuite) TestParserInteger(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserFloat(c *gc.C) {
+func (p *parserSuite) TestParserFloat(c *tc.C) {
 	query := `1.1`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Float{
@@ -165,14 +168,14 @@ func (p *parserSuite) TestParserFloat(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserBool(c *gc.C) {
+func (p *parserSuite) TestParserBool(c *tc.C) {
 	query := `true false`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Bool{
@@ -208,14 +211,14 @@ func (p *parserSuite) TestParserBool(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserGroup(c *gc.C) {
+func (p *parserSuite) TestParserGroup(c *tc.C) {
 	query := `(abc)`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &Identifier{
@@ -235,14 +238,14 @@ func (p *parserSuite) TestParserGroup(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserInfixLogicalAND(c *gc.C) {
+func (p *parserSuite) TestParserInfixLogicalAND(c *tc.C) {
 	query := `true && true`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &InfixExpression{
@@ -279,14 +282,14 @@ func (p *parserSuite) TestParserInfixLogicalAND(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
+func (p *parserSuite) TestParserInfixLogicalOR(c *tc.C) {
 	query := `true || true`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &InfixExpression{
@@ -323,14 +326,14 @@ func (p *parserSuite) TestParserInfixLogicalOR(c *gc.C) {
 	})
 }
 
-func (p *parserSuite) TestParserInfixLambda(c *gc.C) {
+func (p *parserSuite) TestParserInfixLambda(c *tc.C) {
 	query := `_ => _`
 
 	lex := NewLexer(query)
 	parser := NewParser(lex)
 	exp, err := parser.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exp, gc.DeepEquals, &QueryExpression{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exp, tc.DeepEquals, &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
 				Expression: &LambdaExpression{

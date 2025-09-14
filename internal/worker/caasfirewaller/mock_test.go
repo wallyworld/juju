@@ -5,7 +5,6 @@ package caasfirewaller_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/charms"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 )
 
@@ -30,7 +30,7 @@ type fakeClient struct {
 }
 
 type mockServiceExposer struct {
-	testing.Stub
+	testhelpers.Stub
 	exposed   chan<- struct{}
 	unexposed chan<- struct{}
 }
@@ -48,7 +48,7 @@ func (m *mockServiceExposer) UnexposeService(appName string) error {
 }
 
 type mockApplicationGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	allWatcher *watchertest.MockStringsWatcher
 	appWatcher *watchertest.MockNotifyWatcher
 	exposed    bool
@@ -84,7 +84,7 @@ func (a *mockApplicationGetter) ApplicationConfig(appName string) (config.Config
 }
 
 type mockLifeGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	life life.Value
 }
 
@@ -97,7 +97,7 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 }
 
 type mockCharmGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	charmInfo *charms.CharmInfo
 }
 

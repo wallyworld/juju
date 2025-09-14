@@ -5,54 +5,57 @@ package state
 
 import (
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type internalUserSuite struct {
 	internalStateSuite
 }
 
-var _ = gc.Suite(&internalUserSuite{})
+func TestInternalUserSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &internalUserSuite{})
+}
 
-func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
+func (s *internalUserSuite) TestCreateInitialUserOps(c *tc.C) {
 	tag := names.NewUserTag("AdMiN")
 	ops := createInitialUserOps(s.state.ControllerUUID(), tag, "abc", "salt", testing.ZeroTime())
-	c.Assert(ops, gc.HasLen, 3)
+	c.Assert(ops, tc.HasLen, 3)
 	op := ops[0]
-	c.Assert(op.Id, gc.Equals, "admin")
+	c.Assert(op.Id, tc.Equals, "admin")
 
 	doc := op.Insert.(*userDoc)
-	c.Assert(doc.DocID, gc.Equals, "admin")
-	c.Assert(doc.Name, gc.Equals, "AdMiN")
-	c.Assert(doc.PasswordSalt, gc.Equals, "salt")
+	c.Assert(doc.DocID, tc.Equals, "admin")
+	c.Assert(doc.Name, tc.Equals, "AdMiN")
+	c.Assert(doc.PasswordSalt, tc.Equals, "salt")
 
 	// controller user permissions
 	op = ops[1]
 	permdoc := op.Insert.(*permissionDoc)
-	c.Assert(permdoc.Access, gc.Equals, string(permission.SuperuserAccess))
-	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerKey(s.state.ControllerUUID()), userGlobalKey(strings.ToLower(tag.Id()))))
-	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Id())))
-	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerKey(s.state.ControllerUUID()))
+	c.Assert(permdoc.Access, tc.Equals, string(permission.SuperuserAccess))
+	c.Assert(permdoc.ID, tc.Equals, permissionID(controllerKey(s.state.ControllerUUID()), userGlobalKey(strings.ToLower(tag.Id()))))
+	c.Assert(permdoc.SubjectGlobalKey, tc.Equals, userGlobalKey(strings.ToLower(tag.Id())))
+	c.Assert(permdoc.ObjectGlobalKey, tc.Equals, controllerKey(s.state.ControllerUUID()))
 
 	// controller user
 	op = ops[2]
 	cudoc := op.Insert.(*userAccessDoc)
-	c.Assert(cudoc.ID, gc.Equals, "admin")
-	c.Assert(cudoc.ObjectUUID, gc.Equals, s.state.ControllerUUID())
-	c.Assert(cudoc.UserName, gc.Equals, "AdMiN")
-	c.Assert(cudoc.DisplayName, gc.Equals, "AdMiN")
-	c.Assert(cudoc.CreatedBy, gc.Equals, "AdMiN")
+	c.Assert(cudoc.ID, tc.Equals, "admin")
+	c.Assert(cudoc.ObjectUUID, tc.Equals, s.state.ControllerUUID())
+	c.Assert(cudoc.UserName, tc.Equals, "AdMiN")
+	c.Assert(cudoc.DisplayName, tc.Equals, "AdMiN")
+	c.Assert(cudoc.CreatedBy, tc.Equals, "AdMiN")
 }
 
-func (s *internalUserSuite) TestCaseNameVsId(c *gc.C) {
+func (s *internalUserSuite) TestCaseNameVsId(c *tc.C) {
 	user, err := s.state.AddUser(
 		"boB", "ignored", "ignored", "ignored")
-	c.Assert(err, gc.IsNil)
-	c.Assert(user.Name(), gc.Equals, "boB")
-	c.Assert(user.doc.DocID, gc.Equals, "bob")
+	c.Assert(err, tc.IsNil)
+	c.Assert(user.Name(), tc.Equals, "boB")
+	c.Assert(user.doc.DocID, tc.Equals, "bob")
 }

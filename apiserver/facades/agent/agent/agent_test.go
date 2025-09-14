@@ -4,11 +4,10 @@
 package agent_test
 
 import (
-	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -17,18 +16,16 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestAgentSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &agentSuite{})
 }
-
-var _ = gc.Suite(&agentSuite{})
 
 type agentSuite struct {
 	jujutesting.JujuConnSuite
@@ -41,25 +38,25 @@ type agentSuite struct {
 	container *state.Machine
 }
 
-func (s *agentSuite) SetUpTest(c *gc.C) {
+func (s *agentSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
 	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine1, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
@@ -68,7 +65,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
+func (s *agentSuite) TestAgentFailsWithNonAgent(c *tc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
@@ -77,12 +74,12 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
-	c.Assert(err, gc.NotNil)
-	c.Assert(api, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.NotNil)
+	c.Assert(api, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
+func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *tc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
 	_, err := agent.NewAgentAPIV3(facadetest.Context{
@@ -91,12 +88,12 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *agentSuite) TestGetEntities(c *gc.C) {
+func (s *agentSuite) TestGetEntities(c *tc.C) {
 	err := s.container.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
@@ -111,9 +108,9 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results := api.GetEntities(args)
-	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
+	c.Assert(results, tc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{
 				Life: "alive",
@@ -126,11 +123,11 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
+func (s *agentSuite) TestGetEntitiesContainer(c *tc.C) {
 	auth := s.authorizer
 	auth.Tag = s.container.Tag()
 	err := s.container.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
@@ -138,7 +135,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
@@ -148,7 +145,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 		},
 	}
 	results := api.GetEntities(args)
-	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
+	c.Assert(results, tc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -162,21 +159,21 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
+func (s *agentSuite) TestGetEntitiesNotFound(c *tc.C) {
 	// Destroy the container first, so we can destroy its parent.
 	err := s.container.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.container.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.container.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.machine1.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine1.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
@@ -184,12 +181,12 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results := api.GetEntities(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{{
 			Error: &params.Error{
 				Code:    params.CodeNotFound,
@@ -199,14 +196,14 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestSetPasswords(c *gc.C) {
+func (s *agentSuite) TestSetPasswords(c *tc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
@@ -214,8 +211,8 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 			{Tag: "machine-42", Password: "zzz-12345678901234567890"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
@@ -223,41 +220,41 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 		},
 	})
 	err = s.machine1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	changed := s.machine1.PasswordValid("yyy-12345678901234567890")
-	c.Assert(changed, jc.IsTrue)
+	c.Assert(changed, tc.IsTrue)
 }
 
-func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
+func (s *agentSuite) TestSetPasswordsShort(c *tc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-1", Password: "yyy"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"password is only 3 bytes long, and is not a valid Agent password")
 }
 
-func (s *agentSuite) TestClearReboot(c *gc.C) {
+func (s *agentSuite) TestClearReboot(c *tc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.machine1.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machine0.Tag().String()},
@@ -265,12 +262,12 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	}}
 
 	rFlag, err := s.machine1.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rFlag, tc.IsTrue)
 
 	result, err := api.ClearReboot(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
@@ -278,11 +275,11 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	})
 
 	rFlag, err = s.machine1.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rFlag, tc.IsFalse)
 }
 
-func (s *agentSuite) TestWatchCredentials(c *gc.C) {
+func (s *agentSuite) TestWatchCredentials(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
@@ -293,12 +290,12 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("dummy/fred/default")
 	result, err := api.WatchCredentials(params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{"1", nil}}})
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{"1", nil}}})
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 
 	w := s.resources.Get("1")
 	defer statetesting.AssertStop(c, w)
@@ -311,7 +308,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *agentSuite) TestWatchAuthError(c *gc.C) {
+func (s *agentSuite) TestWatchAuthError(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
@@ -322,8 +319,8 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = api.WatchCredentials(params.Entities{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 }

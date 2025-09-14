@@ -5,10 +5,10 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -18,7 +18,9 @@ import (
 
 type deadEnsurerSuite struct{}
 
-var _ = gc.Suite(&deadEnsurerSuite{})
+func TestDeadEnsurerSuite(t *tctesting.T) {
+	tc.Run(t, &deadEnsurerSuite{})
+}
 
 type fakeDeadEnsurer struct {
 	state.Entity
@@ -35,7 +37,7 @@ func (e *fakeDeadEnsurer) Life() state.Life {
 	return e.life
 }
 
-func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDead(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeDeadEnsurer{life: state.Dying, err: fmt.Errorf("x0 fails")},
@@ -67,9 +69,9 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(afterDeadCalled, jc.IsTrue)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(afterDeadCalled, tc.IsTrue)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
 			{nil},
@@ -81,21 +83,21 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	})
 }
 
-func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
+func (*deadEnsurerSuite) TestEnsureDeadError(c *tc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
 	_, err := d.EnsureDead(params.Entities{[]params.Entity{{"x0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
+func (*removeSuite) TestEnsureDeadNoArgsNoError(c *tc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
 	result, err := d.EnsureDead(params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

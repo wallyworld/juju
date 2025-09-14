@@ -4,19 +4,12 @@
 package controller_test
 
 import (
-	"testing"
+	"github.com/juju/tc"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type baseControllerSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -25,7 +18,7 @@ type baseControllerSuite struct {
 	expectedOutput, expectedErr               string
 }
 
-func (s *baseControllerSuite) SetUpTest(c *gc.C) {
+func (s *baseControllerSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.controllersYaml = testControllersYaml
 	s.modelsYaml = testModelsYaml
@@ -33,15 +26,15 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 }
 
-func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclient.MemStore {
+func (s *baseControllerSuite) createTestClientStore(c *tc.C) *jujuclient.MemStore {
 	controllers, err := jujuclient.ParseControllers([]byte(s.controllersYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	models, err := jujuclient.ParseModels([]byte(s.modelsYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	accounts, err := jujuclient.ParseAccounts([]byte(s.accountsYaml))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	store := jujuclient.NewMemStore()
 	store.Controllers = controllers.Controllers

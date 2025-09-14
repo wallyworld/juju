@@ -6,13 +6,13 @@ package kubernetes_test
 import (
 	"fmt"
 	"strings"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/docker"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // eq returns a gomock.Matcher that pretty formats mismatching arguments.
@@ -51,7 +51,9 @@ func eq(want any) gomock.Matcher {
 
 type OperatorSuite struct{}
 
-var _ = gc.Suite(&OperatorSuite{})
+func TestOperatorSuite(t *tctesting.T) {
+	tc.Run(t, &OperatorSuite{})
+}
 
 var operatorAnnotations = map[string]string{
 	"fred":                  "mary",
@@ -236,7 +238,7 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, w
 	return ss
 }
 
-func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
+func (s *K8sSuite) TestOperatorPodConfig(c *tc.C) {
 	tags := map[string]string{
 		"fred":                  "mary",
 		"controller.juju.is/id": testing.ControllerTag.Id(),
@@ -248,35 +250,35 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		coreresources.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/charm-base:ubuntu-20.04"},
 		labels, tags, "operator-service-account",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Name, gc.Equals, "gitlab")
-	c.Assert(pod.Labels, jc.DeepEquals, labels)
-	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Name, tc.Equals, "gitlab")
+	c.Assert(pod.Labels, tc.DeepEquals, labels)
+	c.Assert(pod.Annotations, tc.DeepEquals, map[string]string{
 		"fred":                  "mary",
 		"controller.juju.is/id": testing.ControllerTag.Id(),
 		"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 	})
-	c.Assert(pod.Spec.ServiceAccountName, gc.Equals, "operator-service-account")
-	c.Assert(pod.Spec.InitContainers, gc.HasLen, 1)
-	c.Assert(pod.Spec.InitContainers[0].VolumeMounts, gc.HasLen, 1)
-	c.Assert(pod.Spec.InitContainers[0].Image, gc.Equals, "docker.io/jujusolutions/jujud-operator")
-	c.Assert(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath, gc.Equals, "/opt/juju")
-	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
-	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "docker.io/jujusolutions/charm-base:ubuntu-20.04")
-	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 3)
-	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
-	c.Assert(pod.Spec.Containers[0].VolumeMounts[1].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/operator.yaml")
-	c.Assert(pod.Spec.Containers[0].VolumeMounts[2].MountPath, gc.Equals, "/opt/juju")
+	c.Assert(pod.Spec.ServiceAccountName, tc.Equals, "operator-service-account")
+	c.Assert(pod.Spec.InitContainers, tc.HasLen, 1)
+	c.Assert(pod.Spec.InitContainers[0].VolumeMounts, tc.HasLen, 1)
+	c.Assert(pod.Spec.InitContainers[0].Image, tc.Equals, "docker.io/jujusolutions/jujud-operator")
+	c.Assert(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath, tc.Equals, "/opt/juju")
+	c.Assert(pod.Spec.Containers, tc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].Image, tc.Equals, "docker.io/jujusolutions/charm-base:ubuntu-20.04")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts, tc.HasLen, 3)
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, tc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[1].MountPath, tc.Equals, "/var/lib/juju/agents/application-gitlab/operator.yaml")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[2].MountPath, tc.Equals, "/opt/juju")
 
 	podEnv := make(map[string]string)
 	for _, env := range pod.Spec.Containers[0].Env {
 		podEnv[env.Name] = env.Value
 	}
-	c.Assert(podEnv["JUJU_OPERATOR_SERVICE_IP"], gc.Equals, "10666")
+	c.Assert(podEnv["JUJU_OPERATOR_SERVICE_IP"], tc.Equals, "10666")
 }
 
-func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteOperator(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -332,10 +334,10 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	)
 
 	err := s.broker.DeleteOperator("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -430,10 +432,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo bool) {
+func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *tc.C, isPrivateImageRepo bool) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -557,18 +559,18 @@ func (s *K8sBrokerSuite) assertEnsureOperatorCreate(c *gc.C, isPrivateImageRepo 
 			ResourceTags: map[string]string{"foo": "bar"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *tc.C) {
 	s.assertEnsureOperatorCreate(c, false)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorCreatePrivateImageRepo(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorCreatePrivateImageRepo(c *tc.C) {
 	s.assertEnsureOperatorCreate(c, true)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -690,10 +692,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		},
 		ConfigMapGeneration: 1234,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -823,10 +825,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -939,10 +941,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorage(c *gc.C) {
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1042,10 +1044,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 			Provider: "kubernetes",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `config map for "test" should already exist: configmap "test-operator-config" not found`)
+	c.Assert(err, tc.ErrorMatches, `config map for "test" should already exist: configmap "test-operator-config" not found`)
 }
 
-func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperator(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1120,18 +1122,18 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	)
 
 	operator, err := s.broker.Operator("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
-	c.Assert(operator.Status.Message, gc.Equals, "test message")
-	c.Assert(operator.Config.Version, gc.Equals, version.MustParse("2.99.0"))
-	c.Assert(operator.Config.ImageDetails.RegistryPath, gc.Equals, "test-repo/jujud-operator:2.99.0")
-	c.Assert(operator.Config.BaseImageDetails.RegistryPath, gc.Equals, "test-repo/charm-base:20.04")
-	c.Assert(operator.Config.AgentConf, gc.DeepEquals, []byte("agent-conf-data"))
-	c.Assert(operator.Config.OperatorInfo, gc.DeepEquals, []byte("operator-info-data"))
+	c.Assert(operator.Status.Status, tc.Equals, status.Allocating)
+	c.Assert(operator.Status.Message, tc.Equals, "test message")
+	c.Assert(operator.Config.Version, tc.Equals, version.MustParse("2.99.0"))
+	c.Assert(operator.Config.ImageDetails.RegistryPath, tc.Equals, "test-repo/jujud-operator:2.99.0")
+	c.Assert(operator.Config.BaseImageDetails.RegistryPath, tc.Equals, "test-repo/charm-base:20.04")
+	c.Assert(operator.Config.AgentConf, tc.DeepEquals, []byte("agent-conf-data"))
+	c.Assert(operator.Config.OperatorInfo, tc.DeepEquals, []byte("operator-info-data"))
 }
 
-func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1163,10 +1165,10 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	)
 
 	_, err := s.broker.Operator("test")
-	c.Assert(err, gc.ErrorMatches, "operator pod for application \"test\" not found")
+	c.Assert(err, tc.ErrorMatches, "operator pod for application \"test\" not found")
 }
 
-func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperatorExists(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1178,14 +1180,14 @@ func (s *K8sBrokerSuite) TestOperatorExists(c *gc.C) {
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: false,
 	})
 }
 
-func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1201,14 +1203,14 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminating(c *gc.C) {
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: true,
 	})
 }
 
-func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1240,14 +1242,14 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminated(c *gc.C) {
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.DeepEquals, caas.DeploymentState{
 		Exists:      false,
 		Terminating: false,
 	})
 }
 
-func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
+func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1275,14 +1277,14 @@ func (s *K8sBrokerSuite) TestOperatorExistsTerminatedMostly(c *gc.C) {
 	)
 
 	exists, err := s.broker.OperatorExists("test-app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.DeepEquals, caas.DeploymentState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exists, tc.DeepEquals, caas.DeploymentState{
 		Exists:      true,
 		Terminating: true,
 	})
 }
 
-func (s *K8sBrokerSuite) TestGetOperatorPodName(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetOperatorPodName(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1296,11 +1298,11 @@ func (s *K8sBrokerSuite) TestGetOperatorPodName(c *gc.C) {
 	)
 
 	name, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test", s.getModelUUID(), s.getControllerUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, jc.DeepEquals, `mariadb-k8s-operator-0`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.DeepEquals, `mariadb-k8s-operator-0`)
 }
 
-func (s *K8sBrokerSuite) TestGetOperatorPodNameNotFound(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetOperatorPodNameNotFound(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1312,5 +1314,5 @@ func (s *K8sBrokerSuite) TestGetOperatorPodNameNotFound(c *gc.C) {
 	)
 
 	_, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test", s.getModelUUID(), s.getControllerUUID())
-	c.Assert(err, gc.ErrorMatches, `operator pod for application "mariadb-k8s" not found`)
+	c.Assert(err, tc.ErrorMatches, `operator pod for application "mariadb-k8s" not found`)
 }

@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	stdcontext "context"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -12,20 +13,19 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config              storageprovisioner.Config
 	applicationsWatcher *mockApplicationsWatcher
@@ -34,9 +34,11 @@ type WorkerSuite struct {
 	applicationChanges chan []string
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
@@ -58,33 +60,33 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+func (s *WorkerSuite) TestValidateConfig(c *tc.C) {
 	s.testValidateConfig(c, func(config *storageprovisioner.Config) {
 		config.Scope = names.NewApplicationTag("mariadb")
 		config.Applications = nil
 	}, `nil Applications not valid`)
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*storageprovisioner.Config), expect string) {
+func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*storageprovisioner.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := storageprovisioner.NewCaasWorker(config)
 	if err == nil {
 		workertest.DirtyKill(c, w)
 	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -106,7 +108,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 		},
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 	// Only call is to watch model.
@@ -114,15 +116,15 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	s.config.Filesystems.(*mockFilesystemAccessor).CheckCall(c, 0, "WatchFilesystems", coretesting.ModelTag)
 }
 
-func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *gc.C) {
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationRemoved(c *tc.C) {
 	s.assertStopsWatchingApplication(c, func() {
 		s.lifeGetter.err = &params.Error{Code: params.CodeNotFound}
 	})
 }
 
-func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter func()) {
+func (s *WorkerSuite) assertStopsWatchingApplication(c *tc.C, lifeGetterInjecter func()) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -146,7 +148,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 		},
 	}
 	err = retry.Call(startingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
 	storageprovisioner.NewStorageWorker(c, w, "postgresql")
@@ -162,7 +164,7 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 
 	// The mariadb worker should still be running.
 	_, ok := storageprovisioner.StorageWorker(w, "mariadb")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Check that the postgresql worker is running or not;
 	// given it time to shutdown.
@@ -179,19 +181,19 @@ func (s *WorkerSuite) assertStopsWatchingApplication(c *gc.C, lifeGetterInjecter
 		},
 	}
 	err = retry.Call(stoppingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
 }
 
-func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestStopsWatchingApplicationBecauseApplicationDead(c *tc.C) {
 	s.assertStopsWatchingApplication(c, nil)
 }
 
-func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *tc.C) {
 	w, err := storageprovisioner.NewCaasWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -203,5 +205,5 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	s.applicationsWatcher.watcher.KillErr(errors.New("splat"))
 	workertest.CheckKilled(c, s.applicationsWatcher.watcher)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }

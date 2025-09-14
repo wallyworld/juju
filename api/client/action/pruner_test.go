@@ -4,11 +4,11 @@
 package action_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -17,9 +17,11 @@ import (
 
 type prunerSuite struct{}
 
-var _ = gc.Suite(&prunerSuite{})
+func TestPrunerSuite(t *tctesting.T) {
+	tc.Run(t, &prunerSuite{})
+}
 
-func (s *prunerSuite) TestPrune(c *gc.C) {
+func (s *prunerSuite) TestPrune(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -33,5 +35,5 @@ func (s *prunerSuite) TestPrune(c *gc.C) {
 
 	client := action.NewPrunerFromCaller(mockFacadeCaller)
 	err := client.Prune(time.Hour, 666)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

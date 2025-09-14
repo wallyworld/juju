@@ -7,18 +7,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&managedfsSuite{})
+func TestManagedfsSuite(t *tctesting.T) {
+	tc.Run(t, &managedfsSuite{})
+}
 
 type managedfsSuite struct {
 	testing.BaseSuite
@@ -31,7 +33,7 @@ type managedfsSuite struct {
 	callCtx context.ProviderCallContext
 }
 
-func (s *managedfsSuite) SetUpTest(c *gc.C) {
+func (s *managedfsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
@@ -39,14 +41,14 @@ func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.fakeEtcDir = c.MkDir()
 }
 
-func (s *managedfsSuite) TearDownTest(c *gc.C) {
+func (s *managedfsSuite) TearDownTest(c *tc.C) {
 	if s.commands != nil {
 		s.commands.assertDrained()
 	}
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *managedfsSuite) initSource(c *gc.C, fakeMountInfo ...string) storage.FilesystemSource {
+func (s *managedfsSuite) initSource(c *tc.C, fakeMountInfo ...string) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	source, mockDirFuncs := provider.NewMockManagedFilesystemSource(
 		s.fakeEtcDir,
@@ -59,7 +61,7 @@ func (s *managedfsSuite) initSource(c *gc.C, fakeMountInfo ...string) storage.Fi
 	return source
 }
 
-func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
+func (s *managedfsSuite) TestCreateFilesystems(c *tc.C) {
 	source := s.initSource(c)
 	// sda is (re)partitioned and the filesystem created
 	// on the partition.
@@ -89,8 +91,8 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		Volume: names.NewVolumeTag("1"),
 		Size:   3,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.CreateFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.CreateFilesystemsResult{{
 		Filesystem: &storage.Filesystem{
 			names.NewFilesystemTag("0/0"),
 			names.NewVolumeTag("0"),
@@ -111,15 +113,15 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 	}})
 }
 
-func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
+func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *tc.C) {
 	source := s.initSource(c)
 	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results[0].Error, gc.ErrorMatches, "backing-volume 0 is not yet attached")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results[0].Error, tc.ErrorMatches, "backing-volume 0 is not yet attached")
 }
 
 const testMountPoint = "/in/the/place"
@@ -128,54 +130,54 @@ func mountInfoLine(id, parent int, root, mountPoint, source string) string {
 	return fmt.Sprintf("%d %d 8:1 %s %s rw,relatime shared:1 - ext4 %s rw,errors=remount-ro", id, parent, root, mountPoint, source)
 }
 
-func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystems(c *tc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff"
 	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other relatime 0 0", testMountPoint)
 	fstabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
 	s.testAttachFilesystems(c, false, false, "", mtabEntry, nonRelatedFstabEntry+"\n"+fstabEntry+"\n")
 }
 
-func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystemsMissingMtab(c *tc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff\n"
 	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.testAttachFilesystems(c, false, false, "", "", nonRelatedFstabEntry)
 }
 
-func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystemsExistingFstabEntry(c *tc.C) {
 	existingFstabEntry := fmt.Sprintf("/dev/sda1 %s existing mtab stuff\n", testMountPoint)
 	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
 	s.testAttachFilesystems(c, false, false, "", mtabEntry, existingFstabEntry)
 }
 
-func (s *managedfsSuite) TestAttachFilesystemsUpdateExistingFstabEntryWithUUID(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystemsUpdateExistingFstabEntryWithUUID(c *tc.C) {
 	existingFstabEntry := fmt.Sprintf("/dev/sda1 %s existing mtab stuff\n", testMountPoint)
 	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(existingFstabEntry), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedFstabEntry := fmt.Sprintf("# %s was on /dev/sda1 during installation\nUUID=deadbeaf %s other mtab,nofail stuff\n", testMountPoint, testMountPoint)
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other mtab stuff", testMountPoint)
 	s.testAttachFilesystems(c, false, false, "deadbeaf", mtabEntry, expectedFstabEntry)
 }
 
-func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystemsReadOnly(c *tc.C) {
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
 	s.testAttachFilesystems(c, true, false, "", mtabEntry, mtabEntry+"\n")
 }
 
-func (s *managedfsSuite) TestAttachFilesystemsReattach(c *gc.C) {
+func (s *managedfsSuite) TestAttachFilesystemsReattach(c *tc.C) {
 	mtabEntry := fmt.Sprintf("/dev/sda1 %s other nofail,relatime 0 0", testMountPoint)
 	s.testAttachFilesystems(c, true, true, "", mtabEntry, "")
 }
 
-func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool, UUID, mtab, fstab string) {
+func (s *managedfsSuite) testAttachFilesystems(c *tc.C, readOnly, reattach bool, UUID, mtab, fstab string) {
 	mountInfo := ""
 	if reattach {
 		mountInfo = mountInfoLine(666, 0, "/different/to/rootfs", testMountPoint, "/dev/sda1")
@@ -184,7 +186,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 
 	if mtab != "" {
 		err := os.WriteFile(filepath.Join(s.fakeEtcDir, "mtab"), []byte(mtab), 0644)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	if !reattach {
@@ -217,8 +219,8 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 		},
 		Path: testMountPoint,
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			names.NewFilesystemTag("0/0"),
 			names.NewMachineTag("0"),
@@ -231,22 +233,22 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 
 	if fstab != "" {
 		data, err := os.ReadFile(filepath.Join(s.fakeEtcDir, "fstab"))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, fstab)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(string(data), tc.Equals, fstab)
 	}
 }
 
-func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
+func (s *managedfsSuite) TestDetachFilesystems(c *tc.C) {
 	nonRelatedFstabEntry := "/dev/foo /mount/point stuff\n"
 	fstabEntry := fmt.Sprintf("%s %s other mtab stuff", "/dev/sda1", testMountPoint)
 	err := os.WriteFile(filepath.Join(s.fakeEtcDir, "fstab"), []byte(nonRelatedFstabEntry+fstabEntry), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mountInfo := mountInfoLine(666, 0, "/same/as/rootfs", testMountPoint, "/dev/sda1")
 	source := s.initSource(c, mountInfo)
 	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, nonRelatedFstabEntry)
 }
 
-func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
+func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *tc.C) {
 	source := s.initSource(c)
 	testDetachFilesystems(c, s.commands, source, s.callCtx, false, s.fakeEtcDir, "")
 }

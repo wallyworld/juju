@@ -5,6 +5,7 @@ package watcher_test
 
 import (
 	"os"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -12,15 +13,14 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 type HubWatcherSuite struct {
@@ -33,13 +33,15 @@ type HubWatcherSuite struct {
 	clock *testclock.Clock
 }
 
-var _ = gc.Suite(&HubWatcherSuite{})
+func TestHubWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &HubWatcherSuite{})
+}
 
-func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
+func (s *HubWatcherSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.DeveloperMode)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	logger := loggo.GetLogger("HubWatcherSuite")
@@ -51,7 +53,7 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	s.ch = make(chan watcher.Change)
 	var started <-chan struct{}
 	s.w, started = watcher.NewTestHubWatcher(s.hub, s.clock, "model-uuid", logger)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		worker.Stop(s.w)
 	})
 	select {
@@ -62,7 +64,7 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *HubWatcherSuite) publish(c *gc.C, changes ...watcher.Change) {
+func (s *HubWatcherSuite) publish(c *tc.C, changes ...watcher.Change) {
 	var processed <-chan struct{}
 	for _, change := range changes {
 		processed = pubsub.Wait(s.hub.Publish(watcher.TxnWatcherCollection, change))
@@ -76,14 +78,14 @@ func (s *HubWatcherSuite) publish(c *gc.C, changes ...watcher.Change) {
 
 }
 
-func (s *HubWatcherSuite) TestErrAndDead(c *gc.C) {
-	c.Assert(s.w.Err(), gc.Equals, tomb.ErrStillAlive)
+func (s *HubWatcherSuite) TestErrAndDead(c *tc.C) {
+	c.Assert(s.w.Err(), tc.Equals, tomb.ErrStillAlive)
 	select {
 	case <-s.w.Dead():
 		c.Fatalf("Dead channel fired unexpectedly")
 	default:
 	}
-	c.Assert(worker.Stop(s.w), jc.ErrorIsNil)
+	c.Assert(worker.Stop(s.w), tc.ErrorIsNil)
 	select {
 	case <-s.w.Dead():
 	default:
@@ -91,7 +93,7 @@ func (s *HubWatcherSuite) TestErrAndDead(c *gc.C) {
 	}
 }
 
-func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
+func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *tc.C) {
 	// When the TxnWatcher hits a sync error and restarts, the hub watcher needs
 	// to restart too as there may be missed events, so all the watches this hub
 	// has need to be invalidated. This happens by the worker dying.
@@ -103,10 +105,10 @@ func (s *HubWatcherSuite) TestTxnWatcherSyncErrWorker(c *gc.C) {
 		c.Fatalf("Dead channel should have fired")
 	}
 
-	c.Assert(s.w.Err(), gc.ErrorMatches, "hub txn watcher sync error: boom")
+	c.Assert(s.w.Err(), tc.ErrorMatches, "hub txn watcher sync error: boom")
 }
 
-func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchBeforeKnown(c *tc.C) {
 	s.w.Watch("test", "a", s.ch)
 	assertNoChange(c, s.ch)
 
@@ -117,7 +119,7 @@ func (s *HubWatcherSuite) TestWatchBeforeKnown(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchAfterKnown(c *tc.C) {
 	change := watcher.Change{"test", "a", 5}
 	s.publish(c, change)
 
@@ -127,7 +129,7 @@ func (s *HubWatcherSuite) TestWatchAfterKnown(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *tc.C) {
 	s.w.Watch("test", "a", s.ch)
 
 	s.publish(c, watcher.Change{"test", "b", 5})
@@ -135,9 +137,9 @@ func (s *HubWatcherSuite) TestWatchIgnoreUnwatched(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *tc.C) {
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNoChange(c, s.ch)
 
 	change := watcher.Change{"test", "a", 5}
@@ -147,28 +149,28 @@ func (s *HubWatcherSuite) TestWatchMultiBeforeKnown(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchMultiDuplicateWatch(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultiDuplicateWatch(c *tc.C) {
 	s.w.Watch("test", "b", s.ch)
 	assertNoChange(c, s.ch)
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
-	c.Assert(err, gc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
+	c.Assert(err, tc.ErrorMatches, `tried to re-add channel .* for document "b" in collection "test"`)
 	// Changes to "a" should not be watched as we had an error
 	s.publish(c, watcher.Change{"test", "a", 5})
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchMultiInvalidId(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultiInvalidId(c *tc.C) {
 	err := s.w.WatchMulti("test", []interface{}{"a", nil}, s.ch)
-	c.Assert(err, gc.ErrorMatches, `cannot watch a document with nil id`)
+	c.Assert(err, tc.ErrorMatches, `cannot watch a document with nil id`)
 	// Changes to "a" should not be watched as we had an error
 	s.publish(c, watcher.Change{"test", "a", 5})
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *tc.C) {
 	s.publish(c, watcher.Change{"test", "a", 5})
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, s.ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertNoChange(c, s.ch)
 	// We don't see the change that occurred before we started watching, but we see any changes after that fact
 	change := watcher.Change{"test", "a", 6}
@@ -177,7 +179,7 @@ func (s *HubWatcherSuite) TestWatchMultiAfterKnown(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchOrder(c *tc.C) {
 	first := watcher.Change{"test", "a", 3}
 	second := watcher.Change{"test", "b", 4}
 	third := watcher.Change{"test", "c", 5}
@@ -194,7 +196,7 @@ func (s *HubWatcherSuite) TestWatchOrder(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultipleChannels(c *tc.C) {
 	ch1 := make(chan watcher.Change)
 	ch2 := make(chan watcher.Change)
 	ch3 := make(chan watcher.Change)
@@ -215,7 +217,7 @@ func (s *HubWatcherSuite) TestWatchMultipleChannels(c *gc.C) {
 	assertNoChange(c, ch3)
 }
 
-func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *tc.C) {
 	change := watcher.Change{"test", "a", -1}
 	s.publish(c, change)
 
@@ -223,7 +225,7 @@ func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *tc.C) {
 	const N = 10
 	for i := 0; i < N; i++ {
 		s.w.Watch("test", i, s.ch)
@@ -243,11 +245,11 @@ func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 			c.Fatalf("not enough changes: got %d, want %d", len(seen), N/2)
 		}
 	}
-	c.Assert(len(seen), gc.Equals, N/2)
+	c.Assert(len(seen), tc.Equals, N/2)
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchCollection(c *tc.C) {
 	chA1 := make(chan watcher.Change)
 	chB1 := make(chan watcher.Change)
 	chA := make(chan watcher.Change)
@@ -288,10 +290,10 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 
 	waitForChanges(6, seen, testing.LongWait)
 
-	c.Check(seen[chA1], jc.DeepEquals, []watcher.Change{changes[0]})
-	c.Check(seen[chB1], jc.DeepEquals, []watcher.Change{changes[2]})
-	c.Check(seen[chA], jc.DeepEquals, []watcher.Change{changes[0], changes[1]})
-	c.Assert(seen[chB], jc.DeepEquals, []watcher.Change{changes[2], changes[3]})
+	c.Check(seen[chA1], tc.DeepEquals, []watcher.Change{changes[0]})
+	c.Check(seen[chB1], tc.DeepEquals, []watcher.Change{changes[2]})
+	c.Check(seen[chA], tc.DeepEquals, []watcher.Change{changes[0], changes[1]})
+	c.Assert(seen[chB], tc.DeepEquals, []watcher.Change{changes[2], changes[3]})
 
 	s.w.UnwatchCollection("testB", chB)
 	s.w.Unwatch("testB", 1, chB1)
@@ -302,22 +304,22 @@ func (s *HubWatcherSuite) TestWatchCollection(c *gc.C) {
 	seen = map[chan<- watcher.Change][]watcher.Change{}
 	waitForChanges(2, seen, testing.LongWait)
 
-	c.Check(seen[chA1], gc.DeepEquals, []watcher.Change{next})
-	c.Check(seen[chB1], gc.IsNil)
-	c.Check(seen[chA], gc.DeepEquals, []watcher.Change{next})
-	c.Assert(seen[chB], gc.IsNil)
+	c.Check(seen[chA1], tc.DeepEquals, []watcher.Change{next})
+	c.Check(seen[chB1], tc.IsNil)
+	c.Check(seen[chA], tc.DeepEquals, []watcher.Change{next})
+	c.Assert(seen[chB], tc.IsNil)
 
 	// Check that no extra events arrive.
 	seen = map[chan<- watcher.Change][]watcher.Change{}
 	waitForChanges(1, seen, testing.ShortWait)
 
-	c.Check(seen[chA1], gc.IsNil)
-	c.Check(seen[chB1], gc.IsNil)
-	c.Check(seen[chA], gc.IsNil)
-	c.Check(seen[chB], gc.IsNil)
+	c.Check(seen[chA1], tc.IsNil)
+	c.Check(seen[chB1], tc.IsNil)
+	c.Check(seen[chA], tc.IsNil)
+	c.Check(seen[chB], tc.IsNil)
 }
 
-func (s *HubWatcherSuite) TestUnwatchCollectionWithFilter(c *gc.C) {
+func (s *HubWatcherSuite) TestUnwatchCollectionWithFilter(c *tc.C) {
 	filter := func(key interface{}) bool {
 		id := key.(int)
 		return id != 2
@@ -335,7 +337,7 @@ func (s *HubWatcherSuite) TestUnwatchCollectionWithFilter(c *gc.C) {
 	assertChange(c, s.ch, change)
 }
 
-func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *tc.C) {
 	added := watcher.Change{"test", "a", 2}
 	s.publish(c, added)
 
@@ -346,7 +348,7 @@ func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	assertChange(c, s.ch, removed)
 }
 
-func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *tc.C) {
 	first := watcher.Change{"test", "a", 2}
 	second := watcher.Change{"test", "a", 3}
 
@@ -364,12 +366,12 @@ func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
 	assertNoChange(c, s.ch)
 }
 
-func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *gc.C) {
+func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *tc.C) {
 	logger := loggo.GetLogger("HubWatcherSuite")
 	// Skip the trace logging.
 	logger.SetLogLevel(loggo.CRITICAL)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), tc.IsNil)
 
 	// Watch a and b, and publish changes for both of them.
 	aCh := make(chan watcher.Change)
@@ -394,7 +396,7 @@ func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *gc.C) {
 	assertNoChange(c, s.ch)
 	// 3 waiters - the first two messages and then the blocked one.
 	err := s.clock.WaitAdvance(10*time.Second, testing.LongWait, 3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Eventually the watcher gives up on trying to send the a change.
 	// Still sends the b change.
@@ -402,21 +404,25 @@ func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *gc.C) {
 
 	// And complains about the receiver that's not listening (with
 	// stack trace).
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test a 22} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
+		Level:   loggo.CRITICAL,
+		Message: `0x.......... programming error, e.ch=0x.......... did not accept {test a 22} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }
 
-func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *tc.C) {
 	logger := loggo.GetLogger("HubWatcherSuite")
 	logger.SetLogLevel(loggo.CRITICAL)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), tc.IsNil)
 
 	aCh := make(chan watcher.Change)
 	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, aCh)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.w.Watch("test", "b", s.ch)
 
@@ -425,7 +431,7 @@ func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *gc.C) {
 
 	assertNoChange(c, s.ch)
 	err = s.clock.WaitAdvance(10*time.Second, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Eventually the watcher gives up on trying to send to the first one.
 	// Still sends the b change to the next watch.
@@ -433,17 +439,21 @@ func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *gc.C) {
 
 	// And complains about the receiver that's not listening (with
 	// stack trace).
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
+		Level:   loggo.CRITICAL,
+		Message: `0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }
 
-func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *gc.C) {
+func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *tc.C) {
 	logger := loggo.GetLogger("HubWatcherSuite")
 	logger.SetLogLevel(loggo.CRITICAL)
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), tc.IsNil)
 
 	aCh := make(chan watcher.Change)
 	s.w.WatchCollection("test", aCh)
@@ -454,7 +464,7 @@ func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *gc.C) {
 
 	assertNoChange(c, s.ch)
 	err := s.clock.WaitAdvance(10*time.Second, testing.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Eventually the watcher gives up on trying to send to the first one.
 	// Still sends the b change to the next watch.
@@ -462,8 +472,12 @@ func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *gc.C) {
 
 	// And complains about the receiver that's not listening (with
 	// stack trace).
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
+		Level:   loggo.CRITICAL,
+		Message: `0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }

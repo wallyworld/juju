@@ -4,12 +4,13 @@
 package networkingcommon_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
@@ -43,9 +44,11 @@ type networkConfigSuite struct {
 	modelOp modelOpRecorder
 }
 
-var _ = gc.Suite(&networkConfigSuite{})
+func TestNetworkConfigSuite(t *tctesting.T) {
+	tc.Run(t, &networkConfigSuite{})
+}
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissionError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -55,10 +58,10 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 		Tag:    "machine-1",
 		Config: nil,
 	})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -66,7 +69,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigNoConfigNoApplyOpCall(c
 	s.callAPI(c, nil)
 }
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -101,7 +104,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 		},
 	})
 
-	c.Check(s.modelOp.devs, jc.DeepEquals, network.InterfaceInfos{
+	c.Check(s.modelOp.devs, tc.DeepEquals, network.InterfaceInfos{
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
@@ -132,7 +135,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 	})
 }
 
-func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -167,7 +170,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 		},
 	})
 
-	c.Check(s.modelOp.devs, jc.DeepEquals, network.InterfaceInfos{
+	c.Check(s.modelOp.devs, tc.DeepEquals, network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
 			InterfaceType: "ethernet",
@@ -181,7 +184,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 	})
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -304,7 +307,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	}, false, s.state)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No ops for the unchanged device/address.
 	// One each for:
@@ -313,10 +316,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 	// - Adding a new address to the new device.
 	// - Deleting the address from the unobserved device.
 	// - Deleting the unobserved device.
-	c.Check(ops, gc.HasLen, 5)
+	c.Check(ops, tc.HasLen, 5)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemoved(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemoved(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -375,10 +378,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 	}, false, s.state)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -427,16 +430,16 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	}, true, s.state)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Expected ops are:
 	// - One each for the 3 new devices.
 	// - One each for the 3 new device addresses.
 	// - One each for the 2 unseen subnets.
-	c.Check(ops, gc.HasLen, 8)
+	c.Check(ops, tc.HasLen, 8)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -485,15 +488,15 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 	}, true, s.state)
 
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Expected ops are:
 	// - One for the new device address.
 	// - One for the new subnet.
-	c.Check(ops, gc.HasLen, 2)
+	c.Check(ops, tc.HasLen, 2)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -567,10 +570,10 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	}, false, s.state)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *gc.C) {
+func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -602,14 +605,14 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *g
 	}, false, s.state)
 
 	_, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Simulate transaction churn.
 	_, err = op.Build(1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *networkConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.machine = mocks.NewMockLinkLayerMachine(ctrl)
@@ -625,11 +628,11 @@ func (s *networkConfigSuite) expectMachine() {
 	s.state.EXPECT().Machine(s.tag.Id()).Return(s.machine, nil).AnyTimes()
 }
 
-func (s *networkConfigSuite) callAPI(c *gc.C, config []params.NetworkConfig) {
+func (s *networkConfigSuite) callAPI(c *tc.C, config []params.NetworkConfig) {
 	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(params.SetMachineNetworkConfig{
 		Tag:    s.tag.String(),
 		Config: config,
-	}), jc.ErrorIsNil)
+	}), tc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) getModelOp(

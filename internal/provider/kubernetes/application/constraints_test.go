@@ -5,37 +5,39 @@ package application_test
 
 import (
 	"errors"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type applyConstraintsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&applyConstraintsSuite{})
+func TestApplyConstraintsSuite(t *tctesting.T) {
+	tc.Run(t, &applyConstraintsSuite{})
+}
 
-func (s *applyConstraintsSuite) TestMemory(c *gc.C) {
+func (s *applyConstraintsSuite) TestMemory(c *tc.C) {
 	pod := &corev1.PodSpec{}
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
-		c.Assert(got, gc.Equals, pod)
-		c.Assert(resourceName, gc.Equals, corev1.ResourceName("memory"))
-		c.Assert(value, gc.Equals, "4096Mi")
+		c.Assert(got, tc.Equals, pod)
+		c.Assert(resourceName, tc.Equals, corev1.ResourceName("memory"))
+		c.Assert(value, tc.Equals, "4096Mi")
 		return errors.New("boom")
 	}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("mem=4G"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring memory constraint for foo: boom")
+	c.Assert(err, tc.ErrorMatches, "configuring memory constraint for foo: boom")
 }
 
-func (s *applyConstraintsSuite) TestCharmMemory(c *gc.C) {
+func (s *applyConstraintsSuite) TestCharmMemory(c *tc.C) {
 	testCases := []struct {
 		desc     string
 		memReq   string
@@ -119,8 +121,8 @@ func (s *applyConstraintsSuite) TestCharmMemory(c *gc.C) {
 		},
 	}
 
-	for _, tc := range testCases {
-		c.Logf("case: %s", tc.desc)
+	for _, testcase := range testCases {
+		c.Logf("case: %s", testcase.desc)
 
 		pod := &corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -130,65 +132,65 @@ func (s *applyConstraintsSuite) TestCharmMemory(c *gc.C) {
 
 		err := application.ApplyCharmConstraints(pod, "foo",
 			application.CharmContainerResourceRequirements{
-				MemRequestMi: tc.memReq,
-				MemLimitMi:   tc.memLimit,
+				MemRequestMi: testcase.memReq,
+				MemLimitMi:   testcase.memLimit,
 			})
 
-		if tc.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+		if testcase.err == "" {
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, tc.err)
+			c.Assert(err, tc.ErrorMatches, testcase.err)
 		}
 	}
 }
 
-func (s *applyConstraintsSuite) TestCPU(c *gc.C) {
+func (s *applyConstraintsSuite) TestCPU(c *tc.C) {
 	pod := &corev1.PodSpec{}
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
-		c.Assert(got, gc.Equals, pod)
-		c.Assert(resourceName, gc.Equals, corev1.ResourceName("cpu"))
-		c.Assert(value, gc.Equals, "2m")
+		c.Assert(got, tc.Equals, pod)
+		c.Assert(resourceName, tc.Equals, corev1.ResourceName("cpu"))
+		c.Assert(value, tc.Equals, "2m")
 		return errors.New("boom")
 	}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("cpu-power=2"), configureConstraint)
-	c.Assert(err, gc.ErrorMatches, "configuring cpu constraint for foo: boom")
+	c.Assert(err, tc.ErrorMatches, "configuring cpu constraint for foo: boom")
 }
 
-func (s *applyConstraintsSuite) TestArch(c *gc.C) {
+func (s *applyConstraintsSuite) TestArch(c *tc.C) {
 	configureConstraint := func(got *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("arch=arm64"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.NodeSelector, jc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.NodeSelector, tc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
 }
 
-func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
+func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{},
 			TopologyKey:   "foo",
 		}},
 	})
-	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
+func (s *applyConstraintsSuite) TestAffinityPod(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world|universe,pod.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -204,18 +206,18 @@ func (s *applyConstraintsSuite) TestAffinityPod(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
+func (s *applyConstraintsSuite) TestPodAffinityAll(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=pod.hello=world,pod.^goodbye=world,pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.PodAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.DeepEquals, &corev1.PodAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -234,31 +236,31 @@ func (s *applyConstraintsSuite) TestPodAffinityAll(c *gc.C) {
 	})
 }
 
-func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *gc.C) {
+func (s *applyConstraintsSuite) TestAntiPodAffinityJustTopologyKey(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{},
 			TopologyKey:   "foo",
 		}},
 	})
-	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
+func (s *applyConstraintsSuite) TestAntiPodAffinity(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world|universe,anti-pod.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -274,18 +276,18 @@ func (s *applyConstraintsSuite) TestAntiPodAffinity(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
+func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=anti-pod.hello=world,anti-pod.^goodbye=world,anti-pod.topology-key=foo"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, jc.DeepEquals, &corev1.PodAntiAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.DeepEquals, &corev1.PodAntiAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
@@ -302,18 +304,18 @@ func (s *applyConstraintsSuite) TestAntiPodAffinityAll(c *gc.C) {
 			TopologyKey: "foo",
 		}},
 	})
-	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.NodeAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.IsNil)
 }
 
-func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
+func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *tc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
 	err := application.ApplyWorkloadConstraints(pod, "foo", constraints.MustParse("tags=node.hello=world|universe,node.^goodbye=world"), configureConstraint)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.NodeAffinity, jc.DeepEquals, &corev1.NodeAffinity{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pod.Affinity.NodeAffinity, tc.DeepEquals, &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 				MatchExpressions: []corev1.NodeSelectorRequirement{{
@@ -328,6 +330,6 @@ func (s *applyConstraintsSuite) TestNodeAntiAffinity(c *gc.C) {
 			}},
 		},
 	})
-	c.Assert(pod.Affinity.PodAffinity, gc.IsNil)
-	c.Assert(pod.Affinity.PodAntiAffinity, gc.IsNil)
+	c.Assert(pod.Affinity.PodAffinity, tc.IsNil)
+	c.Assert(pod.Affinity.PodAntiAffinity, tc.IsNil)
 }

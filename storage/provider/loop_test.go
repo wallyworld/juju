@@ -6,19 +6,21 @@ package provider_test
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&loopSuite{})
+func TestLoopSuite(t *tctesting.T) {
+	tc.Run(t, &loopSuite{})
+}
 
 type loopSuite struct {
 	testing.BaseSuite
@@ -28,58 +30,58 @@ type loopSuite struct {
 	callCtx context.ProviderCallContext
 }
 
-func (s *loopSuite) SetUpTest(c *gc.C) {
+func (s *loopSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
-func (s *loopSuite) TearDownTest(c *gc.C) {
+func (s *loopSuite) TearDownTest(c *tc.C) {
 	s.commands.assertDrained()
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *loopSuite) loopProvider(c *gc.C) storage.Provider {
+func (s *loopSuite) loopProvider(c *tc.C) storage.Provider {
 	s.commands = &mockRunCommand{c: c}
 	return provider.LoopProvider(s.commands.run)
 }
 
-func (s *loopSuite) TestVolumeSource(c *gc.C) {
+func (s *loopSuite) TestVolumeSource(c *tc.C) {
 	p := s.loopProvider(c)
 	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.VolumeSource(cfg)
-	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
+	c.Assert(err, tc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = p.VolumeSource(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *loopSuite) TestValidateConfig(c *gc.C) {
+func (s *loopSuite) TestValidateConfig(c *tc.C) {
 	p := s.loopProvider(c)
 	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.ValidateConfig(cfg)
 	// The loop provider does not have any user
 	// configuration, so an empty map will pass.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *loopSuite) TestSupports(c *gc.C) {
+func (s *loopSuite) TestSupports(c *tc.C) {
 	p := s.loopProvider(c)
-	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
-	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
+	c.Assert(p.Supports(storage.StorageKindBlock), tc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), tc.IsFalse)
 }
 
-func (s *loopSuite) TestScope(c *gc.C) {
+func (s *loopSuite) TestScope(c *tc.C) {
 	p := s.loopProvider(c)
-	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+	c.Assert(p.Scope(), tc.Equals, storage.ScopeMachine)
 }
 
-func (s *loopSuite) loopVolumeSource(c *gc.C) (storage.VolumeSource, *provider.MockDirFuncs) {
+func (s *loopSuite) loopVolumeSource(c *tc.C) (storage.VolumeSource, *provider.MockDirFuncs) {
 	s.commands = &mockRunCommand{c: c}
 	return provider.LoopVolumeSource(
 		c.MkDir(),
@@ -88,7 +90,7 @@ func (s *loopSuite) loopVolumeSource(c *gc.C) (storage.VolumeSource, *provider.M
 	)
 }
 
-func (s *loopSuite) TestCreateVolumes(c *gc.C) {
+func (s *loopSuite) TestCreateVolumes(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
 
@@ -102,12 +104,12 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 			},
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.HasLen, 1)
+	c.Assert(results[0].Error, tc.ErrorIsNil)
 	// volume attachments always deferred to AttachVolumes
-	c.Assert(results[0].VolumeAttachment, gc.IsNil)
-	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
+	c.Assert(results[0].VolumeAttachment, tc.IsNil)
+	c.Assert(results[0].Volume, tc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("0"),
 		storage.VolumeInfo{
 			VolumeId: "volume-0",
@@ -116,7 +118,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	})
 }
 
-func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
+func (s *loopSuite) TestCreateVolumesNoAttachment(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
 	_, err := source.CreateVolumes(s.callCtx, []storage.VolumeParams{{
@@ -124,40 +126,40 @@ func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 		Size: 2,
 	}})
 	// loop volumes may be created without attachments
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
+func (s *loopSuite) TestDestroyVolumes(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	fileName := filepath.Join(s.storageDir, "volume-0")
 
 	err := os.WriteFile(fileName, nil, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errs, err := source.DestroyVolumes(s.callCtx, []string{"volume-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(errs[0], tc.ErrorIsNil)
 
 	_, err = os.Stat(fileName)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
+func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	errs, err := source.DestroyVolumes(s.callCtx, []string{"../super/important/stuff"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], gc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(errs[0], tc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
 }
 
-func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
+func (s *loopSuite) TestDescribeVolumes(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	_, err := source.DescribeVolumes(s.callCtx, []string{"a", "b"})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, tc.Satisfies, errors.IsNotImplemented)
 }
 
-func (s *loopSuite) TestAttachVolumes(c *gc.C) {
+func (s *loopSuite) TestAttachVolumes(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	cmd := s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-0"))
 	cmd.respond("", nil) // no existing attachment
@@ -193,8 +195,8 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 			InstanceId: "inst-ance",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []storage.AttachVolumesResult{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []storage.AttachVolumesResult{{
 		VolumeAttachment: &storage.VolumeAttachment{names.NewVolumeTag("0"),
 			names.NewMachineTag("0"),
 			storage.VolumeAttachmentInfo{
@@ -219,7 +221,7 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 	}})
 }
 
-func (s *loopSuite) TestDetachVolumes(c *gc.C) {
+func (s *loopSuite) TestDetachVolumes(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	fileName := filepath.Join(s.storageDir, "volume-0")
 	cmd := s.commands.expect("losetup", "-j", fileName)
@@ -228,7 +230,7 @@ func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 	s.commands.expect("losetup", "-d", "/dev/loop1")
 
 	err := os.WriteFile(fileName, nil, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
@@ -238,16 +240,16 @@ func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 			InstanceId: "inst-ance",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(errs[0], tc.ErrorIsNil)
 
 	// file should not have been removed
 	_, err = os.Stat(fileName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
+func (s *loopSuite) TestDetachVolumesDetachFails(c *tc.C) {
 	source, _ := s.loopVolumeSource(c)
 	fileName := filepath.Join(s.storageDir, "volume-0")
 	cmd := s.commands.expect("losetup", "-j", fileName)
@@ -256,7 +258,7 @@ func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
 	cmd.respond("", errors.New("oy"))
 
 	err := os.WriteFile(fileName, nil, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
@@ -266,11 +268,11 @@ func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
 			InstanceId: "inst-ance",
 		},
 	}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], gc.ErrorMatches, `.* detaching loop device "loop0": oy`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(errs[0], tc.ErrorMatches, `.* detaching loop device "loop0": oy`)
 
 	// file should not have been removed
 	_, err = os.Stat(fileName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

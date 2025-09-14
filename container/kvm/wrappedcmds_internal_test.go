@@ -7,31 +7,33 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type libvirtInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&libvirtInternalSuite{})
+func TestLibvirtInternalSuite(t *tctesting.T) {
+	tc.Run(t, &libvirtInternalSuite{})
+}
 
-func (libvirtInternalSuite) TestWriteMetadata(c *gc.C) {
+func (libvirtInternalSuite) TestWriteMetadata(c *tc.C) {
 	d := c.MkDir()
 
 	err := writeMetadata(d)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	b, err := os.ReadFile(filepath.Join(d, metadata))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(string(b), gc.Matches, `{"instance-id": ".*-.*-.*-.*"}`)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(string(b), tc.Matches, `{"instance-id": ".*-.*-.*-.*"}`)
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
+func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *tc.C) {
 	d := c.MkDir()
 
 	stub := &runStub{}
@@ -50,11 +52,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
 	}
 
 	got, err := writeDomainXML(d, p)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Matches, `/tmp/check-.*/\d+/host00.xml`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.Matches, `/tmp/check-.*/\d+/host00.xml`)
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
+func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *tc.C) {
 	d := c.MkDir()
 
 	stub := &runStub{}
@@ -73,11 +75,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {
 	}
 
 	got, err := writeDomainXML(d, p)
-	c.Assert(err, gc.ErrorMatches, "missing system disk")
-	c.Assert(got, gc.Matches, "")
+	c.Assert(err, tc.ErrorMatches, "missing system disk")
+	c.Assert(got, tc.Matches, "")
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
+func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *tc.C) {
 	d := c.MkDir()
 
 	stub := &runStub{}
@@ -93,11 +95,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingOneDisk(c *gc.C) {
 	}
 
 	got, err := writeDomainXML(d, p)
-	c.Assert(err, gc.ErrorMatches, "got 1 disks, need at least 2")
-	c.Assert(got, gc.Matches, "")
+	c.Assert(err, tc.ErrorMatches, "got 1 disks, need at least 2")
+	c.Assert(got, tc.Matches, "")
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
+func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *tc.C) {
 	d := c.MkDir()
 
 	stub := &runStub{}
@@ -109,11 +111,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLMissingBothDisk(c *gc.C) {
 	}
 
 	got, err := writeDomainXML(d, p)
-	c.Assert(err, gc.ErrorMatches, "got 0 disks, need at least 2")
-	c.Assert(got, gc.Matches, "")
+	c.Assert(err, tc.ErrorMatches, "got 0 disks, need at least 2")
+	c.Assert(got, tc.Matches, "")
 }
 
-func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *gc.C) {
+func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *tc.C) {
 	d := c.MkDir()
 
 	stub := &runStub{}
@@ -131,11 +133,11 @@ func (libvirtInternalSuite) TestWriteDomainXMLNoHostname(c *gc.C) {
 	}
 
 	got, err := writeDomainXML(d, p)
-	c.Assert(err, gc.ErrorMatches, "missing required hostname")
-	c.Assert(got, gc.Matches, "")
+	c.Assert(err, tc.ErrorMatches, "missing required hostname")
+	c.Assert(got, tc.Matches, "")
 }
 
-func (libvirtInternalSuite) TestPoolInfoSuccess(c *gc.C) {
+func (libvirtInternalSuite) TestPoolInfoSuccess(c *tc.C) {
 	output := `
 Name:           juju-pool
 UUID:           06ebee2d-6bd0-4f47-a7dc-dea555fdaa3b
@@ -148,14 +150,14 @@ Available:      31.77 GiB
 `
 	stub := runStub{output: output}
 	got, err := poolInfo(stub.Run)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &libvirtPool{Name: "juju-pool", Autostart: "yes", State: "running"})
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, &libvirtPool{Name: "juju-pool", Autostart: "yes", State: "running"})
 
 }
 
-func (libvirtInternalSuite) TestPoolInfoNoPool(c *gc.C) {
+func (libvirtInternalSuite) TestPoolInfoNoPool(c *tc.C) {
 	stub := runStub{err: errors.New("boom")}
 	got, err := poolInfo(stub.Run)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsNil)
 }

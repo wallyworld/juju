@@ -4,30 +4,33 @@
 package uniter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type leadershipSuite struct {
-	testing.IsolationSuite
-	stub       *testing.Stub
+	testhelpers.IsolationSuite
+	stub       *testhelpers.Stub
 	responders []responder
 	lsa        *uniter.LeadershipSettingsAccessor
 }
 
-var _ = gc.Suite(&leadershipSuite{})
+func TestLeadershipSuite(t *tctesting.T) {
+	tc.Run(t, &leadershipSuite{})
+}
 
 type responder func(interface{})
 
 var mockWatcher = struct{ watcher.NotifyWatcher }{}
 
-func (s *leadershipSuite) SetUpTest(c *gc.C) {
+func (s *leadershipSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.lsa = uniter.NewLeadershipSettingsAccessor(
 		func(request string, params, response interface{}) error {
@@ -54,15 +57,15 @@ func (s *leadershipSuite) addResponder(responder responder) {
 	s.responders = append(s.responders, responder)
 }
 
-func (s *leadershipSuite) CheckCalls(c *gc.C, calls []testing.StubCall, f func()) {
-	s.stub = &testing.Stub{}
+func (s *leadershipSuite) CheckCalls(c *tc.C, calls []testhelpers.StubCall, f func()) {
+	s.stub = &testhelpers.Stub{}
 	s.responders = nil
 	f()
 	s.stub.CheckCalls(c, calls)
 }
 
-func (s *leadershipSuite) expectReadCalls() []testing.StubCall {
-	return []testing.StubCall{{
+func (s *leadershipSuite) expectReadCalls() []testhelpers.StubCall {
+	return []testhelpers.StubCall{{
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"Read",
@@ -73,11 +76,11 @@ func (s *leadershipSuite) expectReadCalls() []testing.StubCall {
 	}}
 }
 
-func (s *leadershipSuite) TestReadSuccess(c *gc.C) {
+func (s *leadershipSuite) TestReadSuccess(c *tc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.GetLeadershipSettingsBulkResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.GetLeadershipSettingsResult{{
 				Settings: params.Settings{
 					"foo": "bar",
@@ -86,50 +89,50 @@ func (s *leadershipSuite) TestReadSuccess(c *gc.C) {
 			}}
 		})
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(settings, jc.DeepEquals, map[string]string{
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(settings, tc.DeepEquals, map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
 	})
 }
 
-func (s *leadershipSuite) TestReadFailure(c *gc.C) {
+func (s *leadershipSuite) TestReadFailure(c *tc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.GetLeadershipSettingsBulkResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.GetLeadershipSettingsResult{{
 				Error: &params.Error{Message: "pow"},
 			}}
 		})
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "failed to read leadership settings: pow")
-		c.Check(settings, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "failed to read leadership settings: pow")
+		c.Check(settings, tc.IsNil)
 	})
 }
 
-func (s *leadershipSuite) TestReadError(c *gc.C) {
+func (s *leadershipSuite) TestReadError(c *tc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("blart"))
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "failed to call leadership api: blart")
-		c.Check(settings, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "failed to call leadership api: blart")
+		c.Check(settings, tc.IsNil)
 	})
 }
 
-func (s *leadershipSuite) TestReadNoResults(c *gc.C) {
+func (s *leadershipSuite) TestReadNoResults(c *tc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
 		settings, err := s.lsa.Read("foobar")
-		c.Check(err, gc.ErrorMatches, "expected 1 result from leadership api, got 0")
-		c.Check(settings, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "expected 1 result from leadership api, got 0")
+		c.Check(settings, tc.IsNil)
 	})
 }
 
-func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
-	return []testing.StubCall{{
+func (s *leadershipSuite) expectMergeCalls() []testhelpers.StubCall {
+	return []testhelpers.StubCall{{
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"Merge",
@@ -147,11 +150,11 @@ func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
 	}}
 }
 
-func (s *leadershipSuite) TestMergeSuccess(c *gc.C) {
+func (s *leadershipSuite) TestMergeSuccess(c *tc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.ErrorResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.ErrorResult{{
 				Error: nil,
 			}}
@@ -160,15 +163,15 @@ func (s *leadershipSuite) TestMergeSuccess(c *gc.C) {
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
+func (s *leadershipSuite) TestMergeFailure(c *tc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.ErrorResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.ErrorResult{{
 				Error: &params.Error{Message: "zap"},
 			}}
@@ -177,11 +180,11 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, gc.ErrorMatches, "failed to merge leadership settings: zap")
+		c.Check(err, tc.ErrorMatches, "failed to merge leadership settings: zap")
 	})
 }
 
-func (s *leadershipSuite) TestMergeError(c *gc.C) {
+func (s *leadershipSuite) TestMergeError(c *tc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("dink"))
@@ -189,23 +192,23 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, gc.ErrorMatches, "failed to call leadership api: dink")
+		c.Check(err, tc.ErrorMatches, "failed to call leadership api: dink")
 	})
 }
 
-func (s *leadershipSuite) TestMergeNoResults(c *gc.C) {
+func (s *leadershipSuite) TestMergeNoResults(c *tc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
 		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
-		c.Check(err, gc.ErrorMatches, "expected 1 result from leadership api, got 0")
+		c.Check(err, tc.ErrorMatches, "expected 1 result from leadership api, got 0")
 	})
 }
 
-func (s *leadershipSuite) expectWatchCalls() []testing.StubCall {
-	return []testing.StubCall{{
+func (s *leadershipSuite) expectWatchCalls() []testhelpers.StubCall {
+	return []testhelpers.StubCall{{
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"WatchLeadershipSettings",
@@ -216,8 +219,8 @@ func (s *leadershipSuite) expectWatchCalls() []testing.StubCall {
 	}}
 }
 
-func (s *leadershipSuite) TestWatchSuccess(c *gc.C) {
-	expectCalls := append(s.expectWatchCalls(), testing.StubCall{
+func (s *leadershipSuite) TestWatchSuccess(c *tc.C) {
+	expectCalls := append(s.expectWatchCalls(), testhelpers.StubCall{
 		FuncName: "NewNotifyWatcher",
 		Args: []interface{}{
 			params.NotifyWatchResult{
@@ -228,47 +231,47 @@ func (s *leadershipSuite) TestWatchSuccess(c *gc.C) {
 	s.CheckCalls(c, expectCalls, func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.NotifyWatchResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.NotifyWatchResult{{
 				NotifyWatcherId: "123",
 			}}
 		})
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(watcher, gc.Equals, mockWatcher)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(watcher, tc.Equals, mockWatcher)
 	})
 }
 
-func (s *leadershipSuite) TestWatchFailure(c *gc.C) {
+func (s *leadershipSuite) TestWatchFailure(c *tc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(func(response interface{}) {
 			typed, ok := response.(*params.NotifyWatchResults)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			typed.Results = []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "blah"},
 			}}
 		})
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "failed to watch leadership settings: blah")
-		c.Check(watcher, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "failed to watch leadership settings: blah")
+		c.Check(watcher, tc.IsNil)
 	})
 }
 
-func (s *leadershipSuite) TestWatchError(c *gc.C) {
+func (s *leadershipSuite) TestWatchError(c *tc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("snerk"))
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "failed to call leadership api: snerk")
-		c.Check(watcher, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "failed to call leadership api: snerk")
+		c.Check(watcher, tc.IsNil)
 	})
 }
 
-func (s *leadershipSuite) TestWatchNoResults(c *gc.C) {
+func (s *leadershipSuite) TestWatchNoResults(c *tc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
 		watcher, err := s.lsa.WatchLeadershipSettings("foobar")
-		c.Check(err, gc.ErrorMatches, "expected 1 result from leadership api, got 0")
-		c.Check(watcher, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, "expected 1 result from leadership api, got 0")
+		c.Check(watcher, tc.IsNil)
 	})
 }

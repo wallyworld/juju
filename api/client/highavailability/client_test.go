@@ -4,9 +4,10 @@
 package highavailability_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/highavailability"
@@ -17,9 +18,11 @@ import (
 type clientSuite struct {
 }
 
-var _ = gc.Suite(&clientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	tc.Run(t, &clientSuite{})
+}
 
-func (s *clientSuite) TestClientEnableHA(c *gc.C) {
+func (s *clientSuite) TestClientEnableHA(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -46,9 +49,9 @@ func (s *clientSuite) TestClientEnableHA(c *gc.C) {
 	client := highavailability.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.EnableHA(3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(result.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(result.Removed, gc.HasLen, 0)
+	c.Assert(result.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(result.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(result.Removed, tc.HasLen, 0)
 }

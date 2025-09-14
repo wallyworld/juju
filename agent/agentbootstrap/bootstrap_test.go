@@ -6,13 +6,12 @@ package agentbootstrap_test
 import (
 	stdcontext "context"
 	"crypto/ed25519"
+	tctesting "testing"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -30,6 +29,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -47,24 +47,26 @@ type bootstrapSuite struct {
 	mgoInst mgotesting.MgoInstance
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &bootstrapSuite{})
+}
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
 	s.mgoInst.EnableReplicaSet = true
 	err := s.mgoInst.Start(testing.Certs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeState(c *tc.C) {
 	dataDir := c.MkDir()
 
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
@@ -101,10 +103,10 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
-	c.Assert(available, jc.IsTrue)
+	c.Assert(available, tc.IsTrue)
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
 	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
@@ -129,7 +131,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		"not-for-hosted": "foo",
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
 	initialModelUUID := utils.MustNewUUID().String()
@@ -180,7 +182,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 		SharedSecret:              "abc123",
 		Provider: func(t string) (environs.EnvironProvider, error) {
-			c.Assert(t, gc.Equals, "dummy")
+			c.Assert(t, tc.Equals, "dummy")
 			return &envProvider, nil
 		},
 		StorageProviderRegistry: registry,
@@ -190,32 +192,32 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	ctlr, err := agentbootstrap.InitializeState(
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
 	st, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cfg.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the model has been set up.
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(model.UUID(), gc.Equals, modelCfg.UUID())
-	c.Check(model.EnvironVersion(), gc.Equals, 666)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(model.UUID(), tc.Equals, modelCfg.UUID())
+	c.Check(model.EnvironVersion(), tc.Equals, 666)
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
 	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
 	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
 	user, err := st.User(model.Owner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(user.PasswordValid(testing.DefaultMongoPassword), tc.IsTrue)
 
 	// Check controller config
 	controllerCfg, err = st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerCfg, jc.DeepEquals, controller.Config{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerCfg, tc.DeepEquals, controller.Config{
 		"controller-uuid":           testing.ControllerTag.Id(),
 		"ca-cert":                   testing.CACert,
 		"state-port":                1234,
@@ -235,75 +237,75 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that controller model configuration has been added, and
 	// model constraints set.
 	model, err = st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newModelCfg, err := model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add in the cloud attributes.
 	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
 	expectedAttrs["no-proxy"] = "value"
-	c.Check(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
+	c.Check(newModelCfg.AllAttrs(), tc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotModelConstraints, tc.DeepEquals, expectModelConstraints)
 
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
 	initialModelSt, err := ctlr.StatePool().Get(initialModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer initialModelSt.Release()
 	gotModelConstraints, err = initialModelSt.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotModelConstraints, tc.DeepEquals, expectModelConstraints)
 
 	initialModel, err := initialModelSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(initialModel.Name(), gc.Equals, "hosted")
-	c.Check(initialModel.CloudRegion(), gc.Equals, "dummy-region")
-	c.Check(initialModel.EnvironVersion(), gc.Equals, 123)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(initialModel.Name(), tc.Equals, "hosted")
+	c.Check(initialModel.CloudRegion(), tc.Equals, "dummy-region")
+	c.Check(initialModel.EnvironVersion(), tc.Equals, 123)
 
 	hostedCfg, err := initialModel.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
-	c.Check(hasUnexpected, jc.IsFalse)
-	c.Check(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
+	c.Check(hasUnexpected, tc.IsFalse)
+	c.Check(hostedCfg.AuthorizedKeys(), tc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(m.Id(), gc.Equals, "0")
-	c.Check(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(m.Id(), tc.Equals, "0")
+	c.Check(m.Jobs(), tc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(m.Base().String(), gc.Equals, base.String())
-	c.Check(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(m.Base().String(), tc.Equals, base.String())
+	c.Check(m.CheckProvisioned(agent.BootstrapNonce), tc.IsTrue)
 
 	gotBootstrapConstraints, err := m.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotBootstrapConstraints, tc.DeepEquals, expectBootstrapConstraints)
 
 	gotHW, err := m.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*gotHW, gc.DeepEquals, expectHW)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(*gotHW, tc.DeepEquals, expectHW)
 
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPortsForClients()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiHostPorts, tc.DeepEquals, []corenetwork.SpaceHostPorts{
 		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stateServingInfo, jc.DeepEquals, controller.StateServingInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stateServingInfo, tc.DeepEquals, controller.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
@@ -315,33 +317,33 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine has a virtual host key.
 	key, err := st.MachineVirtualHostKey(m.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(key.HostKey(), tc.Not(tc.HasLen), 0)
 	privateKey, err := ssh.UnmarshalPrivateKey(key.HostKey())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(privateKey, gc.FitsTypeOf, &ed25519.PrivateKey{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(privateKey, tc.FitsTypeOf, &ed25519.PrivateKey{})
 
 	// Check the initial storage pool.
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 	storageCfg, err := pm.Get("spool")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedStorageCfg, err := storage.NewConfig("spool", "loop", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(storageCfg, jc.DeepEquals, expectedStorageCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storageCfg, tc.DeepEquals, expectedStorageCfg)
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to mongo.
 	machine0 := names.NewMachineTag("0")
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(newCfg.Tag(), gc.Equals, machine0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(newCfg.Tag(), tc.Equals, machine0)
 
 	info, ok := cfg.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(info.Password, tc.Not(tc.Equals), testing.DefaultMongoPassword)
 
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	session.Close()
 
 	// Make sure that the hosted model Environ's Create method is called.
@@ -354,7 +356,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	)
 	// Those attributes are configured during initialization, after "Open".
 	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud: environscloudspec.CloudSpec{
@@ -372,7 +374,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		})
 }
 
-func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *tc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
@@ -384,20 +386,20 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
-	c.Assert(available, jc.IsFalse)
+	c.Assert(available, tc.IsFalse)
 
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	_, err = agentbootstrap.InitializeState(&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
-	c.Assert(err, gc.ErrorMatches, "state serving information not available")
+	c.Assert(err, tc.ErrorMatches, "state serving information not available")
 }
 
-func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
+func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *tc.C) {
 	dataDir := c.MkDir()
 
 	configParams := agent.AgentConfigParams{
@@ -411,7 +413,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Model:             testing.ModelTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetStateServingInfo(controller.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
@@ -425,7 +427,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		"charmhub-url":  charmhub.DefaultServerURL,
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	InitialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
@@ -458,7 +460,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	st, err := agentbootstrap.InitializeState(
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_ = st.Close()
 
 	st, err = agentbootstrap.InitializeState(
@@ -467,10 +469,10 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		_ = st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "creating controller database schema.*")
+	c.Assert(err, tc.ErrorMatches, "creating controller database schema.*")
 }
 
-func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
+func (s *bootstrapSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name model.MachineJob
 		want state.MachineJob
@@ -489,13 +491,13 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	for _, test := range tests {
 		got, err := agentbootstrap.MachineJobFromParams(test.name)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(got, gc.Equals, test.want)
+		c.Check(got, tc.Equals, test.want)
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *tc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
 	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -504,13 +506,13 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}, mongotest.DialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	session.Close()
 }
 
 type fakeProvider struct {
 	environs.EnvironProvider
-	gitjujutesting.Stub
+	testhelpers.Stub
 	environ *fakeEnviron
 }
 
@@ -538,7 +540,7 @@ func (p *fakeProvider) Version() int {
 
 type fakeEnviron struct {
 	environs.Environ
-	*gitjujutesting.Stub
+	*testhelpers.Stub
 	provider *fakeProvider
 
 	callCtxUsed context.ProviderCallContext

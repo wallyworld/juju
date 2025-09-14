@@ -4,14 +4,15 @@
 package jujuc_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/testing"
 )
 
 type leaderGetSuite struct {
@@ -19,134 +20,136 @@ type leaderGetSuite struct {
 	command cmd.Command
 }
 
-var _ = gc.Suite(&leaderGetSuite{})
+func TestLeaderGetSuite(t *tctesting.T) {
+	tc.Run(t, &leaderGetSuite{})
+}
 
-func (s *leaderGetSuite) SetUpTest(c *gc.C) {
+func (s *leaderGetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.command, err = jujuc.NewLeaderGetCommand(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.command = jujuc.NewJujucCommandWrappedForTest(s.command)
 }
 
-func (s *leaderGetSuite) TestInitError(c *gc.C) {
+func (s *leaderGetSuite) TestInitError(c *tc.C) {
 	err := s.command.Init([]string{"x=x"})
-	c.Assert(err, gc.ErrorMatches, `invalid key "x=x"`)
+	c.Assert(err, tc.ErrorMatches, `invalid key "x=x"`)
 }
 
-func (s *leaderGetSuite) TestInitKey(c *gc.C) {
+func (s *leaderGetSuite) TestInitKey(c *tc.C) {
 	err := s.command.Init([]string{"some-key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *leaderGetSuite) TestInitAll(c *gc.C) {
+func (s *leaderGetSuite) TestInitAll(c *tc.C) {
 	err := s.command.Init([]string{"-"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *leaderGetSuite) TestInitEmpty(c *gc.C) {
+func (s *leaderGetSuite) TestInitEmpty(c *tc.C) {
 	err := s.command.Init(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *leaderGetSuite) TestFormatError(c *gc.C) {
+func (s *leaderGetSuite) TestFormatError(c *tc.C) {
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(s.command, runContext, []string{"--format", "bad"})
-	c.Check(code, gc.Equals, 2)
-	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, `ERROR invalid value "bad" for option --format: unknown format "bad"`+"\n")
+	c.Check(code, tc.Equals, 2)
+	c.Check(bufferString(runContext.Stdout), tc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, `ERROR invalid value "bad" for option --format: unknown format "bad"`+"\n")
 }
 
-func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
+func (s *leaderGetSuite) TestSettingsError(c *tc.C) {
 	jujucContext := newLeaderGetContext(errors.New("zap"))
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
-	c.Check(code, gc.Equals, 1)
-	c.Check(jujucContext.called, jc.IsTrue)
-	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot read leadership settings: zap\n")
+	c.Check(code, tc.Equals, 1)
+	c.Check(jujucContext.called, tc.IsTrue)
+	c.Check(bufferString(runContext.Stdout), tc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, "ERROR cannot read leadership settings: zap\n")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatDefaultMissingKey(c *gc.C) {
+func (s *leaderGetSuite) TestSettingsFormatDefaultMissingKey(c *tc.C) {
 	s.testOutput(c, []string{"unknown"}, "")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatDefaultKey(c *gc.C) {
+func (s *leaderGetSuite) TestSettingsFormatDefaultKey(c *tc.C) {
 	s.testOutput(c, []string{"key"}, "value\n")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatDefaultAll(c *gc.C) {
-	s.testParseOutput(c, []string{"-"}, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatDefaultAll(c *tc.C) {
+	s.testParseOutput(c, []string{"-"}, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatDefaultEmpty(c *gc.C) {
-	s.testParseOutput(c, nil, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatDefaultEmpty(c *tc.C) {
+	s.testParseOutput(c, nil, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatSmartMissingKey(c *gc.C) {
+func (s *leaderGetSuite) TestSettingsFormatSmartMissingKey(c *tc.C) {
 	s.testOutput(c, []string{"--format", "smart", "unknown"}, "")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatSmartKey(c *gc.C) {
+func (s *leaderGetSuite) TestSettingsFormatSmartKey(c *tc.C) {
 	s.testOutput(c, []string{"--format", "smart", "key"}, "value\n")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatSmartAll(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "smart", "-"}, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatSmartAll(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "smart", "-"}, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatSmartEmpty(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "smart"}, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatSmartEmpty(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "smart"}, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatJSONMissingKey(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "json", "unknown"}, jc.JSONEquals, nil)
+func (s *leaderGetSuite) TestSettingsFormatJSONMissingKey(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "json", "unknown"}, tc.JSONEquals, nil)
 }
 
-func (s *leaderGetSuite) TestSettingsFormatJSONKey(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "json", "key"}, jc.JSONEquals, "value")
+func (s *leaderGetSuite) TestSettingsFormatJSONKey(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "json", "key"}, tc.JSONEquals, "value")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatJSONAll(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "json", "-"}, jc.JSONEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatJSONAll(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "json", "-"}, tc.JSONEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatJSONEmpty(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "json"}, jc.JSONEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatJSONEmpty(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "json"}, tc.JSONEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatYAMLMissingKey(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "yaml", "unknown"}, jc.YAMLEquals, nil)
+func (s *leaderGetSuite) TestSettingsFormatYAMLMissingKey(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "yaml", "unknown"}, tc.YAMLEquals, nil)
 }
 
-func (s *leaderGetSuite) TestSettingsFormatYAMLKey(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "yaml", "key"}, jc.YAMLEquals, "value")
+func (s *leaderGetSuite) TestSettingsFormatYAMLKey(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "yaml", "key"}, tc.YAMLEquals, "value")
 }
 
-func (s *leaderGetSuite) TestSettingsFormatYAMLAll(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "yaml", "-"}, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatYAMLAll(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "yaml", "-"}, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) TestSettingsFormatYAMLEmpty(c *gc.C) {
-	s.testParseOutput(c, []string{"--format", "yaml"}, jc.YAMLEquals, leaderGetSettings())
+func (s *leaderGetSuite) TestSettingsFormatYAMLEmpty(c *tc.C) {
+	s.testParseOutput(c, []string{"--format", "yaml"}, tc.YAMLEquals, leaderGetSettings())
 }
 
-func (s *leaderGetSuite) testOutput(c *gc.C, args []string, expect string) {
-	s.testParseOutput(c, args, gc.Equals, expect)
+func (s *leaderGetSuite) testOutput(c *tc.C, args []string, expect string) {
+	s.testParseOutput(c, args, tc.Equals, expect)
 }
 
-func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Checker, expect interface{}) {
+func (s *leaderGetSuite) testParseOutput(c *tc.C, args []string, checker tc.Checker, expect interface{}) {
 	jujucContext := newLeaderGetContext(nil)
 	command, err := jujuc.NewLeaderGetCommand(jujucContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, args)
-	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.called, jc.IsTrue)
+	c.Check(code, tc.Equals, 0)
+	c.Check(jujucContext.called, tc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), checker, expect)
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, "")
 }
 
 func leaderGetSettings() map[string]string {

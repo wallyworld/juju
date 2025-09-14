@@ -5,21 +5,23 @@ package specs_test
 
 import (
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	k8sspces "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type decoderSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&decoderSuite{})
+func TestDecoderSuite(t *tctesting.T) {
+	tc.Run(t, &decoderSuite{})
+}
 
-func (s *decoderSuite) TestYAMLOrJSONDecoder(c *gc.C) {
+func (s *decoderSuite) TestYAMLOrJSONDecoder(c *tc.C) {
 	type tS struct {
 		Foo string `json:"foo,omitempty" yaml:"foo,omitempty"`
 		Bar string `json:"bar,omitempty" yaml:"bar,omitempty"`
@@ -33,15 +35,15 @@ foo: foo1
 bar: bar1`
 	// decode YAML in strict mode - good.
 	decoder := k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
 	// decode YAML in non-strict mode - good.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
@@ -53,15 +55,15 @@ bar: bar1`
 }`
 	// decode JSON in strict mode - good.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
 	// decode JSON in non-strict mode - good.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
@@ -72,11 +74,11 @@ bar: bar1
 unknownkey: ops`
 	// decode YAML in strict mode - bad.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), gc.ErrorMatches, `json: unknown field "unknownkey"`)
+	c.Assert(decoder.Decode(&out), tc.ErrorMatches, `json: unknown field "unknownkey"`)
 	// decode YAML in non-strict mode - unknown field ignored.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
@@ -89,11 +91,11 @@ unknownkey: ops`
 }`
 	// decode JSON in strict mode - bad.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), gc.ErrorMatches, `json: unknown field "unknownkey"`)
+	c.Assert(decoder.Decode(&out), tc.ErrorMatches, `json: unknown field "unknownkey"`)
 	// decode JSON in non-strict mode - unknown field ignored.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
@@ -107,15 +109,15 @@ unknownkey: ops`
 }`
 	// decode JSON in strict mode - good.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
 	// decode JSON in non-strict mode - good.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})
@@ -130,11 +132,11 @@ unknownkey: ops`
 }`
 	// decode JSON in strict mode - bad.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), true)
-	c.Assert(decoder.Decode(&out), gc.ErrorMatches, `json: unknown field "unknownkey"`)
+	c.Assert(decoder.Decode(&out), tc.ErrorMatches, `json: unknown field "unknownkey"`)
 	// decode JSON in non-strict mode - unknown field ignored.
 	decoder = k8sspces.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in), false)
-	c.Assert(decoder.Decode(&out), jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, tS{
+	c.Assert(decoder.Decode(&out), tc.ErrorIsNil)
+	c.Assert(out, tc.DeepEquals, tS{
 		Foo: "foo1",
 		Bar: "bar1",
 	})

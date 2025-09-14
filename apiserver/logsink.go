@@ -91,10 +91,10 @@ func (d *apiServerLoggers) getLoggers(st *state.State) corelogger.LoggerCloser {
 	}
 
 	return corelogger.MakeLoggers(d.loggingOutputs, corelogger.LoggersConfig{
-		SysLogger: func() corelogger.Logger {
+		SysLogger: func() corelogger.LogWriter {
 			return d.syslogger
 		},
-		DBLogger: func() corelogger.Logger {
+		DBLogger: func() corelogger.LogWriter {
 			return state.NewDbLogger(st)
 		},
 	})

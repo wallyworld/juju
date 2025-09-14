@@ -4,11 +4,12 @@
 package cloud_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	credentialcommonmocks "github.com/juju/juju/apiserver/common/credentialcommon/mocks"
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
@@ -20,8 +21,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	environsmocks "github.com/juju/juju/environs/mocks"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type instanceTypesSuite struct {
@@ -32,7 +33,7 @@ type instanceTypesSuite struct {
 	credcommonPersistentBackend *credentialcommonmocks.MockPersistentBackend
 }
 
-func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
+func (s *instanceTypesSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.backend = mocks.NewMockBackend(ctrl)
@@ -46,11 +47,13 @@ func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Contr
 	return ctrl
 }
 
-var _ = gc.Suite(&instanceTypesSuite{})
+func TestInstanceTypesSuite(t *tctesting.T) {
+	tc.Run(t, &instanceTypesSuite{})
+}
 
 var over9kCPUCores uint64 = 9001
 
-func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
+func (p *instanceTypesSuite) TestInstanceTypes(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	ctrl := p.setup(c, adminTag)
 	defer ctrl.Finish()
@@ -77,7 +80,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
-		c.Assert(st.ControllerUUID(), gc.Equals, coretesting.FakeControllerConfig().ControllerUUID())
+		c.Assert(st.ControllerUUID(), tc.Equals, coretesting.FakeControllerConfig().ControllerUUID())
 		return mockEnv, nil
 	}
 
@@ -94,7 +97,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		}, nil)
 
 	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons := params.CloudInstanceTypesConstraints{
 		Constraints: []params.CloudInstanceTypesConstraint{
@@ -109,8 +112,8 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 				Constraints: &itCons}},
 	}
 	r, err := cloudfacade.InstanceTypes(api, fakeEnvironGet, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Results, tc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
 		{
 			InstanceTypes: []params.InstanceType{
@@ -123,10 +126,10 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			Error: &params.Error{Message: "Instances matching constraint  not found", Code: "not found"}},
 		{
 			Error: &params.Error{Message: "asking gce cloud information to aws cloud not valid", Code: "not valid"}}}
-	c.Assert(r.Results, gc.DeepEquals, expected)
+	c.Assert(r.Results, tc.DeepEquals, expected)
 }
 
-func (p *instanceTypesSuite) TestInstanceTypesGettingControllerConfigFail(c *gc.C) {
+func (p *instanceTypesSuite) TestInstanceTypesGettingControllerConfigFail(c *tc.C) {
 	adminTag := names.NewUserTag("admin")
 	ctrl := p.setup(c, adminTag)
 	defer ctrl.Finish()
@@ -149,7 +152,7 @@ func (p *instanceTypesSuite) TestInstanceTypesGettingControllerConfigFail(c *gc.
 	p.backend.EXPECT().ControllerConfig().Return(controller.Config{}, errors.New("broken controller"))
 
 	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	itCons := constraints.Value{CpuCores: &over9kCPUCores}
 	failureCons := constraints.Value{}
@@ -166,6 +169,6 @@ func (p *instanceTypesSuite) TestInstanceTypesGettingControllerConfigFail(c *gc.
 				Constraints: &itCons}},
 	}
 	r, err := cloudfacade.InstanceTypes(api, fakeEnvironGet, cons)
-	c.Assert(err, gc.ErrorMatches, "getting controller config: broken controller")
-	c.Assert(r, gc.DeepEquals, params.InstanceTypesResults{})
+	c.Assert(err, tc.ErrorMatches, "getting controller config: broken controller")
+	c.Assert(r, tc.DeepEquals, params.InstanceTypesResults{})
 }

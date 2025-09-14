@@ -4,22 +4,25 @@
 package firewall_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&FirewallSuite{})
+func TestFirewallSuite(t *tctesting.T) {
+	tc.Run(t, &FirewallSuite{})
+}
 
 type FirewallSuite struct {
 	coretesting.BaseSuite
@@ -29,11 +32,11 @@ type FirewallSuite struct {
 	st         *mockState
 }
 
-func (s *FirewallSuite) SetUpTest(c *gc.C) {
+func (s *FirewallSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -43,7 +46,7 @@ func (s *FirewallSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState(coretesting.ModelTag.Id())
 }
 
-func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 	db2Relation := newMockRelation(123)
 	db2Relation.ruwApp = "django"
 	// Initial event.
@@ -89,15 +92,15 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32", "4.3.2.1/32"})
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Changes, tc.SameContents, []string{"1.2.3.4/32", "4.3.2.1/32"})
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+	c.Assert(resource, tc.NotNil)
+	c.Assert(resource, tc.Implements, new(state.StringsWatcher))
 
 	s.st.CheckCallNames(c, "KeyRelation", "Application", "Unit", "Machine", "Unit", "Machine")
 	s.st.CheckCall(c, 0, "KeyRelation", "remote-db2:db django:db")
@@ -108,18 +111,18 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	django1Call := s.st.Calls()[4]
 	django1MachineCall := s.st.Calls()[5]
 
-	c.Assert(django0Call.Args, gc.HasLen, 1)
+	c.Assert(django0Call.Args, tc.HasLen, 1)
 	if django0Call.Args[0] == "django/1" {
 		django0Call, django1Call = django1Call, django0Call
 		django0MachineCall, django1MachineCall = django1MachineCall, django0MachineCall
 	}
-	c.Assert(django0Call.Args, jc.DeepEquals, []interface{}{"django/0"})
-	c.Assert(django0MachineCall.Args, jc.DeepEquals, []interface{}{"0"})
-	c.Assert(django1Call.Args, jc.DeepEquals, []interface{}{"django/1"})
-	c.Assert(django1MachineCall.Args, jc.DeepEquals, []interface{}{"1"})
+	c.Assert(django0Call.Args, tc.DeepEquals, []interface{}{"django/0"})
+	c.Assert(django0MachineCall.Args, tc.DeepEquals, []interface{}{"0"})
+	c.Assert(django1Call.Args, tc.DeepEquals, []interface{}{"django/1"})
+	c.Assert(django1MachineCall.Args, tc.DeepEquals, []interface{}{"1"})
 }
 
-func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *gc.C) {
+func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *tc.C) {
 	db2Relation := newMockRelation(123)
 	// Initial event.
 	db2Relation.ew.changes <- []string{}
@@ -146,7 +149,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *g
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "egress network for application db2 without requires endpoint not supported")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, "egress network for application db2 without requires endpoint not supported")
 }

@@ -5,15 +5,15 @@ package charmdownloader_test
 
 import (
 	"net/http"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -35,17 +35,19 @@ type charmDownloaderSuite struct {
 	api              *charmdownloader.CharmDownloaderAPI
 }
 
-var _ = gc.Suite(&charmDownloaderSuite{})
+func TestCharmDownloaderSuite(t *tctesting.T) {
+	tc.Run(t, &charmDownloaderSuite{})
+}
 
-func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharmsAuthChecks(c *gc.C) {
+func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharmsAuthChecks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.authChecker.EXPECT().AuthController().Return(false)
 
 	_, err := s.api.WatchApplicationsWithPendingCharms()
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm when not authenticating as the controller"))
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm, tc.Commentf("expected ErrPerm when not authenticating as the controller"))
 }
 
-func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
+func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharms(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	watcher := mocks.NewMockStringsWatcher(ctrl)
@@ -61,20 +63,20 @@ func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	s.resourcesBackend.EXPECT().Register(watcher).Return("42")
 
 	got, err := s.api.WatchApplicationsWithPendingCharms()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.StringsWatcherId, gc.Equals, "42")
-	c.Assert(got.Changes, gc.DeepEquals, []string{"ufo", "cons", "piracy"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.StringsWatcherId, tc.Equals, "42")
+	c.Assert(got.Changes, tc.DeepEquals, []string{"ufo", "cons", "piracy"})
 }
 
-func (s *charmDownloaderSuite) TestDownloadApplicationCharmsAuthChecks(c *gc.C) {
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsAuthChecks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.authChecker.EXPECT().AuthController().Return(false)
 
 	_, err := s.api.DownloadApplicationCharms(params.Entities{})
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm when not authenticating as the controller"))
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm, tc.Commentf("expected ErrPerm when not authenticating as the controller"))
 }
 
-func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -110,11 +112,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.Combine(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Combine(), tc.ErrorIsNil)
 }
 
-func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCharm(c *gc.C) {
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCharm(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -159,11 +161,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.Combine(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Combine(), tc.ErrorIsNil)
 }
 
-func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -200,11 +202,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.Combine(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Combine(), tc.ErrorIsNil)
 }
 
-func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadFails(c *gc.C) {
+func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadFails(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -235,11 +237,11 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.Combine(), gc.ErrorMatches, ".*charm not found.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.Combine(), tc.ErrorMatches, ".*charm not found.*")
 }
 
-func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *charmDownloaderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.clk = testclock.NewClock(time.Now())
 	s.authChecker = mocks.NewMockAuthChecker(ctrl)

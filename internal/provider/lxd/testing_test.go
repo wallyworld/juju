@@ -14,10 +14,8 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -36,7 +34,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -84,7 +83,7 @@ type BaseSuiteUnpatched struct {
 	InterfaceAddrs []net.Addr
 }
 
-func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
+func (s *BaseSuiteUnpatched) SetUpSuite(c *tc.C) {
 	s.osPathOrig = os.Getenv("PATH")
 	if s.osPathOrig == "" {
 		// TODO(ericsnow) This shouldn't happen. However, an undiagnosed
@@ -97,7 +96,7 @@ func (s *BaseSuiteUnpatched) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
+func (s *BaseSuiteUnpatched) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.initProvider(c)
@@ -106,7 +105,7 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.initNet(c)
 }
 
-func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
+func (s *BaseSuiteUnpatched) initProvider(c *tc.C) {
 	s.Provider = &environProvider{}
 	s.EndpointAddrs = []string{"1.2.3.4"}
 	s.InterfaceAddr = "1.2.3.4"
@@ -116,7 +115,7 @@ func (s *BaseSuiteUnpatched) initProvider(c *gc.C) {
 	}
 }
 
-func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
+func (s *BaseSuiteUnpatched) initEnv(c *tc.C) {
 	certCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": testing.CACert,
 		"client-key":  testing.CAKey,
@@ -139,7 +138,7 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 	return s.Env.namespace.Prefix()
 }
 
-func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
+func (s *BaseSuiteUnpatched) initInst(c *tc.C) {
 	tools := []*coretools.Tools{
 		{
 			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
@@ -155,16 +154,16 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
 		jujuversion.DefaultSupportedLTSBase(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{
 		tools[0],
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var archName = arch.ARM64
 	var numCores uint64 = 1
@@ -193,7 +192,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.Instance = s.NewInstance(c, "spam")
 	s.Container = s.Instance.container
 	s.InstName, err = s.Env.namespace.Hostname("42")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		ControllerUUID: instanceConfig.ControllerConfig.ControllerUUID(),
@@ -203,45 +202,45 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 }
 
-func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
+func (s *BaseSuiteUnpatched) initNet(c *tc.C) {
 	s.Rules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 }
 
-func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
+func (s *BaseSuiteUnpatched) setConfig(c *tc.C, cfg *config.Config) {
 	s.Config = cfg
 	ecfg, err := newValidConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfgUnlocked = s.EnvConfig
 	namespace, err := instance.NewNamespace(uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Env.namespace = namespace
 }
 
-func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+func (s *BaseSuiteUnpatched) NewConfig(c *tc.C, updates testing.Attrs) *config.Config {
 	if updates == nil {
 		updates = make(testing.Attrs)
 	}
 	var err error
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
-func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+func (s *BaseSuiteUnpatched) UpdateConfig(c *tc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Container {
+func (s *BaseSuiteUnpatched) NewContainer(c *tc.C, name string) *containerlxd.Container {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
@@ -258,7 +257,7 @@ func (s *BaseSuiteUnpatched) NewContainer(c *gc.C, name string) *containerlxd.Co
 	}
 }
 
-func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
+func (s *BaseSuiteUnpatched) NewInstance(c *tc.C, name string) *environInstance {
 	container := s.NewContainer(c, name)
 	return newInstance(container, s.Env)
 }
@@ -266,21 +265,21 @@ func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance 
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	Stub   *jujutesting.Stub
+	Stub   *testhelpers.Stub
 	Client *StubClient
 	Common *stubCommon
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuiteUnpatched.SetUpSuite(c)
 	// Do this *before* s.initEnv() gets called in BaseSuiteUnpatched.SetUpTest
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	testing.SkipLXDNotSupported(c)
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
-	s.Stub = &jujutesting.Stub{}
+	s.Stub = &testhelpers.Stub{}
 	s.Client = &StubClient{
 		Stub:               s.Stub,
 		StorageIsSupported: true,
@@ -301,27 +300,27 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.base = s.Common
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
+func (s *BaseSuite) TestingCert(c *tc.C) (lxd.Certificate, string) {
 	cert := lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(testing.CACert),
 		KeyPEM:  []byte(testing.CAKey),
 	}
 	fingerprint, err := cert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cert, fingerprint
 }
 
-func (s *BaseSuite) CheckNoAPI(c *gc.C) {
+func (s *BaseSuite) CheckNoAPI(c *tc.C) {
 	s.Stub.CheckCalls(c, nil)
 }
 
-func NewBaseConfig(c *gc.C) *config.Config {
+func NewBaseConfig(c *tc.C) *config.Config {
 	var err error
 	cfg := testing.ModelConfig(c)
 
 	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return cfg
 }
@@ -337,8 +336,8 @@ func NewConfig(cfg *config.Config) *Config {
 	return &Config{ecfg}
 }
 
-func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
-	c.Assert(ecfg.attrs, jc.DeepEquals, ecfg.UnknownAttrs())
+func (ecfg *Config) Values(c *tc.C) (ConfigValues, map[string]interface{}) {
+	c.Assert(ecfg.attrs, tc.DeepEquals, ecfg.UnknownAttrs())
 
 	var values ConfigValues
 	extras := make(map[string]interface{})
@@ -351,9 +350,9 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	return values, extras
 }
 
-func (ecfg *Config) Apply(c *gc.C, updates map[string]interface{}) *Config {
+func (ecfg *Config) Apply(c *tc.C, updates map[string]interface{}) *Config {
 	cfg, err := ecfg.Config.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return NewConfig(cfg)
 }
 
@@ -362,7 +361,7 @@ func (ecfg *Config) Validate() error {
 }
 
 type stubCommon struct {
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 
 	BootstrapResult *environs.BootstrapResult
 }
@@ -386,7 +385,7 @@ func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
 }
 
 type StubClient struct {
-	*jujutesting.Stub
+	*testhelpers.Stub
 
 	Containers         []lxd.Container
 	Container          *lxd.Container
@@ -744,21 +743,21 @@ type EnvironSuite struct {
 	testing.BaseSuite
 }
 
-func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interface{}, cloudSpec environscloudspec.CloudSpec) environs.Environ {
+func (s *EnvironSuite) NewEnviron(c *tc.C, srv Server, cfgEdit map[string]interface{}, cloudSpec environscloudspec.CloudSpec) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if cfgEdit != nil {
 		var err error
 		cfg, err = cfg.Apply(cfgEdit)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	eCfg, err := newValidConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return &environ{
 		serverUnlocked: srv,
@@ -770,21 +769,21 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 	}
 }
 
-func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
+func (s *EnvironSuite) NewEnvironWithServerFactory(c *tc.C, srv ServerFactory, cfgEdit map[string]interface{}) environs.Environ {
 	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if cfgEdit != nil {
 		var err error
 		cfg, err = cfg.Apply(cfgEdit)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	eCfg, err := newValidConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	provid := environProvider{
 		serverFactory: srv,
@@ -799,7 +798,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 	}
 }
 
-func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
+func (s *EnvironSuite) GetStartInstanceArgs(c *tc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
 			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
@@ -814,7 +813,7 @@ func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParam
 	cons := constraints.Value{}
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
 		jujuversion.DefaultSupportedLTSBase(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return environs.StartInstanceParams{
 		ControllerUUID: iConfig.ControllerConfig.ControllerUUID(),

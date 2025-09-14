@@ -5,32 +5,34 @@ package sshserver
 
 import (
 	"os"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/juju/osenv"
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.SSHJump)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
@@ -47,12 +49,12 @@ func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *Mani
 	return cfg
 }
 
-func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
+func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	l := loggo.GetLogger("test")
 	// Check config as expected.
 
 	cfg := newManifoldConfig(l, func(cfg *ManifoldConfig) {})
-	c.Assert(cfg.Validate(), jc.ErrorIsNil)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
 
 	// Entirely missing.
 	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
@@ -60,35 +62,35 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 		cfg.NewServerWorker = nil
 		cfg.Logger = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing NewServerWrapperWorker.
 	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing NewServerWorker.
 	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewServerWorker = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Missing Logger.
 	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	// Empty APICallerName.
 	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
 	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 }
 
-func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
+func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
 		APICallerName: "api-caller",
@@ -100,7 +102,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	})
 
 	// Check the inputs are as expected
-	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
+	c.Assert(manifold.Inputs, tc.DeepEquals, []string{
 		"api-caller",
 	})
 
@@ -110,8 +112,8 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 			"api-caller": mockAPICaller{},
 		}),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.NotNil)
 	workertest.CleanKill(c, w)
 }
 
@@ -123,7 +125,7 @@ func (a mockAPICaller) BestFacadeVersion(facade string) int {
 	return 0
 }
 
-func (s *manifoldSuite) TestManifoldUninstall(c *gc.C) {
+func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	// Unset feature flag
 	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
@@ -142,6 +144,6 @@ func (s *manifoldSuite) TestManifoldUninstall(c *gc.C) {
 			"api-caller": mockAPICaller{},
 		}),
 	)
-	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
+	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)
 
 }

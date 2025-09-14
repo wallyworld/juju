@@ -5,47 +5,49 @@ package singular_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var otherUUID = utils.MustNewUUID().String()
 
 type SingularSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SingularSuite{})
+func TestSingularSuite(t *tctesting.T) {
+	tc.Run(t, &SingularSuite{})
+}
 
-func (s *SingularSuite) TestRequiresController(c *gc.C) {
+func (s *SingularSuite) TestRequiresController(c *tc.C) {
 	auth := mockAuth{nonController: true}
 	facade, err := singular.NewFacade(nil, nil, auth)
-	c.Check(facade, gc.IsNil)
-	c.Check(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Check(facade, tc.IsNil)
+	c.Check(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *SingularSuite) TestAcceptsController(c *gc.C) {
+func (s *SingularSuite) TestAcceptsController(c *tc.C) {
 	backend := &mockBackend{}
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
-	c.Check(facade, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(facade, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	backend.stub.CheckCallNames(c)
 }
 
-func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
+func (s *SingularSuite) TestInvalidClaims(c *tc.C) {
 	breakers := []func(claim *params.SingularClaim){
 		func(claim *params.SingularClaim) { claim.EntityTag = "machine-123" },
 		func(claim *params.SingularClaim) { claim.EntityTag = "model-" + otherUUID },
@@ -70,9 +72,9 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 
 	backend := &mockBackend{}
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := facade.Claim(claims)
-	c.Assert(result.Results, gc.HasLen, count)
+	c.Assert(result.Results, tc.HasLen, count)
 
 	for i, result := range result.Results {
 		c.Logf("checking claim %d", i)
@@ -81,7 +83,7 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 	backend.stub.CheckCallNames(c)
 }
 
-func (s *SingularSuite) TestValidClaims(c *gc.C) {
+func (s *SingularSuite) TestValidClaims(c *tc.C) {
 	durations := []time.Duration{
 		time.Second,
 		10 * time.Second,
@@ -101,7 +103,7 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 
 	var claims params.SingularClaims
 	claims.Claims = make([]params.SingularClaim, count)
-	expectCalls := []testing.StubCall{}
+	expectCalls := []testhelpers.StubCall{}
 	for i, duration := range durations {
 		var tag names.Tag = coretesting.ModelTag
 		if i%2 == 1 {
@@ -112,7 +114,7 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 			ClaimantTag: "machine-123",
 			Duration:    duration,
 		}
-		expectCalls = append(expectCalls, testing.StubCall{
+		expectCalls = append(expectCalls, testhelpers.StubCall{
 			FuncName: "Claim",
 			Args: []interface{}{
 				tag.Id(),
@@ -125,24 +127,24 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 	backend := &mockBackend{}
 	backend.stub.SetErrors(errors...)
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := facade.Claim(claims)
-	c.Assert(result.Results, gc.HasLen, count)
+	c.Assert(result.Results, tc.HasLen, count)
 
 	for i, err := range result.Results {
 		switch errors[i] {
 		case nil:
-			c.Check(err.Error, gc.IsNil)
+			c.Check(err.Error, tc.IsNil)
 		case lease.ErrClaimDenied:
-			c.Check(err.Error, jc.Satisfies, params.IsCodeLeaseClaimDenied)
+			c.Check(err.Error, tc.Satisfies, params.IsCodeLeaseClaimDenied)
 		default:
-			c.Check(err.Error.Error(), gc.Equals, errors[i].Error())
+			c.Check(err.Error.Error(), tc.Equals, errors[i].Error())
 		}
 	}
 	backend.stub.CheckCalls(c, expectCalls)
 }
 
-func (s *SingularSuite) TestWait(c *gc.C) {
+func (s *SingularSuite) TestWait(c *tc.C) {
 	waits := params.Entities{
 		Entities: []params.Entity{{
 			"machine-123", // rejected
@@ -161,17 +163,17 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 	backend := &mockBackend{}
 	backend.stub.SetErrors(errors.New("zap!"), nil)
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := facade.Wait(context.TODO(), waits)
-	c.Assert(result.Results, gc.HasLen, count)
+	c.Assert(result.Results, tc.HasLen, count)
 
 	checkDenied(c, result.Results[0])
 	checkDenied(c, result.Results[1])
-	c.Check(result.Results[2].Error, gc.ErrorMatches, "zap!")
-	c.Check(result.Results[3].Error, gc.IsNil)
-	c.Check(result.Results[4].Error, gc.IsNil)
+	c.Check(result.Results[2].Error, tc.ErrorMatches, "zap!")
+	c.Check(result.Results[3].Error, tc.IsNil)
+	c.Check(result.Results[4].Error, tc.IsNil)
 
-	backend.stub.CheckCalls(c, []testing.StubCall{{
+	backend.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "WaitUntilExpired",
 		Args:     []interface{}{coretesting.ModelTag.Id()},
 	}, {
@@ -183,7 +185,7 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 	}})
 }
 
-func (s *SingularSuite) TestWaitCancelled(c *gc.C) {
+func (s *SingularSuite) TestWaitCancelled(c *tc.C) {
 	waits := params.Entities{
 		Entities: []params.Entity{{
 			coretesting.ModelTag.String(), // success
@@ -193,19 +195,19 @@ func (s *SingularSuite) TestWaitCancelled(c *gc.C) {
 
 	backend := &mockBackend{}
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	cancel()
 	result := facade.Wait(ctx, waits)
-	c.Assert(result.Results, gc.HasLen, count)
-	c.Check(result.Results[0].Error, gc.ErrorMatches, "waiting for lease cancelled by client")
+	c.Assert(result.Results, tc.HasLen, count)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, "waiting for lease cancelled by client")
 }
 
-func checkDenied(c *gc.C, result params.ErrorResult) {
-	if !c.Check(result.Error, gc.NotNil) {
+func checkDenied(c *tc.C, result params.ErrorResult) {
+	if !c.Check(result.Error, tc.NotNil) {
 		return
 	}
-	c.Check(result.Error, gc.ErrorMatches, "permission denied")
-	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(result.Error, tc.ErrorMatches, "permission denied")
+	c.Check(result.Error, tc.Satisfies, params.IsCodeUnauthorized)
 }

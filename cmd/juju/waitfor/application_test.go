@@ -4,23 +4,26 @@
 package waitfor
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type applicationScopeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&applicationScopeSuite{})
+func TestApplicationScopeSuite(t *tctesting.T) {
+	tc.Run(t, &applicationScopeSuite{})
+}
 
-func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
+func (s *applicationScopeSuite) TestGetIdentValue(c *tc.C) {
 	tests := []struct {
 		Field           string
 		ApplicationInfo *params.ApplicationInfo
@@ -59,22 +62,22 @@ func (s *applicationScopeSuite) TestGetIdentValue(c *gc.C) {
 			ApplicationInfo: test.ApplicationInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (s *applicationScopeSuite) TestGetIdentValueError(c *gc.C) {
+func (s *applicationScopeSuite) TestGetIdentValueError(c *tc.C) {
 	scope := ApplicationScope{
 		ctx:             MakeScopeContext(),
 		ApplicationInfo: &params.ApplicationInfo{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `.*"bad" on ApplicationInfo.*`)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `.*"bad" on ApplicationInfo.*`)
+	c.Assert(result, tc.IsNil)
 }
 
-func (s *applicationScopeSuite) TestDeriveApplicationStatus(c *gc.C) {
+func (s *applicationScopeSuite) TestDeriveApplicationStatus(c *tc.C) {
 	tests := []struct {
 		status   status.Status
 		units    map[string]*params.UnitInfo
@@ -126,6 +129,6 @@ func (s *applicationScopeSuite) TestDeriveApplicationStatus(c *gc.C) {
 	}}
 	for _, test := range tests {
 		status := deriveApplicationStatus(test.status, test.units)
-		c.Check(status.String(), gc.Equals, test.expected)
+		c.Check(status.String(), tc.Equals, test.expected)
 	}
 }

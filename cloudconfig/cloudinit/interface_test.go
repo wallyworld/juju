@@ -5,8 +5,9 @@
 package cloudinit
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 )
 
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
@@ -14,10 +15,12 @@ var _ CloudConfig = (*centOSCloudConfig)(nil)
 
 type InterfaceSuite struct{}
 
-var _ = gc.Suite(InterfaceSuite{})
+func TestNetworkUbuntuSuite(t *tctesting.T) {
+	tc.Run(t, InterfaceSuite{})
+}
 
-func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *gc.C) {
+func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *tc.C) {
 	cfg, err := New("ubuntu", WithNetplanMACMatch(true))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.(*ubuntuCloudConfig).useNetplanHWAddrMatch, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.(*ubuntuCloudConfig).useNetplanHWAddrMatch, tc.IsTrue)
 }

@@ -4,24 +4,27 @@
 package uniter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type podSpecSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&podSpecSuite{})
+func TestPodSpecSuite(t *tctesting.T) {
+	tc.Run(t, &podSpecSuite{})
+}
 
-func (s *podSpecSuite) TestGetPodSpec(c *gc.C) {
+func (s *podSpecSuite) TestGetPodSpec(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -29,12 +32,12 @@ func (s *podSpecSuite) TestGetPodSpec(c *gc.C) {
 	}
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetPodSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetPodSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Error: &params.Error{Message: "yoink"},
@@ -44,10 +47,10 @@ func (s *podSpecSuite) TestGetPodSpec(c *gc.C) {
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetPodSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, "yoink")
+	c.Assert(err, tc.ErrorMatches, "yoink")
 }
 
-func (s *podSpecSuite) TestGetPodSpecInvalidApplicationName(c *gc.C) {
+func (s *podSpecSuite) TestGetPodSpecInvalidApplicationName(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Fail()
 		return nil
@@ -55,10 +58,10 @@ func (s *podSpecSuite) TestGetPodSpecInvalidApplicationName(c *gc.C) {
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetPodSpec("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *podSpecSuite) TestGetPodSpecError(c *gc.C) {
+func (s *podSpecSuite) TestGetPodSpecError(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -68,24 +71,24 @@ func (s *podSpecSuite) TestGetPodSpecError(c *gc.C) {
 	var called bool
 	msg := "yoink"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetPodSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetPodSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
 		called = true
 
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		return errors.New(msg)
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetPodSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, msg)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *podSpecSuite) TestGetPodSpecArity(c *gc.C) {
+func (s *podSpecSuite) TestGetPodSpecArity(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -93,12 +96,12 @@ func (s *podSpecSuite) TestGetPodSpecArity(c *gc.C) {
 	}
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetPodSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetPodSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{}, {}},
 		}
@@ -107,10 +110,10 @@ func (s *podSpecSuite) TestGetPodSpecArity(c *gc.C) {
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetPodSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *podSpecSuite) TestGetRawK8sSpec(c *gc.C) {
+func (s *podSpecSuite) TestGetRawK8sSpec(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -118,12 +121,12 @@ func (s *podSpecSuite) TestGetRawK8sSpec(c *gc.C) {
 	}
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetRawK8sSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetRawK8sSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{
 				Error: &params.Error{Message: "yoink"},
@@ -133,10 +136,10 @@ func (s *podSpecSuite) TestGetRawK8sSpec(c *gc.C) {
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetRawK8sSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, "yoink")
+	c.Assert(err, tc.ErrorMatches, "yoink")
 }
 
-func (s *podSpecSuite) TestGetRawK8sSpecInvalidApplicationName(c *gc.C) {
+func (s *podSpecSuite) TestGetRawK8sSpecInvalidApplicationName(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Fail()
 		return nil
@@ -144,10 +147,10 @@ func (s *podSpecSuite) TestGetRawK8sSpecInvalidApplicationName(c *gc.C) {
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetRawK8sSpec("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *podSpecSuite) TestGetRawK8sSpecError(c *gc.C) {
+func (s *podSpecSuite) TestGetRawK8sSpecError(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -157,24 +160,24 @@ func (s *podSpecSuite) TestGetRawK8sSpecError(c *gc.C) {
 	var called bool
 	msg := "yoink"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetRawK8sSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetRawK8sSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
 		called = true
 
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		return errors.New(msg)
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetRawK8sSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, msg)
+	c.Assert(called, tc.IsTrue)
 }
 
-func (s *podSpecSuite) TestGetRawK8sSpecArity(c *gc.C) {
+func (s *podSpecSuite) TestGetRawK8sSpecArity(c *tc.C) {
 	expected := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "application-mysql",
@@ -182,12 +185,12 @@ func (s *podSpecSuite) TestGetRawK8sSpecArity(c *gc.C) {
 	}
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetRawK8sSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetRawK8sSpec")
+		c.Assert(arg, tc.DeepEquals, expected)
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{}, {}},
 		}
@@ -196,5 +199,5 @@ func (s *podSpecSuite) TestGetRawK8sSpecArity(c *gc.C) {
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
 	_, err := st.GetRawK8sSpec("mysql")
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected 1 result, got 2")
 }

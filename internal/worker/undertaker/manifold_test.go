@@ -5,24 +5,24 @@ package undertaker_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/undertaker"
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	modelType string
 	logger    fakeLogger
 }
@@ -35,16 +35,18 @@ type IAASManifoldSuite struct {
 	manifoldSuite
 }
 
-var (
-	_ = gc.Suite(&IAASManifoldSuite{})
-	_ = gc.Suite(&CAASManifoldSuite{})
-)
+func TestIAASManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &IAASManifoldSuite{})
+}
+func TestCAASManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &CAASManifoldSuite{})
+}
 
-func (s *CAASManifoldSuite) SetUpTest(c *gc.C) {
+func (s *CAASManifoldSuite) SetUpTest(c *tc.C) {
 	s.modelType = "caas"
 }
 
-func (s *IAASManifoldSuite) SetUpTest(c *gc.C) {
+func (s *IAASManifoldSuite) SetUpTest(c *tc.C) {
 	s.modelType = "iaas"
 }
 
@@ -61,28 +63,28 @@ func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
 	}
 }
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := undertaker.Manifold(s.namesConfig())
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{
 		"api-caller",
 	})
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *tc.C) {
 	manifold := undertaker.Manifold(s.namesConfig())
-	c.Check(manifold.Output, gc.IsNil)
+	c.Check(manifold.Output, tc.IsNil)
 }
 
-func (s *manifoldSuite) TestAPICallerMissing(c *gc.C) {
+func (s *manifoldSuite) TestAPICallerMissing(c *tc.C) {
 	resources := resourcesMissing("api-caller")
 	manifold := undertaker.Manifold(s.namesConfig())
 
 	worker, err := manifold.Start(resources.Context())
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
+func (s *manifoldSuite) TestNewFacadeError(c *tc.C) {
 	resources := resourcesMissing()
 	config := s.namesConfig()
 	config.NewFacade = func(apiCaller base.APICaller) (undertaker.Facade, error) {
@@ -92,11 +94,11 @@ func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	manifold := undertaker.Manifold(config)
 
 	worker, err := manifold.Start(resources.Context())
-	c.Check(err, gc.ErrorMatches, "blort")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "blort")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
+func (s *manifoldSuite) TestNewCredentialAPIError(c *tc.C) {
 	config := s.namesConfig()
 	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
 		return &fakeFacade{}, nil
@@ -108,11 +110,11 @@ func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
 
 	resources := resourcesMissing()
 	worker, err := manifold.Start(resources.Context())
-	c.Check(err, gc.ErrorMatches, "blort")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "blort")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
+func (s *manifoldSuite) TestNewWorkerError(c *tc.C) {
 	resources := resourcesMissing()
 	expectFacade := &fakeFacade{}
 	config := s.namesConfig()
@@ -120,17 +122,17 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 		return expectFacade, nil
 	}
 	config.NewWorker = func(cfg undertaker.Config) (worker.Worker, error) {
-		c.Check(cfg.Facade, gc.Equals, expectFacade)
+		c.Check(cfg.Facade, tc.Equals, expectFacade)
 		return nil, errors.New("lhiis")
 	}
 	manifold := undertaker.Manifold(config)
 
 	worker, err := manifold.Start(resources.Context())
-	c.Check(err, gc.ErrorMatches, "lhiis")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "lhiis")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
+func (s *manifoldSuite) TestNewWorkerSuccess(c *tc.C) {
 	expectWorker := &fakeWorker{}
 	config := s.namesConfig()
 	var gotConfig undertaker.Config
@@ -145,9 +147,9 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	resources := resourcesMissing()
 
 	worker, err := manifold.Start(resources.Context())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expectWorker)
-	c.Assert(gotConfig.Logger, gc.Equals, &s.logger)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker, tc.Equals, expectWorker)
+	c.Assert(gotConfig.Logger, tc.Equals, &s.logger)
 }
 
 func resourcesMissing(missing ...string) dt.StubResources {
@@ -162,8 +164,8 @@ func resourcesMissing(missing ...string) dt.StubResources {
 	return resources
 }
 
-func checkResource(c *gc.C, actual interface{}, resources dt.StubResources, name string) {
-	c.Check(actual, gc.Equals, resources[name].Outputs[0])
+func checkResource(c *tc.C, actual interface{}, resources dt.StubResources, name string) {
+	c.Check(actual, tc.Equals, resources[name].Outputs[0])
 }
 
 type fakeAPICaller struct {
@@ -193,7 +195,7 @@ func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
 }
 
 type fakeLogger struct {
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 func (l *fakeLogger) Errorf(format string, args ...interface{}) {

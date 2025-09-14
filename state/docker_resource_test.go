@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
@@ -24,16 +24,18 @@ type dockerMetadataStorageSuite struct {
 	metadataStorage state.DockerMetadataStorage
 }
 
-var _ = gc.Suite(&dockerMetadataStorageSuite{})
+func TestDockerMetadataStorageSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &dockerMetadataStorageSuite{})
+}
 
-func (s *dockerMetadataStorageSuite) SetUpTest(c *gc.C) {
+func (s *dockerMetadataStorageSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.metadataStorage = state.NewDockerMetadataStorage(s.State)
 }
 
-func (s *dockerMetadataStorageSuite) Test(c *gc.C) {}
+func (s *dockerMetadataStorageSuite) Test(c *tc.C) {}
 
-func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
+func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *tc.C) {
 	id := "test-123"
 	registryPath := "url@sha256:abc123"
 	resource := resources.DockerImageDetails{
@@ -41,53 +43,53 @@ func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
 	}
 	err := s.metadataStorage.Save(id, resource)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertSavedDockerResource(c, id, resource)
 }
 
-func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
+func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *tc.C) {
 	id := "test-123"
 	resource1 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertSavedDockerResource(c, id, resource1)
 
 	resource2 := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:deadbeef",
 	}
 	err = s.metadataStorage.Save(id, resource2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertSavedDockerResource(c, id, resource2)
 }
 
-func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *gc.C) {
+func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *tc.C) {
 	id := "test-123"
 	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.metadataStorage.Save(id, resource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertSavedDockerResource(c, id, resource)
 }
 
-func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resourceID string, registryInfo resources.DockerImageDetails) {
+func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *tc.C, resourceID string, registryInfo resources.DockerImageDetails) {
 	coll, closer := state.GetCollection(s.State, "dockerResources")
 	defer closer()
 
 	var raw bson.M
 	err := coll.FindId(resourceID).One(&raw)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(raw["_id"], gc.Equals, fmt.Sprintf("%s:%s", s.State.ModelUUID(), resourceID))
-	c.Assert(raw["registry-path"], gc.Equals, registryInfo.RegistryPath)
-	c.Assert(raw["password"], gc.Equals, registryInfo.Password)
-	c.Assert(raw["username"], gc.Equals, registryInfo.Username)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(raw["_id"], tc.Equals, fmt.Sprintf("%s:%s", s.State.ModelUUID(), resourceID))
+	c.Assert(raw["registry-path"], tc.Equals, registryInfo.RegistryPath)
+	c.Assert(raw["password"], tc.Equals, registryInfo.Password)
+	c.Assert(raw["username"], tc.Equals, registryInfo.Username)
 }
 
-func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
+func (s *dockerMetadataStorageSuite) TestGet(c *tc.C) {
 	id := "test-123"
 	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
@@ -99,38 +101,38 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 		},
 	}
 	err := s.metadataStorage.Save(id, resource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	retrieved, num, err := s.metadataStorage.Get(id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	retrievedInfo := readerToDockerDetails(c, retrieved)
-	c.Assert(num, gc.Equals, int64(76))
-	c.Assert(retrievedInfo.RegistryPath, gc.Equals, "url@sha256:abc123")
-	c.Assert(retrievedInfo.Username, gc.Equals, "testuser")
-	c.Assert(retrievedInfo.Password, gc.Equals, "hunter2")
+	c.Assert(num, tc.Equals, int64(76))
+	c.Assert(retrievedInfo.RegistryPath, tc.Equals, "url@sha256:abc123")
+	c.Assert(retrievedInfo.Username, tc.Equals, "testuser")
+	c.Assert(retrievedInfo.Password, tc.Equals, "hunter2")
 
 }
 
-func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
+func (s *dockerMetadataStorageSuite) TestRemove(c *tc.C) {
 	id := "test-123"
 	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
 	}
 	err := s.metadataStorage.Save(id, resource)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.metadataStorage.Remove(id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, _, err = s.metadataStorage.Get(id)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {
+func readerToDockerDetails(c *tc.C, r io.ReadCloser) *resources.DockerImageDetails {
 	var info resources.DockerImageDetails
 	respBuf := new(bytes.Buffer)
 	_, err := respBuf.ReadFrom(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(respBuf.Bytes(), &info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &info
 }

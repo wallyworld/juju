@@ -4,12 +4,13 @@
 package payloads_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 var (
@@ -25,27 +26,29 @@ type statusSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&statusSuite{})
+func TestStatusSuite(t *tctesting.T) {
+	tc.Run(t, &statusSuite{})
+}
 
-func (s *statusSuite) TestValidateStateOkay(c *gc.C) {
+func (s *statusSuite) TestValidateStateOkay(c *tc.C) {
 	for _, state := range okayStates {
 		c.Logf("checking %q", state)
 		err := payloads.ValidateState(state)
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *statusSuite) TestValidateStateUndefined(c *gc.C) {
+func (s *statusSuite) TestValidateStateUndefined(c *tc.C) {
 	var state string
 	err := payloads.ValidateState(state)
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *statusSuite) TestValidateStateBadState(c *gc.C) {
+func (s *statusSuite) TestValidateStateBadState(c *tc.C) {
 	state := "some bogus state"
 	err := payloads.ValidateState(state)
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }

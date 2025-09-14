@@ -8,15 +8,14 @@ import (
 	"os"
 	"path"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
@@ -28,6 +27,8 @@ import (
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
@@ -36,103 +37,104 @@ import (
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/secrets/provider/vault"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type InterfaceSuite struct {
 	HookContextSuite
 }
 
-var _ = gc.Suite(&InterfaceSuite{})
-
-func (s *InterfaceSuite) TestUnitName(c *gc.C) {
-	ctx := s.GetContext(c, -1, "", names.StorageTag{})
-	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+func TestInterfaceSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &InterfaceSuite{})
 }
 
-func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
+func (s *InterfaceSuite) TestUnitName(c *tc.C) {
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
+	c.Assert(ctx.UnitName(), tc.Equals, "u/0")
+}
+
+func (s *InterfaceSuite) TestHookRelation(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	r, err := ctx.HookRelation()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(r, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(r, tc.IsNil)
 }
 
-func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
+func (s *InterfaceSuite) TestRemoteUnitName(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(name, gc.Equals, "")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(name, tc.Equals, "")
 }
 
-func (s *InterfaceSuite) TestRemoteApplicationName(c *gc.C) {
+func (s *InterfaceSuite) TestRemoteApplicationName(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteApplicationName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(name, gc.Equals, "")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(name, tc.Equals, "")
 }
 
-func (s *InterfaceSuite) TestWorkloadName(c *gc.C) {
+func (s *InterfaceSuite) TestWorkloadName(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	name, err := ctx.WorkloadName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(name, gc.Equals, "")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(name, tc.Equals, "")
 }
 
-func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
+func (s *InterfaceSuite) TestRelationIds(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	relIds, err := ctx.RelationIds()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relIds, gc.HasLen, 2)
-	c.Assert(relIds, jc.SameContents, []int{0, 1})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relIds, tc.HasLen, 2)
+	c.Assert(relIds, tc.SameContents, []int{0, 1})
 	r, err := ctx.Relation(0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:0")
 	r, err = ctx.Relation(123)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(r, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(r, tc.IsNil)
 }
 
-func (s *InterfaceSuite) TestRelationIdsExcludesBroken(c *gc.C) {
+func (s *InterfaceSuite) TestRelationIdsExcludesBroken(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	// Broken relations have no member settings.
 	context.SetRelationBroken(ctx, 1)
 	relIds, err := ctx.RelationIds()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relIds, gc.HasLen, 1)
-	c.Assert(relIds, jc.SameContents, []int{0})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relIds, tc.HasLen, 1)
+	c.Assert(relIds, tc.SameContents, []int{0})
 }
 
-func (s *InterfaceSuite) TestRelationContext(c *gc.C) {
+func (s *InterfaceSuite) TestRelationContext(c *tc.C) {
 	ctx := s.GetContext(c, 1, "", names.StorageTag{})
 	r, err := ctx.HookRelation()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Name(), tc.Equals, "db")
+	c.Assert(r.FakeId(), tc.Equals, "db:1")
 }
 
-func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
+func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *tc.C) {
 	ctx := s.GetContext(c, 1, "u/123", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "u/123")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(name, tc.Equals, "u/123")
 }
 
-func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
+func (s *InterfaceSuite) TestAvailabilityZone(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	zone, err := ctx.AvailabilityZone()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(zone, gc.Equals, "a-zone")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(zone, tc.Equals, "a-zone")
 }
 
-func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
+func (s *InterfaceSuite) TestUnitNetworkInfo(c *tc.C) {
 	// Only the error case is tested to ensure end-to-end integration, the rest
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(netInfo, tc.DeepEquals, map[string]params.NetworkInfoResult{
 		"unknown": {
 			Error: &params.Error{
 				Message: `undefined for unit charm: endpoint "unknown" not valid`,
@@ -143,65 +145,65 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	)
 }
 
-func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
+func (s *InterfaceSuite) TestUnitStatus(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
 	status, err := ctx.UnitStatus()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(status.Status, gc.Equals, "maintenance")
-	c.Check(status.Info, gc.Equals, "working")
-	c.Check(status.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(status.Status, tc.Equals, "maintenance")
+	c.Check(status.Info, tc.Equals, "working")
+	c.Check(status.Data, tc.DeepEquals, map[string]interface{}{"hello": "world"})
 }
 
-func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
+func (s *InterfaceSuite) TestSetUnitStatus(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	status := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
 	err := ctx.SetUnitStatus(status)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	unitStatus, err := ctx.UnitStatus()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "maintenance")
-	c.Check(unitStatus.Info, gc.Equals, "doing work")
-	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(unitStatus.Status, tc.Equals, "maintenance")
+	c.Check(unitStatus.Info, tc.Equals, "doing work")
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
 }
 
-func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
+func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
-	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
+	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), tc.IsFalse)
 	status := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
 	err := ctx.SetUnitStatus(status)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), tc.IsTrue)
 }
 
-func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *gc.C) {
+func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	// No workload version set yet.
 	result, err := ctx.UnitWorkloadVersion()
-	c.Assert(result, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, tc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = ctx.SetUnitWorkloadVersion("Pipey")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err = ctx.UnitWorkloadVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "Pipey")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.Equals, "Pipey")
 }
 
-func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
+func (s *InterfaceSuite) TestUnitStatusCaching(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	unitStatus, err := ctx.UnitStatus()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "waiting")
-	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
-	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(unitStatus.Status, tc.Equals, "waiting")
+	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
 	now := time.Now()
@@ -211,64 +213,64 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.unit.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Local view is unchanged.
 	unitStatus, err = ctx.UnitStatus()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "waiting")
-	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
-	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(unitStatus.Status, tc.Equals, "waiting")
+	c.Check(unitStatus.Info, tc.Equals, "waiting for machine")
+	c.Check(unitStatus.Data, tc.DeepEquals, map[string]interface{}{})
 }
 
-func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
+func (s *InterfaceSuite) TestUnitCaching(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	pr, err := ctx.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pr, tc.Equals, "u-0.testing.invalid")
 	pa, err := ctx.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Initially the public address is the same as the private address since
 	// the "most public" address is chosen.
-	c.Assert(pr, gc.Equals, pa)
+	c.Assert(pr, tc.Equals, pa)
 
 	// Change remote state.
 	err = s.machine.SetProviderAddresses(
 		network.NewSpaceAddress("blah.testing.invalid", network.WithScope(network.ScopePublic)),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Local view is unchanged.
 	pr, err = ctx.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pr, tc.Equals, "u-0.testing.invalid")
 	pa, err = ctx.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pr, gc.Equals, pa)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pr, tc.Equals, pa)
 }
 
-func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
+func (s *InterfaceSuite) TestConfigCaching(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	settings, err := ctx.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
 	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "Something Else"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Local view is not changed.
 	settings, err = ctx.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings, tc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
-func (s *InterfaceSuite) TestGoalState(c *gc.C) {
+func (s *InterfaceSuite) TestGoalState(c *tc.C) {
 	timestamp := time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
 	mockUnitSince := func(inUnits application.UnitsGoalState) application.UnitsGoalState {
 		outUnits := application.UnitsGoalState{}
 		for name, gsStatus := range inUnits {
-			c.Assert(gsStatus.Since, gc.NotNil)
+			c.Assert(gsStatus.Since, tc.NotNil)
 			outUnits[name] = application.GoalStateStatus{
 				Status: gsStatus.Status,
 				Since:  &timestamp,
@@ -306,30 +308,30 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 		goalState.Relations[relationsNames] = mockUnitSince(relationUnits)
 	}
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(goalState, jc.DeepEquals, &goalStateCheck)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(goalState, tc.DeepEquals, &goalStateCheck)
 }
 
 // TestNonActionCallsToActionMethodsFail does exactly what its name says:
 // it simply makes sure that Action-related calls to HookContexts with a nil
 // actionData member error out correctly.
-func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *tc.C) {
 	ctx := context.HookContext{}
 	_, err := ctx.ActionParams()
-	c.Check(err, gc.ErrorMatches, "not running an action")
+	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed()
-	c.Check(err, gc.ErrorMatches, "not running an action")
+	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
-	c.Check(err, gc.ErrorMatches, "not running an action")
+	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.LogActionMessage("foo")
-	c.Check(err, gc.ErrorMatches, "not running an action")
+	c.Check(err, tc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
-	c.Check(err, gc.ErrorMatches, "not running an action")
+	c.Check(err, tc.ErrorMatches, "not running an action")
 }
 
 // TestUpdateActionResults demonstrates that UpdateActionResults functions
 // as expected.
-func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
+func (s *InterfaceSuite) TestUpdateActionResults(c *tc.C) {
 	tests := []struct {
 		initial  map[string]interface{}
 		keys     []string
@@ -371,56 +373,56 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 		hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 		context.WithActionContext(hctx, t.initial, nil)
 		err := hctx.UpdateActionResults(t.keys, t.value)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		actionData, err := hctx.ActionData()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actionData.ResultsMap, jc.DeepEquals, t.expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(actionData.ResultsMap, tc.DeepEquals, t.expected)
 	}
 }
 
 // TestSetActionFailed ensures SetActionFailed works properly.
-func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
+func (s *InterfaceSuite) TestSetActionFailed(c *tc.C) {
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionFailed()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(actionData.Failed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actionData.Failed, tc.IsTrue)
 }
 
 // TestSetActionMessage ensures SetActionMessage works properly.
-func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
+func (s *InterfaceSuite) TestSetActionMessage(c *tc.C) {
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionMessage("because reasons")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(actionData.ResultsMessage, tc.Equals, "because reasons")
 }
 
 // TestLogActionMessage ensures LogActionMessage works properly.
-func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
+func (s *InterfaceSuite) TestLogActionMessage(c *tc.C) {
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	action, err := s.Model.AddAction(s.unit, operationID, "fakeaction", nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = action.Begin()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", names.StorageTag{})
 	context.WithActionContext(hctx, nil, nil)
 	err = hctx.LogActionMessage("hello world")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	a, err := s.Model.Action(action.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	messages := a.Messages()
-	c.Assert(messages, gc.HasLen, 1)
-	c.Assert(messages[0].Message(), gc.Equals, "hello world")
+	c.Assert(messages, tc.HasLen, 1)
+	c.Assert(messages[0].Message(), tc.Equals, "hello world")
 }
 
-func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+func (s *InterfaceSuite) TestRequestRebootAfterHook(c *tc.C) {
 	var killed bool
 	p := &mockProcess{func() error {
 		killed = true
@@ -429,16 +431,16 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(killed, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(killed, tc.IsFalse)
 	priority := ctx.GetRebootPriority()
-	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
+	c.Assert(priority, tc.Equals, jujuc.RebootAfterHook)
 }
 
-func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
+func (s *InterfaceSuite) TestRequestRebootNow(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 
-	var stub testing.Stub
+	var stub testhelpers.Stub
 	var p *mockProcess
 	p = &mockProcess{func() error {
 		// Reboot priority should be set before the process
@@ -446,21 +448,21 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 		// process to exit will race with the setting of
 		// the priority.
 		priority := ctx.GetRebootPriority()
-		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		c.Assert(priority, tc.Equals, jujuc.RebootNow)
 		return stub.NextErr()
 	}}
 	stub.SetErrors(errors.New("process is already dead"))
 	ctx.SetProcess(p)
 
 	err := ctx.RequestReboot(jujuc.RebootNow)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Everything went well, so priority should still be RebootNow.
 	priority := ctx.GetRebootPriority()
-	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+	c.Assert(priority, tc.Equals, jujuc.RebootNow)
 }
 
-func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
+func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *tc.C) {
 	ctx := s.GetContext(c, -1, "", names.StorageTag{}).(*context.HookContext)
 
 	var advanced bool
@@ -471,7 +473,7 @@ func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
 		// process to exit will race with the setting of
 		// the priority.
 		priority := ctx.GetRebootPriority()
-		c.Assert(priority, gc.Equals, jujuc.RebootNow)
+		c.Assert(priority, tc.Equals, jujuc.RebootNow)
 		if !advanced {
 			advanced = true
 			s.clock.Advance(time.Hour) // force timeout
@@ -481,14 +483,14 @@ func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
 	ctx.SetProcess(p)
 
 	err := ctx.RequestReboot(jujuc.RebootNow)
-	c.Assert(err, gc.ErrorMatches, "failed to kill context process 123")
+	c.Assert(err, tc.ErrorMatches, "failed to kill context process 123")
 
 	// RequestReboot failed, so priority should revert to RebootSkip.
 	priority := ctx.GetRebootPriority()
-	c.Assert(priority, gc.Equals, jujuc.RebootSkip)
+	c.Assert(priority, tc.Equals, jujuc.RebootSkip)
 }
 
-func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
+func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *tc.C) {
 	// A normal hook run or a juju-exec command will record the *os.Process
 	// object of the running command, in HookContext. When requesting a
 	// reboot with the --now flag, the process is killed and only
@@ -496,12 +498,12 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	// the case when the process calling juju-reboot is not recorded.
 	ctx := &context.HookContext{}
 	err := ctx.RequestReboot(jujuc.RebootNow)
-	c.Assert(err, gc.ErrorMatches, "no process to kill")
+	c.Assert(err, tc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
-	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+	c.Assert(priority, tc.Equals, jujuc.RebootNow)
 }
 
-func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
+func (s *InterfaceSuite) TestStorageAddConstraints(c *tc.C) {
 	expected := map[string][]params.StorageConstraints{
 		"data": {
 			params.StorageConstraints{},
@@ -515,7 +517,7 @@ func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 
 var two = uint64(2)
 
-func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
+func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *tc.C) {
 	expected := map[string][]params.StorageConstraints{
 		"data": {
 			params.StorageConstraints{},
@@ -529,7 +531,7 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 	assertStorageAddInContext(c, ctx, expected)
 }
 
-func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
+func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *tc.C) {
 	expected := map[string][]params.StorageConstraints{
 		"data": {params.StorageConstraints{}},
 		"diff": {
@@ -550,17 +552,17 @@ func addStorageToContext(ctx *context.HookContext,
 	_ = ctx.AddUnitStorage(addOne)
 }
 
-func assertStorageAddInContext(c *gc.C,
+func assertStorageAddInContext(c *tc.C,
 	ctx *context.HookContext, expected map[string][]params.StorageConstraints,
 ) {
 	obtained := context.StorageAddConstraints(ctx)
-	c.Assert(len(obtained), gc.Equals, len(expected))
+	c.Assert(len(obtained), tc.Equals, len(expected))
 	for k, v := range obtained {
-		c.Assert(v, jc.SameContents, expected[k])
+		c.Assert(v, tc.SameContents, expected[k])
 	}
 }
 
-func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
+func (s *InterfaceSuite) TestSecretMetadata(c *tc.C) {
 	uri, _ := coresecrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	uri2 := coresecrets.NewURI()
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
@@ -584,8 +586,8 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	}
 	ctx := s.GetContext(c, -1, "", names.StorageTag{})
 	md, err := ctx.SecretMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(md, tc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			Label:        "label",
 			Owner:        names.NewApplicationTag("mariadb"),
@@ -611,11 +613,11 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Value:       coresecrets.NewSecretValue(map[string]string{"foo": "bar"}),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctx.UpdateSecret(uri, &jujuc.SecretUpdateArgs{
 		Description: ptr("another"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		UnitName:    ptr("gitlab/1"),
 		RelationKey: ptr("mariadb:db gitlab:db"),
@@ -623,10 +625,10 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 	})
 
 	err = ctx.RemoveSecret(uri2, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	md, err = ctx.SecretMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md, jc.DeepEquals, map[string]jujuc.SecretMetadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(md, tc.DeepEquals, map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			Label:        "label",
 			Owner:        names.NewApplicationTag("mariadb"),
@@ -657,103 +659,105 @@ func (p *mockProcess) Pid() int {
 	return 123
 }
 
-var _ = gc.Suite(&mockHookContextSuite{})
+func TestMockHookContextSuite(t *tctesting.T) {
+	tc.Run(t, &mockHookContextSuite{})
+}
 
 type mockHookContextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	mockUnit       *mocks.MockHookUnit
 	mockLeadership *mocks.MockLeadershipContext
 	mockCache      params.UnitStateResult
 }
 
-func (s *mockHookContextSuite) TestDeleteCharmStateValue(c *gc.C) {
+func (s *mockHookContextSuite) TestDeleteCharmStateValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	err := hookContext.DeleteCharmStateValue("one")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtainedCache, err := hookContext.GetCharmState()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedCache, tc.DeepEquals, s.mockCache.CharmState)
 }
 
-func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
+func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	err := hookContext.DeleteCharmStateValue("five")
-	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestGetCharmState(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	obtainedCache, err := hookContext.GetCharmState()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.CharmState)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedCache, tc.DeepEquals, s.mockCache.CharmState)
 }
 
-func (s *mockHookContextSuite) TestGetCharmStateStateErr(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmStateStateErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	_, err := hookContext.GetCharmState()
-	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestGetCharmStateValue(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmStateValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	obtainedVale, err := hookContext.GetCharmStateValue("one")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedVale, gc.Equals, "two")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedVale, tc.Equals, "two")
 }
 
-func (s *mockHookContextSuite) TestGetCharmStateValueEmpty(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmStateValueEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	obtainedVale, err := hookContext.GetCharmStateValue("seven")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedVale, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedVale, tc.Equals, "")
 }
 
-func (s *mockHookContextSuite) TestGetCharmStateValueNotFound(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmStateValueNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	obtainedCache, err := hookContext.GetCharmStateValue("five")
-	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
-	c.Assert(obtainedCache, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "\"five\" not found")
+	c.Assert(obtainedCache, tc.Equals, "")
 }
 
-func (s *mockHookContextSuite) TestGetCharmStateValueStateErr(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCharmStateValueStateErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	_, err := hookContext.GetCharmStateValue("key")
-	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestSetCacheQuotaLimits(c *gc.C) {
+func (s *mockHookContextSuite) TestSetCacheQuotaLimits(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	s.testSetCache(c)
 }
 
-func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
+func (s *mockHookContextSuite) TestSetCache(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
@@ -764,63 +768,63 @@ func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
 		strings.Repeat("a", quota.MaxCharmStateKeySize+1),
 		"lol",
 	)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
-	c.Assert(err, gc.ErrorMatches, ".*max allowed key.*")
+	c.Assert(err, tc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorMatches, ".*max allowed key.*")
 
 	// Test value len limit
 	err = hookContext.SetCharmStateValue(
 		"lol",
 		strings.Repeat("a", quota.MaxCharmStateValueSize+1),
 	)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
-	c.Assert(err, gc.ErrorMatches, ".*max allowed value.*")
+	c.Assert(err, tc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorMatches, ".*max allowed value.*")
 }
 
-func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {
+func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, nil)
 
 	s.testSetCache(c)
 }
 
-func (s *mockHookContextSuite) testSetCache(c *gc.C) {
+func (s *mockHookContextSuite) testSetCache(c *tc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	err := hookContext.SetCharmStateValue("five", "six")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	obtainedCache, err := hookContext.GetCharmState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value, ok := obtainedCache["five"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(value, gc.Equals, "six")
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(value, tc.Equals, "six")
 }
 
-func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
+func (s *mockHookContextSuite) TestSetCacheStateErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	err := hookContext.SetCharmStateValue("five", "six")
-	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+	c.Assert(err, tc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
+func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	s.expectStateValues()
 
 	// The following commands are no-ops as they don't mutate the cache.
 	err := hookContext.SetCharmStateValue("one", "two") // no-op: KV already present
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.DeleteCharmStateValue("not-there") // no-op: key not present
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush the context with a success. As the cache is not dirty we do
 	// not expect a SetState call.
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
+func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 
@@ -846,16 +850,16 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 	// Mutate cache and flush; this should call out to SetState and reset
 	// the dirty flag
 	err := hookContext.SetCharmStateValue("lorem", "ipsum")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Flush again; as the cache is not dirty, the SetState call is skipped.
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
+func (s *mockHookContextSuite) TestOpenPortRange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
@@ -878,12 +882,12 @@ func (s *mockHookContextSuite) TestOpenPortRange(c *gc.C) {
 	}).Return(nil)
 
 	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
+func (s *mockHookContextSuite) TestOpenedPortRanges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
@@ -906,7 +910,7 @@ func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
 
 	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// OpenedPortRanges() should return the pending requests, see
 	// https://bugs.launchpad.net/juju/+bug/2008035
@@ -925,17 +929,17 @@ func (s *mockHookContextSuite) TestOpenedPortRanges(c *gc.C) {
 			Protocol: "tcp",
 		},
 	}
-	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+	c.Assert(openedPorts.UniquePortRanges(), tc.DeepEquals, expectedOpenPorts)
 
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// After Flush() opened ports should remain the same.
 	openedPorts = hookContext.OpenedPortRanges()
-	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
+	c.Assert(openedPorts.UniquePortRanges(), tc.DeepEquals, expectedOpenPorts)
 }
 
-func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
+func (s *mockHookContextSuite) TestClosePortRange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.CAAS, s.mockLeadership)
@@ -958,12 +962,12 @@ func (s *mockHookContextSuite) TestClosePortRange(c *gc.C) {
 	}).Return(nil)
 
 	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.Flush("success", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *mockHookContextSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = mocks.NewMockHookUnit(ctrl)
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
@@ -982,7 +986,7 @@ func (s *mockHookContextSuite) expectStateValues() {
 	s.mockUnit.EXPECT().State().Return(s.mockCache, nil)
 }
 
-func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
+func (s *mockHookContextSuite) TestActionAbort(c *tc.C) {
 	tests := []struct {
 		Status string
 		Failed bool
@@ -996,17 +1000,17 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 	for _, test := range tests {
 		mocks := s.setupMocks(c)
 		apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Assert(objType, gc.Equals, "Uniter")
-			c.Assert(version, gc.Equals, 0)
-			c.Assert(id, gc.Equals, "")
-			c.Assert(request, gc.Equals, "FinishActions")
-			c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+			c.Assert(objType, tc.Equals, "Uniter")
+			c.Assert(version, tc.Equals, 0)
+			c.Assert(id, tc.Equals, "")
+			c.Assert(request, tc.Equals, "FinishActions")
+			c.Assert(arg, tc.DeepEquals, params.ActionExecutionResults{
 				Results: []params.ActionExecutionResult{{
 					ActionTag: "action-2",
 					Status:    test.Status,
 					Message:   "failed yo",
 				}}})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
@@ -1021,27 +1025,27 @@ func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
 		context.WithActionContext(hookContext, nil, cancel)
 		if test.Failed {
 			err := hookContext.SetActionFailed()
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		actionData, err := hookContext.ActionData()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(actionData.Failed, gc.Equals, test.Failed)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(actionData.Failed, tc.Equals, test.Failed)
 		err = hookContext.Flush("", errors.Errorf("failed yo"))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		mocks.Finish()
 	}
 }
 
-func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
+func (s *mockHookContextSuite) TestActionFlushError(c *tc.C) {
 	mocks := s.setupMocks(c)
 	defer mocks.Finish()
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "FinishActions")
-		c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FinishActions")
+		c.Assert(arg, tc.DeepEquals, params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
 				ActionTag: "action-2",
 				Status:    "failed",
@@ -1051,7 +1055,7 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 					"return-code": "1",
 				},
 			}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -1075,27 +1079,27 @@ func (s *mockHookContextSuite) TestActionFlushError(c *gc.C) {
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
 	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cancel := make(chan struct{})
 	context.WithActionContext(hookContext, nil, cancel)
 	err = hookContext.Flush("", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
+func (s *mockHookContextSuite) TestMissingAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "FinishActions")
-		c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+		c.Assert(objType, tc.Equals, "Uniter")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "FinishActions")
+		c.Assert(arg, tc.DeepEquals, params.ActionExecutionResults{
 			Results: []params.ActionExecutionResult{{
 				ActionTag: "action-2",
 				Status:    "failed",
 				Message:   `action not implemented on unit "wordpress/0"`,
 			}}})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
@@ -1106,10 +1110,10 @@ func (s *mockHookContextSuite) TestMissingAction(c *gc.C) {
 
 	context.WithActionContext(hookContext, nil, nil)
 	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
+func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *tc.C,
 	refresh, peek bool,
 	setPendingSecretChanges func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string),
 ) {
@@ -1127,11 +1131,11 @@ func (s *mockHookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, mockBackendClient{})
 
 	value, err := hookContext.GetSecret(nil, label, refresh, peek)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, data)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, data)
 }
 
-func (s *mockHookContextSuite) TestSecretGetFromPendingChangesExisting(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetFromPendingChangesExisting(c *tc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, false,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
@@ -1145,7 +1149,7 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingChangesExisting(c *gc.C) 
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *tc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
@@ -1159,7 +1163,7 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 	)
 }
 
-func (s *mockHookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C) {
+func (s *mockHookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *tc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{OwnerTag: names.NewApplicationTag(s.mockUnit.ApplicationName())}
@@ -1173,7 +1177,7 @@ func (s *mockHookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C)
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetFromPendingUpdateChanges(c *tc.C) {
 	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretUpdateArg{}
@@ -1206,22 +1210,22 @@ func (mockBackendClient) GetContent(uri *coresecrets.URI, label string, refresh,
 	return coresecrets.NewSecretValue(map[string]string{"foo": "existing"}), nil
 }
 
-func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGet(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.PatchValue(&secrets.GetBackend, func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
-		c.Assert(cfg.BackendConfig.BackendType, gc.Equals, "vault")
+		c.Assert(cfg.BackendConfig.BackendType, tc.Equals, "vault")
 		return mockBackend{}, nil
 	})
 
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "SecretsManager")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretContentInfo")
-		c.Assert(arg, jc.DeepEquals, params.GetSecretContentArgs{
+		c.Assert(objType, tc.Equals, "SecretsManager")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetSecretContentInfo")
+		c.Assert(arg, tc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
 				Label:   "label",
@@ -1229,7 +1233,7 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 				Peek:    true,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{
@@ -1254,35 +1258,35 @@ func (s *mockHookContextSuite) TestSecretGet(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
 	value, err := hookContext.GetSecret(uri, "label", true, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
 
 func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
-	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.BackendsClient),
+	c *tc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, context.SecretsAccessor, secrets.BackendsClient),
 ) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "SecretsManager")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "GetSecretContentInfo")
-		c.Assert(arg, gc.DeepEquals, params.GetSecretContentArgs{
+		c.Assert(objType, tc.Equals, "SecretsManager")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "GetSecretContentInfo")
+		c.Assert(arg, tc.DeepEquals, params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
 				URI:     uri.String(),
 				Refresh: false,
 				Peek:    false,
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
 			[]params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
@@ -1294,19 +1298,19 @@ func (s *mockHookContextSuite) assertSecretGetOwnedSecretURILookup(
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	secretsBackend, err := secrets.NewClient(jujuSecretsAPI)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
 	value, err := hookContext.GetSecret(nil, "label", false, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache(c *tc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			context.SetEnvironmentHookContextSecret(
@@ -1319,7 +1323,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromAppliedCache
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c *tc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
@@ -1333,7 +1337,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreat
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1350,13 +1354,13 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCre
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
 	value, err := hookContext.GetSecret(nil, label, false, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1373,17 +1377,17 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
 	value, err := hookContext.GetSecret(uri, "foobar", false, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 	arg.Label = ptr("foobar")
-	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, map[string]uniter.SecretCreateArg{
+	c.Assert(hookContext.PendingSecretCreates(), tc.DeepEquals, map[string]uniter.SecretCreateArg{
 		uri.ID: arg,
 	})
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *tc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client context.SecretsAccessor, backend secrets.BackendsClient) {
 			arg := uniter.SecretUpdateArg{}
@@ -1397,7 +1401,7 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdat
 	)
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesPeek(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesPeek(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1414,14 +1418,14 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpd
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
 	value, err := hookContext.GetSecret(nil, label, false, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
-	c.Assert(hookContext.PendingSecretTrackLatest(), gc.HasLen, 0)
+	c.Assert(hookContext.PendingSecretTrackLatest(), tc.HasLen, 0)
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesRefresh(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesRefresh(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1438,14 +1442,14 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpd
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
 	value, err := hookContext.GetSecret(nil, label, true, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
-	c.Assert(hookContext.PendingSecretTrackLatest(), jc.DeepEquals, map[string]bool{uri.ID: true})
+	c.Assert(hookContext.PendingSecretTrackLatest(), tc.DeepEquals, map[string]bool{uri.ID: true})
 }
 
-func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1462,12 +1466,12 @@ func (s *mockHookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *gc.
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
 	value, err := hookContext.GetSecret(uri, "foobar", false, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), tc.DeepEquals, map[string]string{
 		"foo": "bar",
 	})
 	arg.Label = ptr("foobar")
-	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
+	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
 		uri.ID: arg,
 	})
 }
@@ -1476,29 +1480,29 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *mockHookContextSuite) TestSecretCreateApplicationOwner(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretCreateApplicationOwner(c *tc.C) {
 	s.assertSecretCreate(c, names.NewApplicationTag("mariadb"))
 }
 
-func (s *mockHookContextSuite) TestSecretCreateUnitOwner(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretCreateUnitOwner(c *tc.C) {
 	s.assertSecretCreate(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
+func (s *mockHookContextSuite) assertSecretCreate(c *tc.C, owner names.Tag) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
 	value := coresecrets.NewSecretValue(data)
 	expiry := time.Now()
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "SecretsManager")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "CreateSecretURIs")
-		c.Check(arg, gc.DeepEquals, params.CreateSecretURIsArg{
+		c.Assert(objType, tc.Equals, "SecretsManager")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "CreateSecretURIs")
+		c.Check(arg, tc.DeepEquals, params.CreateSecretURIsArg{
 			Count: 1,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
 				Result: "secret:9m4e2mr0ui3e8a215n4g",
@@ -1524,9 +1528,9 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 		},
 		OwnerTag: owner,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uri.String(), gc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
-	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, map[string]uniter.SecretCreateArg{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uri.String(), tc.Equals, "secret:9m4e2mr0ui3e8a215n4g")
+	c.Assert(hookContext.PendingSecretCreates(), tc.DeepEquals, map[string]uniter.SecretCreateArg{
 		uri.ID: {
 			SecretUpsertArg: uniter.SecretUpsertArg{
 				URI:          uri,
@@ -1541,20 +1545,20 @@ func (s *mockHookContextSuite) assertSecretCreate(c *gc.C, owner names.Tag) {
 		}})
 }
 
-func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
 	value := coresecrets.NewSecretValue(data)
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "SecretsManager")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "CreateSecretURIs")
-		c.Check(arg, gc.DeepEquals, params.CreateSecretURIsArg{
+		c.Assert(objType, tc.Equals, "SecretsManager")
+		c.Assert(version, tc.Equals, 0)
+		c.Assert(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "CreateSecretURIs")
+		c.Check(arg, tc.DeepEquals, params.CreateSecretURIsArg{
 			Count: 1,
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
 			[]params.StringResult{{
 				Result: "secret:9m4e2mr0ui3e8a215n4g",
@@ -1575,7 +1579,7 @@ func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 		},
 		OwnerTag: names.NewApplicationTag("myapp"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = hookContext.CreateSecret(&jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
@@ -1583,10 +1587,10 @@ func (s *mockHookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 		},
 		OwnerTag: names.NewApplicationTag("myapp"),
 	})
-	c.Assert(err, gc.ErrorMatches, `secret with label "foo" already exists`)
+	c.Assert(err, tc.ErrorMatches, `secret with label "foo" already exists`)
 }
 
-func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretUpdate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1609,7 +1613,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		Description:  ptr("my secret"),             // will be overwritten by the new value.
 		Label:        ptr("label1"),                // will be overwritten by the new value.
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// update again, merge with existing.
 	newData := map[string]string{"bar": "baz"}
@@ -1621,8 +1625,8 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		Description: ptr("my new secret"), // will be the new value.
 		Label:       ptr("label2"),        // will be the new value.
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
 		uri.ID: {
 			CurrentRevision: 666,
 			SecretUpsertArg: uniter.SecretUpsertArg{
@@ -1637,7 +1641,7 @@ func (s *mockHookContextSuite) TestSecretUpdate(c *gc.C) {
 		}})
 }
 
-func (s *mockHookContextSuite) TestSecretUpdateSameContent(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretUpdateSameContent(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1661,8 +1665,8 @@ func (s *mockHookContextSuite) TestSecretUpdateSameContent(c *gc.C) {
 		Description:  ptr("my secret"),
 		Label:        ptr("foo"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretUpdates(), tc.DeepEquals, map[string]uniter.SecretUpdateArg{
 		uri.ID: {
 			CurrentRevision: 666,
 			SecretUpsertArg: uniter.SecretUpsertArg{
@@ -1675,7 +1679,7 @@ func (s *mockHookContextSuite) TestSecretUpdateSameContent(c *gc.C) {
 		}})
 }
 
-func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
@@ -1688,15 +1692,15 @@ func (s *mockHookContextSuite) TestSecretRemove(c *gc.C) {
 		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
 	}, nil, nil)
 	err := hookContext.RemoveSecret(uri, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.RemoveSecret(uri2, ptr(666))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRemoves(), jc.DeepEquals, map[string]uniter.SecretDeleteArg{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRemoves(), tc.DeepEquals, map[string]uniter.SecretDeleteArg{
 		uri.ID:  {URI: uri},
 		uri2.ID: {URI: uri2, Revision: ptr(666)}})
 }
 
-func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrant(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1715,13 +1719,13 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.GrantSecret(uri2, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{
 		uri.ID: {
 			relationKey: {
 				URI:             uri,
@@ -1740,7 +1744,7 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		}})
 }
 
-func (s *mockHookContextSuite) TestSecretGrantSecretNotFound(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantSecretNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
@@ -1752,10 +1756,10 @@ func (s *mockHookContextSuite) TestSecretGrantSecretNotFound(c *gc.C) {
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotFound), tc.IsTrue)
 }
 
-func (s *mockHookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantNotLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1771,10 +1775,10 @@ func (s *mockHookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(errors.Is(err, context.ErrIsNotLeader), jc.IsTrue)
+	c.Assert(errors.Is(err, context.ErrIsNotLeader), tc.IsTrue)
 }
 
-func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1794,7 +1798,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C
 		},
 	}, nil, nil)
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
 	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
@@ -1802,11 +1806,11 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 }
 
-func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1826,7 +1830,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.
 		},
 	}, nil, nil)
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
 	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
@@ -1834,11 +1838,11 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 }
 
-func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlready(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlready(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1858,7 +1862,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrante
 		},
 	}, nil, nil)
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	unit := "gitlab/0"
 	relationKey := "mariadb:db gitlab:db"
 	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
@@ -1866,11 +1870,11 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrante
 		RelationKey: &relationKey,
 		Role:        ptr(coresecrets.RoleView),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 }
 
-func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1890,7 +1894,7 @@ func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired
 		},
 	}, nil, nil)
 	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	c.Assert(hookContext.PendingSecretGrants(), tc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
 	app := "gitlab"
 	relationKey := "mariadb:db gitlab:db"
 	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
@@ -1898,10 +1902,10 @@ func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
 	})
-	c.Assert(err, gc.ErrorMatches, `any unit level grants need to be revoked before granting access to the corresponding application`)
+	c.Assert(err, tc.ErrorMatches, `any unit level grants need to be revoked before granting access to the corresponding application`)
 }
 
-func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
+func (s *mockHookContextSuite) TestSecretRevoke(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -1919,13 +1923,13 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = hookContext.RevokeSecret(uri2, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), tc.DeepEquals,
 		map[string][]uniter.SecretGrantRevokeArgs{
 			uri.ID: {
 				{
@@ -1949,8 +1953,8 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		ApplicationName: &app,
 		RelationKey:     &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), tc.DeepEquals,
 		map[string][]uniter.SecretGrantRevokeArgs{
 			uri.ID: {
 				{
@@ -1974,8 +1978,8 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		UnitName:    &unit0,
 		RelationKey: &relationKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), tc.DeepEquals,
 		map[string][]uniter.SecretGrantRevokeArgs{
 			uri.ID: {
 				{
@@ -1996,7 +2000,7 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 
 }
 
-func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
+func (s *mockHookContextSuite) TestHookStorage(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2008,12 +2012,12 @@ func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {
 	ctx := context.NewMockUnitHookContextWithStateAndStorage("wordpress/0", s.mockUnit, st, names.NewStorageTag("data/0"))
 
 	storage, err := ctx.HookStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storage, tc.NotNil)
+	c.Assert(storage.Tag().Id(), tc.Equals, "data/0")
 }
 
-func (s *mockHookContextSuite) TestHookCloudSpecMachine(c *gc.C) {
+func (s *mockHookContextSuite) TestHookCloudSpecMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2028,12 +2032,12 @@ func (s *mockHookContextSuite) TestHookCloudSpecMachine(c *gc.C) {
 	ctx := context.NewMockUnitHookContextWithStateAndModelType(s.mockUnit, st, model.IAAS)
 
 	spec, err := ctx.CloudSpec()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec.Type, gc.Equals, "lxd")
-	c.Assert(spec.Credential.AuthType, gc.Equals, "authtype")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec.Type, tc.Equals, "lxd")
+	c.Assert(spec.Credential.AuthType, tc.Equals, "authtype")
 }
 
-func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
+func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -2051,7 +2055,7 @@ func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
 	tempDir := c.MkDir()
 	caFile := path.Join(tempDir, "ca.crt")
 	err := os.WriteFile(caFile, []byte("start\ncadata\nend\n"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := context.NewMockUnitHookContextWithStateAndModelType(s.mockUnit, st, model.CAAS)
 	ctx.SetInClusterConfig(func() (*rest.Config, error) {
@@ -2065,8 +2069,8 @@ func (s *mockHookContextSuite) TestHookCloudSpecK8s(c *gc.C) {
 	})
 
 	spec, err := ctx.CloudSpec()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.DeepEquals, &params.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, &params.CloudSpec{
 		Type:     "kubernetes",
 		Name:     "myk8s",
 		Region:   "myregion",

@@ -4,19 +4,12 @@
 package caasfirewallersidecar
 
 import (
-	"testing"
-
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasfirewallersidecar CAASBroker,PortMutator,ServiceUpdater
-
-func TestAll(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type (
 	ApplicationWorkerCreator = applicationWorkerCreator

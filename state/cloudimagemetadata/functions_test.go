@@ -5,68 +5,70 @@ package cloudimagemetadata_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
 type funcMetadataSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&funcMetadataSuite{})
+func TestFuncMetadataSuite(t *tctesting.T) {
+	tc.Run(t, &funcMetadataSuite{})
+}
 
-func (s *funcMetadataSuite) TestSearchEmptyCriteria(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchEmptyCriteria(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c, cloudimagemetadata.MetadataFilter{}, nil)
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithStream(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithStream(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{Stream: "stream-value"},
 		bson.D{{"stream", "stream-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithRegion(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithRegion(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{Region: "region-value"},
 		bson.D{{"region", "region-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithVersion(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithVersion(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{Versions: []string{"version-value"}},
 		bson.D{{"version", bson.D{{"$in", []string{"version-value"}}}}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithArch(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithArch(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{Arches: []string{"arch-value"}},
 		bson.D{{"arch", bson.D{{"$in", []string{"arch-value"}}}}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithVirtType(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithVirtType(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{VirtType: "vtype-value"},
 		bson.D{{"virt_type", "vtype-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{RootStorageType: "rootstorage-value"},
 		bson.D{{"root_storage_type", "rootstorage-value"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithImageID(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithImageID(c *tc.C) {
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{ImageID: "image-id"},
 		bson.D{{"image_id", "image-id"}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaAll(c *tc.C) {
 	// There should not be any size mentioned in criteria.
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataFilter{
@@ -88,10 +90,10 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 		})
 }
 
-func (s *funcMetadataSuite) assertSearchCriteriaBuilt(c *gc.C,
+func (s *funcMetadataSuite) assertSearchCriteriaBuilt(c *tc.C,
 	criteria cloudimagemetadata.MetadataFilter,
 	expected bson.D,
 ) {
 	clause := cloudimagemetadata.BuildSearchClauses(criteria)
-	c.Assert(fmt.Sprintf("%s", clause), jc.DeepEquals, fmt.Sprintf("%s", expected))
+	c.Assert(fmt.Sprintf("%s", clause), tc.DeepEquals, fmt.Sprintf("%s", expected))
 }

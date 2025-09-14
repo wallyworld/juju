@@ -4,37 +4,40 @@
 package sshtunneler
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type sshTunnelerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&sshTunnelerSuite{})
+func TestSshTunnelerSuite(t *tctesting.T) {
+	tc.Run(t, &sshTunnelerSuite{})
+}
 
 func newClient(f basetesting.APICallerFunc) *Client {
 	return NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }
 
-func (s *sshTunnelerSuite) TestControllerAddresses(c *gc.C) {
+func (s *sshTunnelerSuite) TestControllerAddresses(c *tc.C) {
 	entity := names.NewMachineTag("1")
 
 	client := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "SSHTunneler")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ControllerAddresses")
-			c.Assert(arg, gc.DeepEquals, params.Entity{Tag: entity.String()})
-			c.Assert(result, gc.FitsTypeOf, &params.StringsResult{})
+			c.Check(objType, tc.Equals, "SSHTunneler")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "ControllerAddresses")
+			c.Assert(arg, tc.DeepEquals, params.Entity{Tag: entity.String()})
+			c.Assert(result, tc.FitsTypeOf, &params.StringsResult{})
 
 			*(result.(*params.StringsResult)) = params.StringsResult{
 				Result: []string{"1.2.3.4"},
@@ -44,24 +47,24 @@ func (s *sshTunnelerSuite) TestControllerAddresses(c *gc.C) {
 	)
 
 	addresses, err := client.ControllerAddresses(entity)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
 		addresses,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		network.SpaceAddresses{network.NewSpaceAddress("1.2.3.4")},
 	)
 }
 
-func (s *sshTunnelerSuite) TestControllerAddressesError(c *gc.C) {
+func (s *sshTunnelerSuite) TestControllerAddressesError(c *tc.C) {
 	entity := names.NewMachineTag("1")
 
 	client := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "SSHTunneler")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ControllerAddresses")
-			c.Assert(arg, gc.DeepEquals, params.Entity{Tag: entity.String()})
-			c.Assert(result, gc.FitsTypeOf, &params.StringsResult{})
+			c.Check(objType, tc.Equals, "SSHTunneler")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "ControllerAddresses")
+			c.Assert(arg, tc.DeepEquals, params.Entity{Tag: entity.String()})
+			c.Assert(result, tc.FitsTypeOf, &params.StringsResult{})
 
 			*(result.(*params.StringsResult)) = params.StringsResult{
 				Error: &params.Error{Message: "my-error"},
@@ -71,20 +74,20 @@ func (s *sshTunnelerSuite) TestControllerAddressesError(c *gc.C) {
 	)
 
 	_, err := client.ControllerAddresses(entity)
-	c.Assert(err, gc.ErrorMatches, "my-error")
+	c.Assert(err, tc.ErrorMatches, "my-error")
 }
 
-func (s *sshTunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
+func (s *sshTunnelerSuite) TestInsertSSHConnRequest(c *tc.C) {
 	client := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "SSHTunneler")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "InsertSSHConnRequest")
-			c.Assert(arg, gc.DeepEquals, params.SSHConnRequestArg{
+			c.Check(objType, tc.Equals, "SSHTunneler")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "InsertSSHConnRequest")
+			c.Assert(arg, tc.DeepEquals, params.SSHConnRequestArg{
 				Username: "ubuntu",
 				Password: "foo",
 			})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+			c.Assert(result, tc.FitsTypeOf, &params.ErrorResult{})
 
 			*(result.(*params.ErrorResult)) = params.ErrorResult{
 				Error: nil,
@@ -98,20 +101,20 @@ func (s *sshTunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
 		Password: "foo",
 	}
 	err := client.InsertSSHConnRequest(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *sshTunnelerSuite) TestMachineHostKeys(c *gc.C) {
+func (s *sshTunnelerSuite) TestMachineHostKeys(c *tc.C) {
 	client := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
-			c.Check(objType, gc.Equals, "SSHTunneler")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "MachineHostKeys")
-			c.Assert(arg, gc.DeepEquals, params.SSHMachineHostKeysArg{
+			c.Check(objType, tc.Equals, "SSHTunneler")
+			c.Check(id, tc.Equals, "")
+			c.Check(request, tc.Equals, "MachineHostKeys")
+			c.Assert(arg, tc.DeepEquals, params.SSHMachineHostKeysArg{
 				ModelUUID:  "my-model",
 				MachineTag: "machine-1",
 			})
-			c.Assert(result, gc.FitsTypeOf, &params.SSHPublicKeysResult{})
+			c.Assert(result, tc.FitsTypeOf, &params.SSHPublicKeysResult{})
 
 			*(result.(*params.SSHPublicKeysResult)) = params.SSHPublicKeysResult{
 				Error:      nil,
@@ -122,6 +125,6 @@ func (s *sshTunnelerSuite) TestMachineHostKeys(c *gc.C) {
 	)
 
 	result, err := client.MachineHostKeys("my-model", names.NewMachineTag("1"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []string{"key-1", "key-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []string{"key-1", "key-2"})
 }

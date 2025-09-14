@@ -7,13 +7,13 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type stubUnitDataStore struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	ReturnOpenResource  resources.Opened
 	ReturnGetResource   resources.Resource

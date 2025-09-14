@@ -8,15 +8,18 @@ package ssh
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-var _ = gc.Suite(&SCPSuiteLegacy{})
+func TestSCPSuiteLegacy(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &SCPSuiteLegacy{})
+}
 
 type SCPSuiteLegacy struct {
 	SSHMachineSuite
@@ -188,7 +191,7 @@ var scpTests = []struct {
 	},
 }
 
-func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
+func (s *SCPSuiteLegacy) TestSCPCommand(c *tc.C) {
 	s.setupModel(c)
 
 	for i, t := range scpTests {
@@ -198,16 +201,16 @@ func (s *SCPSuiteLegacy) TestSCPCommand(c *gc.C) {
 
 		ctx, err := cmdtesting.RunCommand(c, NewSCPCommand(s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy), t.args...)
 		if t.error != "" {
-			c.Assert(err, gc.ErrorMatches, t.error, gc.Commentf("test %d", i))
+			c.Assert(err, tc.ErrorMatches, t.error, tc.Commentf("test %d", i))
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			// we suppress stdout from scp, so get the scp args used
 			// from the "scp.args" file that the fake scp executable
 			// installed by SSHMachineSuite generates.
-			c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "", gc.Commentf("test %d", i))
-			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "", gc.Commentf("test %d", i))
+			c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "", tc.Commentf("test %d", i))
+			c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "", tc.Commentf("test %d", i))
 			actual, err := os.ReadFile(filepath.Join(s.binDir, "scp.args"))
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("test %d", i))
 			t.expected.check(c, string(actual))
 		}
 	}

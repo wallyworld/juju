@@ -4,33 +4,35 @@
 package singular_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/singular"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config singular.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.config = singular.ManifoldConfig{
@@ -46,106 +48,106 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestValidate(c *gc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+func (s *ManifoldSuite) TestValidate(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestValidateMissingClock(c *gc.C) {
+func (s *ManifoldSuite) TestValidateMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err.Error(), gc.Equals, "nil Clock not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err.Error(), tc.Equals, "nil Clock not valid")
 }
 
-func (s *ManifoldSuite) TestValidateMissingAPICallerName(c *gc.C) {
+func (s *ManifoldSuite) TestValidateMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err.Error(), gc.Equals, "missing APICallerName not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err.Error(), tc.Equals, "missing APICallerName not valid")
 }
 
-func (s *ManifoldSuite) TestValidateMissingNewFacade(c *gc.C) {
+func (s *ManifoldSuite) TestValidateMissingNewFacade(c *tc.C) {
 	s.config.NewFacade = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err.Error(), gc.Equals, "nil NewFacade not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err.Error(), tc.Equals, "nil NewFacade not valid")
 }
 
-func (s *ManifoldSuite) TestValidateMissingNewWorker(c *gc.C) {
+func (s *ManifoldSuite) TestValidateMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err.Error(), gc.Equals, "nil NewWorker not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err.Error(), tc.Equals, "nil NewWorker not valid")
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		APICallerName: "kim",
 	})
 	expectInputs := []string{"kim"}
-	c.Check(manifold.Inputs, jc.DeepEquals, expectInputs)
+	c.Check(manifold.Inputs, tc.DeepEquals, expectInputs)
 }
 
-func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	var out engine.Flag
 	err := manifold.Output(&fakeWorker{}, &out)
-	c.Check(err, gc.ErrorMatches, `expected in to implement Flag; got a .*`)
-	c.Check(out, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, `expected in to implement Flag; got a .*`)
+	c.Check(out, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadResult(c *tc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
 	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out interface{}
 		err := manifold.Output(flag, &out)
-		c.Check(err, gc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
-		c.Check(out, gc.IsNil)
+		c.Check(err, tc.ErrorMatches, `expected out to be a \*Flag; got a .*`)
+		c.Check(out, tc.IsNil)
 	})
 }
 
-func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
 	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out engine.Flag
 		err := manifold.Output(flag, &out)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(out, gc.Equals, flag)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(out, tc.Equals, flag)
 	})
 }
 
-func (s *ManifoldSuite) TestStartMissingClock(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingClock(c *tc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
 	context := dt.StubContext(nil, map[string]interface{}{})
 
 	worker, err := manifold.Start(context)
-	c.Check(errors.Cause(err), gc.ErrorMatches, `nil Clock not valid`)
-	c.Check(worker, gc.IsNil)
+	c.Check(errors.Cause(err), tc.ErrorMatches, `nil Clock not valid`)
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
 	manifold := singular.Manifold(s.config)
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
+func (s *ManifoldSuite) TestStartNewFacadeError(c *tc.C) {
 	expectAPICaller := &fakeAPICaller{}
 	s.config.Claimant = names.NewMachineTag("123")
 	s.config.Entity = coretesting.ModelTag
 	s.config.NewFacade = func(apiCaller base.APICaller, claimant names.Tag, entity names.Tag) (singular.Facade, error) {
-		c.Check(apiCaller, gc.Equals, expectAPICaller)
-		c.Check(claimant.String(), gc.Equals, "machine-123")
-		c.Check(entity, gc.Equals, coretesting.ModelTag)
+		c.Check(apiCaller, tc.Equals, expectAPICaller)
+		c.Check(claimant.String(), tc.Equals, "machine-123")
+		c.Check(entity, tc.Equals, coretesting.ModelTag)
 		return nil, errors.New("grark plop")
 	}
 	manifold := singular.Manifold(s.config)
@@ -154,19 +156,19 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, gc.ErrorMatches, "grark plop")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "grark plop")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
+func (s *ManifoldSuite) TestStartNewWorkerError(c *tc.C) {
 	expectFacade := &fakeFacade{}
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return expectFacade, nil
 	}
 	s.config.NewWorker = func(config singular.FlagConfig) (worker.Worker, error) {
-		c.Check(config.Facade, gc.Equals, expectFacade)
+		c.Check(config.Facade, tc.Equals, expectFacade)
 		err := config.Validate()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		return nil, errors.New("blomp tik")
 	}
 	manifold := singular.Manifold(s.config)
@@ -175,12 +177,12 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, gc.ErrorMatches, "blomp tik")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "blomp tik")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	var stub testing.Stub
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
+	var stub testhelpers.Stub
 	expectWorker := newStubWorker(&stub)
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return &fakeFacade{}, nil
@@ -194,19 +196,19 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	var out engine.Flag
 	err = manifold.Output(worker, &out)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(out.Check(), jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out.Check(), tc.IsTrue)
 
-	c.Check(worker.Wait(), jc.ErrorIsNil)
+	c.Check(worker.Wait(), tc.ErrorIsNil)
 	stub.CheckCallNames(c, "Check", "Wait")
 }
 
-func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
-	var stub testing.Stub
+func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *tc.C) {
+	var stub testhelpers.Stub
 	stub.SetErrors(singular.ErrRefresh)
 	errWorker := newStubWorker(&stub)
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
@@ -222,6 +224,6 @@ func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker.Wait(), gc.Equals, dependency.ErrBounce)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker.Wait(), tc.Equals, dependency.ErrBounce)
 }

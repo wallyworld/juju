@@ -4,19 +4,24 @@
 package charm
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type formatSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&formatSuite{})
+func TestFormatSuite(t *tctesting.T) {
+	tc.Run(t, &formatSuite{})
+}
 
-func (s formatSuite) TestFormatV2(c *gc.C) {
+func (s formatSuite) TestFormatV2(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -31,20 +36,20 @@ func (s formatSuite) TestFormatV2(c *gc.C) {
 		},
 	})
 
-	c.Assert(Format(cm), gc.Equals, FormatV2)
+	c.Assert(Format(cm), tc.Equals, FormatV2)
 }
 
-func (s formatSuite) TestFormatV1EmptyManifest(c *gc.C) {
+func (s formatSuite) TestFormatV1EmptyManifest(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	cm := NewMockCharmMeta(ctrl)
 	cm.EXPECT().Manifest().Return(&charm.Manifest{})
 
-	c.Assert(Format(cm), gc.Equals, FormatV1)
+	c.Assert(Format(cm), tc.Equals, FormatV1)
 }
 
-func (s formatSuite) TestFormatV1Series(c *gc.C) {
+func (s formatSuite) TestFormatV1Series(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -56,5 +61,5 @@ func (s formatSuite) TestFormatV1Series(c *gc.C) {
 		Series: []string{"kubernetes"},
 	})
 
-	c.Assert(Format(cm), gc.Equals, FormatV1)
+	c.Assert(Format(cm), tc.Equals, FormatV1)
 }

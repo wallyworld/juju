@@ -3,17 +3,7 @@
 
 package caasunitsmanager
 
-import (
-	stdtesting "testing"
-
-	gc "gopkg.in/check.v1"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/hub_mock.go github.com/juju/juju/internal/worker/caasunitsmanager Hub
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type Manager interface {
 	StopUnitRequest(string, interface{})

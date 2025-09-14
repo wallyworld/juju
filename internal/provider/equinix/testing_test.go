@@ -4,18 +4,17 @@
 package equinix_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-func fakeConfig(c *gc.C, attrs ...testing.Attrs) *config.Config {
+func fakeConfig(c *tc.C, attrs ...testing.Attrs) *config.Config {
 	cfg, err := testing.ModelConfig(c).Apply(fakeConfigAttrs(attrs...))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 

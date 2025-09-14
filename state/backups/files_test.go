@@ -10,43 +10,45 @@ import (
 	"path/filepath"
 	"sort"
 	"syscall"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&filesSuite{})
+func TestFilesSuite(t *tctesting.T) {
+	tc.Run(t, &filesSuite{})
+}
 
 type filesSuite struct {
 	testing.BaseSuite
 	root string
 }
 
-func (s *filesSuite) SetUpTest(c *gc.C) {
+func (s *filesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	// Set the process' umask to 0 so tests that check permission bits don't
 	// fail due to the users umask being an unexpected value.
 	oldUmask := syscall.Umask(0)
-	s.AddCleanup(func(_ *gc.C) {
+	s.AddCleanup(func(_ *tc.C) {
 		syscall.Umask(oldUmask)
 	})
 
 	s.root = c.MkDir()
 }
 
-func (s *filesSuite) TearDownTest(c *gc.C) {
+func (s *filesSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
 // createFiles preps the fake FS. The files are all created relative to
 // the given root.
-func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID string, snapPaths bool) {
+func (s *filesSuite) createFiles(c *tc.C, paths backups.Paths, root, machineID string, snapPaths bool) {
 	mkdir := func(path string) string {
 		dirname := filepath.Join(root, path)
 		os.MkdirAll(dirname, 0777)
@@ -55,13 +57,13 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	touch := func(dirname, name string) {
 		path := filepath.Join(dirname, name)
 		file, err := os.Create(path)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		file.Close()
 	}
 	socket := func(dirname, name string) {
 		path := filepath.Join(dirname, name)
 		l, err := sockets.Listen(sockets.Socket{Network: "unix", Address: path})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		l.Close()
 	}
 
@@ -89,7 +91,7 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	touch(dirname, "juju-db.service")
 }
 
-func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
+func (s *filesSuite) checkSameStrings(c *tc.C, actual, expected []string) {
 	sActual := set.NewStrings(actual...)
 	sExpected := set.NewStrings(expected...)
 
@@ -118,7 +120,7 @@ func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
 	}
 }
 
-func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
+func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
@@ -127,7 +129,7 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 	s.createFiles(c, paths, s.root, "1", false)
 
 	files, err := backups.GetFilesToBackUp(s.root, &paths)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []string{
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
@@ -140,17 +142,17 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
-	c.Check(files, jc.SameContents, expected)
+	c.Check(files, tc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
 
 	// Check the introspection sockets are not Tar'd up.
 	_, err = os.Stat(filepath.Join(s.root, "/var/lib/juju/agents/machine-0/introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = os.Stat(filepath.Join(s.root, "/var/lib/juju/agents/machine-1/introspection.socket"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
+func (s *filesSuite) TestGetFilesToBackUpMissing(c *tc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
@@ -163,11 +165,11 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	}
 	for _, filename := range missing {
 		err := os.Remove(filepath.Join(s.root, filename))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	files, err := backups.GetFilesToBackUp(s.root, &paths)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []string{
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0/agent.conf"),
@@ -177,11 +179,11 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
-	c.Check(files, jc.SameContents, expected)
+	c.Check(files, tc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
 }
 
-func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
+func (s *filesSuite) TestGetFilesToBackUpSnap(c *tc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
@@ -189,7 +191,7 @@ func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
 	s.createFiles(c, paths, s.root, "0", true)
 
 	files, err := backups.GetFilesToBackUp(s.root, &paths)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := []string{
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
@@ -201,6 +203,6 @@ func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/tools/a-tool"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db/juju-db.service"),
 	}
-	c.Check(files, jc.SameContents, expected)
+	c.Check(files, tc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
 }

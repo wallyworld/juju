@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -19,7 +18,7 @@ type statusSetter interface {
 	SetStatus(status.StatusInfo) error
 }
 
-func primeStatusHistory(c *gc.C, clock clock.Clock, entity statusSetter,
+func primeStatusHistory(c *tc.C, clock clock.Clock, entity statusSetter,
 	statusVal status.Status, count int, nextData func(int) map[string]interface{}, delta time.Duration, info string) {
 	now := clock.Now().Add(-delta)
 	for i := 0; i < count; i++ {
@@ -33,56 +32,56 @@ func primeStatusHistory(c *gc.C, clock clock.Clock, entity statusSetter,
 			Since:   &t,
 		}
 		err := entity.SetStatus(s)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
-	c.Check(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Check(statusInfo.Message, gc.Equals, "waiting for machine")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Check(statusInfo.Since, gc.NotNil)
+func checkInitialWorkloadStatus(c *tc.C, statusInfo status.StatusInfo) {
+	c.Check(statusInfo.Status, tc.Equals, status.Waiting)
+	c.Check(statusInfo.Message, tc.Equals, "waiting for machine")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func primeUnitStatusHistory(c *gc.C, clock clock.Clock, unit *state.Unit, count int, delta time.Duration) {
+func primeUnitStatusHistory(c *tc.C, clock clock.Clock, unit *state.Unit, count int, delta time.Duration) {
 	primeStatusHistory(c, clock, unit, status.Active, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$foo": i, "$delta": delta}
 	}, delta, "")
 }
 
-func checkPrimedUnitStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
-	c.Check(statusInfo.Status, gc.Equals, status.Active)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$foo": expect, "$delta": int64(expectDelta)})
-	c.Check(statusInfo.Since, gc.NotNil)
+func checkPrimedUnitStatus(c *tc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
+	c.Check(statusInfo.Status, tc.Equals, status.Active)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{"$foo": expect, "$delta": int64(expectDelta)})
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func checkInitialUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo) {
-	c.Check(statusInfo.Status, gc.Equals, status.Allocating)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Assert(statusInfo.Since, gc.NotNil)
+func checkInitialUnitAgentStatus(c *tc.C, statusInfo status.StatusInfo) {
+	c.Check(statusInfo.Status, tc.Equals, status.Allocating)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Assert(statusInfo.Since, tc.NotNil)
 }
 
-func primeUnitAgentStatusHistory(c *gc.C, clock clock.Clock, agent *state.UnitAgent, count int, delta time.Duration, info string) {
+func primeUnitAgentStatusHistory(c *tc.C, clock clock.Clock, agent *state.UnitAgent, count int, delta time.Duration, info string) {
 	primeStatusHistory(c, clock, agent, status.Executing, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$bar": i, "$delta": delta}
 	}, delta, info)
 }
 
-func checkPrimedUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
+func checkPrimedUnitAgentStatus(c *tc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
 	checkPrimedUnitAgentStatusWithCustomMessage(c, statusInfo, expect, expectDelta, "")
 }
 
-func checkPrimedUnitAgentStatusWithCustomMessage(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration, info string) {
-	c.Check(statusInfo.Message, gc.Equals, info)
-	c.Check(statusInfo.Status, gc.Equals, status.Executing)
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$bar": expect, "$delta": int64(expectDelta)})
-	c.Check(statusInfo.Since, gc.NotNil)
+func checkPrimedUnitAgentStatusWithCustomMessage(c *tc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration, info string) {
+	c.Check(statusInfo.Message, tc.Equals, info)
+	c.Check(statusInfo.Status, tc.Equals, status.Executing)
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{"$bar": expect, "$delta": int64(expectDelta)})
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func checkPrimedUnitAgentStatusWithRegexMessage(c *gc.C, statusInfo status.StatusInfo, message *regexp.Regexp) {
-	c.Check(message.MatchString(statusInfo.Message), jc.IsTrue)
-	c.Check(statusInfo.Status, gc.Equals, status.Executing)
-	c.Check(statusInfo.Since, gc.NotNil)
+func checkPrimedUnitAgentStatusWithRegexMessage(c *tc.C, statusInfo status.StatusInfo, message *regexp.Regexp) {
+	c.Check(message.MatchString(statusInfo.Message), tc.IsTrue)
+	c.Check(statusInfo.Status, tc.Equals, status.Executing)
+	c.Check(statusInfo.Since, tc.NotNil)
 }

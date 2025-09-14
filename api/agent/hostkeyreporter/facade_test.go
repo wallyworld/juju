@@ -5,33 +5,35 @@ package hostkeyreporter_test
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/hostkeyreporter"
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type facadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&facadeSuite{})
+func TestFacadeSuite(t *tctesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
 
-func (s *facadeSuite) TestReportKeys(c *gc.C) {
-	stub := new(testing.Stub)
+func (s *facadeSuite) TestReportKeys(c *tc.C) {
+	stub := new(testhelpers.Stub)
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
 		args, response interface{},
 	) error {
-		c.Check(objType, gc.Equals, "HostKeyReporter")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
+		c.Check(objType, tc.Equals, "HostKeyReporter")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
 		stub.AddCall(request, args)
 		*response.(*params.ErrorResults) = params.ErrorResults{
 			Results: []params.ErrorResult{{
@@ -43,9 +45,9 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
 	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	stub.CheckCalls(c, []testing.StubCall{{
+	stub.CheckCalls(c, []testhelpers.StubCall{{
 		"ReportKeys", []interface{}{params.SSHHostKeySet{
 			EntityKeys: []params.SSHHostKeys{{
 				Tag:        names.NewMachineTag("42").String(),
@@ -55,7 +57,7 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 	}})
 }
 
-func (s *facadeSuite) TestCallError(c *gc.C) {
+func (s *facadeSuite) TestCallError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
@@ -66,10 +68,10 @@ func (s *facadeSuite) TestCallError(c *gc.C) {
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
 	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
-	c.Assert(err, gc.ErrorMatches, "blam")
+	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
-func (s *facadeSuite) TestInnerError(c *gc.C) {
+func (s *facadeSuite) TestInnerError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(
 		objType string, version int,
 		id, request string,
@@ -85,5 +87,5 @@ func (s *facadeSuite) TestInnerError(c *gc.C) {
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
 	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
-	c.Assert(err, gc.ErrorMatches, "blam")
+	c.Assert(err, tc.ErrorMatches, "blam")
 }

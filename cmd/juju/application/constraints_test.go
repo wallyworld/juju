@@ -4,22 +4,25 @@
 package application_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ApplicationConstraintsCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ApplicationConstraintsCommandsSuite{})
+func TestApplicationConstraintsCommandsSuite(t *tctesting.T) {
+	tc.Run(t, &ApplicationConstraintsCommandsSuite{})
+}
 
-func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *gc.C) {
+func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -45,14 +48,14 @@ func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
 	}
 }
 
-func (s *ApplicationConstraintsCommandsSuite) TestGetInit(c *gc.C) {
+func (s *ApplicationConstraintsCommandsSuite) TestGetInit(c *tc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -77,9 +80,9 @@ func (s *ApplicationConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
 	}
 }

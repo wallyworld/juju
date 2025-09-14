@@ -5,14 +5,14 @@ package binarystorage_test
 
 import (
 	"io"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/binarystorage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type layeredStorageSuite struct {
@@ -21,9 +21,11 @@ type layeredStorageSuite struct {
 	store  binarystorage.Storage
 }
 
-var _ = gc.Suite(&layeredStorageSuite{})
+func TestLayeredStorageSuite(t *tctesting.T) {
+	tc.Run(t, &layeredStorageSuite{})
+}
 
-func (s *layeredStorageSuite) SetUpTest(c *gc.C) {
+func (s *layeredStorageSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stores = []*mockStorage{{
 		metadata: []binarystorage.Metadata{{
@@ -45,29 +47,29 @@ func (s *layeredStorageSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.store, err = binarystorage.NewLayeredStorage(stores...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *layeredStorageSuite) TestNewLayeredStorageError(c *gc.C) {
+func (s *layeredStorageSuite) TestNewLayeredStorageError(c *tc.C) {
 	_, err := binarystorage.NewLayeredStorage(s.stores[0])
-	c.Assert(err, gc.ErrorMatches, "expected multiple stores")
+	c.Assert(err, tc.ErrorMatches, "expected multiple stores")
 }
 
-func (s *layeredStorageSuite) TestAdd(c *gc.C) {
+func (s *layeredStorageSuite) TestAdd(c *tc.C) {
 	r := new(readCloser)
 	m := binarystorage.Metadata{Version: "4.0", Size: 4, SHA256: "qux"}
 	expectedErr := errors.New("wut")
 	s.stores[0].SetErrors(expectedErr)
 	err := s.store.Add(r, m)
-	c.Assert(err, gc.Equals, expectedErr)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{"Add", []interface{}{r, m}}})
+	c.Assert(err, tc.Equals, expectedErr)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{"Add", []interface{}{r, m}}})
 	s.stores[1].CheckNoCalls(c)
 }
 
-func (s *layeredStorageSuite) TestAllMetadata(c *gc.C) {
+func (s *layeredStorageSuite) TestAllMetadata(c *tc.C) {
 	all, err := s.store.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, jc.DeepEquals, []binarystorage.Metadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(all, tc.DeepEquals, []binarystorage.Metadata{
 		{Version: "1.0", Size: 1, SHA256: "foo"},
 		{Version: "2.0", Size: 2, SHA256: "bar"},
 		{Version: "3.0", Size: 3, SHA256: "baz"},
@@ -76,87 +78,87 @@ func (s *layeredStorageSuite) TestAllMetadata(c *gc.C) {
 	s.stores[1].CheckCallNames(c, "AllMetadata")
 }
 
-func (s *layeredStorageSuite) TestAllMetadataError(c *gc.C) {
+func (s *layeredStorageSuite) TestAllMetadataError(c *tc.C) {
 	expectedErr := errors.New("wut")
 	s.stores[0].SetErrors(expectedErr)
 	_, err := s.store.AllMetadata()
-	c.Assert(err, gc.Equals, expectedErr)
+	c.Assert(err, tc.Equals, expectedErr)
 	s.stores[0].CheckCallNames(c, "AllMetadata")
 	s.stores[1].CheckNoCalls(c)
 }
 
-func (s *layeredStorageSuite) TestMetadata(c *gc.C) {
+func (s *layeredStorageSuite) TestMetadata(c *tc.C) {
 	s.stores[0].SetErrors(errors.NotFoundf("metadata"))
 	m, err := s.store.Metadata("3.0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, s.stores[1].metadata[0])
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, s.stores[1].metadata[0])
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Metadata", []interface{}{"3.0"},
 	}})
-	s.stores[1].CheckCalls(c, []testing.StubCall{{
+	s.stores[1].CheckCalls(c, []testhelpers.StubCall{{
 		"Metadata", []interface{}{"3.0"},
 	}})
 }
 
-func (s *layeredStorageSuite) TestMetadataEarlyExit(c *gc.C) {
+func (s *layeredStorageSuite) TestMetadataEarlyExit(c *tc.C) {
 	m, err := s.store.Metadata("1.0")
-	c.Assert(err, jc.ErrorIsNil)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.ErrorIsNil)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Metadata", []interface{}{"1.0"},
 	}})
 	s.stores[1].CheckNoCalls(c)
-	c.Assert(m, jc.DeepEquals, s.stores[0].metadata[0])
+	c.Assert(m, tc.DeepEquals, s.stores[0].metadata[0])
 }
 
-func (s *layeredStorageSuite) TestMetadataFatalError(c *gc.C) {
+func (s *layeredStorageSuite) TestMetadataFatalError(c *tc.C) {
 	expectedErr := errors.New("wut")
 	s.stores[0].SetErrors(expectedErr)
 	_, err := s.store.Metadata("1.0")
-	c.Assert(err, gc.Equals, expectedErr)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.Equals, expectedErr)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Metadata", []interface{}{"1.0"},
 	}})
 	s.stores[1].CheckNoCalls(c)
 }
 
-func (s *layeredStorageSuite) TestOpen(c *gc.C) {
+func (s *layeredStorageSuite) TestOpen(c *tc.C) {
 	s.stores[0].SetErrors(errors.NotFoundf("metadata"))
 	m, rc, err := s.store.Open("3.0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, s.stores[1].metadata[0])
-	c.Assert(rc, gc.Equals, &s.stores[1].rc)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, s.stores[1].metadata[0])
+	c.Assert(rc, tc.Equals, &s.stores[1].rc)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Open", []interface{}{"3.0"},
 	}})
-	s.stores[1].CheckCalls(c, []testing.StubCall{{
+	s.stores[1].CheckCalls(c, []testhelpers.StubCall{{
 		"Open", []interface{}{"3.0"},
 	}})
 }
 
-func (s *layeredStorageSuite) TestOpenEarlyExit(c *gc.C) {
+func (s *layeredStorageSuite) TestOpenEarlyExit(c *tc.C) {
 	m, rc, err := s.store.Open("1.0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, s.stores[0].metadata[0])
-	c.Assert(rc, gc.Equals, &s.stores[0].rc)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m, tc.DeepEquals, s.stores[0].metadata[0])
+	c.Assert(rc, tc.Equals, &s.stores[0].rc)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Open", []interface{}{"1.0"},
 	}})
 	s.stores[1].CheckNoCalls(c)
 }
 
-func (s *layeredStorageSuite) TestOpenFatalError(c *gc.C) {
+func (s *layeredStorageSuite) TestOpenFatalError(c *tc.C) {
 	expectedErr := errors.New("wut")
 	s.stores[0].SetErrors(expectedErr)
 	_, _, err := s.store.Open("1.0")
-	c.Assert(err, gc.Equals, expectedErr)
-	s.stores[0].CheckCalls(c, []testing.StubCall{{
+	c.Assert(err, tc.Equals, expectedErr)
+	s.stores[0].CheckCalls(c, []testhelpers.StubCall{{
 		"Open", []interface{}{"1.0"},
 	}})
 	s.stores[1].CheckNoCalls(c)
 }
 
 type mockStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	rc       readCloser
 	metadata []binarystorage.Metadata
 }

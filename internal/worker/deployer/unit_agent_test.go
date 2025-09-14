@@ -4,19 +4,20 @@
 package deployer_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
-	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
 )
 
@@ -27,9 +28,11 @@ type UnitAgentSuite struct {
 	config  deployer.UnitAgentConfig
 }
 
-var _ = gc.Suite(&UnitAgentSuite{})
+func TestUnitAgentSuite(t *tctesting.T) {
+	tc.Run(t, &UnitAgentSuite{})
+}
 
-func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
+func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	logger := loggo.GetLogger("test.unitagent")
 	logger.SetLogLevel(loggo.TRACE)
@@ -55,56 +58,56 @@ func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UnitAgentSuite) TestConfigMissingName(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingName(c *tc.C) {
 	s.config.Name = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Name not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Name not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingDataDir(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingDataDir(c *tc.C) {
 	s.config.DataDir = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing DataDir not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing DataDir not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingClock(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Clock not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing Logger not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingSetupLogging(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingSetupLogging(c *tc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing SetupLogging not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing SetupLogging not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingUnitEngineConfig(c *tc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing UnitEngineConfig not valid")
 }
 
-func (s *UnitAgentSuite) TestConfigMissingUnitManifolds(c *gc.C) {
+func (s *UnitAgentSuite) TestConfigMissingUnitManifolds(c *tc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err.Error(), gc.Equals, "missing UnitManifolds not valid")
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), tc.Equals, "missing UnitManifolds not valid")
 }
 
-func (s *UnitAgentSuite) writeAgentConf(c *gc.C) {
+func (s *UnitAgentSuite) writeAgentConf(c *tc.C) {
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -123,34 +126,34 @@ func (s *UnitAgentSuite) writeAgentConf(c *gc.C) {
 			// that it gets updated.
 			UpgradedToVersion: version.Number{Major: 2, Minor: 2},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = conf.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UnitAgentSuite) newUnitAgent(c *gc.C) *deployer.UnitAgent {
+func (s *UnitAgentSuite) newUnitAgent(c *tc.C) *deployer.UnitAgent {
 	s.InitializeCurrentToolsDir(c, s.config.DataDir)
 	agent, err := deployer.NewUnitAgent(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agent
 }
 
-func (s *UnitAgentSuite) TestNewAgentSetsUpgradedToVersion(c *gc.C) {
+func (s *UnitAgentSuite) TestNewAgentSetsUpgradedToVersion(c *tc.C) {
 	s.writeAgentConf(c)
 	agent := s.newUnitAgent(c)
 	config := agent.CurrentConfig()
-	c.Assert(config.UpgradedToVersion(), gc.Equals, jv.Current)
+	c.Assert(config.UpgradedToVersion(), tc.Equals, jv.Current)
 }
 
-func (s *UnitAgentSuite) TestChangeConfigWritesChanges(c *gc.C) {
+func (s *UnitAgentSuite) TestChangeConfigWritesChanges(c *tc.C) {
 	s.writeAgentConf(c)
 	ua := s.newUnitAgent(c)
 	err := ua.ChangeConfig(func(setter agent.ConfigSetter) error {
 		setter.SetValue("foo", "bar")
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ub := s.newUnitAgent(c)
 	config := ub.CurrentConfig()
-	c.Assert(config.Value("foo"), gc.Equals, "bar")
+	c.Assert(config.Value("foo"), tc.Equals, "bar")
 }

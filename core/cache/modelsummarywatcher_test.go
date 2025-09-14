@@ -5,17 +5,17 @@ package cache_test
 
 import (
 	"sort"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type modelSummaryWatcherSuite struct {
@@ -24,22 +24,24 @@ type modelSummaryWatcherSuite struct {
 	events     <-chan interface{}
 }
 
-var _ = gc.Suite(&modelSummaryWatcherSuite{})
+func TestModelSummaryWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &modelSummaryWatcherSuite{})
+}
 
-func (s *modelSummaryWatcherSuite) SetUpTest(c *gc.C) {
+func (s *modelSummaryWatcherSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.controller, s.events = s.New(c)
 	s.baseScenario(c)
 	loggo.GetLogger("").SetLogLevel(loggo.TRACE)
 }
 
-func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
 	initial := s.next(c, changes)
-	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(initial, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "controller-uuid",
 			Controller:   "test-controller",
@@ -69,13 +71,13 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("bob")
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
 	initial := s.next(c, changes)
-	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(initial, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
 			Controller:       "test-controller",
@@ -97,16 +99,16 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestInitialModelsCharlie(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestInitialModelsCharlie(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("charlie")
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
 	initial := s.next(c, changes)
-	c.Assert(initial, gc.HasLen, 0)
+	c.Assert(initial, tc.HasLen, 0)
 }
 
-func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("charlie")
 	defer workertest.CleanKill(c, watcher)
 
@@ -128,7 +130,7 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-2-uuid",
 			Controller: "test-controller",
@@ -140,7 +142,7 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestRemovingPermissionRemovesModel(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestRemovingPermissionRemovesModel(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("bob")
 	defer workertest.CleanKill(c, watcher)
 
@@ -160,7 +162,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingPermissionRemovesModel(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:    "model-2-uuid",
 			Removed: true,
@@ -168,7 +170,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingPermissionRemovesModel(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("bob")
 	defer workertest.CleanKill(c, watcher)
 
@@ -188,7 +190,7 @@ func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-3-uuid",
 			Controller: "test-controller",
@@ -200,7 +202,7 @@ func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestRemoveModelRemovesModel(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestRemoveModelRemovesModel(c *tc.C) {
 	watcher := s.controller.WatchModelsAsUser("bob")
 	defer workertest.CleanKill(c, watcher)
 
@@ -213,7 +215,7 @@ func (s *modelSummaryWatcherSuite) TestRemoveModelRemovesModel(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:    "model-2-uuid",
 			Removed: true,
@@ -221,7 +223,7 @@ func (s *modelSummaryWatcherSuite) TestRemoveModelRemovesModel(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -248,7 +250,7 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 	s.ProcessChange(c, modelChange, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-2-uuid",
 			Controller: "test-controller",
@@ -263,7 +265,7 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -278,7 +280,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "model-2-uuid",
 			Controller:   "test-controller",
@@ -291,7 +293,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -305,7 +307,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-1-uuid",
 			Controller: "test-controller",
@@ -320,7 +322,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -335,7 +337,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
 			Controller:       "test-controller",
@@ -348,7 +350,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -362,7 +364,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-1-uuid",
 			Controller: "test-controller",
@@ -378,7 +380,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -393,7 +395,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
 			Controller:       "test-controller",
@@ -408,7 +410,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -422,7 +424,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-1-uuid",
 			Controller: "test-controller",
@@ -437,7 +439,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -464,7 +466,7 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	}, s.events)
 
 	update := s.next(c, changes, "model-2-uuid")
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "model-1-uuid",
 			Controller: "test-controller",
@@ -484,7 +486,7 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -505,7 +507,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	s.ProcessChange(c, modelUpdate, s.events)
 
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "new-model-uuid",
 			Controller: "test-controller",
@@ -532,7 +534,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 
 	// No update for the new model, but we do see the second model
 	// application change.
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
 			Controller:       "test-controller",
@@ -545,7 +547,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	})
 }
 
-func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -566,7 +568,7 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	s.noUpdates(c, changes)
 }
 
-func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *gc.C) {
+func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *tc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
@@ -601,7 +603,7 @@ func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *g
 
 	// Only the new model summary is published.
 	update := s.next(c, changes)
-	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+	c.Assert(update, tc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:       "new-model-uuid",
 			Controller: "test-controller",
@@ -613,7 +615,7 @@ func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *g
 	})
 }
 
-func (s *modelSummaryWatcherSuite) next(c *gc.C, changes <-chan []cache.ModelSummary, uuids ...string) []cache.ModelSummary {
+func (s *modelSummaryWatcherSuite) next(c *tc.C, changes <-chan []cache.ModelSummary, uuids ...string) []cache.ModelSummary {
 	// If we are passed the optional uuid in, there should only be one.
 	if len(uuids) > 0 {
 		if len(uuids) > 1 {
@@ -637,7 +639,7 @@ func (s *modelSummaryWatcherSuite) next(c *gc.C, changes <-chan []cache.ModelSum
 	return nil
 }
 
-func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.ModelSummary) {
+func (s *modelSummaryWatcherSuite) noUpdates(c *tc.C, changes <-chan []cache.ModelSummary) {
 	select {
 	case <-time.After(testing.ShortWait):
 	// Good, didn't expect any.
@@ -646,7 +648,7 @@ func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.Mod
 	}
 }
 
-func (s *modelSummaryWatcherSuite) baseScenario(c *gc.C) {
+func (s *modelSummaryWatcherSuite) baseScenario(c *tc.C) {
 	// The values here a minimal, and only set values that are really necessary.
 	s.ProcessChange(c, cache.ControllerConfigChange{
 		Config: map[string]interface{}{

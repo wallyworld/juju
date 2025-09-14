@@ -4,23 +4,26 @@
 package waitfor
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type unitScopeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&unitScopeSuite{})
+func TestUnitScopeSuite(t *tctesting.T) {
+	tc.Run(t, &unitScopeSuite{})
+}
 
-func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
+func (s *unitScopeSuite) TestGetIdentValue(c *tc.C) {
 	tests := []struct {
 		Field    string
 		UnitInfo *params.UnitInfo
@@ -91,12 +94,12 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 			UnitInfo: test.UnitInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (s *unitScopeSuite) TestGetIdentValueError(c *gc.C) {
+func (s *unitScopeSuite) TestGetIdentValueError(c *tc.C) {
 	tests := []struct {
 		Field    string
 		UnitInfo *params.UnitInfo
@@ -116,7 +119,7 @@ func (s *unitScopeSuite) TestGetIdentValueError(c *gc.C) {
 			UnitInfo: test.UnitInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
-		c.Assert(err, gc.ErrorMatches, test.Err)
-		c.Assert(result, gc.IsNil)
+		c.Assert(err, tc.ErrorMatches, test.Err)
+		c.Assert(result, tc.IsNil)
 	}
 }

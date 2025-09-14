@@ -5,19 +5,19 @@ package controller_test
 
 import (
 	"bytes"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jt "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 // Test that the expected methods are called during unregister:
@@ -44,43 +44,45 @@ func (s *fakeStore) RemoveController(name string) error {
 }
 
 type UnregisterSuite struct {
-	jt.IsolationSuite
+	testhelpers.IsolationSuite
 	store *fakeStore
 }
 
-var _ = gc.Suite(&UnregisterSuite{})
+func TestUnregisterSuite(t *tctesting.T) {
+	tc.Run(t, &UnregisterSuite{})
+}
 
-func (s *UnregisterSuite) SetUpTest(c *gc.C) {
+func (s *UnregisterSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.store = &fakeStore{}
 }
 
-func (s *UnregisterSuite) TestInit(c *gc.C) {
+func (s *UnregisterSuite) TestInit(c *tc.C) {
 	unregisterCommand := controller.NewUnregisterCommand(s.store)
 
 	err := cmdtesting.InitCommand(unregisterCommand, []string{})
-	c.Assert(err, gc.ErrorMatches, "controller name must be specified")
+	c.Assert(err, tc.ErrorMatches, "controller name must be specified")
 
 	err = cmdtesting.InitCommand(unregisterCommand, []string{"foo", "bar"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
-func (s *UnregisterSuite) TestUnregisterUnknownController(c *gc.C) {
+func (s *UnregisterSuite) TestUnregisterUnknownController(c *tc.C) {
 	command := controller.NewUnregisterCommand(s.store)
 	_, err := cmdtesting.RunCommand(c, command, "fake3")
 
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, "controller fake3 not found")
-	c.Check(s.store.lookupName, gc.Equals, "fake3")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, "controller fake3 not found")
+	c.Check(s.store.lookupName, tc.Equals, "fake3")
 }
 
-func (s *UnregisterSuite) TestUnregisterController(c *gc.C) {
+func (s *UnregisterSuite) TestUnregisterController(c *tc.C) {
 	command := controller.NewUnregisterCommand(s.store)
 	_, err := cmdtesting.RunCommand(c, command, "fake1", "--no-prompt")
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.store.lookupName, gc.Equals, "fake1")
-	c.Check(s.store.removedName, gc.Equals, "fake1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.store.lookupName, tc.Equals, "fake1")
+	c.Check(s.store.removedName, tc.Equals, "fake1")
 }
 
 var unregisterMsg = `
@@ -90,10 +92,10 @@ if you want to access it.
 
 To continue, enter the name of the controller to be unregistered: `[1:]
 
-func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
+func (s *UnregisterSuite) unregisterCommandAborts(c *tc.C, answer string) {
 	var stdin, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stderr = &stderr
 	ctx.Stdin = &stdin
 
@@ -102,28 +104,28 @@ func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, controller.NewUnregisterCommand(s.store), "fake1")
 	select {
 	case err, ok := <-errc:
-		c.Assert(ok, jc.IsTrue)
-		c.Check(err, gc.ErrorMatches, "unregistering controller: aborted")
+		c.Assert(ok, tc.IsTrue)
+		c.Check(err, tc.ErrorMatches, "unregistering controller: aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, unregisterMsg)
-	c.Check(s.store.lookupName, gc.Equals, "fake1")
-	c.Check(s.store.removedName, gc.Equals, "")
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, unregisterMsg)
+	c.Check(s.store.lookupName, tc.Equals, "fake1")
+	c.Check(s.store.removedName, tc.Equals, "")
 }
 
-func (s *UnregisterSuite) TestUnregisterCommandAbortsOnN(c *gc.C) {
+func (s *UnregisterSuite) TestUnregisterCommandAbortsOnN(c *tc.C) {
 	s.unregisterCommandAborts(c, "n")
 }
 
-func (s *UnregisterSuite) TestUnregisterCommandAbortsOnNotY(c *gc.C) {
+func (s *UnregisterSuite) TestUnregisterCommandAbortsOnNotY(c *tc.C) {
 	s.unregisterCommandAborts(c, "foo")
 }
 
-func (s *UnregisterSuite) unregisterCommandConfirms(c *gc.C, answer string) {
+func (s *UnregisterSuite) unregisterCommandConfirms(c *tc.C, answer string) {
 	var stdin, stdout bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
@@ -133,15 +135,15 @@ func (s *UnregisterSuite) unregisterCommandConfirms(c *gc.C, answer string) {
 	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, controller.NewUnregisterCommand(s.store), "fake1")
 	select {
 	case err, ok := <-errc:
-		c.Assert(ok, jc.IsTrue)
-		c.Check(err, jc.ErrorIsNil)
+		c.Assert(ok, tc.IsTrue)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(s.store.lookupName, gc.Equals, "fake1")
-	c.Check(s.store.removedName, gc.Equals, "fake1")
+	c.Check(s.store.lookupName, tc.Equals, "fake1")
+	c.Check(s.store.removedName, tc.Equals, "fake1")
 }
 
-func (s *UnregisterSuite) TestUnregisterCommandConfirmsOnY(c *gc.C) {
+func (s *UnregisterSuite) TestUnregisterCommandConfirmsOnY(c *tc.C) {
 	s.unregisterCommandConfirms(c, "fake1")
 }

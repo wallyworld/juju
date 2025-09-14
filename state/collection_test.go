@@ -4,20 +4,24 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type collectionSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&collectionSuite{})
+func TestCollectionSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &collectionSuite{})
+}
 
 type collectionTestCase struct {
 	label         string
@@ -27,12 +31,12 @@ type collectionTestCase struct {
 	expectedError string
 }
 
-func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
+func (s *collectionSuite) TestGenericStateCollection(c *tc.C) {
 	// The users collection does not require filtering by model UUID.
 	coll, closer := state.GetCollection(s.State, state.UsersC)
 	defer closer()
 
-	c.Check(coll.Name(), gc.Equals, state.UsersC)
+	c.Check(coll.Name(), tc.Equals, state.UsersC)
 
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "foo", DisplayName: "Ms Foo"})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "bar"})
@@ -72,7 +76,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			label: "Insert",
 			test: func() (int, error) {
 				err := coll.Writeable().Insert(bson.D{{"_id", "more"}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return coll.Count()
 			},
 			expectedCount: 4,
@@ -81,7 +85,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			label: "RemoveId",
 			test: func() (int, error) {
 				err := coll.Writeable().RemoveId("bar")
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return coll.Count()
 			},
 			expectedCount: 2,
@@ -90,7 +94,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			label: "Remove",
 			test: func() (int, error) {
 				err := coll.Writeable().Remove(bson.D{{"displayname", "Ms Foo"}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return coll.Count()
 			},
 			expectedCount: 2,
@@ -99,7 +103,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			label: "RemoveAll",
 			test: func() (int, error) {
 				_, err := coll.Writeable().RemoveAll(bson.D{{"createdby", s.Owner.Name()}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return coll.Count()
 			},
 			expectedCount: 0,
@@ -109,7 +113,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			test: func() (int, error) {
 				err := coll.Writeable().Update(bson.D{{"_id", "bar"}},
 					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 
 				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
 			},
@@ -120,7 +124,7 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 			test: func() (int, error) {
 				err := coll.Writeable().UpdateId("bar",
 					bson.D{{"$set", bson.D{{"displayname", "Updated Bar"}}}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 
 				return coll.Find(bson.D{{"displayname", "Updated Bar"}}).Count()
 			},
@@ -131,12 +135,12 @@ func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 		collSnapshot.restore(c)
 
 		count, err := t.test()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(count, gc.Equals, t.expectedCount)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, t.expectedCount)
 	}
 }
 
-func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
+func (s *collectionSuite) TestModelStateCollection(c *tc.C) {
 	// The machines collection requires filtering by model UUID. Set up
 	// 2 models with machines in each.
 	m0 := s.Factory.MakeMachine(c, nil)
@@ -148,7 +152,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 
 	// Ensure that the first machine in each model have overlapping ids
 	// (otherwise tests may not fail when they should)
-	c.Assert(m0.Id(), gc.Equals, otherM0.Id())
+	c.Assert(m0.Id(), tc.Equals, otherM0.Id())
 
 	machines0, closer := state.GetCollection(s.State, state.MachinesC)
 	defer closer()
@@ -157,7 +161,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 
 	machinesSnapshot := newCollectionSnapshot(c, machines0.Writeable().Underlying())
 
-	c.Assert(machines0.Name(), gc.Equals, state.MachinesC)
+	c.Assert(machines0.Name(), tc.Equals, state.MachinesC)
 
 	for i, t := range []collectionTestCase{
 		{
@@ -242,7 +246,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 					{"_id", state.DocID(s.State, "99")},
 					{"machineid", 99},
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.Count()
 			},
 			expectedCount: 3,
@@ -255,7 +259,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 					{"machineid", 99},
 					{"model-uuid", ""},
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.Count()
 			},
 			expectedCount: 3,
@@ -267,7 +271,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 					{"_id", "99"},
 					{"machineid", 99},
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.FindId("99").Count()
 			},
 			expectedCount: 1,
@@ -280,7 +284,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 					{"machineid", 99},
 					{"model-uuid", s.State.ModelUUID()},
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.Count()
 			},
 			expectedCount: 3,
@@ -301,7 +305,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "Remove adds model UUID prefix to _id",
 			test: func() (int, error) {
 				err := machines0.Writeable().Remove(bson.D{{"_id", "0"}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
@@ -313,7 +317,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 				// model with the collection that's filtering for the
 				// first model - nothing should get removed.
 				err := machines0.Writeable().Remove(bson.D{{"base.channel", state.UbuntuBase("22.04").Channel}})
-				c.Assert(err, gc.ErrorMatches, "not found")
+				c.Assert(err, tc.ErrorMatches, "not found")
 				return s.machines.Count()
 			},
 			expectedCount: 3, // Expect all machines to still be there.
@@ -322,7 +326,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "Remove filters by model 2",
 			test: func() (int, error) {
 				err := machines0.Writeable().Remove(bson.D{{"machineid", "0"}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine 1 in first model and machine-0 in second model
@@ -331,7 +335,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "RemoveId adds model UUID prefix",
 			test: func() (int, error) {
 				err := machines0.Writeable().RemoveId(m0.Id())
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
@@ -340,7 +344,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "RemoveId tolerates model UUID prefix already being there",
 			test: func() (int, error) {
 				err := machines0.Writeable().RemoveId(state.DocID(s.State, m0.Id()))
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
@@ -349,7 +353,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "RemoveAll filters by model",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{{"base.channel", m0.Base().Channel}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 1, // Expect machine-1 in second model
@@ -358,7 +362,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "RemoveAll adds model UUID when _id is provided",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{{"_id", m0.Id()}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
@@ -369,7 +373,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 				_, err := machines0.Writeable().RemoveAll(bson.D{
 					{"_id", state.DocID(s.State, m0.Id())},
 				})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 2, // Expect machine-1 in first model and machine-0 in second model
@@ -378,7 +382,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			label: "RemoveAll with no selector still filters by model",
 			test: func() (int, error) {
 				_, err := machines0.Writeable().RemoveAll(nil)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return s.machines.Count()
 			},
 			expectedCount: 1, // Expect machine-0 in second model
@@ -396,7 +400,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			test: func() (int, error) {
 				err := machines0.Writeable().Update(bson.D{{"_id", m0.Id()}},
 					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
 			},
 			expectedCount: 1,
@@ -406,7 +410,7 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 			test: func() (int, error) {
 				err := machines0.Writeable().UpdateId(m0.Id(),
 					bson.D{{"$set", bson.D{{"update-field", "field value"}}}})
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return machines0.Find(bson.D{{"update-field", "field value"}}).Count()
 			},
 			expectedCount: 1,
@@ -418,19 +422,19 @@ func (s *collectionSuite) TestModelStateCollection(c *gc.C) {
 		if t.expectedPanic == "" {
 			count, err := t.test()
 			if t.expectedError != "" {
-				c.Assert(err, gc.ErrorMatches, t.expectedError)
+				c.Assert(err, tc.ErrorMatches, t.expectedError)
 			} else {
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			}
-			c.Check(count, gc.Equals, t.expectedCount)
+			c.Check(count, tc.Equals, t.expectedCount)
 		} else {
-			c.Check(func() { t.test() }, gc.PanicMatches, t.expectedPanic)
+			c.Check(func() { t.test() }, tc.PanicMatches, t.expectedPanic)
 		}
 
 		// Check that other model is untouched after each test
 		count, err := machines1.Count()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(count, gc.Equals, 1)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 1)
 	}
 }
 
@@ -439,16 +443,16 @@ type collectionSnapshot struct {
 	origDocs []interface{}
 }
 
-func newCollectionSnapshot(c *gc.C, coll *mgo.Collection) *collectionSnapshot {
+func newCollectionSnapshot(c *tc.C, coll *mgo.Collection) *collectionSnapshot {
 	ss := &collectionSnapshot{coll: coll}
 	err := coll.Find(nil).All(&ss.origDocs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ss
 }
 
-func (ss *collectionSnapshot) restore(c *gc.C) {
+func (ss *collectionSnapshot) restore(c *tc.C) {
 	_, err := ss.coll.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ss.coll.Insert(ss.origDocs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

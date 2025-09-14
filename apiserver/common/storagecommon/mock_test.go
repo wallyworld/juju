@@ -6,16 +6,16 @@ package storagecommon_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
 type fakeStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	storagecommon.StorageAccess
 	storagecommon.FilesystemAccess
 	storageInstance           func(names.StorageTag) (state.StorageInstance, error)

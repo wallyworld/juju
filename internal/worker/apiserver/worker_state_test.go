@@ -4,20 +4,21 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/jwtparser"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerStateSuite struct {
@@ -25,25 +26,27 @@ type WorkerStateSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&WorkerStateSuite{})
+func TestWorkerStateSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerStateSuite{})
+}
 
-func (s *WorkerStateSuite) SetUpSuite(c *gc.C) {
+func (s *WorkerStateSuite) SetUpSuite(c *tc.C) {
 	s.workerFixture.SetUpSuite(c)
 
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.workerFixture.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.workerFixture.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *WorkerStateSuite) TearDownSuite(c *gc.C) {
+func (s *WorkerStateSuite) TearDownSuite(c *tc.C) {
 	s.StateSuite.TearDownSuite(c)
 	s.workerFixture.TearDownSuite(c)
 }
 
-func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
+func (s *WorkerStateSuite) SetUpTest(c *tc.C) {
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 	s.config.StatePool = s.StatePool
@@ -59,14 +62,14 @@ func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
+func (s *WorkerStateSuite) TearDownTest(c *tc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.workerFixture.TearDownTest(c)
 }
 
-func (s *WorkerStateSuite) TestStart(c *gc.C) {
+func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	w, err := apiserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	// The server is started some time after the worker
@@ -81,32 +84,32 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		return
 	}
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, coreapiserver.ServerConfig{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, coreapiserver.ServerConfig{})
 	config := args[0].(coreapiserver.ServerConfig)
 
-	c.Assert(config.RegisterIntrospectionHandlers, gc.NotNil)
+	c.Assert(config.RegisterIntrospectionHandlers, tc.NotNil)
 	config.RegisterIntrospectionHandlers = nil
 
-	c.Assert(config.UpgradeComplete, gc.NotNil)
+	c.Assert(config.UpgradeComplete, tc.NotNil)
 	config.UpgradeComplete = nil
 
-	c.Assert(config.NewObserver, gc.NotNil)
+	c.Assert(config.NewObserver, tc.NotNil)
 	config.NewObserver = nil
 
-	c.Assert(config.GetAuditConfig, gc.NotNil)
+	c.Assert(config.GetAuditConfig, tc.NotNil)
 	// Set the audit config getter to Nil because we don't want to
 	// compare it.
 	config.GetAuditConfig = nil
 
-	c.Assert(config.Presence, gc.NotNil)
+	c.Assert(config.Presence, tc.NotNil)
 	config.Presence = nil
 
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	jwtAuthenticator := jwt.NewAuthenticator(&jwtparser.Parser{})
 
-	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
+	c.Assert(config, tc.DeepEquals, coreapiserver.ServerConfig{
 		StatePool:                  s.StatePool,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,

@@ -4,35 +4,37 @@
 package apiaddressupdater_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type APIAddressUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&APIAddressUpdaterSuite{})
+func TestAPIAddressUpdaterSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &APIAddressUpdaterSuite{})
+}
 
-func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *APIAddressUpdaterSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	err := s.State.SetAPIHostPorts(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.PatchValue(&network.AddressesForInterfaceName, func(string) ([]string, error) {
 		return nil, nil
@@ -49,7 +51,7 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers []corenetwork.HostPorts) erro
 	return s.err
 }
 
-func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestStartStop(c *tc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
@@ -57,15 +59,15 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 			Setter:    &apiAddressSetter{},
 			Logger:    loggo.GetLogger("test"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
+	c.Assert(worker.Wait(), tc.IsNil)
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *tc.C) {
 	updatedServers := []corenetwork.SpaceHostPorts{corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1")}
 	err := s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
@@ -75,7 +77,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
 	expServer := corenetwork.ProviderHostPorts{
@@ -88,19 +90,19 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
 
 	// The values are also available through the report.
 	reporter, ok := updater.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"servers": [][]string{{"localhost:1234", "127.0.0.1:1234"}},
 	})
 
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestAddressChange(c *tc.C) {
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
@@ -109,8 +111,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
 	defer worker.Kill()
 	updatedServers := []corenetwork.SpaceHostPorts{
 		corenetwork.NewSpaceHostPorts(1234, "localhost", "127.0.0.1"),
@@ -121,10 +123,10 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 0)
+		c.Assert(servers, tc.HasLen, 0)
 	}
 	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -133,11 +135,11 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *tc.C) {
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
@@ -146,8 +148,8 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Assert(worker.Wait(), tc.IsNil) }()
 	defer worker.Kill()
 
 	// SetAPIHostPorts should be called with the initial value (empty),
@@ -156,7 +158,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 0)
+		c.Assert(servers, tc.HasLen, 0)
 	}
 
 	updatedServers := []corenetwork.SpaceHostPorts{
@@ -164,7 +166,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	}
 
 	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -173,12 +175,12 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
 
 	updatedServers = []corenetwork.SpaceHostPorts{}
 	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
@@ -187,11 +189,11 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("localhost").AsProviderAddress(), NetPort: 1234},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("127.0.0.1").AsProviderAddress(), NetPort: 1234},
 		}.HostPorts()
-		c.Assert(servers, gc.DeepEquals, []corenetwork.HostPorts{expServer})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer})
 	}
 }
 
-func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *tc.C) {
 	s.PatchValue(&network.AddressesForInterfaceName, func(name string) ([]string, error) {
 		if name == network.DefaultLXDBridge {
 			return []string{
@@ -218,7 +220,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		),
 	}
 	err := s.State.SetAPIHostPorts(initialServers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	setter := &apiAddressSetter{servers: make(chan []corenetwork.HostPorts, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
@@ -228,8 +230,8 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 			Setter:    setter,
 			Logger:    loggo.GetLogger("test"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Wait(), gc.IsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Assert(w.Wait(), tc.IsNil) }()
 	defer w.Kill()
 
 	updatedServers := []corenetwork.SpaceHostPorts{
@@ -251,54 +253,56 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 2)
+		c.Assert(servers, tc.HasLen, 2)
 
 		expServerInit := corenetwork.ProviderHostPorts{
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4321},
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.4.2").AsProviderAddress(), NetPort: 4321},
 		}.HostPorts()
-		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
 
 	err = s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.HasLen, 2)
+		c.Assert(servers, tc.HasLen, 2)
 
 		expServerUpd := corenetwork.ProviderHostPorts{
 			corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.3.3").AsProviderAddress(), NetPort: 4001},
 		}.HostPorts()
-		c.Assert(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
+		c.Assert(servers, tc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerUpd})
 	}
 }
 
 type ValidateSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+func TestValidateSuite(t *tctesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
 
-func (*ValidateSuite) TestValid(c *gc.C) {
+func (*ValidateSuite) TestValid(c *tc.C) {
 	err := validConfig().Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*ValidateSuite) TestMissingAddresser(c *gc.C) {
+func (*ValidateSuite) TestMissingAddresser(c *tc.C) {
 	config := validConfig()
 	config.Addresser = nil
 	checkNotValid(c, config, "nil Addresser not valid")
 }
 
-func (*ValidateSuite) TestMissingSetter(c *gc.C) {
+func (*ValidateSuite) TestMissingSetter(c *tc.C) {
 	config := validConfig()
 	config.Setter = nil
 	checkNotValid(c, config, "nil Setter not valid")
 }
 
-func (*ValidateSuite) TestMissingLogger(c *gc.C) {
+func (*ValidateSuite) TestMissingLogger(c *tc.C) {
 	config := validConfig()
 	config.Logger = nil
 	checkNotValid(c, config, "nil Logger not valid")
@@ -314,16 +318,16 @@ func validConfig() apiaddressupdater.Config {
 	}
 }
 
-func checkNotValid(c *gc.C, config apiaddressupdater.Config, expect string) {
+func checkNotValid(c *tc.C, config apiaddressupdater.Config, expect string) {
 	check := func(err error) {
-		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, tc.ErrorMatches, expect)
+		c.Check(err, tc.Satisfies, errors.IsNotValid)
 	}
 
 	err := config.Validate()
 	check(err)
 
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }

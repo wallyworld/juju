@@ -4,19 +4,22 @@
 package model_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
 )
 
 type ConstantsSuite struct{}
 
-var _ = gc.Suite(&ConstantsSuite{})
+func TestConstantsSuite(t *tctesting.T) {
+	tc.Run(t, &ConstantsSuite{})
+}
 
-func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
-	c.Assert(model.AnyJobNeedsState(), jc.IsFalse)
-	c.Assert(model.AnyJobNeedsState(model.JobHostUnits), jc.IsFalse)
-	c.Assert(model.AnyJobNeedsState(model.JobManageModel), jc.IsTrue)
-	c.Assert(model.AnyJobNeedsState(model.JobHostUnits, model.JobManageModel), jc.IsTrue)
+func (s *ConstantsSuite) TestAnyJobNeedsState(c *tc.C) {
+	c.Assert(model.AnyJobNeedsState(), tc.IsFalse)
+	c.Assert(model.AnyJobNeedsState(model.JobHostUnits), tc.IsFalse)
+	c.Assert(model.AnyJobNeedsState(model.JobManageModel), tc.IsTrue)
+	c.Assert(model.AnyJobNeedsState(model.JobHostUnits, model.JobManageModel), tc.IsTrue)
 }

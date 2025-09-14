@@ -4,16 +4,17 @@
 package model_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type DumpCommandSuite struct {
@@ -22,10 +23,12 @@ type DumpCommandSuite struct {
 	store *jujuclient.MemStore
 }
 
-var _ = gc.Suite(&DumpCommandSuite{})
+func TestDumpCommandSuite(t *tctesting.T) {
+	tc.Run(t, &DumpCommandSuite{})
+}
 
 type fakeDumpClient struct {
-	gitjujutesting.Stub
+	testhelpers.Stub
 }
 
 func (f *fakeDumpClient) Close() error {
@@ -45,7 +48,7 @@ func (f *fakeDumpClient) DumpModel(model names.ModelTag, simplified bool) (map[s
 	}, nil
 }
 
-func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
+func (s *DumpCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake.ResetCalls()
 	s.store = jujuclient.NewMemStore()
@@ -58,30 +61,30 @@ func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 		ModelUUID: testing.ModelTag.Id(),
 		ModelType: coremodel.IAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
-func (s *DumpCommandSuite) TestDump(c *gc.C) {
+func (s *DumpCommandSuite) TestDump(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"DumpModel", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "model-uuid: fake uuid\nsimple: false\n")
+	c.Assert(out, tc.Equals, "model-uuid: fake uuid\nsimple: false\n")
 }
 
-func (s *DumpCommandSuite) TestDumpSimple(c *gc.C) {
+func (s *DumpCommandSuite) TestDumpSimple(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store), "--simplified")
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	s.fake.CheckCalls(c, []testhelpers.StubCall{
 		{"DumpModel", []interface{}{testing.ModelTag}},
 		{"Close", nil},
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "model-uuid: fake uuid\nsimple: true\n")
+	c.Assert(out, tc.Equals, "model-uuid: fake uuid\nsimple: true\n")
 }

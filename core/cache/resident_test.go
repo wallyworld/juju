@@ -6,45 +6,47 @@ package cache
 import (
 	"reflect"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type residentSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&residentSuite{})
+func TestResidentSuite(t *tctesting.T) {
+	tc.Run(t, &residentSuite{})
+}
 
-func (s *residentSuite) TestManagerNewIdentifiedResources(c *gc.C) {
+func (s *residentSuite) TestManagerNewIdentifiedResources(c *tc.C) {
 	r1 := s.Manager.new()
 	r2 := s.Manager.new()
 
 	// Check that the count is what we expect.
-	c.Check(s.Manager.residentCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.residentCount.last(), tc.Equals, uint64(2))
 
 	// Check that the residents have IDs,
 	// and that they are registered with the manager.
-	c.Check(r1.id, gc.Equals, uint64(1))
-	c.Check(r2.id, gc.Equals, uint64(2))
-	c.Check(s.Manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
+	c.Check(r1.id, tc.Equals, uint64(1))
+	c.Check(r2.id, tc.Equals, uint64(2))
+	c.Check(s.Manager.residents, tc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
 }
 
-func (s *residentSuite) TestManagerDeregister(c *gc.C) {
+func (s *residentSuite) TestManagerDeregister(c *tc.C) {
 	r1 := s.Manager.new()
-	c.Assert(r1.evict(), jc.ErrorIsNil)
-	c.Check(s.Manager.residents, gc.HasLen, 0)
+	c.Assert(r1.evict(), tc.ErrorIsNil)
+	c.Check(s.Manager.residents, tc.HasLen, 0)
 }
 
-func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResidents(c *gc.C) {
+func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResidents(c *tc.C) {
 	r1 := s.Manager.new()
 	r2 := s.Manager.new()
 	r3 := s.Manager.new()
@@ -56,9 +58,9 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 	r4.removalMessage = 4
 
 	// Sets all 4 to be stale, but we freshen up one.
-	c.Assert(s.Manager.isMarked(), jc.IsFalse)
+	c.Assert(s.Manager.isMarked(), tc.IsFalse)
 	s.Manager.mark()
-	c.Assert(s.Manager.isMarked(), jc.IsTrue)
+	c.Assert(s.Manager.isMarked(), tc.IsTrue)
 	r1.setStale(false)
 
 	// Consume all the messages from the manager's removals channel.
@@ -93,11 +95,11 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 	}
 
 	// Stale resident messages were received in descending order.
-	c.Assert(removals, gc.DeepEquals, []interface{}{4, 3, 2})
-	c.Assert(s.Manager.isMarked(), jc.IsFalse)
+	c.Assert(removals, tc.DeepEquals, []interface{}{4, 3, 2})
+	c.Assert(s.Manager.isMarked(), tc.IsFalse)
 }
 
-func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
+func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -125,7 +127,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	wg.Wait()
 
 	// Check that the count is what we expect.
-	c.Check(s.Manager.resourceCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.resourceCount.last(), tc.Equals, uint64(2))
 
 	// Check that the workers have IDs,
 	// and that they are registered with the resident.
@@ -137,14 +139,14 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	}
 
 	// Call cleanup, which should stop the workers.
-	c.Assert(r.cleanup(), jc.ErrorIsNil)
+	c.Assert(r.cleanup(), tc.ErrorIsNil)
 
 	r.deregisterWorker(1)
 	r.deregisterWorker(2)
-	c.Check(r.workers, gc.HasLen, 0)
+	c.Check(r.workers, tc.HasLen, 0)
 }
 
-func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
+func (s *residentSuite) TestResidentWorkerCleanupErrors(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -167,11 +169,11 @@ func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
 	_ = r.registerWorker(w3)
 
 	err := r.cleanup()
-	c.Assert(err, gc.ErrorMatches, "(.|\n|\t)*(biff|thwack)(.|\n|\t)*(biff|thwack)")
-	c.Assert(err, gc.Not(gc.ErrorMatches), "worker 3")
+	c.Assert(err, tc.ErrorMatches, "(.|\n|\t)*(biff|thwack)(.|\n|\t)*(biff|thwack)")
+	c.Assert(err, tc.Not(tc.ErrorMatches), "worker 3")
 }
 
-func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {
+func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -194,5 +196,5 @@ func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {
 	}()
 	wg.Wait()
 
-	c.Check(r.workers, gc.HasLen, 0)
+	c.Check(r.workers, tc.HasLen, 0)
 }

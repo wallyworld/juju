@@ -11,29 +11,31 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CAASUnitInitSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&CAASUnitInitSuite{})
+func TestCAASUnitInitSuite(t *tctesting.T) {
+	tc.Run(t, &CAASUnitInitSuite{})
+}
 
-func (s *CAASUnitInitSuite) SetUpTest(c *gc.C) {
+func (s *CAASUnitInitSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *CAASUnitInitSuite) newCommand(c *gc.C, st *testing.Stub) *CAASUnitInitCommand {
+func (s *CAASUnitInitSuite) newCommand(c *tc.C, st *testhelpers.Stub) *CAASUnitInitCommand {
 	cmd := NewCAASUnitInitCommand()
 	cmd.copyFunc = func(src, dst string) error {
 		st.AddCall("Copy", src, dst)
@@ -61,79 +63,79 @@ func (s *CAASUnitInitSuite) newCommand(c *gc.C, st *testing.Stub) *CAASUnitInitC
 	return cmd
 }
 
-func (s *CAASUnitInitSuite) checkCommand(c *gc.C, cmd *CAASUnitInitCommand, args []string,
+func (s *CAASUnitInitSuite) checkCommand(c *tc.C, cmd *CAASUnitInitCommand, args []string,
 	unit string, operatorFile string,
 	operatorCACertFile string, charmDir string,
-) []testing.StubCall {
+) []testhelpers.StubCall {
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
 
 	toolsPath := "/var/lib/juju/tools/" + unit
 	agentPath := "/var/lib/juju/agents/" + unit
 
 	// Directory setup
-	calls := []testing.StubCall{
+	calls := []testhelpers.StubCall{
 		{FuncName: "Stat", Args: []interface{}{"/var/lib/juju/tools/jujuc"}},
 		{FuncName: "RemoveAll", Args: []interface{}{toolsPath}},
 		{FuncName: "MkdirAll", Args: []interface{}{toolsPath, os.FileMode(0775)}},
 	}
 
 	calls = append(calls,
-		testing.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
-		testing.StubCall{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
+		testhelpers.StubCall{FuncName: "RemoveAll", Args: []interface{}{agentPath}},
+		testhelpers.StubCall{FuncName: "MkdirAll", Args: []interface{}{agentPath, os.FileMode(0775)}},
 	)
 
 	// Symlinks
 	calls = append(calls,
-		testing.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujud", toolsPath + "/jujud"}},
+		testhelpers.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujud", toolsPath + "/jujud"}},
 	)
 	for _, cmdName := range jujuc.CommandNames() {
 		_ = cmdName
 		calls = append(calls,
-			testing.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujuc", toolsPath + "/" + cmdName}})
+			testhelpers.StubCall{FuncName: "Symlink", Args: []interface{}{"/var/lib/juju/tools/jujuc", toolsPath + "/" + cmdName}})
 	}
 
 	// Copies
 	if operatorFile != "" {
 		calls = append(calls,
-			testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorFile, agentPath + "/operator-client.yaml"}},
+			testhelpers.StubCall{FuncName: "Copy", Args: []interface{}{operatorFile, agentPath + "/operator-client.yaml"}},
 		)
 	}
 	if operatorCACertFile != "" {
 		calls = append(calls,
-			testing.StubCall{FuncName: "Copy", Args: []interface{}{operatorCACertFile, agentPath + "/ca.crt"}},
+			testhelpers.StubCall{FuncName: "Copy", Args: []interface{}{operatorCACertFile, agentPath + "/ca.crt"}},
 		)
 	}
 	if charmDir != "" {
 		calls = append(calls,
-			testing.StubCall{FuncName: "Copy", Args: []interface{}{charmDir, agentPath + "/charm"}},
+			testhelpers.StubCall{FuncName: "Copy", Args: []interface{}{charmDir, agentPath + "/charm"}},
 		)
 	}
 
 	return calls
 }
 
-func (s *CAASUnitInitSuite) TestInitUnit(c *gc.C) {
+func (s *CAASUnitInitSuite) TestInitUnit(c *tc.C) {
 	args := []string{"--unit", "unit-wow-0",
 		"--operator-file", "operator/file/path",
 		"--operator-ca-cert-file", "operator/cert/file/path",
 		"--charm-dir", "charm/dir"}
-	st := &testing.Stub{}
+	st := &testhelpers.Stub{}
 	cmd := s.newCommand(c, st)
 	calls := s.checkCommand(c, cmd, args, "unit-wow-0",
 		"operator/file/path", "operator/cert/file/path", "charm/dir")
 	st.CheckCalls(c, calls)
 }
 
-func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
+func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *tc.C) {
 	socketName := fmt.Sprintf("@%d", rand.Int63())
 	listening := make(chan struct{})
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		st := &testing.Stub{}
+		st := &testhelpers.Stub{}
 		cmd := s.newCommand(c, st)
 		cmd.socketName = socketName
 		cmd.listenFunc = func(s sockets.Socket) (net.Listener, error) {
@@ -144,7 +146,7 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 		calls := s.checkCommand(c, cmd, []string{"--wait"}, "unit-wow-0",
 			"operator/file/path", "operator/cert/file/path", "charm/dir")
 		calls = append(calls,
-			testing.StubCall{FuncName: "waitForPID", Args: []interface{}{os.Getpid()}})
+			testhelpers.StubCall{FuncName: "waitForPID", Args: []interface{}{os.Getpid()}})
 		st.CheckCalls(c, calls)
 	}()
 
@@ -159,30 +161,30 @@ func (s *CAASUnitInitSuite) TestInitUnitWaitSend(c *gc.C) {
 		"--operator-file", "operator/file/path",
 		"--operator-ca-cert-file", "operator/cert/file/path",
 		"--charm-dir", "charm/dir"}
-	st := &testing.Stub{}
+	st := &testhelpers.Stub{}
 	cmd := s.newCommand(c, st)
 	cmd.stdErr = stdErr
 	cmd.socketName = socketName
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(stdErr.Bytes(), gc.Not(gc.HasLen), 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(stdErr.Bytes(), tc.Not(tc.HasLen), 0)
 
 	wg.Wait()
 }
 
-func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {
+func (s *CAASUnitInitSuite) TestWaitPID(c *tc.C) {
 	var cmd *exec.Cmd
 	pid := 0
 	cmd = exec.Command("sleep", "2")
 	err := cmd.Start()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	pid = cmd.Process.Pid
 	go func() {
 		// Need this to reap the zombie process.
 		_ = cmd.Wait()
 	}()
-	c.Assert(pid, gc.Not(gc.Equals), 0)
+	c.Assert(pid, tc.Not(tc.Equals), 0)
 	waitChan := make(chan struct{})
 	go func() {
 		defer close(waitChan)
@@ -190,7 +192,7 @@ func (s *CAASUnitInitSuite) TestWaitPID(c *gc.C) {
 	}()
 	select {
 	case <-waitChan:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Errorf("waited too long for waitForPID")
 	}
 }

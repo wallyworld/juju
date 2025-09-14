@@ -4,10 +4,11 @@
 package stateconverter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -16,35 +17,37 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&converterSuite{})
+func TestConverterSuite(t *tctesting.T) {
+	tc.Run(t, &converterSuite{})
+}
 
 type converterSuite struct {
 	machine  *mocks.MockMachine
 	machiner *mocks.MockMachiner
 }
 
-func (s *converterSuite) TestSetUp(c *gc.C) {
+func (s *converterSuite) TestSetUp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch().Return(nil, nil)
 
 	conv := s.newConverter()
 	_, err := conv.SetUp()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *converterSuite) TestSetupMachinerErr(c *gc.C) {
+func (s *converterSuite) TestSetupMachinerErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.NotValidf("machine tag")
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter()
 	w, err := conv.SetUp()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
+func (s *converterSuite) TestSetupWatchErr(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 	expectedError := errors.NotValidf("machine tag")
@@ -52,11 +55,11 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 
 	conv := s.newConverter()
 	w, err := conv.SetUp()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(w, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(w, tc.IsNil)
 }
 
-func (s *converterSuite) TestHandle(c *gc.C) {
+func (s *converterSuite) TestHandle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch().Return(nil, nil)
@@ -65,14 +68,14 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 
 	conv := s.newConverter()
 	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = conv.Handle(nil)
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
-	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
+	c.Assert(err.Error(), tc.Equals, "bounce agent to pick up new jobs")
 }
 
-func (s *converterSuite) TestHandleNotController(c *gc.C) {
+func (s *converterSuite) TestHandleNotController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch().Return(nil, nil)
@@ -81,12 +84,12 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 
 	conv := s.newConverter()
 	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = conv.Handle(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *converterSuite) TestHandleJobsError(c *gc.C) {
+func (s *converterSuite) TestHandleJobsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).AnyTimes()
 	s.machine.EXPECT().Watch().Return(nil, nil).AnyTimes()
@@ -97,18 +100,18 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 
 	conv := s.newConverter()
 	_, err := conv.SetUp()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = conv.Handle(nil)
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
-	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
+	c.Assert(err.Error(), tc.Equals, "bounce agent to pick up new jobs")
 	_, err = conv.SetUp()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	err = conv.Handle(nil)
-	c.Assert(errors.Cause(err), gc.Equals, expectedError)
+	c.Assert(errors.Cause(err), tc.Equals, expectedError)
 }
 
-func (s *converterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *converterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machine = mocks.NewMockMachine(ctrl)
 	s.machiner = mocks.NewMockMachiner(ctrl)

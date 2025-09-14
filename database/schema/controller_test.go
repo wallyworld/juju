@@ -7,48 +7,51 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	_ "github.com/mattn/go-sqlite3"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type schemaSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	db *sql.DB
 }
 
-var _ = gc.Suite(&schemaSuite{})
+func TestSchemaSuite(t *tctesting.T) {
+	tc.Run(t, &schemaSuite{})
+}
 
 // SetUpTest creates a new sql.DB reference and ensures that the
 // controller schema is applied successfully.
-func (s *schemaSuite) TestDDLApply(c *gc.C) {
+func (s *schemaSuite) TestDDLApply(c *tc.C) {
 	// Do not be tempted in moving to :memory: mode for this test suite. It will
 	// fail in non-deterministic ways. Unfortunately :memory: mode is not
 	// completely goroutine safe.
 	s.db = s.NewCleanDB(c)
 
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		err := s.db.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	tx, err := s.db.Begin()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for idx, stmt := range ControllerDDL() {
 		c.Logf("Executing schema DDL index: %v", idx)
 		_, err := tx.Exec(stmt)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	c.Logf("Committing schema DDL")
 	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
@@ -76,18 +79,18 @@ func (s *schemaSuite) TestDDLApply(c *gc.C) {
 		"external_controller_address",
 		"external_model",
 	)
-	c.Assert(readTableNames(c, s.db), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+	c.Assert(readTableNames(c, s.db), tc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
 
 // NewCleanDB returns a new sql.DB reference.
-func (s *schemaSuite) NewCleanDB(c *gc.C) *sql.DB {
+func (s *schemaSuite) NewCleanDB(c *tc.C) *sql.DB {
 	dir := c.MkDir()
 
 	url := fmt.Sprintf("file:%s/db.sqlite3?_foreign_keys=1", dir)
 	c.Logf("Opening sqlite3 db with: %v", url)
 
 	db, err := sql.Open("sqlite3", url)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return db
 }
@@ -98,27 +101,27 @@ var (
 	)
 )
 
-func readTableNames(c *gc.C, db *sql.DB) []string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func readTableNames(c *tc.C, db *sql.DB) []string {
+	ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 	defer cancel()
 
 	tx, err := db.BeginTx(ctx, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rows, err := tx.QueryContext(ctx, "SELECT tbl_name FROM sqlite_master")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 
 	var tables []string
 	for rows.Next() {
 		var table string
 		err = rows.Scan(&table)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		tables = append(tables, table)
 	}
 
 	err = tx.Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return set.NewStrings(tables...).SortedValues()
 }

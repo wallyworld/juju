@@ -11,28 +11,30 @@ import (
 	"os"
 	"path"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // syncInternalSuite is gocheck boilerplate.
 type syncInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&syncInternalSuite{})
+func TestSyncInternalSuite(t *tctesting.T) {
+	tc.Run(t, &syncInternalSuite{})
+}
 
 const imageContents = "fake img file"
 
-func (syncInternalSuite) TestFetcher(c *gc.C) {
+func (syncInternalSuite) TestFetcher(c *tc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -52,25 +54,25 @@ func (syncInternalSuite) TestFetcher(c *gc.C) {
 	}()
 
 	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// setup a fake command runner.
 	stub := runStub{}
 	fetcher.image.runCmd = stub.Run
 
 	err = fetcher.Fetch()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = os.Stat(fetcher.image.tmpFile.Name())
-	c.Check(os.IsNotExist(err), jc.IsTrue)
+	c.Check(os.IsNotExist(err), tc.IsTrue)
 
 	// Check that our call was made as expected.
-	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
+	c.Assert(stub.Calls(), tc.HasLen, 1)
+	c.Assert(stub.Calls()[0], tc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
 
 }
 
-func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
+func (syncInternalSuite) TestFetcherWriteFails(c *tc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -90,7 +92,7 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 	}()
 
 	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// setup a fake command runner.
 	stub := runStub{err: errors.Errorf("boom")}
@@ -98,15 +100,15 @@ func (syncInternalSuite) TestFetcherWriteFails(c *gc.C) {
 
 	// Make sure we got the error.
 	err = fetcher.Fetch()
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 	// Check that our call was made as expected.
-	c.Assert(stub.Calls(), gc.HasLen, 1)
-	c.Assert(stub.Calls()[0], gc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
+	c.Assert(stub.Calls(), tc.HasLen, 1)
+	c.Assert(stub.Calls()[0], tc.Matches, " qemu-img convert -f qcow2 .*/juju-kvm-server.img-.* .*/guests/version-archless-backing-file.qcow")
 
 }
 
-func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
+func (syncInternalSuite) TestFetcherInvalidSHA(c *tc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -127,13 +129,13 @@ func (syncInternalSuite) TestFetcherInvalidSHA(c *gc.C) {
 	}()
 
 	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = fetcher.Fetch()
-	c.Assert(err, gc.ErrorMatches, "hash sum mismatch for /tmp/juju-kvm-.*")
+	c.Assert(err, tc.ErrorMatches, "hash sum mismatch for /tmp/juju-kvm-.*")
 }
 
-func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
+func (syncInternalSuite) TestFetcherNotFound(c *tc.C) {
 	ts := newTestServer()
 	defer ts.Close()
 
@@ -154,11 +156,11 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 	}()
 
 	fetcher, err := newDefaultFetcher(md, ts.URL, pathfinder, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = fetcher.Fetch()
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, `got 404 fetching image "not-there" not found`)
+	c.Check(errors.IsNotFound(err), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, `got 404 fetching image "not-there" not found`)
 }
 
 func newTestMetadata() *imagedownloads.Metadata {
@@ -266,12 +268,14 @@ func (fs fakeFS) Open(name string) (http.File, error) {
 }
 
 type progressWriterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&progressWriterSuite{})
+func TestProgressWriterSuite(t *tctesting.T) {
+	tc.Run(t, &progressWriterSuite{})
+}
 
-func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
+func (s *progressWriterSuite) TestOnlyPercentChanges(c *tc.C) {
 	cbLog := []string{}
 	loggingCB := func(msg string) {
 		cbLog = append(cbLog, msg)
@@ -297,8 +301,8 @@ func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
 	for i := 0; i < 2048; i++ {
 		clock.Advance(time.Millisecond)
 		n, err := writer.Write(content)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(n, gc.Equals, len(content))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(n, tc.Equals, len(content))
 	}
 	expectedCB := []string{}
 	for i := 1; i <= 100; i++ {
@@ -307,6 +311,6 @@ func (s *progressWriterSuite) TestOnlyPercentChanges(c *gc.C) {
 		expectedCB = append(expectedCB, fmt.Sprintf("copying http://host/path %d%% (51 MB/s)", i))
 	}
 	// There are 2048 calls to Write, but there should only be 100 calls to progress update
-	c.Check(len(cbLog), gc.Equals, 100)
-	c.Check(cbLog, gc.DeepEquals, expectedCB)
+	c.Check(len(cbLog), tc.Equals, 100)
+	c.Check(cbLog, tc.DeepEquals, expectedCB)
 }

@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	tctesting "testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -38,9 +38,11 @@ type environBrokerSuite struct {
 	spec *instances.InstanceSpec
 }
 
-var _ = gc.Suite(&environBrokerSuite{})
+func TestEnvironBrokerSuite(t *tctesting.T) {
+	tc.Run(t, &environBrokerSuite{})
+}
 
-func (s *environBrokerSuite) SetUpTest(c *gc.C) {
+func (s *environBrokerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	instanceType := instances.InstanceType{
@@ -79,10 +81,10 @@ func (s *environBrokerSuite) expectImageMetadata() {
 	}}
 }
 
-func (s *environBrokerSuite) startInstanceArg(c *gc.C, prefix string, hasGpuSupported bool) *computepb.Instance {
+func (s *environBrokerSuite) startInstanceArg(c *tc.C, prefix string, hasGpuSupported bool) *computepb.Instance {
 	instName := fmt.Sprintf("%s0", prefix)
 	userData, err := providerinit.ComposeUserData(s.StartInstArgs.InstanceConfig, nil, gce.GCERenderer{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var scheduling *computepb.Scheduling
 	if hasGpuSupported {
@@ -161,21 +163,21 @@ func (m gceComputeArgMatcher) String() string {
 	return fmt.Sprintf("is equal to %v", m.want.String())
 }
 
-func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstance(c *tc.C) {
 	s.testStartInstance(c, false)
 }
 
-func (s *environBrokerSuite) TestStartGpuInstance(c *gc.C) {
+func (s *environBrokerSuite) TestStartGpuInstance(c *tc.C) {
 	s.testStartInstance(c, true)
 }
 
-func (s *environBrokerSuite) testStartInstance(c *gc.C, hasGpuSupported bool) {
+func (s *environBrokerSuite) testStartInstance(c *tc.C, hasGpuSupported bool) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -216,8 +218,8 @@ func (s *environBrokerSuite) testStartInstance(c *gc.C, hasGpuSupported bool) {
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.GoogleInstance(c, result.Instance), jc.DeepEquals, instResult)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.GoogleInstance(c, result.Instance), tc.DeepEquals, instResult)
 
 	hwc := &instance.HardwareCharacteristics{
 		Arch:             &s.spec.InstanceType.Arch,
@@ -227,10 +229,10 @@ func (s *environBrokerSuite) testStartInstance(c *gc.C, hasGpuSupported bool) {
 		RootDisk:         ptr(s.spec.InstanceType.RootDisk),
 		AvailabilityZone: ptr("home-zone"),
 	}
-	c.Check(result.Hardware, jc.DeepEquals, hwc)
+	c.Check(result.Hardware, tc.DeepEquals, hwc)
 }
 
-func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -239,17 +241,17 @@ func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, errors.New("blargh"))
 
 	_, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, "blargh")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "blargh")
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), tc.IsTrue)
 }
 
-func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -283,17 +285,17 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceAutoSubnet(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceAutoSubnet(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.SetVpcInfo(env, ptr("/path/to/vpc"), true)
 
@@ -321,17 +323,17 @@ func (s *environBrokerSuite) TestStartInstanceAutoSubnet(c *gc.C) {
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceSubnetPlacement(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceSubnetPlacement(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -366,17 +368,17 @@ func (s *environBrokerSuite) TestStartInstanceSubnetPlacement(c *gc.C) {
 	s.StartInstArgs.Placement = "subnet=subnet1"
 
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceSubnetSpaces(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceSubnetSpaces(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -415,17 +417,17 @@ func (s *environBrokerSuite) TestStartInstanceSubnetSpaces(c *gc.C) {
 	}
 
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceServiceAccount(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceServiceAccount(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.SetCredential(env, jujucloud.NewCredential(
 		jujucloud.ServiceAccountAuthType, map[string]string{
 			"service-account": "foo@googledev.com",
@@ -459,17 +461,17 @@ func (s *environBrokerSuite) TestStartInstanceServiceAccount(c *gc.C) {
 
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -500,17 +502,17 @@ func (s *environBrokerSuite) TestStartInstanceInstanceRoleCredential(c *gc.C) {
 	s.StartInstArgs.AvailabilityZone = "home-zone"
 	s.StartInstArgs.Constraints = constraints.MustParse("instance-role=foo@googledev.com")
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestStartInstanceBootstrapInstanceRoleCredential(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceBootstrapInstanceRoleCredential(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.expectImageMetadata()
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").
@@ -545,26 +547,26 @@ func (s *environBrokerSuite) TestStartInstanceBootstrapInstanceRoleCredential(c 
 		},
 	}
 	result, err := env.StartInstance(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, "home-zone")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, tc.Equals, "home-zone")
 }
 
-func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
+func (s *environBrokerSuite) TestFinishInstanceConfig(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 
 	err := gce.FinishInstanceConfig(env, s.StartInstArgs, s.spec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), gc.Not(gc.Equals), version.Binary{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), tc.Not(tc.Equals), version.Binary{})
 }
 
 func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
+func (s *environBrokerSuite) TestBuildInstanceSpec(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -574,8 +576,8 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 
 	spec, err := gce.BuildInstanceSpec(env, s.CallCtx, s.StartInstArgs)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec.InstanceType, jc.DeepEquals, instances.InstanceType{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec.InstanceType, tc.DeepEquals, instances.InstanceType{
 		Id:         "0",
 		Name:       "n1-standard-1",
 		Arch:       "amd64",
@@ -586,7 +588,7 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
+func (s *environBrokerSuite) TestFindInstanceSpec(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -609,17 +611,17 @@ func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
 	}}
 	spec, err := gce.FindInstanceSpec(env, ic, imageMetadata, []instances.InstanceType{s.spec.InstanceType})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec, jc.DeepEquals, s.spec)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spec, tc.DeepEquals, s.spec)
 }
 
-func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
+func (s *environBrokerSuite) TestGetMetadataUbuntu(c *tc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, ostype.Ubuntu)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	userData, err := providerinit.ComposeUserData(s.StartInstArgs.InstanceConfig, nil, gce.GCERenderer{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(metadata, tc.DeepEquals, map[string]string{
 		tags.JujuIsController: "true",
 		tags.JujuController:   s.ControllerUUID,
 		"user-data":           string(userData),
@@ -627,11 +629,11 @@ func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
+func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *tc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, ostype.GenericLinux)
 
-	c.Assert(metadata, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os GenericLinux on the gce provider")
+	c.Assert(metadata, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "cannot pack metadata for os GenericLinux on the gce provider")
 }
 
 var getDisksTests = []struct {
@@ -642,24 +644,24 @@ var getDisksTests = []struct {
 	{"suse", errors.New("os Suse is not supported on the gce provider")},
 }
 
-func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
+func (s *environBrokerSuite) TestGetDisks(c *tc.C) {
 	for _, test := range getDisksTests {
 		os := ostype.OSTypeForName(test.osname)
 		diskSpecs, err := gce.GetDisks("image-url", s.StartInstArgs.Constraints, os)
 		if test.error != nil {
-			c.Assert(err, gc.Equals, err)
+			c.Assert(err, tc.Equals, err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(diskSpecs, gc.HasLen, 1)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(diskSpecs, tc.HasLen, 1)
 			diskSpec := diskSpecs[0]
-			c.Assert(diskSpec.InitializeParams, gc.NotNil)
-			c.Check(diskSpec.InitializeParams.GetDiskSizeGb(), gc.Equals, int64(10))
-			c.Check(diskSpec.InitializeParams.GetSourceImage(), gc.Equals, "image-url")
+			c.Assert(diskSpec.InitializeParams, tc.NotNil)
+			c.Check(diskSpec.InitializeParams.GetDiskSizeGb(), tc.Equals, int64(10))
+			c.Check(diskSpec.InitializeParams.GetSourceImage(), tc.Equals, "image-url")
 		}
 	}
 }
 
-func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
+func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -667,15 +669,15 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 
 	hwc := gce.GetHardwareCharacteristics(env, s.spec, s.NewEnvironInstance(env, "inst-0"))
 
-	c.Assert(hwc, gc.NotNil)
-	c.Check(*hwc.Arch, gc.Equals, "amd64")
-	c.Check(*hwc.AvailabilityZone, gc.Equals, "home-zone")
-	c.Check(*hwc.CpuCores, gc.Equals, uint64(2))
-	c.Check(*hwc.Mem, gc.Equals, uint64(3750))
-	c.Check(*hwc.RootDisk, gc.Equals, uint64(15360))
+	c.Assert(hwc, tc.NotNil)
+	c.Check(*hwc.Arch, tc.Equals, "amd64")
+	c.Check(*hwc.AvailabilityZone, tc.Equals, "home-zone")
+	c.Check(*hwc.CpuCores, tc.Equals, uint64(2))
+	c.Check(*hwc.Mem, tc.Equals, uint64(3750))
+	c.Check(*hwc.RootDisk, tc.Equals, uint64(15360))
 }
 
-func (s *environBrokerSuite) TestAllRunningInstances(c *gc.C) {
+func (s *environBrokerSuite) TestAllRunningInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -685,11 +687,11 @@ func (s *environBrokerSuite) TestAllRunningInstances(c *gc.C) {
 		Return([]*computepb.Instance{s.NewComputeInstance("inst-0")}, nil)
 
 	insts, err := env.AllRunningInstances(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(insts, jc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(insts, tc.DeepEquals, []instances.Instance{s.NewEnvironInstance(env, "inst-0")})
 }
 
-func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -698,24 +700,24 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	s.MockService.EXPECT().RemoveInstances(gomock.Any(), s.Prefix(env), "inst-0").Return(nil)
 
 	err := env.StopInstances(s.CallCtx, "inst-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *gc.C) {
+func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().RemoveInstances(gomock.Any(), s.Prefix(env), "inst-0").Return(gce.InvalidCredentialError)
 
 	err := env.StopInstances(s.CallCtx, "inst-0")
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environBrokerSuite) TestHasAccelerator(c *gc.C) {
+func (s *environBrokerSuite) TestHasAccelerator(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -724,8 +726,8 @@ func (s *environBrokerSuite) TestHasAccelerator(c *gc.C) {
 
 	// Empty Instance type
 	hasGPU, err := gce.HasAccelerator(env, s.CallCtx, zone, "")
-	c.Assert(err, gc.IsNil)
-	c.Assert(hasGPU, jc.IsFalse)
+	c.Assert(err, tc.IsNil)
+	c.Assert(hasGPU, tc.IsFalse)
 
 	// Instance has no GPU
 	instanceTypeNoGPU := "e2-standard-8"
@@ -737,8 +739,8 @@ func (s *environBrokerSuite) TestHasAccelerator(c *gc.C) {
 		}, nil)
 
 	hasGPU, err = gce.HasAccelerator(env, s.CallCtx, zone, instanceTypeNoGPU)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasGPU, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasGPU, tc.IsFalse)
 
 	// Instance type has GPU
 	instanceTypeGPU := "g2-standard-8"
@@ -755,6 +757,6 @@ func (s *environBrokerSuite) TestHasAccelerator(c *gc.C) {
 		}, nil)
 
 	hasGPU, err = gce.HasAccelerator(env, s.CallCtx, zone, instanceTypeGPU)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasGPU, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasGPU, tc.IsTrue)
 }

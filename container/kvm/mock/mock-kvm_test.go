@@ -4,86 +4,89 @@
 package mock_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/kvm/mock"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MockSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&MockSuite{})
-
-func (*MockSuite) TestListInitiallyEmpty(c *gc.C) {
-	factory := mock.MockFactory()
-	containers, err := factory.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containers, gc.HasLen, 0)
+func TestMockSuite(t *tctesting.T) {
+	tc.Run(t, &MockSuite{})
 }
 
-func (*MockSuite) TestNewContainersInList(c *gc.C) {
+func (*MockSuite) TestListInitiallyEmpty(c *tc.C) {
+	factory := mock.MockFactory()
+	containers, err := factory.List()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(containers, tc.HasLen, 0)
+}
+
+func (*MockSuite) TestNewContainersInList(c *tc.C) {
 	factory := mock.MockFactory()
 	added := []kvm.Container{}
 	added = append(added, factory.New("first"))
 	added = append(added, factory.New("second"))
 	containers, err := factory.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containers, jc.SameContents, added)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(containers, tc.SameContents, added)
 }
 
-func (*MockSuite) TestContainers(c *gc.C) {
+func (*MockSuite) TestContainers(c *tc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
-	c.Assert(container.Name(), gc.Equals, "first")
-	c.Assert(container.IsRunning(), jc.IsFalse)
+	c.Assert(container.Name(), tc.Equals, "first")
+	c.Assert(container.IsRunning(), tc.IsFalse)
 }
 
-func (*MockSuite) TestContainerStoppingStoppedErrors(c *gc.C) {
+func (*MockSuite) TestContainerStoppingStoppedErrors(c *tc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Stop()
-	c.Assert(err, gc.ErrorMatches, "container is not running")
+	c.Assert(err, tc.ErrorMatches, "container is not running")
 }
 
-func (*MockSuite) TestContainerStartStarts(c *gc.C) {
+func (*MockSuite) TestContainerStartStarts(c *tc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsRunning(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(container.IsRunning(), tc.IsTrue)
 }
 
-func (*MockSuite) TestContainerStartingRunningErrors(c *gc.C) {
+func (*MockSuite) TestContainerStartingRunningErrors(c *tc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = container.Start(kvm.StartParams{})
-	c.Assert(err, gc.ErrorMatches, "container is already running")
+	c.Assert(err, tc.ErrorMatches, "container is already running")
 }
 
-func (*MockSuite) TestContainerStoppingRunningStops(c *gc.C) {
+func (*MockSuite) TestContainerStoppingRunningStops(c *tc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = container.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsRunning(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(container.IsRunning(), tc.IsFalse)
 }
 
-func (*MockSuite) TestAddListener(c *gc.C) {
+func (*MockSuite) TestAddListener(c *tc.C) {
 	listener := make(chan mock.Event)
 	factory := mock.MockFactory()
 	factory.AddListener(listener)
-	c.Assert(factory.HasListener(listener), jc.IsTrue)
+	c.Assert(factory.HasListener(listener), tc.IsTrue)
 }
 
-func (*MockSuite) TestRemoveFirstListener(c *gc.C) {
+func (*MockSuite) TestRemoveFirstListener(c *tc.C) {
 	factory := mock.MockFactory()
 	first := make(chan mock.Event)
 	factory.AddListener(first)
@@ -92,12 +95,12 @@ func (*MockSuite) TestRemoveFirstListener(c *gc.C) {
 	third := make(chan mock.Event)
 	factory.AddListener(third)
 	factory.RemoveListener(first)
-	c.Assert(factory.HasListener(first), jc.IsFalse)
-	c.Assert(factory.HasListener(second), jc.IsTrue)
-	c.Assert(factory.HasListener(third), jc.IsTrue)
+	c.Assert(factory.HasListener(first), tc.IsFalse)
+	c.Assert(factory.HasListener(second), tc.IsTrue)
+	c.Assert(factory.HasListener(third), tc.IsTrue)
 }
 
-func (*MockSuite) TestRemoveMiddleListener(c *gc.C) {
+func (*MockSuite) TestRemoveMiddleListener(c *tc.C) {
 	factory := mock.MockFactory()
 	first := make(chan mock.Event)
 	factory.AddListener(first)
@@ -106,12 +109,12 @@ func (*MockSuite) TestRemoveMiddleListener(c *gc.C) {
 	third := make(chan mock.Event)
 	factory.AddListener(third)
 	factory.RemoveListener(second)
-	c.Assert(factory.HasListener(first), jc.IsTrue)
-	c.Assert(factory.HasListener(second), jc.IsFalse)
-	c.Assert(factory.HasListener(third), jc.IsTrue)
+	c.Assert(factory.HasListener(first), tc.IsTrue)
+	c.Assert(factory.HasListener(second), tc.IsFalse)
+	c.Assert(factory.HasListener(third), tc.IsTrue)
 }
 
-func (*MockSuite) TestRemoveLastListener(c *gc.C) {
+func (*MockSuite) TestRemoveLastListener(c *tc.C) {
 	factory := mock.MockFactory()
 	first := make(chan mock.Event)
 	factory.AddListener(first)
@@ -120,12 +123,12 @@ func (*MockSuite) TestRemoveLastListener(c *gc.C) {
 	third := make(chan mock.Event)
 	factory.AddListener(third)
 	factory.RemoveListener(third)
-	c.Assert(factory.HasListener(first), jc.IsTrue)
-	c.Assert(factory.HasListener(second), jc.IsTrue)
-	c.Assert(factory.HasListener(third), jc.IsFalse)
+	c.Assert(factory.HasListener(first), tc.IsTrue)
+	c.Assert(factory.HasListener(second), tc.IsTrue)
+	c.Assert(factory.HasListener(third), tc.IsFalse)
 }
 
-func (*MockSuite) TestEvents(c *gc.C) {
+func (*MockSuite) TestEvents(c *tc.C) {
 	factory := mock.MockFactory()
 	listener := make(chan mock.Event, 5)
 	factory.AddListener(listener)
@@ -137,13 +140,13 @@ func (*MockSuite) TestEvents(c *gc.C) {
 	second.Stop()
 	first.Stop()
 
-	c.Assert(<-listener, gc.Equals, mock.Event{mock.Started, "first"})
-	c.Assert(<-listener, gc.Equals, mock.Event{mock.Started, "second"})
-	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "second"})
-	c.Assert(<-listener, gc.Equals, mock.Event{mock.Stopped, "first"})
+	c.Assert(<-listener, tc.Equals, mock.Event{mock.Started, "first"})
+	c.Assert(<-listener, tc.Equals, mock.Event{mock.Started, "second"})
+	c.Assert(<-listener, tc.Equals, mock.Event{mock.Stopped, "second"})
+	c.Assert(<-listener, tc.Equals, mock.Event{mock.Stopped, "first"})
 }
 
-func (*MockSuite) TestEventsGoToAllListeners(c *gc.C) {
+func (*MockSuite) TestEventsGoToAllListeners(c *tc.C) {
 	factory := mock.MockFactory()
 	first := make(chan mock.Event, 5)
 	factory.AddListener(first)
@@ -154,8 +157,8 @@ func (*MockSuite) TestEventsGoToAllListeners(c *gc.C) {
 	container.Start(kvm.StartParams{})
 	container.Stop()
 
-	c.Assert(<-first, gc.Equals, mock.Event{mock.Started, "container"})
-	c.Assert(<-second, gc.Equals, mock.Event{mock.Started, "container"})
-	c.Assert(<-first, gc.Equals, mock.Event{mock.Stopped, "container"})
-	c.Assert(<-second, gc.Equals, mock.Event{mock.Stopped, "container"})
+	c.Assert(<-first, tc.Equals, mock.Event{mock.Started, "container"})
+	c.Assert(<-second, tc.Equals, mock.Event{mock.Started, "container"})
+	c.Assert(<-first, tc.Equals, mock.Event{mock.Stopped, "container"})
+	c.Assert(<-second, tc.Equals, mock.Event{mock.Stopped, "container"})
 }

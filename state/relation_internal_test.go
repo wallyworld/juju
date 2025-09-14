@@ -4,19 +4,22 @@
 package state
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type RelationSuite struct{}
 
-var _ = gc.Suite(&RelationSuite{})
+func TestRelationSuite(t *tctesting.T) {
+	tc.Run(t, &RelationSuite{})
+}
 
 // TestRelatedEndpoints verifies the behaviour of RelatedEndpoints in
 // multi-endpoint peer relations, which are currently not constructable
 // by normal means.
-func (s *RelationSuite) TestRelatedEndpoints(c *gc.C) {
+func (s *RelationSuite) TestRelatedEndpoints(c *tc.C) {
 	rel := charm.Relation{
 		Interface: "ifce",
 		Name:      "group",
@@ -35,6 +38,6 @@ func (s *RelationSuite) TestRelatedEndpoints(c *gc.C) {
 	}}
 	r := &Relation{nil, relationDoc{Endpoints: eps}}
 	relatedEps, err := r.RelatedEndpoints("mike")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relatedEps, gc.DeepEquals, eps)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(relatedEps, tc.DeepEquals, eps)
 }

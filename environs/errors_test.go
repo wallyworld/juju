@@ -5,10 +5,10 @@ package environs_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 )
@@ -16,16 +16,18 @@ import (
 type errorsSuite struct {
 }
 
-var _ = gc.Suite(&errorsSuite{})
+func TestErrorsSuite(t *tctesting.T) {
+	tc.Run(t, &errorsSuite{})
+}
 
-func (*errorsSuite) TestZoneIndependentErrorConforms(c *gc.C) {
+func (*errorsSuite) TestZoneIndependentErrorConforms(c *tc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), tc.IsTrue)
 
 	err = fmt.Errorf("replace with solid doors: %w", err)
 	err = environs.ZoneIndependentError(err)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), tc.IsTrue)
 
 	err = fmt.Errorf("or stay on dry land: %w", err)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), tc.IsTrue)
 }

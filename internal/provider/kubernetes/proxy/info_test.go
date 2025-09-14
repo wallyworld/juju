@@ -5,11 +5,11 @@ package proxy_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -23,9 +23,11 @@ type infoSuite struct {
 	clock  *testclock.Clock
 }
 
-var _ = gc.Suite(&infoSuite{})
+func TestInfoSuite(t *tctesting.T) {
+	tc.Run(t, &infoSuite{})
+}
 
-func (i *infoSuite) SetUpTest(c *gc.C) {
+func (i *infoSuite) SetUpTest(c *tc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 
 	i.client = fake.NewSimpleClientset()
@@ -37,18 +39,18 @@ func (i *infoSuite) SetUpTest(c *gc.C) {
 		},
 		meta.CreateOptions{},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (i *infoSuite) TestHasControllerProxyFalse(c *gc.C) {
+func (i *infoSuite) TestHasControllerProxyFalse(c *tc.C) {
 	has, err := proxy.HasControllerProxy("test",
 		i.client.CoreV1().ConfigMaps(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsFalse)
 }
 
-func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
+func (i *infoSuite) TestHasControllerProxy(c *tc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
 		Namespace:     testNamespace,
@@ -70,9 +72,9 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
-		context.Background(),
+		c.Context(),
 		config,
 		labels.Set{},
 		i.clock,
@@ -82,16 +84,16 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	has, err := proxy.HasControllerProxy(config.Name,
 		i.client.CoreV1().ConfigMaps(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
-func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
+func (i *infoSuite) TestGetControllerProxier(c *tc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
 		Namespace:     testNamespace,
@@ -113,9 +115,9 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = proxy.CreateControllerProxy(
-		context.Background(),
+		c.Context(),
 		config,
 		labels.Set{},
 		i.clock,
@@ -125,7 +127,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = proxy.GetControllerProxy(
 		config.Name,
@@ -134,5 +136,5 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 		i.client.CoreV1().ServiceAccounts(testNamespace),
 		i.client.CoreV1().Secrets(testNamespace),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

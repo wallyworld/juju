@@ -5,8 +5,8 @@ package dummy
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/storage"
 )
 
@@ -16,7 +16,7 @@ var _ storage.Provider = (*StorageProvider)(nil)
 // Each method's default behaviour may be overridden by setting the corresponding
 // Func field.
 type StorageProvider struct {
-	testing.Stub
+	testhelpers.Stub
 
 	// StorageScope defines the scope of storage managed by this provider.
 	StorageScope storage.Scope

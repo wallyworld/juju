@@ -4,17 +4,18 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type statusGetterSuite struct {
@@ -22,9 +23,11 @@ type statusGetterSuite struct {
 	getter *common.StatusGetter
 }
 
-var _ = gc.Suite(&statusGetterSuite{})
+func TestStatusGetterSuite(t *tctesting.T) {
+	tc.Run(t, &statusGetterSuite{})
+}
 
-func (s *statusGetterSuite) SetUpTest(c *gc.C) {
+func (s *statusGetterSuite) SetUpTest(c *tc.C) {
 	s.statusBaseSuite.SetUpTest(c)
 
 	s.getter = common.NewStatusGetter(s.State, func() (common.AuthFunc, error) {
@@ -32,48 +35,48 @@ func (s *statusGetterSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
+func (s *statusGetterSuite) TestUnauthorized(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusGetterSuite) TestNotATag(c *gc.C) {
+func (s *statusGetterSuite) TestNotATag(c *tc.C) {
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		"not a tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *statusGetterSuite) TestNotFound(c *gc.C) {
+func (s *statusGetterSuite) TestNotFound(c *tc.C) {
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		names.NewMachineTag("42").String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
+func (s *statusGetterSuite) TestGetMachineStatus(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		machine.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	machineStatus := result.Results[0]
-	c.Assert(machineStatus.Error, gc.IsNil)
-	c.Assert(machineStatus.Status, gc.Equals, status.Pending.String())
+	c.Assert(machineStatus.Error, tc.IsNil)
+	c.Assert(machineStatus.Status, tc.Equals, status.Pending.String())
 }
 
-func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
+func (s *statusGetterSuite) TestGetUnitStatus(c *tc.C) {
 	// The status has to be a valid workload status, because get status
 	// on the unit returns the workload status not the agent status as it
 	// does on a machine.
@@ -83,28 +86,28 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	unitStatus := result.Results[0]
-	c.Assert(unitStatus.Error, gc.IsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Assert(unitStatus.Error, tc.IsNil)
+	c.Assert(unitStatus.Status, tc.Equals, status.Maintenance.String())
 }
 
-func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
+func (s *statusGetterSuite) TestGetApplicationStatus(c *tc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
 		app.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	appStatus := result.Results[0]
-	c.Assert(appStatus.Error, gc.IsNil)
-	c.Assert(appStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Assert(appStatus.Error, tc.IsNil)
+	c.Assert(appStatus.Status, tc.Equals, status.Maintenance.String())
 }
 
-func (s *statusGetterSuite) TestBulk(c *gc.C) {
+func (s *statusGetterSuite) TestBulk(c *tc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
@@ -114,12 +117,12 @@ func (s *statusGetterSuite) TestBulk(c *gc.C) {
 	}, {
 		"bad-tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[1].Status, gc.Equals, status.Pending.String())
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 3)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[1].Error, tc.IsNil)
+	c.Assert(result.Results[1].Status, tc.Equals, status.Pending.String())
+	c.Assert(result.Results[2].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type fakeLeadershipChecker struct {
@@ -147,7 +150,7 @@ type statusBaseSuite struct {
 	badTag            names.Tag
 }
 
-func (s *statusBaseSuite) SetUpTest(c *gc.C) {
+func (s *statusBaseSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{true}

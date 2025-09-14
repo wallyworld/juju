@@ -5,9 +5,9 @@ package storage_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -18,9 +18,11 @@ type poolUpdateSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolUpdateSuite{})
+func TestPoolUpdateSuite(t *tctesting.T) {
+	tc.Run(t, &poolUpdateSuite{})
+}
 
-func (s *poolUpdateSuite) createPools(c *gc.C, num int) {
+func (s *poolUpdateSuite) createPools(c *tc.C, num int) {
 	var err error
 	for i := 0; i < num; i++ {
 		poolName := fmt.Sprintf("%v%v", tstName, i)
@@ -29,11 +31,11 @@ func (s *poolUpdateSuite) createPools(c *gc.C, num int) {
 				"zip":  "zap",
 				"beep": "boop",
 			})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
+func (s *poolUpdateSuite) TestUpdatePool(c *tc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	newAttrs := map[string]interface{}{
@@ -48,20 +50,20 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.UpdatePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 
 	expected, err := storage.NewConfig(poolName, provider.LoopProviderType, newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0], gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
+	c.Assert(pools[0], tc.DeepEquals, expected)
 }
 
-func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
+func (s *poolUpdateSuite) TestUpdatePoolError(c *tc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	args := params.StoragePoolArgs{
 		Pools: []params.StoragePool{{
@@ -69,9 +71,9 @@ func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
 		}},
 	}
 	results, err := s.api.UpdatePool(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.DeepEquals, &params.Error{
 		Message: "mock pool manager: get pool testpool0 not found",
 		Code:    "not found",
 	})

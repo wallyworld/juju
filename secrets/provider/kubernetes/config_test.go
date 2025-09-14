@@ -4,26 +4,28 @@
 package kubernetes
 
 import (
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/secrets/provider"
 )
 
 type configSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
-func (s *configSuite) TestValidateConfig(c *gc.C) {
+func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	rotateInterval := time.Hour
 	for _, t := range []struct {
 		cfg                 map[string]interface{}
@@ -52,6 +54,6 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 		err:                 `k8s config missing service account not valid`,
 	}} {
 		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, t.tokenRotateInterval)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
 }

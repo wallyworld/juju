@@ -4,27 +4,30 @@
 package logfwd_test
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/logfwd"
 )
 
 type OriginTypeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&OriginTypeSuite{})
+func TestOriginTypeSuite(t *tctesting.T) {
+	tc.Run(t, &OriginTypeSuite{})
+}
 
-func (s *OriginTypeSuite) TestZeroValue(c *gc.C) {
+func (s *OriginTypeSuite) TestZeroValue(c *tc.C) {
 	var ot logfwd.OriginType
 
-	c.Check(ot, gc.Equals, logfwd.OriginTypeUnknown)
+	c.Check(ot, tc.Equals, logfwd.OriginTypeUnknown)
 }
 
-func (s *OriginTypeSuite) TestParseOriginTypeValid(c *gc.C) {
+func (s *OriginTypeSuite) TestParseOriginTypeValid(c *tc.C) {
 	tests := map[string]logfwd.OriginType{
 		"unknown": logfwd.OriginTypeUnknown,
 		"user":    logfwd.OriginTypeUser,
@@ -35,25 +38,25 @@ func (s *OriginTypeSuite) TestParseOriginTypeValid(c *gc.C) {
 		c.Logf("trying %q", str)
 
 		ot, err := logfwd.ParseOriginType(str)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
-		c.Check(ot, gc.Equals, expected)
+		c.Check(ot, tc.Equals, expected)
 	}
 }
 
-func (s *OriginTypeSuite) TestParseOriginTypeEmpty(c *gc.C) {
+func (s *OriginTypeSuite) TestParseOriginTypeEmpty(c *tc.C) {
 	_, err := logfwd.ParseOriginType("")
 
-	c.Check(err, gc.ErrorMatches, `unrecognized origin type ""`)
+	c.Check(err, tc.ErrorMatches, `unrecognized origin type ""`)
 }
 
-func (s *OriginTypeSuite) TestParseOriginTypeInvalid(c *gc.C) {
+func (s *OriginTypeSuite) TestParseOriginTypeInvalid(c *tc.C) {
 	_, err := logfwd.ParseOriginType("spam")
 
-	c.Check(err, gc.ErrorMatches, `unrecognized origin type "spam"`)
+	c.Check(err, tc.ErrorMatches, `unrecognized origin type "spam"`)
 }
 
-func (s *OriginTypeSuite) TestString(c *gc.C) {
+func (s *OriginTypeSuite) TestString(c *tc.C) {
 	tests := map[logfwd.OriginType]string{
 		logfwd.OriginTypeUnknown: "unknown",
 		logfwd.OriginTypeUser:    "user",
@@ -65,11 +68,11 @@ func (s *OriginTypeSuite) TestString(c *gc.C) {
 
 		str := ot.String()
 
-		c.Check(str, gc.Equals, expected)
+		c.Check(str, tc.Equals, expected)
 	}
 }
 
-func (s *OriginTypeSuite) TestValidateValid(c *gc.C) {
+func (s *OriginTypeSuite) TestValidateValid(c *tc.C) {
 	tests := []logfwd.OriginType{
 		logfwd.OriginTypeUnknown,
 		logfwd.OriginTypeUser,
@@ -81,28 +84,28 @@ func (s *OriginTypeSuite) TestValidateValid(c *gc.C) {
 
 		err := ot.Validate()
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *OriginTypeSuite) TestValidateZero(c *gc.C) {
+func (s *OriginTypeSuite) TestValidateZero(c *tc.C) {
 	var ot logfwd.OriginType
 
 	err := ot.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *OriginTypeSuite) TestValidateInvalid(c *gc.C) {
+func (s *OriginTypeSuite) TestValidateInvalid(c *tc.C) {
 	ot := logfwd.OriginType(999)
 
 	err := ot.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `unsupported origin type`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `unsupported origin type`)
 }
 
-func (s *OriginTypeSuite) TestValidateNameValid(c *gc.C) {
+func (s *OriginTypeSuite) TestValidateNameValid(c *tc.C) {
 	tests := map[logfwd.OriginType]string{
 		logfwd.OriginTypeUnknown: "",
 		logfwd.OriginTypeUser:    "a-user",
@@ -114,11 +117,11 @@ func (s *OriginTypeSuite) TestValidateNameValid(c *gc.C) {
 
 		err := ot.ValidateName(name)
 
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
+func (s *OriginTypeSuite) TestValidateNameInvalid(c *tc.C) {
 	tests := []struct {
 		ot   logfwd.OriginType
 		name string
@@ -145,7 +148,7 @@ func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
 
 		err := test.ot.ValidateName(test.name)
 
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
-		c.Check(err, gc.ErrorMatches, test.err)
+		c.Check(err, tc.Satisfies, errors.IsNotValid)
+		c.Check(err, tc.ErrorMatches, test.err)
 	}
 }

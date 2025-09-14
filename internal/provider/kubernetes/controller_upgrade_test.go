@@ -6,11 +6,11 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,9 @@ type ControllerUpgraderSuite struct {
 	broker *dummyUpgradeCAASController
 }
 
-var _ = gc.Suite(&ControllerUpgraderSuite{})
+func TestControllerUpgraderSuite(t *tctesting.T) {
+	tc.Run(t, &ControllerUpgraderSuite{})
+}
 
 func (d *dummyUpgradeCAASController) Client() kubernetes.Interface {
 	return d.client
@@ -47,13 +49,13 @@ func (d *dummyUpgradeCAASController) Namespace() string {
 	return "test"
 }
 
-func (s *ControllerUpgraderSuite) SetUpTest(c *gc.C) {
+func (s *ControllerUpgraderSuite) SetUpTest(c *tc.C) {
 	s.broker = &dummyUpgradeCAASController{
 		client: fake.NewSimpleClientset(),
 	}
 }
 
-func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
+func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *tc.C) {
 	var (
 		appName      = k8sconstants.JujuControllerStackName
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -82,24 +84,24 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 
 	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
 		Get(context.TODO(), appName, meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[utils.AnnotationVersionKey(constants.LabelVersion2)], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(constants.LabelVersion2)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[utils.AnnotationVersionKey(constants.LabelVersion2)], tc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(constants.LabelVersion2)], tc.Equals, version.MustParse("9.9.9").String())
 }
 
-func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {
+func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *tc.C) {
 	var (
 		appName = k8sconstants.JujuControllerStackName
 	)
 	err := controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker)
-	c.Assert(err, gc.NotNil)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }

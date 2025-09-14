@@ -5,28 +5,30 @@ package common_test
 
 import (
 	"bytes"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&cloudCredentialSuite{})
-
-type cloudCredentialSuite struct {
-	testing.IsolationSuite
+func TestCloudCredentialSuite(t *tctesting.T) {
+	tc.Run(t, &cloudCredentialSuite{})
 }
 
-func (*cloudCredentialSuite) TestResolveCloudCredentialTag(c *gc.C) {
+type cloudCredentialSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (*cloudCredentialSuite) TestResolveCloudCredentialTag(c *tc.C) {
 	testResolveCloudCredentialTag(c,
 		names.NewUserTag("admin@local"),
 		names.NewCloudTag("aws"),
@@ -35,7 +37,7 @@ func (*cloudCredentialSuite) TestResolveCloudCredentialTag(c *gc.C) {
 	)
 }
 
-func (*cloudCredentialSuite) TestResolveCloudCredentialTagOtherUser(c *gc.C) {
+func (*cloudCredentialSuite) TestResolveCloudCredentialTagOtherUser(c *tc.C) {
 	testResolveCloudCredentialTag(c,
 		names.NewUserTag("admin@local"),
 		names.NewCloudTag("aws"),
@@ -45,18 +47,18 @@ func (*cloudCredentialSuite) TestResolveCloudCredentialTagOtherUser(c *gc.C) {
 }
 
 func testResolveCloudCredentialTag(
-	c *gc.C,
+	c *tc.C,
 	user names.UserTag,
 	cloud names.CloudTag,
 	credentialName string,
 	expect string,
 ) {
 	tag, err := common.ResolveCloudCredentialTag(user, cloud, credentialName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag.Id(), gc.Equals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tag.Id(), tc.Equals, expect)
 }
 
-func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
+func (*cloudCredentialSuite) TestRegisterCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -86,11 +88,11 @@ func (*cloudCredentialSuite) TestRegisterCredentials(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stderr.String(), gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stderr.String(), tc.Equals, "")
 }
 
-func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
+func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -109,10 +111,10 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithNoCredentials(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
+func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -131,10 +133,10 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 			Name: "fake",
 		},
 	})
-	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
+	c.Assert(errors.Cause(err).Error(), tc.Matches, "bad")
 }
 
-func (*cloudCredentialSuite) assertInvalidCredentialName(c *gc.C, in modelcmd.GetCredentialsParams) {
+func (*cloudCredentialSuite) assertInvalidCredentialName(c *tc.C, in modelcmd.GetCredentialsParams) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -154,11 +156,11 @@ func (*cloudCredentialSuite) assertInvalidCredentialName(c *gc.C, in modelcmd.Ge
 		mockProvider,
 		in,
 	)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, `credential name "new one" not valid`)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, `credential name "new one" not valid`)
+	c.Assert(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNameProvided(c *gc.C) {
+func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNameProvided(c *tc.C) {
 	s.assertInvalidCredentialName(c,
 		modelcmd.GetCredentialsParams{
 			CredentialName: "new one",
@@ -167,7 +169,7 @@ func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNamePro
 	)
 }
 
-func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialName(c *gc.C) {
+func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialName(c *tc.C) {
 	s.assertInvalidCredentialName(c,
 		modelcmd.GetCredentialsParams{
 			Cloud: cloud.Cloud{Name: "cloud", Type: "dummy"},
@@ -175,7 +177,7 @@ func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialName(c 
 	)
 }
 
-func (s *cloudCredentialSuite) TestParseBoolPointer(c *gc.C) {
+func (s *cloudCredentialSuite) TestParseBoolPointer(c *tc.C) {
 	_true := true
 	_false := false
 	for _, t := range []struct {
@@ -190,6 +192,6 @@ func (s *cloudCredentialSuite) TestParseBoolPointer(c *gc.C) {
 	} {
 
 		got := common.HumanReadableBoolPointer(t.pointer, t.trueV, t.falseV)
-		c.Assert(got, gc.Equals, t.expected)
+		c.Assert(got, tc.Equals, t.expected)
 	}
 }

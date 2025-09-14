@@ -6,12 +6,12 @@ package provisioner
 import (
 	"errors"
 	"sync"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -42,7 +42,7 @@ type containerSetupSuite struct {
 	machineLock *fakeMachineLock
 }
 
-func (s *containerSetupSuite) SetUpTest(c *gc.C) {
+func (s *containerSetupSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelUUID = utils.MustNewUUID()
@@ -51,17 +51,19 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 	s.machineLock = &fakeMachineLock{}
 }
 
-var _ = gc.Suite(&containerSetupSuite{})
+func TestContainerSetupSuite(t *tctesting.T) {
+	tc.Run(t, &containerSetupSuite{})
+}
 
-func (s *containerSetupSuite) TestInitialiseContainersKVM(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersKVM(c *tc.C) {
 	s.testInitialiseContainers(c, instance.KVM)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainersLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
-func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType instance.ContainerType) {
+func (s *containerSetupSuite) testInitialiseContainers(c *tc.C, containerType instance.ContainerType) {
 	defer s.patch(c).Finish()
 
 	s.expectContainerManagerConfig(containerType)
@@ -77,18 +79,18 @@ func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType in
 	abort := make(chan struct{})
 	close(abort)
 	err := cs.initialiseContainers(abort)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainerProvisionerKVM(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainerProvisionerKVM(c *tc.C) {
 	s.testInitialiseContainers(c, instance.KVM)
 }
 
-func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
+func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *tc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
 
-func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
+func (s *containerSetupSuite) TestContainerManagerConfigError(c *tc.C) {
 	defer s.patch(c).Finish()
 
 	s.facadeCaller.EXPECT().FacadeCall(
@@ -99,10 +101,10 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err := cs.initialiseContainers(abort)
-	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: boom")
+	c.Assert(err, tc.ErrorMatches, ".*generating container manager config: boom")
 }
 
-func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instance.ContainerType) *ContainerSetup {
+func (s *containerSetupSuite) setUpContainerSetup(c *tc.C, containerType instance.ContainerType) *ContainerSetup {
 	pState := apiprovisioner.NewStateFromFacade(s.facadeCaller)
 
 	cfg, err := agent.NewAgentConfig(
@@ -117,7 +119,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 			Controller:        names.NewControllerTag(s.controllerUUID.String()),
 			Model:             names.NewModelTag(s.modelUUID.String()),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := ContainerSetupParams{
 		Logger:        &noOpLogger{},
@@ -136,7 +138,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 	return NewContainerSetup(args)
 }
 
-func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
+func (s *containerSetupSuite) patch(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)

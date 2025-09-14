@@ -4,37 +4,40 @@
 package environupgrader_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (*ManifoldSuite) TestInputs(c *gc.C) {
+func (*ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{
 		APICallerName: "boris",
 		EnvironName:   "nikolayevich",
 		GateName:      "yeltsin",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"boris", "nikolayevich", "yeltsin"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"boris", "nikolayevich", "yeltsin"})
 }
 
-func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
+func (*ManifoldSuite) TestMissingAPICaller(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 		"environ":    struct{ environs.Environ }{},
@@ -47,11 +50,11 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
+func (*ManifoldSuite) TestMissingGateName(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
@@ -64,11 +67,11 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
+func (*ManifoldSuite) TestNewFacadeError(c *tc.C) {
 	expectAPICaller := struct{ base.APICaller }{}
 	expectEnviron := struct{ environs.Environ }{}
 	expectGate := struct{ gate.Unlocker }{}
@@ -82,17 +85,17 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 		EnvironName:   "environ",
 		GateName:      "gate",
 		NewFacade: func(actual base.APICaller) (environupgrader.Facade, error) {
-			c.Check(actual, gc.Equals, expectAPICaller)
+			c.Check(actual, tc.Equals, expectAPICaller)
 			return nil, errors.New("splort")
 		},
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splort")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splort")
 }
 
-func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerError(c *tc.C) {
 	expectFacade := struct{ environupgrader.Facade }{}
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
@@ -107,18 +110,18 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 			return expectFacade, nil
 		},
 		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
-			c.Check(config.Facade, gc.Equals, expectFacade)
+			c.Check(config.Facade, tc.Equals, expectFacade)
 			return nil, errors.New("boof")
 		},
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "boof")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "boof")
 }
 
-func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	expectEnviron := struct{ environs.Environ }{}
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -142,12 +145,12 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(newWorkerConfig.Environ, gc.Equals, expectEnviron)
+	c.Check(worker, tc.Equals, expectWorker)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(newWorkerConfig.Environ, tc.Equals, expectEnviron)
 }
 
-func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
+func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *tc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
@@ -170,19 +173,19 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(worker, gc.Equals, expectWorker)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(newWorkerConfig.Environ, gc.IsNil)
+	c.Check(worker, tc.Equals, expectWorker)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(newWorkerConfig.Environ, tc.IsNil)
 }
 
-func (*ManifoldSuite) TestFilterNil(c *gc.C) {
+func (*ManifoldSuite) TestFilterNil(c *tc.C) {
 	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{})
 	err := manifold.Filter(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*ManifoldSuite) TestFilterErrModelRemoved(c *gc.C) {
+func (*ManifoldSuite) TestFilterErrModelRemoved(c *tc.C) {
 	manifold := environupgrader.Manifold(environupgrader.ManifoldConfig{})
 	err := manifold.Filter(environupgrader.ErrModelRemoved)
-	c.Check(err, gc.Equals, dependency.ErrUninstall)
+	c.Check(err, tc.Equals, dependency.ErrUninstall)
 }

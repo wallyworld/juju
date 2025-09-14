@@ -5,16 +5,16 @@ package caasunitprovisioner_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
@@ -25,15 +25,17 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	storageprovider "github.com/juju/juju/storage/provider"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&CAASProvisionerSuite{})
+func TestCAASProvisionerSuite(t *tctesting.T) {
+	tc.Run(t, &CAASProvisionerSuite{})
+}
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
@@ -61,19 +63,19 @@ func boolptr(i bool) *bool {
 	return &i
 }
 
-func (s *CAASProvisionerSuite) setupFacade(c *gc.C) *gomock.Controller {
+func (s *CAASProvisionerSuite) setupFacade(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.broker = mocks.NewMockBroker(ctrl)
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
 		s.storagePoolManager, s.registry, nil, nil, s.clock, s.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 	return ctrl
 }
 
-func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *CAASProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.applicationsChanges = make(chan []string, 1)
@@ -106,10 +108,10 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.devices = &mockDeviceBackend{}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.scaleWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.settingsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.application.scaleWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.application.settingsWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
 
 	s.resources = common.NewResources()
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -120,7 +122,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
 }
 
-func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
+func (s *CAASProvisionerSuite) TestPermission(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	s.broker = mocks.NewMockBroker(ctrl)
 
@@ -130,26 +132,26 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	_, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices,
 		s.storagePoolManager, s.registry, nil, nil, s.clock, s.broker)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *CAASProvisionerSuite) TestWatchApplications(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, applicationNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "1")
+	c.Assert(result.Changes, tc.DeepEquals, applicationNames)
 
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.applicationsWatcher)
+	c.Assert(resource, tc.Equals, s.st.applicationsWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
+func (s *CAASProvisionerSuite) TestWatchPodSpec(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -161,19 +163,19 @@ func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.model.podSpecWatcher)
+	c.Assert(resource, tc.Equals, s.st.model.podSpecWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
+func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -185,19 +187,19 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.application.scaleWatcher)
+	c.Assert(resource, tc.Equals, s.st.application.scaleWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
+func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -209,19 +211,19 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
-	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].StringsWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.application.settingsWatcher)
+	c.Assert(resource, tc.Equals, s.st.application.settingsWatcher)
 }
 
-func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool) {
+func (s *CAASProvisionerSuite) assertProvisioningInfo(c *tc.C, isRawK8sSpec bool) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Dying},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -256,7 +258,7 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Maps are harder to check...
 	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
 	expectedResult := &params.KubernetesProvisioningInfo{
@@ -317,22 +319,22 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 				MountPoint: "/var/lib/juju/storage/logs/0",
 			},
 		}}
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	obtained := results.Results[0].Result
-	c.Assert(obtained, gc.NotNil)
-	c.Assert(obtained.PodSpec, jc.DeepEquals, expectedResult.PodSpec)
-	c.Assert(obtained.RawK8sSpec, jc.DeepEquals, expectedResult.RawK8sSpec)
-	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
-	c.Assert(obtained.ImageRepo.RegistryPath, gc.Equals, expectedResult.ImageRepo.RegistryPath)
-	c.Assert(obtained.CharmModifiedVersion, jc.DeepEquals, 888)
-	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
+	c.Assert(obtained, tc.NotNil)
+	c.Assert(obtained.PodSpec, tc.DeepEquals, expectedResult.PodSpec)
+	c.Assert(obtained.RawK8sSpec, tc.DeepEquals, expectedResult.RawK8sSpec)
+	c.Assert(obtained.DeploymentInfo, tc.DeepEquals, expectedResult.DeploymentInfo)
+	c.Assert(obtained.ImageRepo.RegistryPath, tc.Equals, expectedResult.ImageRepo.RegistryPath)
+	c.Assert(obtained.CharmModifiedVersion, tc.DeepEquals, 888)
+	c.Assert(len(obtained.Filesystems), tc.Equals, len(expectedFileSystems))
 	for _, fs := range obtained.Filesystems {
-		c.Assert(fs, gc.DeepEquals, expectedFileSystems[fs.StorageName])
+		c.Assert(fs, tc.DeepEquals, expectedFileSystems[fs.StorageName])
 	}
-	c.Assert(obtained.Devices, jc.DeepEquals, expectedResult.Devices)
-	c.Assert(obtained.Constraints, jc.DeepEquals, expectedResult.Constraints)
-	c.Assert(obtained.Tags, jc.DeepEquals, expectedResult.Tags)
-	c.Assert(results.Results[1], jc.DeepEquals, params.KubernetesProvisioningInfoResult{
+	c.Assert(obtained.Devices, tc.DeepEquals, expectedResult.Devices)
+	c.Assert(obtained.Constraints, tc.DeepEquals, expectedResult.Constraints)
+	c.Assert(obtained.Tags, tc.DeepEquals, expectedResult.Tags)
+	c.Assert(results.Results[1], tc.DeepEquals, params.KubernetesProvisioningInfoResult{
 		Error: &params.Error{
 			Message: `"unit-gitlab-0" is not a valid application tag`,
 		},
@@ -342,20 +344,20 @@ func (s *CAASProvisionerSuite) assertProvisioningInfo(c *gc.C, isRawK8sSpec bool
 	s.storagePoolManager.CheckCallNames(c, "Get", "Get")
 }
 
-func (s *CAASProvisionerSuite) TestProvisioningInfoK8sSpec(c *gc.C) {
+func (s *CAASProvisionerSuite) TestProvisioningInfoK8sSpec(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
 	s.assertProvisioningInfo(c, false)
 }
-func (s *CAASProvisionerSuite) TestProvisioningInfoRawK8sSpec(c *gc.C) {
+func (s *CAASProvisionerSuite) TestProvisioningInfoRawK8sSpec(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
 	s.assertProvisioningInfo(c, true)
 }
 
-func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
+func (s *CAASProvisionerSuite) TestApplicationScale(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -365,8 +367,8 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.IntResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.IntResults{
 		Results: []params.IntResult{{
 			Result: 5,
 		}, {
@@ -378,7 +380,7 @@ func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
 	s.st.CheckCallNames(c, "Application")
 }
 
-func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
+func (s *CAASProvisionerSuite) TestDeploymentMode(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -395,8 +397,8 @@ func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
 			Result: "workload",
 		}, {
@@ -408,7 +410,7 @@ func (s *CAASProvisionerSuite) TestDeploymentMode(c *gc.C) {
 	s.st.CheckCallNames(c, "Application")
 }
 
-func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
+func (s *CAASProvisionerSuite) TestLife(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -419,8 +421,8 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 			{Tag: "machine-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
 			Life: life.Dying,
 		}, {
@@ -434,7 +436,7 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
+func (s *CAASProvisionerSuite) TestApplicationConfig(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -444,16 +446,16 @@ func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
-	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(results.Results[0].Config, tc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
-func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -463,8 +465,8 @@ func (s *CAASProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
 			{
@@ -488,21 +490,21 @@ func int64Ptr(i int64) *int64 {
 	return &i
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
 	s.assertUpdateApplicationsStatelessUnits(c, true)
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnitsWithoutGeneration(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnitsWithoutGeneration(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
 	s.assertUpdateApplicationsStatelessUnits(c, false)
 }
 
-func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, withGeneration bool) {
+func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *tc.C, withGeneration bool) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -532,8 +534,8 @@ func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, w
 	args = append(args, gitlab)
 
 	results, err := s.facade.UpdateApplicationsUnits(params.UpdateApplicationUnitArgs{Args: args})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateApplicationUnitResults{
 		Results: []params.UpdateApplicationUnitResult{
 			{Error: &params.Error{Message: "application another not found", Code: "not found"}},
 			{Error: nil},
@@ -576,7 +578,7 @@ func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, w
 	})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -604,8 +606,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateApplicationUnitResults{
 		Results: []params.UpdateApplicationUnitResult{
 			{},
 		},
@@ -639,7 +641,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -662,8 +664,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateApplicationUnitResults{
 		Results: []params.UpdateApplicationUnitResult{
 			{nil, nil},
 		},
@@ -693,7 +695,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
 	})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -717,8 +719,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateApplicationUnitResults{
 		Results: []params.UpdateApplicationUnitResult{
 			{nil, nil},
 		},
@@ -729,7 +731,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -783,8 +785,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
 			Units: []params.ApplicationUnitInfo{
 				{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
@@ -895,7 +897,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.model.CheckCall(c, 1, "Containers", []string{"uuid", "another-uuid"})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVolume(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVolume(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -923,8 +925,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpdateApplicationUnitResults{
 		Results: []params.UpdateApplicationUnitResult{
 			{nil, nil},
 		},
@@ -964,7 +966,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 		})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
+func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -980,17 +982,17 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
-	c.Assert(s.st.application.providerId, gc.Equals, "id")
-	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.SpaceAddress{addr})
+	c.Assert(s.st.application.providerId, tc.Equals, "id")
+	c.Assert(s.st.application.addresses, tc.DeepEquals, []network.SpaceAddress{addr})
 }
 
-func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *tc.C) {
 	ctrl := s.setupFacade(c)
 	defer ctrl.Finish()
 
@@ -1000,10 +1002,10 @@ func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 	now := s.clock.Now()

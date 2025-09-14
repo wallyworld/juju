@@ -4,28 +4,32 @@
 package charmrevisionupdater_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/charmrevisionupdater"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type versionUpdaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&versionUpdaterSuite{})
+func TestVersionUpdaterSuite(t *tctesting.T) {
+	tc.Run(t, &versionUpdaterSuite{})
+}
 
-func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
+func (s *versionUpdaterSuite) TestUpdateRevisions(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CharmRevisionUpdater")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UpdateLatestRevisions")
-		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
+		c.Check(objType, tc.Equals, "CharmRevisionUpdater")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "UpdateLatestRevisions")
+		c.Check(arg, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResult{})
 		*(result.(*params.ErrorResult)) = params.ErrorResult{
 			Error: &params.Error{Message: "boom"},
 		}
@@ -34,5 +38,5 @@ func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
 
 	client := charmrevisionupdater.NewClient(apiCaller)
 	err := client.UpdateLatestRevisions()
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }

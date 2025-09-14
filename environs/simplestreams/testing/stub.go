@@ -6,11 +6,11 @@ package testing
 import (
 	"io"
 
-	"github.com/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type StubDataSource struct {
-	testing.Stub
+	testhelpers.Stub
 
 	DescriptionFunc      func() string
 	FetchFunc            func(path string) (io.ReadCloser, string, error)

@@ -6,22 +6,22 @@ package bundle_test
 import (
 	"fmt"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/description/v9"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type bundleSuite struct {
@@ -32,9 +32,11 @@ type bundleSuite struct {
 	modelTag names.ModelTag
 }
 
-var _ = gc.Suite(&bundleSuite{})
+func TestBundleSuite(t *tctesting.T) {
+	tc.Run(t, &bundleSuite{})
+}
 
-func (s *bundleSuite) SetUpTest(c *gc.C) {
+func (s *bundleSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("read"),
@@ -45,26 +47,26 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.facade = s.makeAPI(c)
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv6 {
+func (s *bundleSuite) makeAPI(c *tc.C) *bundle.APIv6 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.auth,
 		s.modelTag,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &bundle.APIv6{api}
 }
 
-func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleContentError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
-	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
+	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
+	c.Assert(r, tc.DeepEquals, params.BundleChangesResults{})
 }
 
-func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -77,9 +79,9 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
 		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
@@ -87,7 +89,7 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
 	})
 }
 
-func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -98,14 +100,14 @@ func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleStorageError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -117,14 +119,14 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleDevicesError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -136,14 +138,14 @@ func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
+func (s *bundleSuite) TestGetChangesSuccessV2(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -166,8 +168,8 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -214,11 +216,11 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 		Method:   "addRelation",
 		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
-	c.Assert(r.Errors, gc.IsNil)
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	c.Assert(r.Errors, tc.IsNil)
 }
 
-func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *gc.C) {
+func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -267,11 +269,11 @@ applications:
 
 	apiv6 := s.makeAPI(c)
 	r_v6, err_v6 := apiv6.GetChanges(args)
-	c.Assert(err_v6, jc.ErrorIsNil)
-	c.Assert(r_v6.Changes, jc.DeepEquals, expectedChanges_V6)
+	c.Assert(err_v6, tc.ErrorIsNil)
+	c.Assert(r_v6.Changes, tc.DeepEquals, expectedChanges_V6)
 }
 
-func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
+func (s *bundleSuite) TestGetChangesKubernetes(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             bundle: kubernetes
@@ -295,8 +297,8 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", "", ""},
@@ -343,11 +345,11 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 		Method:   "addRelation",
 		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
-	c.Assert(r.Errors, gc.IsNil)
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	c.Assert(r.Errors, tc.IsNil)
 }
 
-func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -359,11 +361,11 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, change := range r.Changes {
 		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChange{
+			c.Assert(change, tc.DeepEquals, &params.BundleChange{
 				Id:     "deploy-1",
 				Method: "deploy",
 				Args: []interface{}{
@@ -385,16 +387,16 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
-	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
+	c.Assert(err, tc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
+	c.Assert(r, tc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -407,9 +409,9 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
 		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
@@ -417,7 +419,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -428,14 +430,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -447,14 +449,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -466,14 +468,14 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Changes, tc.IsNil)
+	c.Assert(r.Errors, tc.SameContents, []string{
 		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
 	})
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -496,8 +498,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -549,13 +551,13 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -566,8 +568,8 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -586,11 +588,11 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
 		Requires: []string{"addCharm-0"},
 	}})
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             bundle: kubernetes
@@ -614,8 +616,8 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(r.Changes, tc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args: map[string]interface{}{
@@ -664,13 +666,13 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 			"endpoint2": "$deploy-3:web",
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
-	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	}}, tc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
 	for _, err := range r.Errors {
-		c.Assert(err, gc.Equals, "")
+		c.Assert(err, tc.Equals, "")
 	}
 }
 
-func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *tc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -682,11 +684,11 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
         `,
 	}
 	r, err := s.facade.GetChangesMapArgs(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for _, change := range r.Changes {
 		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChangesMapArgs{
+			c.Assert(change, tc.DeepEquals, &params.BundleChangesMapArgs{
 				Id:     "deploy-1",
 				Method: "deploy",
 				Args: map[string]interface{}{
@@ -702,16 +704,16 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
 	}
 }
 
-func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
+func (s *bundleSuite) TestExportBundleFailNoApplication(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, gc.NotNil)
-	c.Assert(result, gc.Equals, params.StringResult{})
-	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications")
+	c.Assert(err, tc.NotNil)
+	c.Assert(result, tc.Equals, params.StringResult{})
+	c.Check(err, tc.ErrorMatches, "nothing to export as there are no applications")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -775,7 +777,7 @@ func minimalStatusArgs() description.StatusArgs {
 	}
 }
 
-func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithApplication(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -790,7 +792,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -807,11 +809,11 @@ applications:
       juju-info: vlan2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithApplicationResources(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -839,7 +841,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -858,11 +860,11 @@ applications:
       juju-info: vlan2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -893,7 +895,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -914,11 +916,11 @@ applications:
       juju-info: vlan2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -938,7 +940,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -956,11 +958,11 @@ applications:
     trust: true
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1001,7 +1003,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -1041,11 +1043,11 @@ applications:
         - endpoint-2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1148,7 +1150,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -1250,11 +1252,11 @@ applications:
         - endpoint-2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithSaas(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1275,7 +1277,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 saas:
@@ -1295,7 +1297,7 @@ applications:
       juju-info: vlan2
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -1380,12 +1382,12 @@ func (s *bundleSuite) newModel(modelType string, app1 string, app2 string) descr
 	return s.st.model
 }
 
-func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *tc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 default-base: ubuntu@20.04/stable
@@ -1410,11 +1412,11 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *tc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 	app := model.AddApplication(description.ApplicationArgs{
@@ -1428,7 +1430,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeCharmDefaults: true})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 default-base: ubuntu@20.04/stable
@@ -1462,11 +1464,11 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
@@ -1502,7 +1504,7 @@ func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *gc.C) {
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeSeries: true})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1527,7 +1529,7 @@ machines:
     base: ubuntu@22.04/stable
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -1547,7 +1549,7 @@ func (s *bundleSuite) addSubordinateEndpoints(rel description.Relation, app stri
 	return appEndpoint, loggingEndpoint
 }
 
-func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *tc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
@@ -1569,7 +1571,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -1597,11 +1599,11 @@ relations:
   - logging:logging
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
+func (s *bundleSuite) TestExportBundleSubordinateApplication(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1638,7 +1640,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application.SetStatus(minimalStatusArgs())
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@18.04/stable
@@ -1654,7 +1656,7 @@ applications:
       rel-name: some-space
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -1690,10 +1692,10 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 }
 
-func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
+func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *tc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "0")
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 applications:
@@ -1709,13 +1711,13 @@ applications:
     options:
       key: value
 `[1:]}
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 }
 
-func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
+func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *tc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "1")
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 applications:
@@ -1737,10 +1739,10 @@ applications:
       another: alpha
       rel-name: alpha
 `[1:]}
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 }
 
-func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) {
+func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1761,7 +1763,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	s.addMinimalMachineWithConstraints(s.st.model, "0")
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@17.04/stable
@@ -1774,7 +1776,7 @@ applications:
       key: value
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -1804,7 +1806,7 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 	m.SetStatus(minimalStatusArgs())
 }
 
-func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelWithConstraints(c *tc.C) {
 	model := s.newModel("iaas", "mediawiki", "mysql")
 
 	s.addMinimalMachineWithConstraints(model, "0")
@@ -1813,7 +1815,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -1840,7 +1842,7 @@ relations:
   - mysql:mysql
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
@@ -1860,7 +1862,7 @@ func (s *bundleSuite) addMinimalMachineWithAnnotations(model description.Model, 
 	m.SetStatus(minimalStatusArgs())
 }
 
-func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
+func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *tc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 
 	s.addMinimalMachineWithAnnotations(model, "0")
@@ -1869,7 +1871,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -1898,11 +1900,11 @@ relations:
   - mysql:mysql
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithContainers(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
@@ -1955,7 +1957,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	ut.SetAgentStatus(minimalStatusArgs())
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
 applications:
@@ -1976,11 +1978,11 @@ machines:
     constraints: arch=amd64 mem=8192 root-disk=40960
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestMixedSeries(c *gc.C) {
+func (s *bundleSuite) TestMixedSeries(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
@@ -2016,7 +2018,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 default-base: ubuntu@20.04/stable
@@ -2038,11 +2040,11 @@ machines:
     base: ubuntu@22.04/stable
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
+func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *tc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
 			"default-base": "ubuntu@20.04",
@@ -2082,7 +2084,7 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
 applications:
@@ -2105,16 +2107,16 @@ machines:
     base: ubuntu@22.04/stable
 `[1:]}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
+func (s *bundleSuite) TestExportKubernetesBundle(c *tc.C) {
 	model := s.newModel("caas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 bundle: kubernetes
@@ -2131,16 +2133,16 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
+func (s *bundleSuite) TestExportCharmhubBundle(c *tc.C) {
 	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 default-base: ubuntu@20.04/stable
@@ -2167,16 +2169,16 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
+func (s *bundleSuite) TestExportLocalBundle(c *tc.C) {
 	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 default-base: ubuntu@20.04/stable
@@ -2201,16 +2203,16 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
+func (s *bundleSuite) TestExportLocalBundleWithSeries(c *tc.C) {
 	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	output := `
 default-base: ubuntu@20.04/stable
@@ -2235,11 +2237,11 @@ relations:
 `[1:]
 	expectedResult := params.StringResult{Result: output}
 
-	c.Assert(result, gc.Equals, expectedResult)
+	c.Assert(result, tc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
+func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *tc.C) {
 	specs := []struct {
 		descr            string
 		exposed          bool
@@ -2348,9 +2350,9 @@ applications:
 		application.SetStatus(minimalStatusArgs())
 
 		result, err := s.facade.ExportBundle(params.ExportBundleParams{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		exp := params.StringResult{Result: spec.expBundle}
-		c.Assert(result, gc.Equals, exp)
+		c.Assert(result, tc.Equals, exp)
 	}
 }

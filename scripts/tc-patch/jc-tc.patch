@@ -4,6 +4,7 @@ var jc, x identifier
 @@
 -import jc "github.com/juju/testing/checkers"
 +import "github.com/juju/tc"
+tctesting "testing"
 
 -jc.x
 +tc.x

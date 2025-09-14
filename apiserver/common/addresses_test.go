@@ -4,14 +4,15 @@
 package common_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type apiAddresserSuite struct {
@@ -19,12 +20,14 @@ type apiAddresserSuite struct {
 	fake      *fakeAddresses
 }
 
-var _ = gc.Suite(&apiAddresserSuite{})
+func TestApiAddresserSuite(t *tctesting.T) {
+	tc.Run(t, &apiAddresserSuite{})
+}
 
 // Verify that APIAddressAccessor is satisfied by *state.State.
 var _ common.APIAddressAccessor = (*state.State)(nil)
 
-func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
+func (s *apiAddresserSuite) SetUpTest(c *tc.C) {
 	s.fake = &fakeAddresses{
 		hostPorts: []network.SpaceHostPorts{
 			network.NewSpaceHostPorts(1, "apiaddresses"),
@@ -34,13 +37,13 @@ func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 	s.addresser = common.NewAPIAddresser(s.fake, common.NewResources())
 }
 
-func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
+func (s *apiAddresserSuite) TestAPIAddresses(c *tc.C) {
 	result, err := s.addresser.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Result, tc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
 
-func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
+func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *tc.C) {
 	addrs := network.NewSpaceAddresses("52.7.1.1", "10.0.2.1")
 	ctlr1 := network.SpaceAddressesWithPort(addrs, 17070)
 
@@ -60,9 +63,9 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 	}
 
 	result, err := s.addresser.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result.Result, gc.DeepEquals, []string{
+	c.Check(result.Result, tc.DeepEquals, []string{
 		"apiaddresses:1",
 		"10.0.2.1:17070",
 		"52.7.1.1:17070",

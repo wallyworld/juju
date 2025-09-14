@@ -6,9 +6,8 @@ package caasfirewaller_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
@@ -17,10 +16,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type firewallerBaseSuite struct {
@@ -35,7 +34,7 @@ type firewallerBaseSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     facadeCommon
 
-	newFunc func(c *gc.C, resources facade.Resources,
+	newFunc func(c *tc.C, resources facade.Resources,
 		authorizer facade.Authorizer,
 		st *mockState,
 	) (facadeCommon, error)
@@ -45,17 +44,17 @@ type firewallerLegacySuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&firewallerLegacySuite{
+var _ = tc.Suite(&firewallerLegacySuite{
 	firewallerBaseSuite: firewallerBaseSuite{
-		newFunc: func(c *gc.C, resources facade.Resources,
+		newFunc: func(c *tc.C, resources facade.Resources,
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
 			commonState := &mockCommonStateShim{st}
 			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			return caasfirewaller.NewFacadeLegacyForTest(
 				resources,
 				authorizer,
@@ -73,17 +72,17 @@ type firewallerSidecarSuite struct {
 	facade facadeSidecar
 }
 
-var _ = gc.Suite(&firewallerSidecarSuite{
+var _ = tc.Suite(&firewallerSidecarSuite{
 	firewallerBaseSuite: firewallerBaseSuite{
-		newFunc: func(c *gc.C, resources facade.Resources,
+		newFunc: func(c *tc.C, resources facade.Resources,
 			authorizer facade.Authorizer,
 			st *mockState,
 		) (facadeCommon, error) {
 			commonState := &mockCommonStateShim{st}
 			commonCharmsAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			appCharmInfoAPI, err := charmscommon.NewApplicationCharmInfoAPI(commonState, authorizer)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			return caasfirewaller.NewFacadeSidecarForTest(
 				resources,
 				authorizer,
@@ -95,7 +94,7 @@ var _ = gc.Suite(&firewallerSidecarSuite{
 	},
 })
 
-func (s *firewallerSidecarSuite) SetUpTest(c *gc.C) {
+func (s *firewallerSidecarSuite) SetUpTest(c *tc.C) {
 	s.firewallerBaseSuite.SetUpTest(c)
 
 	// charm.FormatV2.
@@ -111,10 +110,10 @@ func (s *firewallerSidecarSuite) SetUpTest(c *gc.C) {
 
 	var ok bool
 	s.facade, ok = s.firewallerBaseSuite.facade.(facadeSidecar)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 }
 
-func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *tc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
 
@@ -123,14 +122,14 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, openPortsChanges)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "1")
+	c.Assert(result.Changes, tc.DeepEquals, openPortsChanges)
 }
 
-func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *tc.C) {
 	s.st.application.appPortRanges = network.GroupedPortRanges{
 		"": []network.PortRange{
 			{
@@ -151,10 +150,10 @@ func (s *firewallerSidecarSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 	results, err := s.facade.GetOpenedPorts(params.Entity{
 		Tag: "application-gitlab",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.ApplicationPortRanges, gc.DeepEquals, []params.ApplicationOpenedPorts{
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.ApplicationPortRanges, tc.DeepEquals, []params.ApplicationOpenedPorts{
 		{
 			PortRanges: []params.PortRange{
 				{FromPort: 80, ToPort: 80, Protocol: "tcp"},
@@ -184,7 +183,7 @@ type facadeSidecar interface {
 	GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
 
-func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
+func (s *firewallerBaseSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.applicationsChanges = make(chan []string, 1)
@@ -207,9 +206,9 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 		openPortsWatcher:    statetesting.NewMockStringsWatcher(s.openPortsChanges),
 		appExposedWatcher:   appExposedWatcher,
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.openPortsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.openPortsWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
 
 	s.resources = common.NewResources()
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -218,29 +217,29 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	}
 
 	facade, err := s.newFunc(c, s.resources, s.authorizer, s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 }
 
-func (s *firewallerBaseSuite) TestPermission(c *gc.C) {
+func (s *firewallerBaseSuite) TestPermission(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := s.newFunc(c, s.resources, s.authorizer, s.st)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *firewallerBaseSuite) TestWatchApplications(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplications(c *tc.C) {
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Changes, jc.DeepEquals, applicationNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "1")
+	c.Assert(result.Changes, tc.DeepEquals, applicationNames)
 }
 
-func (s *firewallerBaseSuite) TestWatchApplication(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplication(c *tc.C) {
 	s.appExposedChanges <- struct{}{}
 
 	results, err := s.facade.Watch(params.Entities{
@@ -249,20 +248,20 @@ func (s *firewallerBaseSuite) TestWatchApplication(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: "permission denied",
 		Code:    "unauthorized access",
 	})
 
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.appExposedWatcher)
+	c.Assert(resource, tc.Equals, s.st.appExposedWatcher)
 }
 
-func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposed(c *tc.C) {
 	s.st.application.exposed = true
 	results, err := s.facade.IsExposed(params.Entities{
 		Entities: []params.Entity{
@@ -270,8 +269,8 @@ func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.BoolResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{{
 			Result: true,
 		}, {
@@ -282,15 +281,15 @@ func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
 	})
 }
 
-func (s *firewallerBaseSuite) TestLife(c *gc.C) {
+func (s *firewallerBaseSuite) TestLife(c *tc.C) {
 	results, err := s.facade.Life(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "machine-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
 			Life: life.Alive,
 		}, {
@@ -302,18 +301,18 @@ func (s *firewallerBaseSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
+func (s *firewallerBaseSuite) TestApplicationConfig(c *tc.C) {
 	results, err := s.facade.ApplicationsConfig(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, &params.Error{
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
-	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(results.Results[0].Config, tc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }

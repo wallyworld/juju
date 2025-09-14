@@ -4,8 +4,9 @@
 package resources_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
@@ -13,9 +14,11 @@ import (
 
 type DockerResourceSuite struct{}
 
-var _ = gc.Suite(&DockerResourceSuite{})
+func TestDockerResourceSuite(t *tctesting.T) {
+	tc.Run(t, &DockerResourceSuite{})
+}
 
-func (s *DockerResourceSuite) TestValidRegistryPath(c *gc.C) {
+func (s *DockerResourceSuite) TestValidRegistryPath(c *tc.C) {
 	for _, registryTest := range []struct {
 		registryPath string
 	}{{
@@ -28,20 +31,20 @@ func (s *DockerResourceSuite) TestValidRegistryPath(c *gc.C) {
 		registryPath: "me/mygitlab:latest",
 	}} {
 		err := resources.ValidateDockerRegistryPath(registryTest.registryPath)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *DockerResourceSuite) TestInvalidRegistryPath(c *gc.C) {
+func (s *DockerResourceSuite) TestInvalidRegistryPath(c *tc.C) {
 	err := resources.ValidateDockerRegistryPath("blah:sha256@")
-	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
+	c.Assert(err, tc.ErrorMatches, "docker image path .* not valid")
 }
 
-func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *gc.C) {
+func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *tc.C) {
 	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
 	result, err := resources.UnmarshalDockerResource(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -52,15 +55,15 @@ func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *gc.C) {
 	})
 }
 
-func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalYaml(c *gc.C) {
+func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalYaml(c *tc.C) {
 	data := []byte(`
 registrypath: testing@sha256:beef-deed
 username: docker-registry
 password: fragglerock
 `[1:])
 	result, err := resources.UnmarshalDockerResource(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{

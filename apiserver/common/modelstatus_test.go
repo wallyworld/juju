@@ -4,10 +4,11 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -22,13 +23,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type modelStatusSuite struct {
@@ -39,9 +40,11 @@ type modelStatusSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&modelStatusSuite{})
+func TestModelStatusSuite(t *tctesting.T) {
+	tc.Run(t, &modelStatusSuite{})
+}
 
-func (s *modelStatusSuite) SetUpTest(c *gc.C) {
+func (s *modelStatusSuite) SetUpTest(c *tc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
@@ -52,7 +55,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -66,13 +69,13 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 			Auth_:      s.authorizer,
 			StatePool_: s.StatePool,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controller = controller
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
-func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusNonAuth(c *tc.C) {
 	// Set up the user making the call.
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
@@ -85,18 +88,18 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerModelTag := s.Model.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
 	result, err := endpoint.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, "permission denied")
 }
 
-func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *tc.C) {
 	// Set up the user making the call.
 	owner := s.Factory.MakeUser(c, nil)
 	anAuthoriser := apiservertesting.FakeAuthorizer{
@@ -111,18 +114,18 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 			Auth_:      anAuthoriser,
 			StatePool_: s.StatePool,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
 	_, err = endpoint.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatus(c *tc.C) {
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
@@ -173,7 +176,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	})
 
 	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
@@ -182,7 +185,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
 	results, err := s.controller.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
 	mem := uint64(64 * 1024 * 1024 * 1024)
@@ -190,7 +193,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
+	c.Assert(results.Results, tc.DeepEquals, []params.ModelStatus{
 		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 1,
@@ -232,7 +235,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	})
 }
 
-func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusCAAS(c *tc.C) {
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		Owner: otherModelOwner.UserTag,
@@ -251,7 +254,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	})
 
 	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
@@ -260,9 +263,9 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
 	results, err := s.controller.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
+	c.Assert(results.Results, tc.DeepEquals, []params.ModelStatus{
 		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 0,
@@ -287,7 +290,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	})
 }
 
-func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
+func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "fail.me"},
@@ -307,8 +310,8 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 		},
 	}
 	result, err := s.controller.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, expected)
 }
 
 type statePolicy struct{}

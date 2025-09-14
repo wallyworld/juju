@@ -4,16 +4,20 @@
 package sshserver_test
 
 import (
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/sshserver"
-	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&sshserverSuite{})
+func TestSshserverSuite(t *tctesting.T) {
+	tc.Run(t, &sshserverSuite{})
+}
 
 type sshserverSuite struct {
 	ctxMock       *MockContext
@@ -21,7 +25,7 @@ type sshserverSuite struct {
 	resourcesMock *MockResources
 }
 
-func (s *sshserverSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sshserverSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.ctxMock = NewMockContext(ctrl)
 	s.backendMock = NewMockBackend(ctrl)
@@ -29,7 +33,7 @@ func (s *sshserverSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *sshserverSuite) TestAuth(c *gc.C) {
+func (s *sshserverSuite) TestAuth(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -39,10 +43,10 @@ func (s *sshserverSuite) TestAuth(c *gc.C) {
 	authorizer.EXPECT().AuthController().Return(false)
 
 	_, err := sshserver.NewExternalFacade(s.ctxMock)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(err, tc.ErrorMatches, `permission denied`)
 }
 
-func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
+func (s *sshserverSuite) TestControllerConfig(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -55,11 +59,11 @@ func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	cfg, err := f.ControllerConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(cfg, gc.DeepEquals, params.ControllerConfigResult{Config: params.ControllerConfig{"hi": "bye"}})
+	c.Assert(err, tc.IsNil)
+	c.Assert(cfg, tc.DeepEquals, params.ControllerConfigResult{Config: params.ControllerConfig{"hi": "bye"}})
 }
 
-func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
+func (s *sshserverSuite) TestWatchControllerConfig(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -73,18 +77,18 @@ func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	result, err := f.WatchControllerConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "id")
+	c.Assert(err, tc.IsNil)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "id")
 
 	// Now we close the channel expecting err
 	watcher.Close()
 	s.backendMock.EXPECT().WatchControllerConfig().Return(watcher, nil)
 
 	_, err = f.WatchControllerConfig()
-	c.Assert(err, gc.ErrorMatches, "An error")
+	c.Assert(err, tc.ErrorMatches, "An error")
 }
 
-func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
+func (s *sshserverSuite) TestSSHServerHostKey(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -94,11 +98,11 @@ func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	key, err := f.SSHServerHostKey()
-	c.Assert(err, gc.IsNil)
-	c.Assert(key, gc.Equals, params.StringResult{Result: "hostkey"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(key, tc.Equals, params.StringResult{Result: "hostkey"})
 }
 
-func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
+func (s *sshserverSuite) TestHostKeyForTarget(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -108,11 +112,11 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	key, err := f.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
-	c.Assert(err, gc.IsNil)
-	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
+	c.Assert(err, tc.IsNil)
+	c.Assert(key, tc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
 }
 
-func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
+func (s *sshserverSuite) TestAuthorizedKeysForModel(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -151,8 +155,8 @@ func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
 			ModelUUID: tc.modelUUID,
 		}
 		results, err := f.ListAuthorizedKeysForModel(arg)
-		c.Assert(err, gc.IsNil)
-		c.Assert(results.Error, gc.IsNil)
-		c.Assert(results.AuthorizedKeys, gc.DeepEquals, tc.expectKeys)
+		c.Assert(err, tc.IsNil)
+		c.Assert(results.Error, tc.IsNil)
+		c.Assert(results.AuthorizedKeys, tc.DeepEquals, tc.expectKeys)
 	}
 }

@@ -4,85 +4,87 @@
 package resource_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&ShowApplicationSuite{})
+func TestShowApplicationSuite(t *tctesting.T) {
+	tc.Run(t, &ShowApplicationSuite{})
+}
 
 type ShowApplicationSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stubDeps *stubShowApplicationDeps
 }
 
-func (s *ShowApplicationSuite) SetUpTest(c *gc.C) {
+func (s *ShowApplicationSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	s.stubDeps = &stubShowApplicationDeps{
 		stub:   stub,
 		client: &stubResourceClient{stub: stub},
 	}
 }
 
-func (*ShowApplicationSuite) TestInitEmpty(c *gc.C) {
+func (*ShowApplicationSuite) TestInitEmpty(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, tc.Satisfies, errors.IsBadRequest)
 }
 
-func (*ShowApplicationSuite) TestInitGood(c *gc.C) {
+func (*ShowApplicationSuite) TestInitGood(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 	err := s.Init([]string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourcecmd.ListCommandTarget(s), gc.Equals, "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resourcecmd.ListCommandTarget(s), tc.Equals, "foo")
 }
 
-func (*ShowApplicationSuite) TestInitTooManyArgs(c *gc.C) {
+func (*ShowApplicationSuite) TestInitTooManyArgs(c *tc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{"foo", "bar"})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, tc.Satisfies, errors.IsBadRequest)
 }
 
-func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
+func (s *ShowApplicationSuite) TestInfo(c *tc.C) {
 	var command resourcecmd.ListCommand
 	info := command.Info()
 
 	// Verify that Info is wired up. Without verifying exact text.
-	c.Check(info.Name, gc.Equals, "resources")
-	c.Check(info.Args, gc.Not(gc.Equals), "")
-	c.Check(info.Purpose, gc.Not(gc.Equals), "")
-	c.Check(info.Doc, gc.Not(gc.Equals), "")
-	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
-	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
+	c.Check(info.Name, tc.Equals, "resources")
+	c.Check(info.Args, tc.Not(tc.Equals), "")
+	c.Check(info.Purpose, tc.Not(tc.Equals), "")
+	c.Check(info.Doc, tc.Not(tc.Equals), "")
+	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
+	c.Check(len(info.ShowSuperFlags), tc.GreaterThan, 2)
 }
 
-func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *tc.C) {
 	data := []resources.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "No resources to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stderr, tc.Equals, "No resources to display.\n")
+	c.Check(stdout, tc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRun(c *gc.C) {
+func (s *ShowApplicationSuite) TestRun(c *tc.C) {
 	data := []resources.ApplicationResources{
 		{
 			Resources: []resources.Resource{
@@ -175,10 +177,10 @@ func (s *ShowApplicationSuite) TestRun(c *gc.C) {
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stderr, tc.Equals, "")
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 Resource  Supplied by  Revision
 openjdk   store        7
 rsc1234   store        15
@@ -193,20 +195,20 @@ openjdk   10
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *tc.C) {
 	data := []resources.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/0")
-	c.Assert(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "No resources to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Check(stderr, tc.Equals, "No resources to display.\n")
+	c.Check(stdout, tc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *tc.C) {
 	unitName := "svc/0"
 
 	data := []resources.ApplicationResources{{
@@ -247,16 +249,16 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, unitName)
-	c.Assert(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, `
+	c.Assert(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, `
 Resource  Revision
 openjdk   -
 `[1:])
-	c.Check(stderr, gc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 	data := []resources.ApplicationResources{
 		{
 			Resources: []resources.Resource{
@@ -325,10 +327,10 @@ func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/0")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(stderr, tc.Equals, "")
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 Resource  Revision
 rsc1234   15
 website2  2012-12-12T12:12
@@ -337,7 +339,7 @@ website2  2012-12-12T12:12
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunDetails(c *tc.C) {
 	data := []resources.ApplicationResources{{
 		Resources: []resources.Resource{
 			{
@@ -483,10 +485,10 @@ func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc", "--details")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stderr, tc.Equals, "")
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 Unit    Resource  Revision          Expected
 svc/5   alpha     10                15
 svc/5   beta      2012-12-12T12:12  2012-12-12T12:12
@@ -499,7 +501,7 @@ svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunUnitDetails(c *tc.C) {
 	data := []resources.ApplicationResources{{
 		Resources: []resources.Resource{
 			{
@@ -617,10 +619,10 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
 	cmd := resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
 
 	code, stdout, stderr := runCmd(c, cmd, "svc/10", "--details")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(stderr, tc.Equals, "")
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12
@@ -631,7 +633,7 @@ charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
 }
 
 type stubShowApplicationDeps struct {
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	client *stubResourceClient
 }
 
@@ -645,7 +647,7 @@ func (s *stubShowApplicationDeps) NewClient() (resourcecmd.ListClient, error) {
 }
 
 type stubResourceClient struct {
-	stub            *testing.Stub
+	stub            *testhelpers.Stub
 	ReturnResources []resources.ApplicationResources
 }
 

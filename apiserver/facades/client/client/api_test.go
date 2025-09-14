@@ -5,12 +5,12 @@ package client_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type baseSuite struct {
@@ -33,13 +33,15 @@ type baseSuite struct {
 	commontesting.BlockHelper
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	s.AddCleanup(func(*tc.C) { s.BlockHelper.Close() })
 }
 
-var _ = gc.Suite(&baseSuite{})
+func TestBaseSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &baseSuite{})
+}
 
 // apiAuthenticator represents a simple authenticator object with only the
 // SetPassword and Tag methods.  This will fit types from both the state
@@ -49,9 +51,9 @@ type apiAuthenticator interface {
 	SetPassword(string) error
 }
 
-func setDefaultPassword(c *gc.C, e apiAuthenticator) {
+func setDefaultPassword(c *tc.C, e apiAuthenticator) {
 	err := e.SetPassword(defaultPassword(e))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func defaultPassword(e apiAuthenticator) string {
@@ -62,7 +64,7 @@ type setStatuser interface {
 	SetStatus(status.StatusInfo) error
 }
 
-func setDefaultStatus(c *gc.C, entity setStatuser) {
+func setDefaultStatus(c *tc.C, entity setStatuser) {
 	now := time.Now()
 	s := status.StatusInfo{
 		Status:  status.Started,
@@ -70,12 +72,12 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 		Since:   &now,
 	}
 	err := entity.SetStatus(s)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
+func (s *baseSuite) openAs(c *tc.C, tag names.Tag) api.Connection {
 	info := s.APIInfo(c)
 	info.Tag = tag
 	// Must match defaultPassword()
@@ -85,8 +87,8 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 	info.Nonce = "fake_nonce"
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(st, tc.NotNil)
 	return st
 }
 
@@ -392,27 +394,27 @@ var scenarioStatus = &params.FullStatus{
 // just because machine 0 has traditionally been the
 // controller (bootstrap machine), so is
 // hopefully easier to remember as such.
-func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
+func (s *baseSuite) setUpScenario(c *tc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User(s.AdminUserTag(c))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
 	err = s.Model.UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "2.0.0"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m.Tag(), tc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
 	add(m)
@@ -420,9 +422,9 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
@@ -438,7 +440,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:            "mediawiki",
 		SourceModel:     coretesting.ModelTag,
@@ -452,11 +454,11 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	eps, err = s.State.InferEndpoints("mediawiki", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mwRel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offers := state.NewApplicationOffers(s.State)
 	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
@@ -464,7 +466,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		Owner:           "admin",
 		Endpoints:       map[string]string{"database": "server"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		Username:        "fred",
@@ -472,33 +474,33 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		RelationId:      mwRel.Id(),
 		RelationKey:     mwRel.Tag().Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(wu.Tag(), tc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)
 		add(wu)
 
 		m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(m.Tag(), tc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)
 		add(m)
 
 		err = wu.AssignToMachine(m)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		wru, err := rel.Unit(wu)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Put wordpress/0 in error state (with extra status data set)
 		if i == 0 {
@@ -517,17 +519,17 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				Since:   &now,
 			}
 			err := wu.SetAgentStatus(sInfo)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
 		err = wru.EnterScope(nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(lu.IsPrincipal(), jc.IsFalse)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(lu.IsPrincipal(), tc.IsFalse)
 		setDefaultPassword(c, lu)
 		add(lu)
 	}

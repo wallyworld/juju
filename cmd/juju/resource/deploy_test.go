@@ -9,34 +9,36 @@ import (
 	"os"
 	"path"
 	"strings"
+	tctesting "testing"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type DeploySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
-var _ = gc.Suite(&DeploySuite{})
+func TestDeploySuite(t *tctesting.T) {
+	tc.Run(t, &DeploySuite{})
+}
 
-func (s *DeploySuite) SetUpTest(c *gc.C) {
+func (s *DeploySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
-func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
+func (s DeploySuite) TestDeployResourcesWithoutFiles(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -62,9 +64,9 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 		Client:         deps,
 		ResourcesMeta:  resources,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ids, gc.DeepEquals, map[string]string{
+	c.Check(ids, tc.DeepEquals, map[string]string{
 		"store-tarball": "id-store-tarball",
 		"store-zip":     "id-store-zip",
 	})
@@ -81,7 +83,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	}})
 }
 
-func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
+func (s DeploySuite) TestUploadFilesOnly(c *tc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -111,8 +113,8 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	}
 	revisions := map[string]int{}
 	ids, err := du.upload(files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ids, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
 	})
@@ -135,7 +137,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
 }
 
-func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
+func (s DeploySuite) TestUploadRevisionsOnly(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -165,8 +167,8 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 		"store": 3,
 	}
 	ids, err := du.upload(files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ids, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
 	})
@@ -184,7 +186,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	s.stub.CheckCall(c, 0, "AddPendingResources", "mysql", chID, expectedStore)
 }
 
-func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
+func (s DeploySuite) TestUploadFilesAndRevisions(c *tc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
 	cURL := "spam"
 	chID := apiresources.CharmID{
@@ -216,8 +218,8 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 		"store": 3,
 	}
 	ids, err := du.upload(files, revisions)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ids, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ids, tc.DeepEquals, map[string]string{
 		"upload": "id-upload",
 		"store":  "id-store",
 	})
@@ -240,7 +242,7 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	s.stub.CheckCall(c, 3, "UploadPendingResource", "mysql", expectedUpload, "foobar.txt", "file contents")
 }
 
-func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
+func (s DeploySuite) TestUploadUnexpectedResourceFile(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -258,12 +260,12 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 	files := map[string]string{"some bad resource": "foobar.txt"}
 	revisions := map[string]int{}
 	_, err := du.upload(files, revisions)
-	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
+	c.Check(err, tc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
 }
 
-func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
+func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -281,12 +283,12 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 	files := map[string]string{}
 	revisions := map[string]int{"some bad resource": 2}
 	_, err := du.upload(files, revisions)
-	c.Check(err, gc.ErrorMatches, `unrecognized resource "some bad resource"`)
+	c.Check(err, tc.ErrorMatches, `unrecognized resource "some bad resource"`)
 
 	s.stub.CheckNoCalls(c)
 }
 
-func (s DeploySuite) TestMissingResource(c *gc.C) {
+func (s DeploySuite) TestMissingResource(c *tc.C) {
 	deps := uploadDeps{stub: s.stub}
 	du := deployUploader{
 		applicationID: "mysql",
@@ -307,11 +309,11 @@ func (s DeploySuite) TestMissingResource(c *gc.C) {
 	files := map[string]string{"res1": "foobar.txt"}
 	revisions := map[string]int{}
 	_, err := du.upload(files, revisions)
-	c.Check(err, gc.ErrorMatches, `file for resource "res1".*`)
-	c.Check(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Check(err, tc.ErrorMatches, `file for resource "res1".*`)
+	c.Check(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 }
 
-func (s DeploySuite) TestDeployDockerResource(c *gc.C) {
+func (s DeploySuite) TestDeployDockerResource(c *tc.C) {
 	tests := []struct {
 		about              string
 		fileContents       string
@@ -394,7 +396,7 @@ password: 'hunter2',,
 			dir := c.MkDir()
 			resourceValue = path.Join(dir, "details.json")
 			err := os.WriteFile(resourceValue, []byte(t.fileContents), 0600)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			deps.data = []byte(t.fileContents)
 		}
 
@@ -423,11 +425,11 @@ password: 'hunter2',,
 		}
 		ids, err := du.upload(passedResourceValues, map[string]int{})
 		if t.uploadError != "" {
-			c.Assert(err, gc.ErrorMatches, t.uploadError)
+			c.Assert(err, tc.ErrorMatches, t.uploadError)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ids, gc.DeepEquals, map[string]string{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(ids, tc.DeepEquals, map[string]string{
 			"mysql_image": "id-mysql_image",
 		})
 
@@ -441,7 +443,7 @@ password: 'hunter2',,
 	}
 }
 
-func (s DeploySuite) TestUnMarshallingDockerDetails(c *gc.C) {
+func (s DeploySuite) TestUnMarshallingDockerDetails(c *tc.C) {
 	content := `
 registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
 username: docker-registry
@@ -449,8 +451,8 @@ password: hunter2
 `
 	data := bytes.NewBufferString(content)
 	dets, err := unMarshalDockerDetails(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dets, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -469,8 +471,8 @@ password: hunter2
 `
 	data = bytes.NewBufferString(content)
 	dets, err = unMarshalDockerDetails(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dets, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dets, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -487,7 +489,7 @@ password: hunter2
 `
 	data = bytes.NewBufferString(content)
 	_, err = unMarshalDockerDetails(data)
-	c.Assert(err, gc.ErrorMatches, "docker image path \"\" not valid")
+	c.Assert(err, tc.ErrorMatches, "docker image path \"\" not valid")
 }
 
 type osFilesystem struct {
@@ -498,11 +500,11 @@ func (osFilesystem) Open(name string) (modelcmd.ReadSeekCloser, error) {
 	return os.Open(name)
 }
 
-func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
+func (s DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	fs := osFilesystem{}
 	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -513,18 +515,18 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 	})
 
 	_, err = getDockerDetailsData("/path/doesnt/exist.yaml", fs.Open)
-	c.Assert(err, gc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
+	c.Assert(err, tc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
 
 	_, err = getDockerDetailsData(".invalid-reg-path", fs.Open)
-	c.Assert(err, gc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
+	c.Assert(err, tc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
 
 	dir := c.MkDir()
 	yamlFile := path.Join(dir, "actually-yaml-file")
 	err = os.WriteFile(yamlFile, []byte("registrypath: mariadb/mariadb:10.2"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err = getDockerDetailsData(yamlFile, fs.Open)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, resources.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -537,7 +539,7 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 
 type uploadDeps struct {
 	modelcmd.Filesystem
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	data []byte
 }
 

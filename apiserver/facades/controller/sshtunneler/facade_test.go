@@ -5,31 +5,33 @@ package sshtunneler
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/params"
-	state "github.com/juju/juju/state"
+	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(&sshtunnelerSuite{})
+func TestSshtunnelerSuite(t *tctesting.T) {
+	tc.Run(t, &sshtunnelerSuite{})
+}
 
 type sshtunnelerSuite struct {
 	ctx     *MockContext
 	backend *MockBackend
 }
 
-func (s *sshtunnelerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sshtunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.ctx = NewMockContext(ctrl)
 	s.backend = NewMockBackend(ctrl)
 	return ctrl
 }
 
-func (s *sshtunnelerSuite) TestAuth(c *gc.C) {
+func (s *sshtunnelerSuite) TestAuth(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	authorizer := NewMockAuthorizer(s.setupMocks(c))
@@ -37,10 +39,10 @@ func (s *sshtunnelerSuite) TestAuth(c *gc.C) {
 	authorizer.EXPECT().AuthController().Return(false)
 
 	_, err := newExternalFacade(s.ctx)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(err, tc.ErrorMatches, `permission denied`)
 }
 
-func (s *sshtunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
+func (s *sshtunnelerSuite) TestInsertSSHConnRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	f := newFacade(s.ctx, s.backend)
@@ -52,11 +54,11 @@ func (s *sshtunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
 	s.backend.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
 
 	result, err := f.InsertSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *sshtunnelerSuite) TestInsertSSHConnRequestError(c *gc.C) {
+func (s *sshtunnelerSuite) TestInsertSSHConnRequestError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	f := newFacade(s.ctx, s.backend)
@@ -68,11 +70,11 @@ func (s *sshtunnelerSuite) TestInsertSSHConnRequestError(c *gc.C) {
 	s.backend.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(errors.New("insert error"))
 
 	result, err := f.InsertSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Message, gc.Equals, "insert error")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error.Message, tc.Equals, "insert error")
 }
 
-func (s *sshtunnelerSuite) TestRemoveSSHConnRequest(c *gc.C) {
+func (s *sshtunnelerSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	f := newFacade(s.ctx, s.backend)
@@ -84,11 +86,11 @@ func (s *sshtunnelerSuite) TestRemoveSSHConnRequest(c *gc.C) {
 	s.backend.EXPECT().RemoveSSHConnRequest(gomock.Any()).Return(nil)
 
 	result, err := f.RemoveSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *sshtunnelerSuite) TestRemoveSSHConnRequestError(c *gc.C) {
+func (s *sshtunnelerSuite) TestRemoveSSHConnRequestError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	f := newFacade(s.ctx, s.backend)
@@ -100,11 +102,11 @@ func (s *sshtunnelerSuite) TestRemoveSSHConnRequestError(c *gc.C) {
 	s.backend.EXPECT().RemoveSSHConnRequest(gomock.Any()).Return(errors.New("remove error"))
 
 	result, err := f.RemoveSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Message, gc.Equals, "remove error")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error.Message, tc.Equals, "remove error")
 }
 
-func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
+func (s *sshtunnelerSuite) TestControllerAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.backend.EXPECT().ControllerMachine("1").Return(
@@ -115,20 +117,20 @@ func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
 
 	entity := params.Entity{Tag: names.NewMachineTag("1").String()}
 	addresses := f.ControllerAddresses(entity)
-	c.Assert(addresses, gc.DeepEquals, params.StringsResult{})
+	c.Assert(addresses, tc.DeepEquals, params.StringsResult{})
 }
 
-func (s *sshtunnelerSuite) TestControllerAddressWithControllerTag(c *gc.C) {
+func (s *sshtunnelerSuite) TestControllerAddressWithControllerTag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	f := newFacade(s.ctx, s.backend)
 
 	entity := params.Entity{Tag: names.NewControllerTag("1").String()}
 	result := f.ControllerAddresses(entity)
-	c.Assert(result.Error.Message, gc.Equals, "SSH proxy from machine to k8s controller not supported")
+	c.Assert(result.Error.Message, tc.Equals, "SSH proxy from machine to k8s controller not supported")
 }
 
-func (s *sshtunnelerSuite) TestMachineHostKeys(c *gc.C) {
+func (s *sshtunnelerSuite) TestMachineHostKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := "my-model"
@@ -145,7 +147,7 @@ func (s *sshtunnelerSuite) TestMachineHostKeys(c *gc.C) {
 		MachineTag: machineTag.String(),
 	}
 	result, err := f.MachineHostKeys(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.PublicKeys, gc.DeepEquals, []string{"key-1", "key-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.PublicKeys, tc.DeepEquals, []string{"key-1", "key-2"})
 }

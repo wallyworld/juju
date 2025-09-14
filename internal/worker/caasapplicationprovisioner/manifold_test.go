@@ -4,29 +4,32 @@
 package caasapplicationprovisioner_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config caasapplicationprovisioner.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig()
 }
@@ -43,52 +46,52 @@ func (s *ManifoldSuite) validConfig() caasapplicationprovisioner.ManifoldConfig 
 	}
 }
 
-func (s *ManifoldSuite) TestValid(c *gc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+func (s *ManifoldSuite) TestValid(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingBrokerName(c *gc.C) {
+func (s *ManifoldSuite) TestMissingBrokerName(c *tc.C) {
 	s.config.BrokerName = ""
 	s.checkNotValid(c, "empty BrokerName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingClockName(c *gc.C) {
+func (s *ManifoldSuite) TestMissingClockName(c *tc.C) {
 	s.config.ClockName = ""
 	s.checkNotValid(c, "empty ClockName not valid")
 }
 
-func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
+func (s *ManifoldSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
+func (s *ManifoldSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *ManifoldSuite) checkNotValid(c *gc.C, expect string) {
+func (s *ManifoldSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	called := false
 	s.config.NewWorker = func(config caasapplicationprovisioner.Config) (worker.Worker, error) {
 		called = true
-		mc := jc.NewMultiChecker()
-		mc.AddExpr(`_.Facade`, gc.NotNil)
-		mc.AddExpr(`_.Broker`, gc.NotNil)
-		mc.AddExpr(`_.Clock`, gc.NotNil)
-		mc.AddExpr(`_.Logger`, gc.NotNil)
-		mc.AddExpr(`_.NewAppWorker`, gc.NotNil)
-		mc.AddExpr(`_.UnitFacade`, gc.NotNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_.Facade`, tc.NotNil)
+		mc.AddExpr(`_.Broker`, tc.NotNil)
+		mc.AddExpr(`_.Clock`, tc.NotNil)
+		mc.AddExpr(`_.Logger`, tc.NotNil)
+		mc.AddExpr(`_.NewAppWorker`, tc.NotNil)
+		mc.AddExpr(`_.UnitFacade`, tc.NotNil)
 		c.Check(config, mc, caasapplicationprovisioner.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
 		})
@@ -100,9 +103,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		"broker":     struct{ caas.Broker }{},
 		"clock":      struct{ clock.Clock }{},
 	}))
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(w, tc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }
 
 type mockAPICaller struct {

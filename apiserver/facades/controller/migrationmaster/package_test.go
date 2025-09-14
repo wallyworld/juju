@@ -6,13 +6,3 @@
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher
 
 package migrationmaster_test
-
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-)
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}

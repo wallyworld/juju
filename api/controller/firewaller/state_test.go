@@ -4,13 +4,15 @@
 package firewaller_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -19,20 +21,22 @@ type stateSuite struct {
 	*apitesting.ModelWatcherTests
 }
 
-var _ = gc.Suite(&stateSuite{})
+func TestStateSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &stateSuite{})
+}
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *stateSuite) SetUpTest(c *tc.C) {
 	s.firewallerSuite.SetUpTest(c)
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState, s.Model)
 }
 
-func (s *stateSuite) TearDownTest(c *gc.C) {
+func (s *stateSuite) TearDownTest(c *tc.C) {
 	s.firewallerSuite.TearDownTest(c)
 }
 
-func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
+func (s *stateSuite) TestWatchModelMachines(c *tc.C) {
 	w, err := s.firewaller.WatchModelMachines()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 
@@ -41,12 +45,12 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 	// Add another machine make sure they are detected.
 	otherMachine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertChange(otherMachine.Id())
 
 	// Change the life cycle of last machine.
 	err = otherMachine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertChange(otherMachine.Id())
 
 	// Add a container and make sure it's not detected.
@@ -55,11 +59,11 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
-func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *stateSuite) TestWatchOpenedPorts(c *tc.C) {
 	// Open some ports.
 	mustOpenPortRanges(c, s.State, s.units[0], allEndpoints, []network.PortRange{
 		network.MustParsePortRange("1234-1400/tcp"),
@@ -69,7 +73,7 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	})
 
 	w, err := s.firewaller.WatchOpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
 

@@ -5,11 +5,11 @@ package resources_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,14 +25,16 @@ type storageClassSuite struct {
 	storageClassClient v1.StorageClassInterface
 }
 
-var _ = gc.Suite(&storageClassSuite{})
+func TestStorageClassSuite(t *tctesting.T) {
+	tc.Run(t, &storageClassSuite{})
+}
 
-func (s *storageClassSuite) SetUpTest(c *gc.C) {
+func (s *storageClassSuite) SetUpTest(c *tc.C) {
 	s.resourceSuite.SetUpTest(c)
 	s.storageClassClient = s.client.StorageV1().StorageClasses()
 }
 
-func (s *storageClassSuite) TestApply(c *gc.C) {
+func (s *storageClassSuite) TestApply(c *tc.C) {
 	sc := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sc1",
@@ -40,23 +42,23 @@ func (s *storageClassSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	scResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "sc1", sc)
-	c.Assert(scResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(scResource.Apply(context.TODO()), tc.ErrorIsNil)
 	result, err := s.client.StorageV1().StorageClasses().Get(context.TODO(), "sc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	sc.SetAnnotations(map[string]string{"a": "b"})
 	scResource = resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "sc1", sc)
-	c.Assert(scResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(scResource.Apply(context.TODO()), tc.ErrorIsNil)
 
 	result, err = s.client.StorageV1().StorageClasses().Get(context.TODO(), "sc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `sc1`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `sc1`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *storageClassSuite) TestGet(c *gc.C) {
+func (s *storageClassSuite) TestGet(c *tc.C) {
 	template := storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sc1",
@@ -65,50 +67,50 @@ func (s *storageClassSuite) TestGet(c *gc.C) {
 	sc1 := template
 	sc1.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.client.StorageV1().StorageClasses().Create(context.TODO(), &sc1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	scResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "sc1", &template)
-	c.Assert(len(scResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(scResource.GetAnnotations()), tc.Equals, 0)
 	err = scResource.Get(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(scResource.GetName(), gc.Equals, `sc1`)
-	c.Assert(scResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(scResource.GetName(), tc.Equals, `sc1`)
+	c.Assert(scResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *storageClassSuite) TestDelete(c *gc.C) {
+func (s *storageClassSuite) TestDelete(c *tc.C) {
 	sc := storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "sc1",
 		},
 	}
 	_, err := s.client.StorageV1().StorageClasses().Create(context.TODO(), &sc, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.StorageV1().StorageClasses().Get(context.TODO(), "sc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `sc1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `sc1`)
 
 	scResource := resources.NewStorageClass(s.client.StorageV1().StorageClasses(), "sc1", &sc)
 	err = scResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = scResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	err = scResource.Get(context.TODO())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.StorageV1().StorageClasses().Get(context.TODO(), "sc1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *storageClassSuite) TestListStorageClasses(c *gc.C) {
+func (s *storageClassSuite) TestListStorageClasses(c *tc.C) {
 	// Set up labels for model and app to list resource
 	controllerUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelName := "testmodel"
 
@@ -127,7 +129,7 @@ func (s *storageClassSuite) TestListStorageClasses(c *gc.C) {
 		},
 	}
 	_, err = s.storageClassClient.Create(context.TODO(), sc1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create sc2
 	sc2Name := "sc2"
@@ -138,26 +140,26 @@ func (s *storageClassSuite) TestListStorageClasses(c *gc.C) {
 		},
 	}
 	_, err = s.storageClassClient.Create(context.TODO(), sc2, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// List resources with correct labels.
-	sces, err := resources.ListStorageClass(context.Background(), s.storageClassClient, metav1.ListOptions{
+	sces, err := resources.ListStorageClass(c.Context(), s.storageClassClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(sces), gc.Equals, 2)
-	c.Assert(sces[0].GetName(), gc.Equals, sc1Name)
-	c.Assert(sces[1].GetName(), gc.Equals, sc2Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(sces), tc.Equals, 2)
+	c.Assert(sces[0].GetName(), tc.Equals, sc1Name)
+	c.Assert(sces[1].GetName(), tc.Equals, sc2Name)
 
 	// List resources with no labels.
-	sces, err = resources.ListStorageClass(context.Background(), s.storageClassClient, metav1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(sces), gc.Equals, 2)
+	sces, err = resources.ListStorageClass(c.Context(), s.storageClassClient, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(sces), tc.Equals, 2)
 
 	// List resources with wrong labels.
-	sces, err = resources.ListStorageClass(context.Background(), s.storageClassClient, metav1.ListOptions{
+	sces, err = resources.ListStorageClass(c.Context(), s.storageClassClient, metav1.ListOptions{
 		LabelSelector: "foo=bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(sces), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(sces), tc.Equals, 0)
 }

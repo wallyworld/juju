@@ -5,8 +5,9 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
@@ -32,34 +33,36 @@ type RebootSuite struct {
 	wcC3 statetesting.NotifyWatcherC
 }
 
-var _ = gc.Suite(&RebootSuite{})
+func TestRebootSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &RebootSuite{})
+}
 
-func (s *RebootSuite) SetUpTest(c *gc.C) {
+func (s *RebootSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
 
 	// Add machine
 	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Add second container
 	s.c2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.c1.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add container on the same level as the first container.
 	s.c3, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.w = s.machine.WatchForRebootEvent()
 
@@ -87,7 +90,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	s.wcC3.AssertOneChange()
 }
 
-func (s *RebootSuite) TearDownSuit(c *gc.C) {
+func (s *RebootSuite) TearDownSuit(c *tc.C) {
 	if s.w != nil {
 		statetesting.AssertStop(c, s.w)
 	}
@@ -102,35 +105,35 @@ func (s *RebootSuite) TearDownSuit(c *gc.C) {
 	}
 }
 
-func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
+func (s *RebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
 	inState, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inState, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inState, tc.IsTrue)
 
 	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
 	inState, err = s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inState, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(inState, tc.IsFalse)
 
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(quiescence): these three changes should be one event.
 	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(quiescence): these two changes should be one event.
 	s.wc.AssertOneChange()
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
@@ -145,10 +148,10 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	s.wcC3.AssertClosed()
 }
 
-func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
+func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *tc.C) {
 	// Reboot request happens on machine: everyone see it (including container3)
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 	s.wcC1.AssertOneChange()
@@ -165,11 +168,11 @@ func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
 	s.wcC3.AssertClosed()
 }
 
-func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
+func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *tc.C) {
 	// Reboot request happens on container1: only container1 andcontainer2
 	// react
 	err := s.c1.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertOneChange()
@@ -187,10 +190,10 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 	s.wcC3.AssertClosed()
 }
 
-func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
+func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *tc.C) {
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c2.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertNoChange()
@@ -208,10 +211,10 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 	s.wcC3.AssertClosed()
 }
 
-func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
+func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *tc.C) {
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c3.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertNoChange()

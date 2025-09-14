@@ -4,17 +4,22 @@
 package sshclient
 
 import (
-	"github.com/gliderlabs/ssh"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/gliderlabs/ssh"
+
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 )
 
 type shimSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&shimSuite{})
+func TestShimSuite(t *tctesting.T) {
+	tc.Run(t, &shimSuite{})
+}
 
 var (
 	hostKey = `-----BEGIN OPENSSH PRIVATE KEY-----
@@ -27,10 +32,10 @@ AAAECXJNZYQFl7ccvfCeJPRgqteU7luG7g6lwMOPpPAPCUjo/3LZKIxP5vG/bls0Dduk+0
 `
 )
 
-func (s *shimSuite) TestGetAuthorizedKey(c *gc.C) {
+func (s *shimSuite) TestGetAuthorizedKey(c *tc.C) {
 	key, err := getPublicKeyWireFormat([]byte(hostKey))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	_, err = ssh.ParsePublicKey(key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }

@@ -4,9 +4,10 @@
 package caasapplicationprovisioner_test
 
 import (
-	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasapplicationprovisioner CAASBroker
@@ -17,7 +18,7 @@ import (
 
 type mockNotifyWorker struct {
 	worker.Worker
-	jujutesting.Stub
+	testhelpers.Stub
 }
 
 func (w *mockNotifyWorker) Notify() {

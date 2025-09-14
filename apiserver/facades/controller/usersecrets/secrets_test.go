@@ -5,26 +5,26 @@ package usersecrets_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type userSecretsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
@@ -39,9 +39,11 @@ type userSecretsSuite struct {
 	facade *usersecrets.UserSecretsManager
 }
 
-var _ = gc.Suite(&userSecretsSuite{})
+func TestUserSecretsSuite(t *tctesting.T) {
+	tc.Run(t, &userSecretsSuite{})
+}
 
-func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *userSecretsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -77,11 +79,11 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 			}, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
-func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
+func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.state.EXPECT().WatchRevisionsToPrune([]names.Tag{names.NewModelTag(coretesting.ModelTag.Id())}).Return(s.stringWatcher, nil)
@@ -91,14 +93,14 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	s.stringWatcher.EXPECT().Changes().Return(stringChan)
 
 	result, err := s.facade.WatchRevisionsToPrune()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "watcher-id",
 		Changes:          []string{"1", "2", "3"},
 	})
 }
 
-func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
+func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -141,13 +143,13 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
+func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -166,8 +168,8 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{

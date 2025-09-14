@@ -4,30 +4,32 @@
 package diskmanager_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&DiskManagerWorkerSuite{})
+func TestDiskManagerWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &DiskManagerWorkerSuite{})
+}
 
 type DiskManagerWorkerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
+func (s *DiskManagerWorkerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(storage.BlockDevice) (bool, error) {
 		return false, nil
 	})
 }
 
-func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
+func (s *DiskManagerWorkerSuite) TestWorker(c *tc.C) {
 	done := make(chan struct{})
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
 		close(done)
@@ -49,7 +51,7 @@ func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 	}
 }
 
-func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
+func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *tc.C) {
 	var oldDevices []storage.BlockDevice
 	var devicesSet [][]storage.BlockDevice
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
@@ -63,30 +65,30 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
 	}
 
 	err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devicesSet, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devicesSet, tc.HasLen, 1)
 
 	// diskmanager only calls the BlockDeviceSetter when it sees a
 	// change in disks. Order of DeviceLinks should not matter.
 	device.DeviceLinks = []string{"b", "a"}
 	err = diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devicesSet, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devicesSet, tc.HasLen, 1)
 
 	device.DeviceName = "sdb"
 	err = diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devicesSet, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devicesSet, tc.HasLen, 2)
 
-	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devicesSet[0], tc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda", DeviceLinks: []string{"a", "b"},
 	}})
-	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devicesSet[1], tc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sdb", DeviceLinks: []string{"a", "b"},
 	}})
 }
 
-func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
+func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *tc.C) {
 	var devicesSet [][]storage.BlockDevice
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
 		devicesSet = append(devicesSet, devices)
@@ -103,11 +105,11 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
 		}}, nil
 	}
 	err := diskmanager.DoWork(listDevices, setDevices, new([]storage.BlockDevice))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The block Devices should be sorted when passed to the block
 	// device setter.
-	c.Assert(devicesSet, gc.DeepEquals, [][]storage.BlockDevice{{{
+	c.Assert(devicesSet, tc.DeepEquals, [][]storage.BlockDevice{{{
 		DeviceName: "sda",
 	}, {
 		DeviceName: "sdb",

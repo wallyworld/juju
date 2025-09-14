@@ -5,11 +5,11 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -19,7 +19,9 @@ import (
 
 type passwordSuite struct{}
 
-var _ = gc.Suite(&passwordSuite{})
+func TestPasswordSuite(t *tctesting.T) {
+	tc.Run(t, &passwordSuite{})
+}
 
 type entityWithError interface {
 	state.Entity
@@ -100,7 +102,7 @@ func (a *fakeMachineAuthenticator) Tag() names.Tag {
 	return names.NewMachineTag("0")
 }
 
-func (*passwordSuite) TestSetPasswords(c *gc.C) {
+func (*passwordSuite) TestSetPasswords(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeAuthenticator{},
@@ -133,8 +135,8 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	results, err := pc.SetPasswords(params.EntityPasswords{
 		Changes: changes,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
@@ -145,18 +147,18 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			{nil},
 		},
 	})
-	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, gc.Equals, "unit-x-1pass")
-	c.Check(st.entities[u("x/2")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, gc.Equals, "unit-x-4pass")
-	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-5pass")
-	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-6pass")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "unit-x-6pass")
+	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, tc.Equals, "")
+	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, tc.Equals, "unit-x-1pass")
+	c.Check(st.entities[u("x/2")].(*fakeAuthenticator).pass, tc.Equals, "")
+	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, tc.Equals, "unit-x-4pass")
+	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).mongoPass, tc.Equals, "")
+	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, tc.Equals, "unit-x-5pass")
+	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).mongoPass, tc.Equals, "")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, tc.Equals, "unit-x-6pass")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, tc.Equals, "unit-x-6pass")
 }
 
-func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
+func (*passwordSuite) TestSetPasswordsError(c *tc.C) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
@@ -170,15 +172,15 @@ func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
 		})
 	}
 	_, err := pc.SetPasswords(params.EntityPasswords{Changes: changes})
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
-func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
+func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *tc.C) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
 	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
 	result, err := pc.SetPasswords(params.EntityPasswords{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 0)
 }

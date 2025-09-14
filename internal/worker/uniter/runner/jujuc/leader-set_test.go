@@ -4,82 +4,85 @@
 package jujuc_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
 type leaderSetSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 	command cmd.Command
 }
 
-var _ = gc.Suite(&leaderSetSuite{})
+func TestLeaderSetSuite(t *tctesting.T) {
+	tc.Run(t, &leaderSetSuite{})
+}
 
-func (s *leaderSetSuite) SetUpTest(c *gc.C) {
+func (s *leaderSetSuite) SetUpTest(c *tc.C) {
 	var err error
 	s.command, err = jujuc.NewLeaderSetCommand(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.command = jujuc.NewJujucCommandWrappedForTest(s.command)
 }
 
-func (s *leaderSetSuite) TestInitEmpty(c *gc.C) {
+func (s *leaderSetSuite) TestInitEmpty(c *tc.C) {
 	err := s.command.Init(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *leaderSetSuite) TestInitValues(c *gc.C) {
+func (s *leaderSetSuite) TestInitValues(c *tc.C) {
 	err := s.command.Init([]string{"foo=bar", "baz=qux"})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *leaderSetSuite) TestInitError(c *gc.C) {
+func (s *leaderSetSuite) TestInitError(c *tc.C) {
 	err := s.command.Init([]string{"nonsense"})
-	c.Check(err, gc.ErrorMatches, `expected "key=value", got "nonsense"`)
+	c.Check(err, tc.ErrorMatches, `expected "key=value", got "nonsense"`)
 }
 
-func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
+func (s *leaderSetSuite) TestWriteEmpty(c *tc.C) {
 	jujucContext := &leaderSetContext{}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
-	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{})
-	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(jujucContext.gotSettings, tc.DeepEquals, map[string]string{})
+	c.Check(bufferString(runContext.Stdout), tc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, "")
 }
 
-func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
+func (s *leaderSetSuite) TestWriteValues(c *tc.C) {
 	jujucContext := &leaderSetContext{}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar", "baz=qux"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{
+	c.Check(code, tc.Equals, 0)
+	c.Check(jujucContext.gotSettings, tc.DeepEquals, map[string]string{
 		"foo": "bar",
 		"baz": "qux",
 	})
-	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
+	c.Check(bufferString(runContext.Stdout), tc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, "")
 }
 
-func (s *leaderSetSuite) TestWriteError(c *gc.C) {
+func (s *leaderSetSuite) TestWriteError(c *tc.C) {
 	jujucContext := &leaderSetContext{err: errors.New("splat")}
 	command, err := jujuc.NewLeaderSetCommand(jujucContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar"})
-	c.Check(code, gc.Equals, 1)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{"foo": "bar"})
-	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
-	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot write leadership settings: splat\n")
+	c.Check(code, tc.Equals, 1)
+	c.Check(jujucContext.gotSettings, tc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Check(bufferString(runContext.Stdout), tc.Equals, "")
+	c.Check(bufferString(runContext.Stderr), tc.Equals, "ERROR cannot write leadership settings: splat\n")
 }
 
 type leaderSetContext struct {

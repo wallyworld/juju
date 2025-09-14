@@ -4,23 +4,25 @@
 package state_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &watcherSuite{})
+}
 
 type watcherSuite struct {
 	ConnSuite
 }
 
-func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
+func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *tc.C) {
 	// Just watching a document should not trigger an event
 	c.Logf("starting watcher for %q %q", "machines", "2")
 	w := state.NewEntityWatcher(s.State, "machines", "2")
@@ -28,9 +30,9 @@ func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
+func (s *watcherSuite) TestEntityWatcherFirstEvent(c *tc.C) {
 	m, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Send the Machine creation event before we start our watcher
 	w := m.Watch()
 
@@ -48,7 +50,7 @@ loop:
 		select {
 		case _, ok := <-w.Changes():
 			c.Logf("got change")
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			eventCount++
 			if eventCount > 2 {
 				c.Fatalf("watcher sent unexpected change")
@@ -64,22 +66,22 @@ loop:
 	}
 }
 
-func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
+func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *tc.C) {
 	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := dummy.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w := state.NewActionNotificationWatcher(s.State, true, unit)
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange()
 
 	operationID, err := s.Model.EnqueueOperation("a test", 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 
 	_, err = action.Cancel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertNoChange()
 }

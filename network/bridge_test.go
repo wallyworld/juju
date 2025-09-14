@@ -4,12 +4,13 @@
 package network_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/network"
 )
 
@@ -21,23 +22,25 @@ import (
 // not clear why the 'testing clock' would be a better choice.
 
 type BridgeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&BridgeSuite{})
+func TestBridgeSuite(t *tctesting.T) {
+	tc.Run(t, &BridgeSuite{})
+}
 
-func (s *BridgeSuite) SetUpSuite(c *gc.C) {
+func (s *BridgeSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 }
 
-func assertENIBridgerError(c *gc.C, devices []network.DeviceToBridge, timeout time.Duration, clock clock.Clock, filename string, dryRun bool, reconfigureDelay int, expected string) {
+func assertENIBridgerError(c *tc.C, devices []network.DeviceToBridge, timeout time.Duration, clock clock.Clock, filename string, dryRun bool, reconfigureDelay int, expected string) {
 	bridger := network.NewEtcNetworkInterfacesBridger(clock, timeout, filename, dryRun)
 	err := bridger.Bridge(devices, reconfigureDelay)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, expected)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, expected)
 }
 
-func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
+func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *tc.C) {
 	devices := []network.DeviceToBridge{
 		{
 			DeviceName: "ens123",
@@ -48,13 +51,13 @@ func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "", true, 0, expected)
 }
 
-func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
+func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *tc.C) {
 	devices := []network.DeviceToBridge{}
 	expected := `bridge activation error: no devices specified`
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-filename", true, 0, expected)
 }
 
-func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
+func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *tc.C) {
 	devices := []network.DeviceToBridge{
 		{
 			DeviceName: "ens123",
@@ -65,7 +68,7 @@ func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-file", true, 0, expected)
 }
 
-func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
+func (*BridgeSuite) TestENIBridgerWithTimeout(c *tc.C) {
 	devices := []network.DeviceToBridge{
 		{
 			DeviceName: "ens123",
@@ -77,7 +80,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 	assertENIBridgerError(c, devices, 500*time.Millisecond, clock.WallClock, "testdata/interfaces", true, 25694, expected)
 }
 
-func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
+func (*BridgeSuite) TestENIBridgerWithDryRun(c *tc.C) {
 	devices := []network.DeviceToBridge{
 		{
 			DeviceName: "ens123",
@@ -86,5 +89,5 @@ func (*BridgeSuite) TestENIBridgerWithDryRun(c *gc.C) {
 	}
 	bridger := network.NewEtcNetworkInterfacesBridger(clock.WallClock, 0, "testdata/interfaces", true)
 	err := bridger.Bridge(devices, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }

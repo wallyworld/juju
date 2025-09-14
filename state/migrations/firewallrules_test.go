@@ -4,21 +4,24 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network/firewall"
 )
 
 type FirewallRulesExportSuite struct{}
 
-var _ = gc.Suite(&FirewallRulesExportSuite{})
+func TestFirewallRulesExportSuite(t *tctesting.T) {
+	tc.Run(t, &FirewallRulesExportSuite{})
+}
 
-func (f *FirewallRulesExportSuite) TestExportFirewallRules(c *gc.C) {
+func (f *FirewallRulesExportSuite) TestExportFirewallRules(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -39,10 +42,10 @@ func (f *FirewallRulesExportSuite) TestExportFirewallRules(c *gc.C) {
 
 	migration := ExportFirewallRules{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (f *FirewallRulesExportSuite) TestExportFirewallRulesFailsGettingEntities(c *gc.C) {
+func (f *FirewallRulesExportSuite) TestExportFirewallRulesFailsGettingEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -53,7 +56,7 @@ func (f *FirewallRulesExportSuite) TestExportFirewallRulesFailsGettingEntities(c
 
 	migration := ExportFirewallRules{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (f *FirewallRulesExportSuite) firewallRule(ctrl *gomock.Controller, id string, service firewall.WellKnownServiceType, cidrs []string) *MockMigrationFirewallRule {

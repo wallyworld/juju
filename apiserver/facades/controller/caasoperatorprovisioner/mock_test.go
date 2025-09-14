@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,14 +16,15 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	common.APIAddressAccessor
 	model              *mockModel
 	applicationWatcher *mockStringsWatcher
@@ -96,7 +96,7 @@ func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.P
 }
 
 type mockStoragePoolManager struct {
-	testing.Stub
+	testhelpers.Stub
 	poolmanager.PoolManager
 }
 
@@ -109,7 +109,7 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockModel) UUID() string {
@@ -164,7 +164,7 @@ func (ch *mockCharm) Manifest() *charm.Manifest {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 

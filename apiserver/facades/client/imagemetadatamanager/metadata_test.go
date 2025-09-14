@@ -4,9 +4,10 @@
 package imagemetadatamanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -16,27 +17,29 @@ type metadataSuite struct {
 	baseImageMetadataSuite
 }
 
-var _ = gc.Suite(&metadataSuite{})
+func TestMetadataSuite(t *tctesting.T) {
+	tc.Run(t, &metadataSuite{})
+}
 
-func (s *metadataSuite) TestFindNil(c *gc.C) {
+func (s *metadataSuite) TestFindNil(c *tc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Result, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
 }
 
-func (s *metadataSuite) TestFindEmpty(c *gc.C) {
+func (s *metadataSuite) TestFindEmpty(c *tc.C) {
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{}, nil
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Result, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
 }
 
-func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
+func (s *metadataSuite) TestFindEmptyGroups(c *tc.C) {
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{
 			"public": {},
@@ -45,24 +48,24 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Result, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
 }
 
-func (s *metadataSuite) TestFindError(c *gc.C) {
+func (s *metadataSuite) TestFindError(c *tc.C) {
 	msg := "find error"
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return nil, errors.New(msg)
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
-	c.Assert(err, gc.ErrorMatches, msg)
-	c.Assert(found.Result, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, msg)
+	c.Assert(found.Result, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
 }
 
-func (s *metadataSuite) TestFindOrder(c *gc.C) {
+func (s *metadataSuite) TestFindOrder(c *tc.C) {
 	customImageId := "custom1"
 	customImageId2 := "custom2"
 	customImageId3 := "custom3"
@@ -83,10 +86,10 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Result, gc.HasLen, 4)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found.Result, tc.HasLen, 4)
 
-	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
+	c.Assert(found.Result, tc.SameContents, []params.CloudImageMetadata{
 		{ImageId: customImageId, Priority: 87},
 		{ImageId: customImageId3, Priority: 56},
 		{ImageId: customImageId2, Priority: 20},
@@ -95,14 +98,14 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	s.assertCalls(c, controllerTag, findMetadata)
 }
 
-func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
+func (s *metadataSuite) TestSaveEmpty(c *tc.C) {
 	errs, err := s.api.Save(params.MetadataSaveParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs.Results, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag, model)
 }
 
-func (s *metadataSuite) TestSave(c *gc.C) {
+func (s *metadataSuite) TestSave(c *tc.C) {
 	m1 := params.CloudImageMetadata{
 		Source: "custom",
 		Region: "east",
@@ -116,13 +119,13 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	s.state.saveMetadata = func(m []cloudimagemetadata.Metadata) error {
 		saveCalls += 1
 		if m[0].Region != "east" {
-			c.Assert(m[0].Region, gc.Equals, "some-region")
+			c.Assert(m[0].Region, tc.Equals, "some-region")
 		}
 		// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
 		// Bug# 1616295
 		// Ensure empty stream is changed to release
-		c.Assert(m[0].Stream, gc.DeepEquals, "released")
+		c.Assert(m[0].Stream, tc.DeepEquals, "released")
 		if saveCalls < 3 {
 			// don't err on first or second call
 			return nil
@@ -139,22 +142,22 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 			Metadata: []params.CloudImageMetadata{m1, m1},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 3)
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.IsNil)
-	c.Assert(errs.Results[2].Error, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs.Results, tc.HasLen, 3)
+	c.Assert(errs.Results[0].Error, tc.IsNil)
+	c.Assert(errs.Results[1].Error, tc.IsNil)
+	c.Assert(errs.Results[2].Error, tc.ErrorMatches, msg)
 	s.assertCalls(c, controllerTag, model, modelConfig, saveMetadata, saveMetadata, saveMetadata)
 }
 
-func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
+func (s *metadataSuite) TestDeleteEmpty(c *tc.C) {
 	errs, err := s.api.Delete(params.MetadataImageIds{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs.Results, tc.HasLen, 0)
 	s.assertCalls(c, controllerTag)
 }
 
-func (s *metadataSuite) TestDelete(c *gc.C) {
+func (s *metadataSuite) TestDelete(c *tc.C) {
 	idOk := "ok"
 	idFail := "fail"
 	msg := "delete error"
@@ -167,9 +170,9 @@ func (s *metadataSuite) TestDelete(c *gc.C) {
 	}
 
 	errs, err := s.api.Delete(params.MetadataImageIds{[]string{idOk, idFail}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs.Results, gc.HasLen, 2)
-	c.Assert(errs.Results[0].Error, gc.IsNil)
-	c.Assert(errs.Results[1].Error, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs.Results, tc.HasLen, 2)
+	c.Assert(errs.Results[0].Error, tc.IsNil)
+	c.Assert(errs.Results[1].Error, tc.ErrorMatches, msg)
 	s.assertCalls(c, controllerTag, deleteMetadata, deleteMetadata)
 }

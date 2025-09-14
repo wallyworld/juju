@@ -4,11 +4,12 @@
 package payloads_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/payloads"
@@ -18,9 +19,11 @@ import (
 
 type ClientSuite struct{}
 
-var _ = gc.Suite(&ClientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
-func (s *ClientSuite) TestList(c *gc.C) {
+func (s *ClientSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -46,8 +49,8 @@ func (s *ClientSuite) TestList(c *gc.C) {
 	client := payloads.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListFull("a-tag", "a-application/0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []corepayloads.FullPayloadInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, []corepayloads.FullPayloadInfo{
 		{
 			Payload: corepayloads.Payload{
 				PayloadClass: charm.PayloadClass{Name: "spam", Type: "docker"},

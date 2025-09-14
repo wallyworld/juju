@@ -5,27 +5,29 @@ package state
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type MachineInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *MachineInternalSuite) SetUpTest(c *gc.C) {
+func (s *MachineInternalSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-var _ = gc.Suite(&MachineInternalSuite{})
+func TestMachineInternalSuite(t *tctesting.T) {
+	tc.Run(t, &MachineInternalSuite{})
+}
 
-func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
+func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *tc.C) {
 	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	var found bool
@@ -36,10 +38,10 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc
 			break
 		}
 	}
-	c.Assert(found, jc.IsTrue, gc.Commentf("Transaction does not assert that machines are of status Alive"))
+	c.Assert(found, tc.IsTrue, tc.Commentf("Transaction does not assert that machines are of status Alive"))
 }
 
-func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
+func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *tc.C) {
 	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	expectedOp := txn.Op{
@@ -51,7 +53,7 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c 
 	assertContainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
 }
 
-func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C) {
+func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *tc.C) {
 	arbitraryId := "1"
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
@@ -62,7 +64,7 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 	assertContainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
 }
 
-func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
+func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *tc.C) {
 	arbitraryMachineID := "id"
 	arbitraryUnitName := "application/0"
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
@@ -84,13 +86,13 @@ func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsBuildsCorrectUnitTransa
 		},
 	}
 	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime, arbitraryUpgradeSeriesMessage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
-	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
+	c.Assert(actualOpSt, tc.Equals, expectedOpSt)
 }
 
-func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
+func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *tc.C) {
 	arbitraryMachineID := "id"
 	arbitraryStatus := model.UpgradeSeriesPrepareStarted
 	arbitraryUnitName := "application/0"
@@ -103,13 +105,13 @@ func (s *MachineInternalSuite) TestSetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 		Assert: isAliveDoc,
 	}
 	actualOps, err := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryStatus, arbitraryUpdateTime, arbitraryUpgradeSeriesMessage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
-	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
+	c.Assert(actualOpSt, tc.Equals, expectedOpSt)
 }
 
-func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.C) {
+func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *tc.C) {
 	arbitraryMachineID := "id"
 	arbitraryTimestamp := bson.Now()
 	arbitraryLock := &upgradeSeriesLockDoc{TimeStamp: arbitraryTimestamp}
@@ -132,10 +134,10 @@ func (s *MachineInternalSuite) TestStartUpgradeSeriesUnitCompletionTxnOps(c *gc.
 	actualOps := startUpgradeSeriesUnitCompletionTxnOps(arbitraryMachineID, arbitraryLock)
 	expectedOpsSt := fmt.Sprint(expectedOps)
 	actualOpsSt := fmt.Sprint(actualOps)
-	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
+	c.Assert(actualOpsSt, tc.Equals, expectedOpsSt)
 }
 
-func (s *MachineInternalSuite) TestSetUpgradeSeriesMessageTxnOps(c *gc.C) {
+func (s *MachineInternalSuite) TestSetUpgradeSeriesMessageTxnOps(c *tc.C) {
 	arbitraryMachineID := "id"
 	arbitraryTimestamp := bson.Now()
 	arbitraryMessages := []UpgradeSeriesMessage{
@@ -168,10 +170,10 @@ func (s *MachineInternalSuite) TestSetUpgradeSeriesMessageTxnOps(c *gc.C) {
 	actualOps := setUpgradeSeriesMessageTxnOps(arbitraryMachineID, arbitraryMessages, true)
 	expectedOpsSt := fmt.Sprint(expectedOps)
 	actualOpsSt := fmt.Sprint(actualOps)
-	c.Assert(actualOpsSt, gc.Equals, expectedOpsSt)
+	c.Assert(actualOpsSt, tc.Equals, expectedOpsSt)
 }
 
-func assertContainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
+func assertContainsOP(c *tc.C, expectedOp txn.Op, actualOps []txn.Op) {
 	var found bool
 	for _, actualOp := range actualOps {
 		if actualOp == expectedOp {
@@ -179,5 +181,5 @@ func assertContainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
 			break
 		}
 	}
-	c.Assert(found, jc.IsTrue, gc.Commentf("expected %#v to contain %#v", actualOps, expectedOp))
+	c.Assert(found, tc.IsTrue, tc.Commentf("expected %#v to contain %#v", actualOps, expectedOp))
 }

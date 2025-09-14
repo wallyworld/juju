@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"regexp"
+	tctesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -14,9 +15,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,13 +30,16 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&crossmodelRelationsSuite{})
+func TestCrossmodelRelationsSuite(t *tctesting.T) {
+	tc.Run(t, &crossmodelRelationsSuite{})
+}
 
 type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
@@ -54,12 +56,12 @@ type crossmodelRelationsSuite struct {
 	watchedSecretConsumers []string
 }
 
-func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
+func (s *crossmodelRelationsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.bakery = &mockBakeryService{}
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -69,26 +71,26 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	fw := &mockFirewallState{}
 	egressAddressWatcher := func(_ facade.Resources, fws firewall.State, relations params.Entities) (params.StringsWatchResults, error) {
-		c.Assert(fw, gc.Equals, fws)
+		c.Assert(fw, tc.Equals, fws)
 		s.watchedRelations = relations
 		return params.StringsWatchResults{Results: make([]params.StringsWatchResult, len(relations.Entities))}, nil
 	}
 	relationStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+		c.Assert(s.st, tc.Equals, st)
 		s.watchedRelations = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
 		w := &mockRelationStatusWatcher{changes: make(chan []string, 1)}
 		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
 	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+		c.Assert(s.st, tc.Equals, st)
 		s.watchedOffers = []string{offerUUID}
 		w := &mockOfferStatusWatcher{offerUUID: offerUUID, offerName: "mysql", changes: make(chan struct{}, 1)}
 		w.changes <- struct{}{}
 		return w, nil
 	}
 	consumedSecretsWatcher := func(st crossmodelrelations.CrossModelRelationsState, appName string) (state.StringsWatcher, error) {
-		c.Assert(s.st, gc.Equals, st)
+		c.Assert(s.st, tc.Equals, st)
 		s.watchedSecretConsumers = []string{appName}
 		w := &mockSecretsWatcher{changes: make(chan []string, 1)}
 		w.changes <- []string{"9m4e2mr0ui3e8a215n4g"}
@@ -100,16 +102,16 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		s.st, thirdPartyKey,
 		commoncrossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
 		s.authContext, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *tc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -136,7 +138,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	suspended := true
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
@@ -156,43 +158,43 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, jc.ErrorIsNil)
-	expected := []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	expected := []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	if lifeValue == life.Alive {
-		c.Assert(rel.status, gc.Equals, status.Suspending)
+		c.Assert(rel.status, tc.Equals, status.Suspending)
 		if suspendedReason == "" {
-			c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+			c.Assert(rel.message, tc.Equals, "suspending after update from remote model")
 		} else {
-			c.Assert(rel.message, gc.Equals, suspendedReason)
+			c.Assert(rel.message, tc.Equals, suspendedReason)
 		}
 	} else {
-		c.Assert(rel.status, gc.Equals, status.Status(""))
-		c.Assert(rel.message, gc.Equals, "")
+		c.Assert(rel.status, tc.Equals, status.Status(""))
+		c.Assert(rel.message, tc.Equals, "")
 	}
 	s.st.CheckCalls(c, expected)
 	if forceCleanup {
-		ru1.CheckCalls(c, []testing.StubCall{
+		ru1.CheckCalls(c, []testhelpers.StubCall{
 			{"LeaveScope", []interface{}{}},
 		})
-		rel.CheckCalls(c, []testing.StubCall{
+		rel.CheckCalls(c, []testhelpers.StubCall{
 			{"Suspended", []interface{}{}},
 			{"AllRemoteUnits", []interface{}{"db2"}},
 			{"DestroyWithForce", []interface{}{true}},
 		})
 	} else {
-		ru1.CheckCalls(c, []testing.StubCall{
+		ru1.CheckCalls(c, []testhelpers.StubCall{
 			{"InScope", []interface{}{}},
 			{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 		})
 		if lifeValue == life.Alive {
-			rel.CheckCalls(c, []testing.StubCall{
+			rel.CheckCalls(c, []testhelpers.StubCall{
 				{"Suspended", []interface{}{}},
 				{"SetSuspended", []interface{}{}},
 				{"SetStatus", []interface{}{}},
@@ -201,7 +203,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 				{"RemoteUnit", []interface{}{"db2/1"}},
 			})
 		} else {
-			rel.CheckCalls(c, []testing.StubCall{
+			rel.CheckCalls(c, []testhelpers.StubCall{
 				{"Suspended", []interface{}{}},
 				{"Destroy", []interface{}{}},
 				{"Tag", []interface{}{}},
@@ -210,28 +212,28 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 			})
 		}
 	}
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *tc.C) {
 	s.assertPublishRelationsChanges(c, life.Alive, "", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *tc.C) {
 	s.assertPublishRelationsChanges(c, life.Alive, "reason", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *tc.C) {
 	s.assertPublishRelationsChanges(c, life.Dying, "", false)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *tc.C) {
 	s.assertPublishRelationsChanges(c, life.Dying, "", true)
 }
 
-func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *tc.C) {
 	app := &mockApplication{}
 	app.eps = []state.Endpoint{{
 		ApplicationName: "offeredapp",
@@ -259,7 +261,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"f47ac10b-58cc-4372-a567-0e02b2c3d479", "consume"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelationArgs{
 		Relations: []params.RegisterRemoteRelationArg{{
 			ApplicationToken:  "app-token",
@@ -271,39 +273,39 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			ConsumeVersion:    777,
 			Macaroons:         macaroon.Slice{mac.M()},
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result.Token, gc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.Result.Token, tc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	declared := checkers.InferDeclared(nil, macaroon.Slice{result.Result.Macaroon})
-	c.Assert(declared, jc.DeepEquals, map[string]string{
+	c.Assert(declared, tc.DeepEquals, map[string]string{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"relation-key":      "offeredapp:local remote-apptoken:remote",
 		"username":          "mary",
 		"offer-uuid":        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
 	})
 	cav := result.Result.Macaroon.Caveats()
-	c.Check(cav, gc.HasLen, 5)
-	c.Check(bytes.HasPrefix(cav[0].Id, []byte("time-before ")), jc.IsTrue)
-	c.Check(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d"))
-	c.Check(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid f47ac10b-58cc-4372-a567-0e02b2c3d479"))
-	c.Check(cav[3].Id, jc.DeepEquals, []byte("declared username mary"))
-	c.Check(cav[4].Id, jc.DeepEquals, []byte("declared relation-key offeredapp:local remote-apptoken:remote"))
+	c.Check(cav, tc.HasLen, 5)
+	c.Check(bytes.HasPrefix(cav[0].Id, []byte("time-before ")), tc.IsTrue)
+	c.Check(cav[1].Id, tc.DeepEquals, []byte("declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Check(cav[2].Id, tc.DeepEquals, []byte("declared offer-uuid f47ac10b-58cc-4372-a567-0e02b2c3d479"))
+	c.Check(cav[3].Id, tc.DeepEquals, []byte("declared username mary"))
+	c.Check(cav[4].Id, tc.DeepEquals, []byte("declared relation-key offeredapp:local remote-apptoken:remote"))
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
-	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
-	c.Check(expectedRemoteApp, jc.DeepEquals, &mockRemoteApplication{
+	expectedRemoteApp.Stub = testhelpers.Stub{} // don't care about api calls
+	c.Check(expectedRemoteApp, tc.DeepEquals, &mockRemoteApplication{
 		sourceModelUUID: coretesting.ModelTag.Id(), consumerproxy: true, consumeversion: 777})
 	expectedRel := s.st.relations["offeredapp:local remote-apptoken:remote"]
-	expectedRel.Stub = testing.Stub{} // don't care about api calls
-	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
-	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")], gc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
-	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
-	c.Assert(s.st.offerConnections, gc.HasLen, 1)
+	expectedRel.Stub = testhelpers.Stub{} // don't care about api calls
+	c.Check(expectedRel, tc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
+	c.Check(s.st.remoteEntities, tc.HasLen, 2)
+	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")], tc.Equals, "token-f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], tc.Equals, "rel-token")
+	c.Assert(s.st.offerConnections, tc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]
-	c.Assert(offerConnection, jc.DeepEquals, &mockOfferConnection{
+	c.Assert(offerConnection, tc.DeepEquals, &mockOfferConnection{
 		sourcemodelUUID: coretesting.ModelTag.Id(),
 		relationId:      0,
 		relationKey:     "offeredapp:local remote-apptoken:remote",
@@ -312,16 +314,16 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelations(c *tc.C) {
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestRegisterRemoteRelationsIdempotent(c *tc.C) {
 	s.assertRegisterRemoteRelations(c)
 	s.assertRegisterRemoteRelations(c)
 }
 
-func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *tc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	rel := newMockRelation(1)
 	rel.key = "db2:db django:db"
@@ -343,7 +345,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
@@ -353,17 +355,17 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.st.ingressNetworks[rel.key], jc.DeepEquals, []string{"1.2.3.4/32"})
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.st.ingressNetworks[rel.key], tc.DeepEquals, []string{"1.2.3.4/32"})
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *tc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.relations["db2:db django:db"] = newMockRelation(1)
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
@@ -386,7 +388,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
@@ -396,16 +398,16 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta("subnet 1.2.3.4/32 not in firewall whitelist"))
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *tc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
 		offerUUID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -422,7 +424,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
@@ -440,15 +442,15 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		},
 	}
 	results, err := s.api.WatchEgressAddressesForRelations(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
-	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, tc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
+	c.Assert(s.watchedRelations, tc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
@@ -456,7 +458,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 	// TODO(wallyworld) - add mre tests when implementation finished
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *tc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	rel := newMockRelation(1)
 	s.st.relations["db2:db django:db"] = rel
@@ -475,7 +477,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
@@ -489,21 +491,21 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		},
 	}
 	results, err := s.api.WatchRelationsSuspendedStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeNotFound)
+	c.Assert(results.Results[1].Error, tc.IsNil)
+	c.Assert(s.watchedRelations, tc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *tc.C) {
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
 		offerUUID:       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -520,7 +522,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
@@ -532,11 +534,11 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 
 	// First check that when not migrating, we see the relation as dead.
 	results, err := s.api.WatchRelationsSuspendedStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Changes[0].Life, gc.Equals, life.Dead)
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].Changes[0].Life, tc.Equals, life.Dead)
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"IsMigrationActive", []interface{}{}},
@@ -547,17 +549,17 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	// and ensure that the error flows to us.
 	s.st.migrationActive = true
 	results, err = s.api.WatchRelationsSuspendedStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotFound)
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"IsMigrationActive", []interface{}{}},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *tc.C) {
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
 		OfferName: "hosted-mysql", OfferUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479", ApplicationName: "mysql"}
 	app := &mockApplication{name: "mysql", appStatus: status.Waiting}
@@ -572,7 +574,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"f47ac10b-58cc-4372-a567-0e02b2c3d479", "consume"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.OfferArgs{
 		Args: []params.OfferArg{
 			{
@@ -590,29 +592,29 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		},
 	}
 	results, err := s.api.WatchOfferStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[1].Error, tc.IsNil)
 	// Check against a non-terminating status to show that the status is
 	// coming from the application.
-	c.Assert(results.Results[1].Changes, jc.DeepEquals, []params.OfferStatusChange{{
+	c.Assert(results.Results[1].Changes, tc.DeepEquals, []params.OfferStatusChange{{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Waiting},
 	}})
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"f47ac10b-58cc-4372-a567-0e02b2c3d479"})
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedOffers, tc.DeepEquals, []string{"f47ac10b-58cc-4372-a567-0e02b2c3d479"})
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"IsMigrationActive", nil},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
 		{"Application", []interface{}{"mysql"}},
 	})
-	app.CheckCalls(c, []testing.StubCall{
+	app.CheckCalls(c, []testhelpers.StubCall{
 		{"Status", nil},
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *tc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -639,7 +641,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
@@ -658,21 +660,21 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, jc.ErrorIsNil)
-	expected := []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	expected := []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"ApplicationOfferForUUID", []interface{}{"f47ac10b-58cc-4372-a567-0e02b2c3d479"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
-	ru1.CheckCalls(c, []testing.StubCall{
+	ru1.CheckCalls(c, []testhelpers.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 	})
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
@@ -681,7 +683,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *tc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
@@ -708,7 +710,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
@@ -727,20 +729,20 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, jc.ErrorIsNil)
-	expected := []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	expected := []testhelpers.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
-	ru1.CheckCalls(c, []testing.StubCall{
+	ru1.CheckCalls(c, []testhelpers.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
 	})
-	ru2.CheckCalls(c, []testing.StubCall{
+	ru2.CheckCalls(c, []testhelpers.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
 	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
@@ -753,7 +755,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *tc.C) {
 	s.authorizer.AdminTag = names.NewUserTag("fred")
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
@@ -782,7 +784,7 @@ func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
@@ -794,12 +796,12 @@ func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = results.Combine()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *tc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.applications["django"] = &mockApplication{}
@@ -855,7 +857,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"db2:db django:db", "relate"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.api.WatchRelationChanges(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{{
@@ -863,9 +865,9 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 			Macaroons: macaroon.Slice{mac.M()},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	uc := 666
-	c.Assert(result, gc.DeepEquals, params.RemoteRelationWatchResults{
+	c.Assert(result, tc.DeepEquals, params.RemoteRelationWatchResults{
 		Results: []params.RemoteRelationWatchResult{{
 			RemoteRelationWatcherId: "1",
 			Changes: params.RemoteRelationChangeEvent{
@@ -887,14 +889,14 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		}},
 	})
 
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(outw.RelationToken, gc.Equals, "token-db2:db django:db")
-	c.Assert(outw.ApplicationToken, gc.Equals, "token-hosted-db2")
+	c.Assert(ok, tc.Equals, true)
+	c.Assert(outw.RelationToken, tc.Equals, "token-db2:db django:db")
+	c.Assert(outw.ApplicationToken, tc.Equals, "token-hosted-db2")
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.
@@ -910,7 +912,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 
 	select {
 	case event := <-outw.Changes():
-		c.Assert(event, gc.DeepEquals, params.RelationUnitsChange{
+		c.Assert(event, tc.DeepEquals, params.RelationUnitsChange{
 			AppChanged: map[string]int64{"django": 124},
 		})
 	case <-time.After(coretesting.LongWait):
@@ -918,7 +920,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	}
 }
 
-func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	s.st.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.remoteEntities[names.NewApplicationTag("postgresql")] = "token-postgresql"
@@ -932,7 +934,7 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		}, bakery.Op{"token-rel-db2-uuid", "consume"})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.WatchRemoteSecretChangesArgs{
 		Args: []params.WatchRemoteSecretChangesArg{
 			{
@@ -953,17 +955,17 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		},
 	}
 	results, err := s.api.WatchConsumedSecretsChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, len(args.Args))
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].Changes, tc.DeepEquals, []params.SecretRevisionChange{{
 		URI:      "secret:9m4e2mr0ui3e8a215n4g",
 		Revision: 666,
 	}})
-	c.Assert(results.Results[1].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
-	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"db2"})
-	s.st.CheckCalls(c, []testing.StubCall{
+	c.Assert(results.Results[1].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[2].Error.ErrorCode(), tc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, tc.DeepEquals, []string{"db2"})
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"GetSecretConsumerInfo", []interface{}{"token-db2", "token-rel-db2"}},
 		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
 		{"GetSecretConsumerInfo", []interface{}{"token-mysql", "token-rel-mysql"}},

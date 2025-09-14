@@ -4,19 +4,19 @@
 package secretbackendrotate_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/secretbackendrotate/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
@@ -31,17 +31,19 @@ type workerSuite struct {
 	rotatedTokens       chan []string
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *workerSuite) TearDownTest(c *gc.C) {
+func (s *workerSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = testclock.NewDilatedWallClock(100 * time.Millisecond)
@@ -57,7 +59,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	_ = s.setup(c)
 
 	s.testValidateConfig(c, func(config *secretbackendrotate.Config) {
@@ -73,10 +75,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	}, `nil Clock not valid`)
 }
 
-func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretbackendrotate.Config), expect string) {
+func (s *workerSuite) testValidateConfig(c *tc.C, f func(*secretbackendrotate.Config), expect string) {
 	config := s.config
 	f(&config)
-	c.Check(config.Validate(), gc.ErrorMatches, expect)
+	c.Check(config.Validate(), tc.ErrorMatches, expect)
 }
 
 func (s *workerSuite) expectWorker() {
@@ -93,30 +95,30 @@ func (s *workerSuite) expectWorker() {
 	).AnyTimes()
 }
 
-func (s *workerSuite) TestStartStop(c *gc.C) {
+func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) expectRotated(c *gc.C, expected ...string) {
+func (s *workerSuite) expectRotated(c *tc.C, expected ...string) {
 	select {
 	case ids, ok := <-s.rotatedTokens:
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(ids, jc.SameContents, expected)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(ids, tc.SameContents, expected)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for token to be rotated")
 	}
 }
 
-func (s *workerSuite) expectNoRotates(c *gc.C) {
+func (s *workerSuite) expectNoRotates(c *tc.C) {
 	select {
 	case ids := <-s.rotatedTokens:
 		c.Fatalf("got unexpected secret rotation %q", ids)
@@ -124,14 +126,14 @@ func (s *workerSuite) expectNoRotates(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestFirstToken(c *gc.C) {
+func (s *workerSuite) TestFirstToken(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -147,14 +149,14 @@ func (s *workerSuite) TestFirstToken(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestBackendUpdateBeforeRotate(c *gc.C) {
+func (s *workerSuite) TestBackendUpdateBeforeRotate(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -177,14 +179,14 @@ func (s *workerSuite) TestBackendUpdateBeforeRotate(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestUpdateBeforeRotateNotTriggered(c *gc.C) {
+func (s *workerSuite) TestUpdateBeforeRotateNotTriggered(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -211,14 +213,14 @@ func (s *workerSuite) TestUpdateBeforeRotateNotTriggered(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestNewBackendTriggersBefore(c *gc.C) {
+func (s *workerSuite) TestNewBackendTriggersBefore(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -246,14 +248,14 @@ func (s *workerSuite) TestNewBackendTriggersBefore(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestManyBackendsTrigger(c *gc.C) {
+func (s *workerSuite) TestManyBackendsTrigger(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -276,14 +278,14 @@ func (s *workerSuite) TestManyBackendsTrigger(c *gc.C) {
 	s.expectRotated(c, "some-backend-id", "some-backend-id2")
 }
 
-func (s *workerSuite) TestDeleteBackendRotation(c *gc.C) {
+func (s *workerSuite) TestDeleteBackendRotation(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -305,14 +307,14 @@ func (s *workerSuite) TestDeleteBackendRotation(c *gc.C) {
 	s.expectNoRotates(c)
 }
 
-func (s *workerSuite) TestManyBackendsDeleteOne(c *gc.C) {
+func (s *workerSuite) TestManyBackendsDeleteOne(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()
@@ -346,14 +348,14 @@ func (s *workerSuite) TestManyBackendsDeleteOne(c *gc.C) {
 	s.expectRotated(c, "some-backend-id")
 }
 
-func (s *workerSuite) TestRotateGranularity(c *gc.C) {
+func (s *workerSuite) TestRotateGranularity(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	s.expectWorker()
 
 	w, err := secretbackendrotate.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	now := s.clock.Now()

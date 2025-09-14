@@ -4,76 +4,79 @@
 package caasoperatorprovisioner_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
 
 type provisionerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&provisionerSuite{})
+func TestProvisionerSuite(t *tctesting.T) {
+	tc.Run(t, &provisionerSuite{})
+}
 
 func newClient(f basetesting.APICallerFunc) *caasoperatorprovisioner.Client {
 	return caasoperatorprovisioner.NewClient(basetesting.BestVersionCaller{f, 5})
 }
 
-func (s *provisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *provisionerSuite) TestWatchApplications(c *tc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "WatchApplications")
-		c.Assert(a, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "WatchApplications")
+		c.Assert(a, tc.IsNil)
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
 		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
 		return nil
 	})
 	_, err := client.WatchApplications()
-	c.Check(err, gc.ErrorMatches, "FAIL")
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorMatches, "FAIL")
+	c.Check(called, tc.IsTrue)
 }
 
-func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
+func (s *provisionerSuite) TestSetPasswords(c *tc.C) {
 	passwords := []caasoperatorprovisioner.ApplicationPassword{
 		{Name: "app", Password: "secret"},
 	}
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "SetPasswords")
-		c.Assert(a, jc.DeepEquals, params.EntityPasswords{
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "SetPasswords")
+		c.Assert(a, tc.DeepEquals, params.EntityPasswords{
 			Changes: []params.EntityPassword{{Tag: "application-app", Password: "secret"}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
 		}
 		return nil
 	})
 	result, err := client.SetPasswords(passwords)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Combine(), jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(result.Combine(), tc.ErrorIsNil)
+	c.Check(called, tc.IsTrue)
 }
 
-func (s *provisionerSuite) TestSetPasswordsCount(c *gc.C) {
+func (s *provisionerSuite) TestSetPasswordsCount(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{
@@ -87,22 +90,22 @@ func (s *provisionerSuite) TestSetPasswordsCount(c *gc.C) {
 		{Name: "app", Password: "secret"},
 	}
 	_, err := client.SetPasswords(passwords)
-	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+	c.Check(err, tc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
-func (s *provisionerSuite) TestLife(c *gc.C) {
+func (s *provisionerSuite) TestLife(c *tc.C) {
 	tag := names.NewApplicationTag("app")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Life")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "Life")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: tag.String(),
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{
 				Life: life.Alive,
@@ -113,11 +116,11 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 
 	client := caasoperatorprovisioner.NewClient(apiCaller)
 	lifeValue, err := client.Life(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lifeValue, gc.Equals, life.Alive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(lifeValue, tc.Equals, life.Alive)
 }
 
-func (s *provisionerSuite) TestLifeError(c *gc.C) {
+func (s *provisionerSuite) TestLifeError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{Error: &params.Error{
@@ -130,19 +133,19 @@ func (s *provisionerSuite) TestLifeError(c *gc.C) {
 
 	client := caasoperatorprovisioner.NewClient(apiCaller)
 	_, err := client.Life("gitlab")
-	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, "bletch")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *provisionerSuite) TestLifeInvalidApplicationName(c *gc.C) {
+func (s *provisionerSuite) TestLifeInvalidApplicationName(c *tc.C) {
 	client := caasoperatorprovisioner.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *provisionerSuite) TestLifeCount(c *gc.C) {
+func (s *provisionerSuite) TestLifeCount(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{
@@ -153,17 +156,17 @@ func (s *provisionerSuite) TestLifeCount(c *gc.C) {
 		return nil
 	})
 	_, err := client.Life("gitlab")
-	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+	c.Check(err, tc.ErrorMatches, `expected 1 result, got 2`)
 }
 
-func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
+func (s *provisionerSuite) TestOperatorProvisioningInfo(c *tc.C) {
 	vers := version.MustParse("2.99.0")
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "OperatorProvisioningInfo")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "OperatorProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
 		*(result.(*params.OperatorProvisioningInfoResults)) = params.OperatorProvisioningInfoResults{
 			Results: []params.OperatorProvisioningInfo{{
 				ImageDetails: params.DockerImageInfo{RegistryPath: "juju-operator-image"},
@@ -181,8 +184,8 @@ func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 		return nil
 	})
 	info, err := client.OperatorProvisioningInfo("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
 		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
@@ -197,29 +200,29 @@ func (s *provisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestOperatorProvisioningInfoArity(c *gc.C) {
+func (s *provisionerSuite) TestOperatorProvisioningInfoArity(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "OperatorProvisioningInfo")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "OperatorProvisioningInfo")
+		c.Assert(a, tc.DeepEquals, params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.OperatorProvisioningInfoResults{})
 		*(result.(*params.OperatorProvisioningInfoResults)) = params.OperatorProvisioningInfoResults{
 			Results: []params.OperatorProvisioningInfo{{}, {}},
 		}
 		return nil
 	})
 	_, err := client.OperatorProvisioningInfo("gitlab")
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 2")
 }
 
-func (s *provisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
+func (s *provisionerSuite) TestIssueOperatorCertificate(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "IssueOperatorCertificate")
+		c.Assert(a, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		*(result.(*params.IssueOperatorCertificateResults)) = params.IssueOperatorCertificateResults{
 			Results: []params.IssueOperatorCertificateResult{{
 				CACert:     "ca cert",
@@ -230,23 +233,23 @@ func (s *provisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
 		return nil
 	})
 	info, err := client.IssueOperatorCertificate("appymcappface")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorCertificate{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, caasoperatorprovisioner.OperatorCertificate{
 		CACert:     "ca cert",
 		Cert:       "cert",
 		PrivateKey: "private key",
 	})
 }
 
-func (s *provisionerSuite) TestIssueOperatorCertificateArity(c *gc.C) {
+func (s *provisionerSuite) TestIssueOperatorCertificateArity(c *tc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
-		c.Check(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
-		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
+		c.Check(objType, tc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, tc.Equals, "")
+		c.Assert(request, tc.Equals, "IssueOperatorCertificate")
+		c.Assert(a, tc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "application-appymcappface"}}})
+		c.Assert(result, tc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
 		return nil
 	})
 	_, err := client.IssueOperatorCertificate("appymcappface")
-	c.Assert(err, gc.ErrorMatches, "expected one result, got 0")
+	c.Assert(err, tc.ErrorMatches, "expected one result, got 0")
 }

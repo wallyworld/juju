@@ -5,11 +5,11 @@ package common_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,7 +20,9 @@ import (
 
 type instanceIdGetterSuite struct{}
 
-var _ = gc.Suite(&instanceIdGetterSuite{})
+func TestInstanceIdGetterSuite(t *tctesting.T) {
+	tc.Run(t, &instanceIdGetterSuite{})
+}
 
 type fakeInstanceIdGetter struct {
 	state.Entity
@@ -36,7 +38,7 @@ func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
 	return instance.Id(f.instanceId), nil
 }
 
-func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
+func (*instanceIdGetterSuite) TestInstanceId(c *tc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeInstanceIdGetter{instanceId: "foo"},
@@ -58,8 +60,8 @@ func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := ig.InstanceId(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "foo"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -70,11 +72,11 @@ func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (*instanceIdGetterSuite) TestInstanceIdError(c *gc.C) {
+func (*instanceIdGetterSuite) TestInstanceIdError(c *tc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(&fakeState{}, getCanRead)
 	_, err := ig.InstanceId(params.Entities{[]params.Entity{{"unit-x-0"}}})
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }

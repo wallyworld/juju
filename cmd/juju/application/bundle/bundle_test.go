@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
@@ -26,9 +26,11 @@ type buildModelRepSuite struct {
 	modelExtractor *mocks.MockModelExtractor
 }
 
-var _ = gc.Suite(&buildModelRepSuite{})
+func TestBuildModelRepSuite(t *tctesting.T) {
+	tc.Run(t, &buildModelRepSuite{})
+}
 
-func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *gc.C) {
+func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyGetAnnotations()
 	s.expectEmptyGetConfig()
@@ -43,23 +45,23 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationEmptyModel(c *gc.C) {
 	machines := map[string]string{}
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
-	c.Assert(obtainedModel.Machines, gc.HasLen, 0)
-	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
-	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
-	c.Assert(obtainedModel.MachineMap, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedModel.Applications, tc.HasLen, 0)
+	c.Assert(obtainedModel.Machines, tc.HasLen, 0)
+	c.Assert(obtainedModel.Relations, tc.HasLen, 0)
+	c.Assert(obtainedModel.Sequence, tc.HasLen, 0)
+	c.Assert(obtainedModel.MachineMap, tc.HasLen, 0)
 }
 
-func (s *buildModelRepSuite) TestBuildModelRepresentationUseExistingMachines(c *gc.C) {
+func (s *buildModelRepSuite) TestBuildModelRepresentationUseExistingMachines(c *tc.C) {
 	s.testBuildModelRepresentationUseExistingMachines(c, true)
 }
 
-func (s *buildModelRepSuite) TestBuildModelRepresentationDoNotUseExistingMachines(c *gc.C) {
+func (s *buildModelRepSuite) TestBuildModelRepresentationDoNotUseExistingMachines(c *tc.C) {
 	s.testBuildModelRepresentationUseExistingMachines(c, false)
 }
 
-func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *gc.C, use bool) {
+func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *tc.C, use bool) {
 	defer s.setupMocks(c).Finish()
 	s.expectGetAnnotations(c, []string{"machine-0", "machine-1", "machine-2", "machine-3"})
 	s.expectEmptyGetConfig()
@@ -83,20 +85,20 @@ func (s *buildModelRepSuite) testBuildModelRepresentationUseExistingMachines(c *
 	}
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, use, machines)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedModel.Applications, gc.HasLen, 0)
-	c.Assert(obtainedModel.Machines, gc.HasLen, 4)
-	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
-	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedModel.Applications, tc.HasLen, 0)
+	c.Assert(obtainedModel.Machines, tc.HasLen, 4)
+	c.Assert(obtainedModel.Relations, tc.HasLen, 0)
+	c.Assert(obtainedModel.Sequence, tc.HasLen, 0)
 	if use {
-		c.Assert(obtainedModel.MachineMap, gc.DeepEquals, map[string]string{"0": "1", "1": "3", "2": "2", "3": "3"})
+		c.Assert(obtainedModel.MachineMap, tc.DeepEquals, map[string]string{"0": "1", "1": "3", "2": "2", "3": "3"})
 
 	} else {
-		c.Assert(obtainedModel.MachineMap, gc.DeepEquals, map[string]string{"0": "1", "1": "3"})
+		c.Assert(obtainedModel.MachineMap, tc.DeepEquals, map[string]string{"0": "1", "1": "3"})
 	}
 }
 
-func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordinate(c *gc.C) {
+func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordinate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectGetAnnotations(c, []string{"machine-0", "machine-1", "application-wordpress", "application-sub"})
 	s.expectGetConfigSubWordpress()
@@ -131,23 +133,23 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 	machines := map[string]string{}
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedModel.Applications, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedModel.Applications, tc.HasLen, 2)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(obtainedWordpress.Options, gc.HasLen, 1)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(obtainedWordpress.Options, tc.HasLen, 1)
 	_, ok = obtainedWordpress.Options["skill-level"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	_, ok = obtainedModel.Applications["sub"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
-	c.Assert(obtainedModel.Machines, gc.HasLen, 2)
-	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
-	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
-	c.Assert(obtainedModel.MachineMap, gc.HasLen, 0)
+	c.Assert(obtainedModel.Machines, tc.HasLen, 2)
+	c.Assert(obtainedModel.Relations, tc.HasLen, 0)
+	c.Assert(obtainedModel.Sequence, tc.HasLen, 0)
+	c.Assert(obtainedModel.MachineMap, tc.HasLen, 0)
 }
 
-func (s *buildModelRepSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *buildModelRepSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.modelExtractor = mocks.NewMockModelExtractor(ctrl)
 	return ctrl
@@ -157,7 +159,7 @@ func (s *buildModelRepSuite) expectEmptyGetAnnotations() {
 	s.modelExtractor.EXPECT().GetAnnotations(gomock.Nil()).Return(nil, nil)
 }
 
-func (s *buildModelRepSuite) expectGetAnnotations(c *gc.C, tags []string) {
+func (s *buildModelRepSuite) expectGetAnnotations(c *tc.C, tags []string) {
 	matcher := stringSliceMatcher{c: c, expected: tags}
 	result := make([]params.AnnotationsGetResult, len(tags))
 	for i, tag := range tags {
@@ -208,57 +210,59 @@ type composeAndVerifyRepSuite struct {
 	overlayFile      string
 }
 
-var _ = gc.Suite(&composeAndVerifyRepSuite{})
+func TestComposeAndVerifyRepSuite(t *tctesting.T) {
+	tc.Run(t, &composeAndVerifyRepSuite{})
+}
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyParts()
 	s.expectBasePath()
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
-	c.Assert(err, gc.ErrorMatches, ".*bundle is empty not valid")
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*bundle is empty not valid")
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstraints(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
-	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, bundleData)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, bundleData)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
@@ -266,19 +270,19 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 	}
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, &expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, &expected)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedConstraints(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
@@ -286,14 +290,14 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedC
 	}
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
-	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallErrors(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(typoBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedError := errors.New(`document 0:\n  line 1: unrecognized field "sries"\n  line 18: unrecognized field "constrai"`)
 	s.expectParts(&charm.BundleDataPart{
 		Data:            bundleData,
@@ -302,7 +306,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	s.expectBasePath()
 	s.setupOverlayFile(c)
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
@@ -310,41 +314,41 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	}
 
 	obtained, unmarshallErrors, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, &expected)
-	c.Assert(unmarshallErrors, gc.HasLen, 1)
-	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, &expected)
+	c.Assert(unmarshallErrors, tc.HasLen, 1)
+	c.Assert(unmarshallErrors[0], tc.Equals, expectedError)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeries(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundle))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, bundleData)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.DeepEquals, bundleData)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeriesMisMatch(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeriesMisMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundleMismatch))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
-	c.Assert(err, gc.ErrorMatches, `(?s)the provided bundle has the following errors:.*application "wordpress" series "jammy" and base "ubuntu@20.04" must match if both supplied.*invalid constraints.*`)
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `(?s)the provided bundle has the following errors:.*application "wordpress" series "jammy" and base "ubuntu@20.04" must match if both supplied.*invalid constraints.*`)
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
+func (s *composeAndVerifyRepSuite) setupOverlayFile(c *tc.C) {
 	s.overlayDir = c.MkDir()
 	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
 	c.Assert(
@@ -356,14 +360,14 @@ applications:
     options:
       blog-title: include-file://title
 `), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 	c.Assert(
 		os.WriteFile(
 			filepath.Join(s.overlayDir, "title"), []byte("magic bundle config"), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 }
 
-func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposedEndpoints(c *gc.C) {
+func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposedEndpoints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectGetAnnotations(c, []string{"machine-0", "application-wordpress"})
 	s.expectGetConstraintsWordpress()
@@ -401,12 +405,12 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 	machines := map[string]string{}
 
 	obtainedModel, err := BuildModelRepresentation(status, s.modelExtractor, false, machines)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedModel.Applications, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedModel.Applications, tc.HasLen, 1)
 	obtainedWordpress, ok := obtainedModel.Applications["wordpress"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
-	c.Assert(obtainedWordpress.ExposedEndpoints, gc.DeepEquals, map[string]bundlechanges.ExposedEndpoint{
+	c.Assert(obtainedWordpress.ExposedEndpoints, tc.DeepEquals, map[string]bundlechanges.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs: []string{"10.0.0.0/24"},
 		},
@@ -416,13 +420,13 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 		},
 	})
 
-	c.Assert(obtainedModel.Machines, gc.HasLen, 1)
-	c.Assert(obtainedModel.Relations, gc.HasLen, 0)
-	c.Assert(obtainedModel.Sequence, gc.HasLen, 0)
-	c.Assert(obtainedModel.MachineMap, gc.HasLen, 0)
+	c.Assert(obtainedModel.Machines, tc.HasLen, 1)
+	c.Assert(obtainedModel.Relations, tc.HasLen, 0)
+	c.Assert(obtainedModel.Sequence, tc.HasLen, 0)
+	c.Assert(obtainedModel.MachineMap, tc.HasLen, 0)
 }
 
-func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *composeAndVerifyRepSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.bundleDataSource = mocks.NewMockBundleDataSource(ctrl)
 	return ctrl
@@ -443,17 +447,17 @@ func (s *composeAndVerifyRepSuite) expectBasePath() {
 }
 
 type stringSliceMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected []string
 }
 
 func (m stringSliceMatcher) Matches(x interface{}) bool {
 	obtained, ok := x.([]string)
-	m.c.Assert(ok, jc.IsTrue)
+	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false
 	}
-	m.c.Assert(obtained, jc.SameContents, m.expected)
+	m.c.Assert(obtained, tc.SameContents, m.expected)
 	return true
 }
 

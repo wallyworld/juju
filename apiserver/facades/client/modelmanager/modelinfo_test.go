@@ -5,16 +5,15 @@ package modelmanager_test
 
 import (
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -36,10 +35,11 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type modelInfoSuite struct {
@@ -56,9 +56,11 @@ func pUint64(v uint64) *uint64 {
 	return &v
 }
 
-var _ = gc.Suite(&modelInfoSuite{})
+func TestModelInfoSuite(t *tctesting.T) {
+	tc.Run(t, &modelInfoSuite{})
+}
 
-func (s *modelInfoSuite) SetUpTest(c *gc.C) {
+func (s *modelInfoSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
@@ -181,18 +183,18 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		s.st, s.ctlrSt, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var fs assumes.FeatureSet
 	fs.Add(assumes.Feature{Name: "example"})
 	modelmanager.MockSupportedFeatures(fs)
 }
 
-func (s *modelInfoSuite) TearDownTest(c *gc.C) {
+func (s *modelInfoSuite) TearDownTest(c *tc.C) {
 	modelmanager.ResetSupportedFeaturesGetter()
 }
 
-func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag, authorizerOptions ...apiservertesting.FakeAuthorizerOption) {
+func (s *modelInfoSuite) setAPIUser(c *tc.C, user names.UserTag, authorizerOptions ...apiservertesting.FakeAuthorizerOption) {
 	s.authorizer.Tag = user
 	for _, option := range authorizerOptions {
 		option(&s.authorizer)
@@ -202,12 +204,12 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag, authorizerOptio
 		s.st, s.ctlrSt, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
+func (s *modelInfoSuite) expectedModelInfo(c *tc.C, credentialValidity *bool) params.ModelInfo {
 	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
-	c.Assert(exists, jc.IsTrue)
+	c.Assert(exists, tc.IsTrue)
 	info := params.ModelInfo{
 		Name:               "testmodel",
 		UUID:               s.st.model.cfg.UUID(),
@@ -277,14 +279,14 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 	return info
 }
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfo(c *tc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
 	})
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
-	s.st.CheckCalls(c, []jujutesting.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"ControllerTag", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
@@ -298,7 +300,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	})
 }
 
-func (s *modelInfoSuite) TestModelInfoAsReader(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoAsReader(c *tc.C) {
 	charlotte := names.NewUserTag("charlotte")
 	s.setAPIUser(c, charlotte, apiservertesting.SetTagWithReadAccess(charlotte))
 
@@ -319,8 +321,8 @@ func (s *modelInfoSuite) TestModelInfoAsReader(c *gc.C) {
 
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 
-	c.Assert(info, jc.DeepEquals, info)
-	s.st.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(info, tc.DeepEquals, info)
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"ControllerTag", nil},
 		{"ControllerTag", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
@@ -331,7 +333,7 @@ func (s *modelInfoSuite) TestModelInfoAsReader(c *gc.C) {
 	})
 }
 
-func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoV9(c *tc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
 	})
@@ -343,7 +345,7 @@ func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
 	expectedInfo.DefaultBase = "ubuntu@24.04/stable"
 	s.assertModelInfo(c, info, expectedInfo)
 
-	s.st.CheckCalls(c, []jujutesting.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"ControllerTag", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
@@ -357,9 +359,9 @@ func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
 	})
 }
 
-func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
-	c.Assert(got, jc.DeepEquals, expected)
-	s.st.model.CheckCalls(c, []jujutesting.StubCall{
+func (s *modelInfoSuite) assertModelInfo(c *tc.C, got, expected params.ModelInfo) {
+	c.Assert(got, tc.DeepEquals, expected)
+	s.st.model.CheckCalls(c, []testhelpers.StubCall{
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
@@ -388,56 +390,56 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 	})
 }
 
-func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoWriteAccess(c *tc.C) {
 	mary := names.NewUserTag("mary@local")
 	s.setAPIUser(c, mary, apiservertesting.SetTagWithWriteAccess(mary))
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
-	c.Assert(info.Machines, gc.HasLen, 2)
+	c.Assert(info.Users, tc.HasLen, 1)
+	c.Assert(info.Users[0].UserName, tc.Equals, "mary")
+	c.Assert(info.Machines, tc.HasLen, 2)
 }
 
-func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoNonOwner(c *tc.C) {
 	charlotte := names.NewUserTag("charlotte@local")
 	s.setAPIUser(c, charlotte, apiservertesting.SetTagWithReadAccess(charlotte))
 	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
-	c.Assert(info.Machines, gc.HasLen, 0)
+	c.Assert(info.Users, tc.HasLen, 1)
+	c.Assert(info.Users[0].UserName, tc.Equals, "charlotte")
+	c.Assert(info.Machines, tc.HasLen, 0)
 }
 
 type modelInfo interface {
 	ModelInfo(params.Entities) (params.ModelInfoResults, error)
 }
 
-func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID string) params.ModelInfo {
+func (s *modelInfoSuite) getModelInfo(c *tc.C, modelInfo modelInfo, modelUUID string) params.ModelInfo {
 	results, err := modelInfo.ModelInfo(params.Entities{
 		Entities: []params.Entity{{
 			names.NewModelTag(modelUUID).String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Result, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Result, tc.NotNil)
+	c.Check(results.Results[0].Error, tc.IsNil)
 	return *results.Results[0].Result
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorInvalidTag(c *tc.C) {
 	s.testModelInfoError(c, "user-bob", `"user-bob" is not a valid model tag`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorGetModelNotFound(c *tc.C) {
 	s.st.SetErrors(errors.NotFoundf("model"))
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *tc.C) {
 	s.st.model.SetErrors(errors.Errorf("no config for you"))
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no config for you`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *tc.C) {
 	s.st.model.SetErrors(
 		nil,                               //Config
 		nil,                               //Status
@@ -446,12 +448,12 @@ func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no users for you`)
 }
 
-func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
+func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *tc.C) {
 	s.setAPIUser(c, names.NewUserTag("nemo@local"))
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
-func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
+func (s *modelInfoSuite) TestRunningMigration(c *tc.C) {
 	start := time.Now().Add(-20 * time.Minute)
 	s.st.migration = &mockMigration{
 		status: "computing optimal bin packing",
@@ -462,14 +464,14 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migrationResult := results.Results[0].Result.Migration
-	c.Assert(migrationResult.Status, gc.Equals, "computing optimal bin packing")
-	c.Assert(*migrationResult.Start, gc.Equals, start)
-	c.Assert(migrationResult.End, gc.IsNil)
+	c.Assert(migrationResult.Status, tc.Equals, "computing optimal bin packing")
+	c.Assert(*migrationResult.Start, tc.Equals, start)
+	c.Assert(migrationResult.End, tc.IsNil)
 }
 
-func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
+func (s *modelInfoSuite) TestFailedMigration(c *tc.C) {
 	start := time.Now().Add(-20 * time.Minute)
 	end := time.Now().Add(-10 * time.Minute)
 	s.st.migration = &mockMigration{
@@ -482,48 +484,48 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	migrationResult := results.Results[0].Result.Migration
-	c.Assert(migrationResult.Status, gc.Equals, "couldn't realign alternate time frames")
-	c.Assert(*migrationResult.Start, gc.Equals, start)
-	c.Assert(*migrationResult.End, gc.Equals, end)
+	c.Assert(migrationResult.Status, tc.Equals, "couldn't realign alternate time frames")
+	c.Assert(*migrationResult.Start, tc.Equals, start)
+	c.Assert(*migrationResult.End, tc.Equals, end)
 }
 
-func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
+func (s *modelInfoSuite) TestNoMigration(c *tc.C) {
 	results, err := s.modelmanager.ModelInfo(params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Result.Migration, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Result.Migration, tc.IsNil)
 }
 
-func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *tc.C) {
 	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestAliveModelWithConfigFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithConfigFailure(c *tc.C) {
 	s.st.model.life = state.Alive
 	s.setModelConfigError()
 	s.testModelInfoError(c, s.st.model.tag.String(), "config not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithStatusFailure(c *tc.C) {
 	s.st.model.life = state.Alive
 	s.setModelStatusError()
 	s.testModelInfoError(c, s.st.model.tag.String(), "status not found")
 }
 
-func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *tc.C) {
 	s.st.model.life = state.Alive
 	s.setModelUsersError()
 	s.testModelInfoError(c, s.st.model.tag.String(), "users not found")
 }
 
-func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *tc.C) {
 	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dead,
@@ -532,7 +534,7 @@ func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dead,
@@ -541,7 +543,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dead,
@@ -550,7 +552,7 @@ func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dying,
@@ -559,7 +561,7 @@ func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dying,
@@ -568,7 +570,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *tc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dying,
@@ -577,12 +579,12 @@ func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *tc.C) {
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *tc.C) {
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
@@ -592,7 +594,7 @@ func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *tc.C) {
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
@@ -602,7 +604,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	s.assertSuccessWithMissingData(c, testData)
 }
 
-func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
+func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *tc.C) {
 	s.st.model.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
@@ -637,28 +639,28 @@ func (s *modelInfoSuite) setModelUsersError() {
 	)
 }
 
-func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteModelInfoTest) {
+func (s *modelInfoSuite) assertSuccessWithMissingData(c *tc.C, test incompleteModelInfoTest) {
 	test.failModel()
 	// We do not expect any errors to surface and still want to get basic model info.
 	s.assertSuccess(c, s.st.model.cfg.UUID(), test.desiredLife, test.expectedLife)
 }
 
-func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
+func (s *modelInfoSuite) assertSuccess(c *tc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 	s.st.model.life = desiredLife
 	// should get no errors
 	info := s.getModelInfo(c, s.modelmanager, modelUUID)
-	c.Assert(info.UUID, gc.Equals, modelUUID)
-	c.Assert(info.Life, gc.Equals, expectedLife)
+	c.Assert(info.UUID, tc.Equals, modelUUID)
+	c.Assert(info.Life, tc.Equals, expectedLife)
 }
 
-func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr string) {
+func (s *modelInfoSuite) testModelInfoError(c *tc.C, modelTag, expectedErr string) {
 	results, err := s.modelmanager.ModelInfo(params.Entities{
 		Entities: []params.Entity{{modelTag}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Result, gc.IsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, expectedErr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Result, tc.IsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, expectedErr)
 }
 
 type unitRetriever interface {
@@ -666,7 +668,7 @@ type unitRetriever interface {
 }
 
 type mockCaasBroker struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	caas.Broker
 
 	namespace string
@@ -681,7 +683,7 @@ func (m *mockCaasBroker) Create(context.ProviderCallContext, environs.CreatePara
 }
 
 type mockState struct {
-	jujutesting.Stub
+	testhelpers.Stub
 
 	environs.EnvironConfigGetter
 	common.APIHostPortsForAgentsGetter
@@ -1195,7 +1197,7 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 }
 
 type mockModel struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	owner               names.UserTag
 	life                state.Life
 	tag                 names.ModelTag
@@ -1358,7 +1360,7 @@ func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, erro
 }
 
 type mockModelUser struct {
-	jujutesting.Stub
+	testhelpers.Stub
 	userName    string
 	displayName string
 	access      permission.Access

@@ -5,16 +5,16 @@ package application
 
 import (
 	"runtime"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type UnexposeSuite struct {
@@ -22,59 +22,61 @@ type UnexposeSuite struct {
 	testing.CmdBlockHelper
 }
 
-func (s *UnexposeSuite) SetUpTest(c *gc.C) {
+func (s *UnexposeSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
 
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	c.Assert(s.CmdBlockHelper, tc.NotNil)
+	s.AddCleanup(func(*tc.C) { s.CmdBlockHelper.Close() })
 }
 
-var _ = gc.Suite(&UnexposeSuite{})
+func TestUnexposeSuite(t *tctesting.T) {
+	tc.Run(t, &UnexposeSuite{})
+}
 
-func runUnexpose(c *gc.C, args ...string) error {
+func runUnexpose(c *tc.C, args ...string) error {
 	_, err := cmdtesting.RunCommand(c, NewUnexposeCommand(), args...)
 	return err
 }
 
-func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool) {
+func (s *UnexposeSuite) assertExposed(c *tc.C, application string, expected bool) {
 	svc, err := s.State.Application(application)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actual := svc.IsExposed()
-	c.Assert(actual, gc.Equals, expected)
+	c.Assert(actual, tc.Equals, expected)
 }
 
-func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
+func (s *UnexposeSuite) TestUnexpose(c *tc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl := "local:multi-series-1"
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertExposed(c, "some-application-name", true)
 
 	err = runUnexpose(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertExposed(c, "some-application-name", false)
 
 	err = runUnexpose(c, "nonexistent-application")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
 		Message: `application "nonexistent-application" not found`,
 		Code:    "not found",
 	})
 }
 
-func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
+func (s *UnexposeSuite) TestBlockUnexpose(c *tc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl := "local:multi-series-1"
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 

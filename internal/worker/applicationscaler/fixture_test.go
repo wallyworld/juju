@@ -6,23 +6,22 @@ package applicationscaler_test
 import (
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/applicationscaler"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // fixture is used to test the operation of an applicationscaler worker.
 type fixture struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
-func newFixture(c *gc.C, callErrors ...error) *fixture {
+func newFixture(c *tc.C, callErrors ...error) *fixture {
 	fix := &fixture{}
 	fix.SetErrors(callErrors...)
 	return fix
@@ -32,12 +31,12 @@ func newFixture(c *gc.C, callErrors ...error) *fixture {
 // it makes; and pass it to the supplied test func, which will be invoked
 // on a new goroutine. If Run returns, it is safe to inspect the recorded
 // calls via the embedded testing.Stub.
-func (fix *fixture) Run(c *gc.C, test func(worker.Worker)) {
+func (fix *fixture) Run(c *tc.C, test func(worker.Worker)) {
 	stubFacade := newFacade(&fix.Stub)
 	scaler, err := applicationscaler.New(applicationscaler.Config{
 		Facade: stubFacade,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	done := make(chan struct{})
 	go func() {
@@ -55,11 +54,11 @@ func (fix *fixture) Run(c *gc.C, test func(worker.Worker)) {
 // stubFacade implements applicationscaler.Facade and records calls to its
 // interface methods.
 type stubFacade struct {
-	stub    *testing.Stub
+	stub    *testhelpers.Stub
 	watcher *stubWatcher
 }
 
-func newFacade(stub *testing.Stub) *stubFacade {
+func newFacade(stub *testhelpers.Stub) *stubFacade {
 	return &stubFacade{
 		stub:    stub,
 		watcher: newStubWatcher(),

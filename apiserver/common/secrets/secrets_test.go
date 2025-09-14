@@ -5,21 +5,22 @@ package secrets_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
@@ -27,17 +28,18 @@ import (
 	"github.com/juju/juju/secrets/provider/kubernetes"
 	"github.com/juju/juju/secrets/provider/vault"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type secretsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	coretesting.JujuOSEnvSuite
 }
 
-var _ = gc.Suite(&secretsSuite{})
+func TestSecretsSuite(t *tctesting.T) {
+	tc.Run(t, &secretsSuite{})
+}
 
-func (s *secretsSuite) SetUpTest(c *gc.C) {
+func (s *secretsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 }
@@ -83,7 +85,7 @@ var (
 	}
 )
 
-func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *gc.C) {
+func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *tc.C) {
 	cfg := params.SecretBackendConfig{
 		BackendType: kubernetes.BackendType,
 		Params: map[string]interface{}{
@@ -95,8 +97,8 @@ func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *gc.C) {
 		},
 	}
 	err := secrets.MarshallLegacyBackendConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, params.SecretBackendConfig{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.DeepEquals, params.SecretBackendConfig{
 		BackendType: kubernetes.BackendType,
 		Params: map[string]interface{}{
 			"endpoint":            "http://nowhere",
@@ -107,7 +109,7 @@ func (s *secretsSuite) TestMarshallLegacyBackendConfig(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "auto",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: jujuBackendID,
@@ -119,7 +121,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoDefaultIAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoDefaultCAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoDefaultCAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "auto",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: k8sBackendID,
@@ -132,7 +134,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoDefaultCAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoInternalIAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoInternalIAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "internal",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: jujuBackendID,
@@ -144,7 +146,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoInternalIAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoInternalCAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoInternalCAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "internal",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: jujuBackendID,
@@ -157,7 +159,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoInternalCAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoExternalIAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoExternalIAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeIAAS, "myvault",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: vaultBackendID,
@@ -169,7 +171,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoExternalIAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsSuite) TestAdminBackendConfigInfoExternalCAAS(c *gc.C) {
+func (s *secretsSuite) TestAdminBackendConfigInfoExternalCAAS(c *tc.C) {
 	s.assertAdminBackendConfigInfoDefault(c, state.ModelTypeCAAS, "myvault",
 		&provider.ModelBackendConfigInfo{
 			ActiveID: vaultBackendID,
@@ -183,7 +185,7 @@ func (s *secretsSuite) TestAdminBackendConfigInfoExternalCAAS(c *gc.C) {
 }
 
 func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
-	c *gc.C, modelType state.ModelType, backendName string, expected *provider.ModelBackendConfigInfo,
+	c *tc.C, modelType state.ModelType, backendName string, expected *provider.ModelBackendConfigInfo,
 ) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -226,19 +228,19 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 	}}, nil)
 
 	info, err := secrets.AdminBackendConfigInfo(model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, expected)
 }
 
-func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
+func (s *secretsSuite) TestBackendConfigInfoLeaderUnit(c *tc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, []string{"backend-id"})
 }
 
-func (s *secretsSuite) TestBackendConfigInfoDefaultAdmin(c *gc.C) {
+func (s *secretsSuite) TestBackendConfigInfoDefaultAdmin(c *tc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, nil)
 }
 
-func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []string) {
+func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -321,8 +323,8 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	p.EXPECT().RestrictedConfig(&adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, true, wanted, false, unitTag, leadershipChecker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id": {
@@ -337,7 +339,7 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	})
 }
 
-func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
+func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -432,8 +434,8 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	p.EXPECT().RestrictedConfig(&adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, unitTag, leadershipChecker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id": {
@@ -448,7 +450,7 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
+func (s *secretsSuite) TestDrainBackendConfigInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -543,8 +545,8 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	p.EXPECT().RestrictedConfig(&adminCfg, true, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.DrainBackendConfigInfo("backend-id", model, unitTag, leadershipChecker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id": {
@@ -559,7 +561,7 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestSecretCleanupBackendConfigInfo(c *gc.C) {
+func (s *secretsSuite) TestSecretCleanupBackendConfigInfo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -585,8 +587,8 @@ func (s *secretsSuite) TestSecretCleanupBackendConfigInfo(c *gc.C) {
 	)
 
 	info, err := secrets.SecretCleanupBackendConfigInfo(model, "backend-id")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id": {
@@ -601,7 +603,7 @@ func (s *secretsSuite) TestSecretCleanupBackendConfigInfo(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
+func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -675,8 +677,8 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	p.EXPECT().RestrictedConfig(&adminCfg, true, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.BackendConfigInfo(model, true, []string{"backend-id"}, false, appTag, leadershipChecker)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id": {
@@ -691,7 +693,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
+func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -727,10 +729,10 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 	)
 
 	_, err := secrets.BackendConfigInfo(model, true, []string{"some-id"}, false, badTag, leadershipChecker)
-	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
+	c.Assert(err, tc.ErrorMatches, `login as "user-foo" not supported`)
 }
 
-func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
+func (s *secretsSuite) TestGetSecretMetadata(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -776,8 +778,8 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 	}}, nil)
 
 	results, err := secrets.GetSecretMetadata(authTag, secretsMetaState, leadershipChecker, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:                    uri.String(),
 			OwnerTag:               "application-mariadb",
@@ -804,7 +806,7 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -831,13 +833,13 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -863,8 +865,8 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
@@ -873,7 +875,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsByLabel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -905,13 +907,13 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *tc.C) {
 	// Test that we correctly delete secrets held in the Juju backend rather than an external provider.
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -944,14 +946,14 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 
 }
 
-func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1008,13 +1010,13 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1075,13 +1077,13 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *tc.C) {
 	// Tests when:
 	// * we delete a secret that has two revisions
 	// * the first revision is deleted successfully
@@ -1193,14 +1195,14 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *g
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 
 }
 
-func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *tc.C) {
 	// Tests when we delete a secret with two revisions, neither of which are in the backend.
 	// Asserts that the revisions are successfully removed from the juju db and that RemoveUserSecrets returns without
 	// error.
@@ -1273,8 +1275,8 @@ func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
 		coretesting.ModelTag.Id(),
 		func(*coresecrets.URI) error { return nil },
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 

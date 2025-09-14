@@ -4,10 +4,11 @@
 package payloads
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
@@ -16,9 +17,11 @@ import (
 type helpersSuite struct {
 }
 
-var _ = gc.Suite(&helpersSuite{})
+func TestHelpersSuite(t *tctesting.T) {
+	tc.Run(t, &helpersSuite{})
+}
 
-func (helpersSuite) TestPayload2api(c *gc.C) {
+func (helpersSuite) TestPayload2api(c *tc.C) {
 	apiPayload := Payload2api(payloads.FullPayloadInfo{
 		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -33,7 +36,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		Machine: "1",
 	})
 
-	c.Check(apiPayload, jc.DeepEquals, params.Payload{
+	c.Check(apiPayload, tc.DeepEquals, params.Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
@@ -44,7 +47,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 	})
 }
 
-func (helpersSuite) TestAPI2Payload(c *gc.C) {
+func (helpersSuite) TestAPI2Payload(c *tc.C) {
 	pl, err := API2Payload(params.Payload{
 		Class:   "spam",
 		Type:    "docker",
@@ -54,9 +57,9 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(pl, jc.DeepEquals, payloads.FullPayloadInfo{
+	c.Check(pl, tc.DeepEquals, payloads.FullPayloadInfo{
 		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "spam",

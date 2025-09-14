@@ -4,14 +4,18 @@
 package query
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 )
 
 type lexerSuite struct{}
 
-var _ = gc.Suite(&lexerSuite{})
+func TestLexerSuite(t *tctesting.T) {
+	tc.Run(t, &lexerSuite{})
+}
 
-func (p *lexerSuite) TestReadNext(c *gc.C) {
+func (p *lexerSuite) TestReadNext(c *tc.C) {
 	expected := []Token{
 		{
 			Type: -1,
@@ -96,10 +100,10 @@ func (p *lexerSuite) TestReadNext(c *gc.C) {
 		got = append(got, tok)
 	}
 
-	c.Assert(got, gc.DeepEquals, expected)
+	c.Assert(got, tc.DeepEquals, expected)
 }
 
-func (p *lexerSuite) TestReadNextComplexTypes(c *gc.C) {
+func (p *lexerSuite) TestReadNextComplexTypes(c *tc.C) {
 	tests := []struct {
 		Input    string
 		Expected []Token
@@ -150,11 +154,11 @@ func (p *lexerSuite) TestReadNextComplexTypes(c *gc.C) {
 			got = append(got, tok)
 		}
 
-		c.Assert(got, gc.DeepEquals, test.Expected)
+		c.Assert(got, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (p *lexerSuite) TestReadNextBool(c *gc.C) {
+func (p *lexerSuite) TestReadNextBool(c *tc.C) {
 	tests := []struct {
 		Input    string
 		Expected []Token
@@ -187,11 +191,11 @@ func (p *lexerSuite) TestReadNextBool(c *gc.C) {
 			got = append(got, tok)
 		}
 
-		c.Assert(got, gc.DeepEquals, test.Expected)
+		c.Assert(got, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (p *lexerSuite) TestReadNextIdent(c *gc.C) {
+func (p *lexerSuite) TestReadNextIdent(c *tc.C) {
 	tests := []struct {
 		Input    string
 		Expected []Token
@@ -254,11 +258,11 @@ func (p *lexerSuite) TestReadNextIdent(c *gc.C) {
 			got = append(got, tok)
 		}
 
-		c.Assert(got, gc.DeepEquals, test.Expected)
+		c.Assert(got, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (p *lexerSuite) TestReadNextString(c *gc.C) {
+func (p *lexerSuite) TestReadNextString(c *tc.C) {
 	tests := []struct {
 		Input    string
 		Expected []Token
@@ -305,11 +309,11 @@ func (p *lexerSuite) TestReadNextString(c *gc.C) {
 			got = append(got, tok)
 		}
 
-		c.Assert(got, gc.DeepEquals, test.Expected)
+		c.Assert(got, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (p *lexerSuite) TestReadNextNumber(c *gc.C) {
+func (p *lexerSuite) TestReadNextNumber(c *tc.C) {
 	tests := []struct {
 		Input    string
 		Expected []Token
@@ -360,6 +364,6 @@ func (p *lexerSuite) TestReadNextNumber(c *gc.C) {
 			got = append(got, tok)
 		}
 
-		c.Assert(got, gc.DeepEquals, test.Expected)
+		c.Assert(got, tc.DeepEquals, test.Expected)
 	}
 }

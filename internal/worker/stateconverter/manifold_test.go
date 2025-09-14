@@ -4,22 +4,24 @@
 package stateconverter_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&manifoldConfigSuite{})
+func TestManifoldConfigSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldConfigSuite{})
+}
 
 type manifoldConfigSuite struct {
 	machiner *mocks.MockMachiner
@@ -28,40 +30,40 @@ type manifoldConfigSuite struct {
 	context  *mocks.MockContext
 }
 
-func (s *manifoldConfigSuite) TestValidateAgentNameFail(c *gc.C) {
+func (s *manifoldConfigSuite) TestValidateAgentNameFail(c *tc.C) {
 	cfg := stateconverter.ManifoldConfig{}
 	err := cfg.Validate()
-	c.Assert(err.Error(), gc.Equals, errors.NotValidf("empty AgentName").Error())
+	c.Assert(err.Error(), tc.Equals, errors.NotValidf("empty AgentName").Error())
 }
 
-func (s *manifoldConfigSuite) TestValidateAPICallerFail(c *gc.C) {
+func (s *manifoldConfigSuite) TestValidateAPICallerFail(c *tc.C) {
 	cfg := stateconverter.ManifoldConfig{
 		AgentName: "machine-2",
 	}
 	err := cfg.Validate()
-	c.Assert(err.Error(), gc.Equals, errors.NotValidf("empty APICallerName").Error())
+	c.Assert(err.Error(), tc.Equals, errors.NotValidf("empty APICallerName").Error())
 }
 
-func (s *manifoldConfigSuite) TestValidateLoggerFail(c *gc.C) {
+func (s *manifoldConfigSuite) TestValidateLoggerFail(c *tc.C) {
 	cfg := stateconverter.ManifoldConfig{
 		AgentName:     "machine-2",
 		APICallerName: "machiner",
 	}
 	err := cfg.Validate()
-	c.Assert(err.Error(), gc.Equals, errors.NotValidf("nil Logger").Error())
+	c.Assert(err.Error(), tc.Equals, errors.NotValidf("nil Logger").Error())
 }
 
-func (s *manifoldConfigSuite) TestValidateSuccess(c *gc.C) {
+func (s *manifoldConfigSuite) TestValidateSuccess(c *tc.C) {
 	cfg := stateconverter.ManifoldConfig{
 		AgentName:     "machine-2",
 		APICallerName: "machiner",
 		Logger:        &fakeLogger{},
 	}
 	err := cfg.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
+func (s *manifoldConfigSuite) TestManifoldStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	done := make(chan any)
@@ -84,18 +86,18 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 	)
 	manifold := stateconverter.Manifold(cfg)
 	w, err := manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
 	select {
 	case <-done:
 	case <-time.After(testing.ShortWait):
 		c.Fatal("timed out waiting for calls")
 	}
 	err = workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, `nope`)
+	c.Assert(err, tc.ErrorMatches, `nope`)
 }
 
-func (s *manifoldConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *manifoldConfigSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.config = mocks.NewMockConfig(ctrl)

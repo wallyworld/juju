@@ -9,21 +9,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type baseStorageSuite struct {
@@ -49,7 +48,7 @@ type baseStorageSuite struct {
 	filesystemTag        names.FilesystemTag
 	filesystem           *mockFilesystem
 	filesystemAttachment *mockFilesystemAttachment
-	stub                 testing.Stub
+	stub                 testhelpers.Stub
 
 	registry    jujustorage.StaticProviderRegistry
 	poolManager *mockPoolManager
@@ -60,7 +59,7 @@ type baseStorageSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *baseStorageSuite) SetUpTest(c *gc.C) {
+func (s *baseStorageSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
@@ -78,7 +77,7 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
 
 	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.K8SAttachStorage)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
@@ -87,7 +86,7 @@ func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustora
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.
-func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
+func (s *baseStorageSuite) assertCalls(c *tc.C, expectedCalls []string) {
 	s.stub.CheckCallNames(c, expectedCalls...)
 }
 
@@ -328,28 +327,28 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	}
 }
 
-func (s *baseStorageSuite) addBlock(c *gc.C, t state.BlockType, msg string) {
+func (s *baseStorageSuite) addBlock(c *tc.C, t state.BlockType, msg string) {
 	s.blocks[t] = mockBlock{
 		t:   t,
 		msg: msg,
 	}
 }
 
-func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
+func (s *baseStorageSuite) blockAllChanges(c *tc.C, msg string) {
 	s.addBlock(c, state.ChangeBlock, msg)
 }
 
-func (s *baseStorageSuite) blockDestroyModel(c *gc.C, msg string) {
+func (s *baseStorageSuite) blockDestroyModel(c *tc.C, msg string) {
 	s.addBlock(c, state.DestroyBlock, msg)
 }
 
-func (s *baseStorageSuite) blockRemoveObject(c *gc.C, msg string) {
+func (s *baseStorageSuite) blockRemoveObject(c *tc.C, msg string) {
 	s.addBlock(c, state.RemoveBlock, msg)
 }
 
-func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
-	c.Assert(err, gc.ErrorMatches, msg)
+func (s *baseStorageSuite) assertBlocked(c *tc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, msg)
 }
 
 func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {

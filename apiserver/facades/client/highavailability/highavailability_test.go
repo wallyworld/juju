@@ -5,11 +5,10 @@ package highavailability_test
 
 import (
 	"fmt"
-	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -19,16 +18,12 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type clientSuite struct {
 	testing.JujuConnSuite
@@ -40,19 +35,21 @@ type clientSuite struct {
 	commontesting.BlockHelper
 }
 
-var _ = gc.Suite(&clientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &clientSuite{})
+}
 
 var (
 	emptyCons      = constraints.Value{}
 	controllerCons = constraints.MustParse("mem=16G cores=16")
 )
 
-func (s *clientSuite) SetUpTest(c *gc.C) {
+func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	err := s.resources.RegisterNamed("machineID", common.StringResource("0"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
@@ -64,7 +61,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
@@ -76,33 +73,33 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			network.NewSpaceAddress("fc00::0", network.WithScope(network.ScopePublic)),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+	s.AddCleanup(func(*tc.C) { s.BlockHelper.Close() })
 }
 
-func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
+func (s *clientSuite) setMachineAddresses(c *tc.C, machineId string) {
 	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
 		network.NewSpaceAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress(fmt.Sprintf("fc0%s::1", machineId), network.WithScope(network.ScopePublic)),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *clientSuite) enableHA(
-	c *gc.C, numControllers int, cons constraints.Value, placement []string,
+	c *tc.C, numControllers int, cons constraints.Value, placement []string,
 ) (params.ControllersChanges, error) {
 	return enableHA(c, s.haServer, numControllers, cons, placement)
 }
 
 func enableHA(
-	c *gc.C,
+	c *tc.C,
 	haServer *highavailability.HighAvailabilityAPI,
 	numControllers int,
 	cons constraints.Value,
@@ -115,8 +112,8 @@ func enableHA(
 			Placement:      placement,
 		}}}
 	results, err := haServer.EnableHA(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
 	result := results.Results[0]
 	// We explicitly return nil here so we can do typed nil checking
 	// of the result like normal.
@@ -127,121 +124,121 @@ func enableHA(
 	return result.Result, err
 }
 
-func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
+func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *tc.C) {
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 1)
+	c.Assert(machines[0].Base().DisplayString(), tc.Equals, "ubuntu@12.10")
 
 	err = machines[0].SetMachineAddresses(
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
 			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
-func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
+func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *tc.C) {
 	m0, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m0.Base().DisplayString(), tc.Equals, "ubuntu@12.10")
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
 		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
-	), jc.ErrorIsNil)
+	), tc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
 			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
-func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
+func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *tc.C) {
 	enableHAResult, err := s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	s.setMachineAddresses(c, "0")
 	s.setMachineAddresses(c, "1")
 	// 0 and 1 are up, but 2 hasn't finished booting yet, so has no addresses set
 
 	_, err = s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestEnableHANoErrorVirtualAddresses verifies that virtual IPv4 addresses doesn't prevent enabling HA
 // (see https://bugs.launchpad.net/juju/+bug/2073986)
-func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV4(c *gc.C) {
+func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV4(c *tc.C) {
 	// Add a virtual address to machine 0
 	m, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fakeIP := fmt.Sprintf("cloud-local-virtual%s.internal", "0")
 	err = m.SetMachineAddresses(network.NewSpaceAddress(fakeIP, network.WithScope(network.ScopeCloudLocal), network.WithCIDR(fmt.Sprintf("%s/32", fakeIP))))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestEnableHANoErrorVirtualAddressesIpV6 verifies that virtual IPv6 addresses doesn't prevent enabling HA
 // (see https://bugs.launchpad.net/juju/+bug/2073986)
-func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV6(c *gc.C) {
+func (s *clientSuite) TestEnableHANoErrorVirtualAddressesIpV6(c *tc.C) {
 	// Add a virtual address to machine 0
 	m, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fakeIP := "fd42:9102:88cb:dce3:216:3eff:fef7:4c4b"
 	err = m.SetMachineAddresses(network.NewSpaceAddress(fakeIP, network.WithScope(network.ScopeCloudLocal), network.WithCIDR(fmt.Sprintf("%s/128", fakeIP))))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
+func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *tc.C) {
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu@12.10/stable")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 1)
+	c.Assert(machines[0].Base().String(), tc.Equals, "ubuntu@12.10/stable")
 
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
 
 	s.setMachineAddresses(c, "1")
 
 	m, err := s.State.Machine("2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("cloud-local22.internal", network.WithScope(network.ScopeCloudLocal)),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 5, emptyCons, nil)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"juju-ha-space is not set and a unique usable address was not found for machines: 2"+
 			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
-func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
+func (s *clientSuite) TestEnableHAConstraints(c *tc.C) {
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
 		constraints.MustParse("mem=4G"),
@@ -249,44 +246,44 @@ func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
 	}
 	for i, m := range machines {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, expectedCons[i])
 	}
 }
 
-func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
+func (s *clientSuite) TestEnableHAEmptyConstraints(c *tc.C) {
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 	for _, m := range machines {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, controllerCons)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, controllerCons)
 	}
 }
 
-func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
+func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *tc.C) {
 	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	controllerSettings.Write()
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("spaces=random-space"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
 		constraints.MustParse("spaces=ha-space,random-space"),
@@ -294,40 +291,40 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	}
 	for i, m := range machines {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, expectedCons[i])
 	}
 }
 
-func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
+func (s *clientSuite) TestBlockMakeHA(c *tc.C) {
 	// Block all changes.
 	s.BlockAllChanges(c, "TestBlockEnableHA")
 
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G"), nil)
 	s.AssertBlocked(c, err, "TestBlockEnableHA")
 
-	c.Assert(enableHAResult.Maintained, gc.HasLen, 0)
-	c.Assert(enableHAResult.Added, gc.HasLen, 0)
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(enableHAResult.Maintained, tc.HasLen, 0)
+	c.Assert(enableHAResult.Added, tc.HasLen, 0)
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 1)
 }
 
-func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
+func (s *clientSuite) TestEnableHAPlacement(c *tc.C) {
 	placement := []string{"valid"}
 	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("mem=4G tags=foobar"), placement)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
 		{},
@@ -336,35 +333,35 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	expectedPlacement := []string{"", "valid", ""}
 	for i, m := range machines {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
-		c.Check(m.Placement(), gc.Equals, expectedPlacement[i])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, expectedCons[i])
+		c.Check(m.Placement(), tc.Equals, expectedPlacement[i])
 	}
 }
 
-func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
+func (s *clientSuite) TestEnableHAPlacementTo(c *tc.C) {
 	machine1Cons := constraints.MustParse("mem=8G")
 	_, err := s.State.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, placement)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.HasLen, 0)
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.HasLen, 0)
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.DeepEquals, []string{"machine-1", "machine-2"})
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
 		machine1Cons,
@@ -373,161 +370,161 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	expectedPlacement := []string{"", "", ""}
 	for i, m := range machines {
 		cons, err := m.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
-		c.Check(m.Placement(), gc.Equals, expectedPlacement[i])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, expectedCons[i])
+		c.Check(m.Placement(), tc.Equals, expectedPlacement[i])
 	}
 }
 
-func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
+func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *tc.C) {
 	sp, err := s.State.AddSpace("ha-space", "", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(a1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
 	err = m2.SetProviderAddresses(a1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
 	_, err = s.enableHA(c, 3, emptyCons, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
+func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *tc.C) {
 	_, err := s.State.AddSpace("ha-space", "", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
 	_, err = s.enableHA(c, 3, emptyCons, placement)
-	c.Assert(err, gc.ErrorMatches, `machine "1" has no addresses in space "ha-space"`)
+	c.Assert(err, tc.ErrorMatches, `machine "1" has no addresses in space "ha-space"`)
 }
 
-func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
+func (s *clientSuite) TestEnableHA0Preserves(c *tc.C) {
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
 	enableHAResult, err := s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 3)
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
-	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
-	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
+	c.Assert(machines[2].Destroy(), tc.ErrorIsNil)
+	c.Assert(machines[2].Refresh(), tc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machines[2].Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
-	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), tc.ErrorIsNil)
+	c.Assert(node.Refresh(), tc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node), tc.ErrorIsNil)
+	c.Assert(machines[2].EnsureDead(), tc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-3"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0", "machine-1"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-3"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 4)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 4)
 }
 
-func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
+func (s *clientSuite) TestEnableHA0Preserves5(c *tc.C) {
 	// Start off with 5 servers
 	enableHAResult, err := s.enableHA(c, 5, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2", "machine-3", "machine-4"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2", "machine-3", "machine-4"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 5)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 5)
 	nodes, err := s.State.ControllerNodes()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nodes, gc.HasLen, 5)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(nodes, tc.HasLen, 5)
 	for _, n := range nodes {
-		c.Assert(n.SetHasVote(true), jc.ErrorIsNil)
+		c.Assert(n.SetHasVote(true), tc.ErrorIsNil)
 	}
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
-	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
-	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
+	c.Assert(machines[4].Destroy(), tc.ErrorIsNil)
+	c.Assert(machines[4].Refresh(), tc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machines[4].Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
-	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), tc.ErrorIsNil)
+	c.Assert(node.Refresh(), tc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node), tc.ErrorIsNil)
+	c.Assert(machines[4].EnsureDead(), tc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1",
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0", "machine-1",
 		"machine-2", "machine-3"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-5"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-5"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
-	c.Assert(machines, gc.HasLen, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 6)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
+func (s *clientSuite) TestEnableHAErrors(c *tc.C) {
 	_, err := s.enableHA(c, -1, emptyCons, nil)
-	c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
+	c.Assert(err, tc.ErrorMatches, "number of controllers must be odd and non-negative")
 
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 
 	_, err = s.enableHA(c, 1, emptyCons, nil)
-	c.Assert(err, gc.ErrorMatches, "failed to enable HA with 1 controllers: cannot remove controllers with enable-ha, use remove-machine and chose the controller\\(s\\) to remove")
+	c.Assert(err, tc.ErrorMatches, "failed to enable HA with 1 controllers: cannot remove controllers with enable-ha, use remove-machine and chose the controller\\(s\\) to remove")
 }
 
-func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
+func (s *clientSuite) TestEnableHAHostedModelErrors(c *tc.C) {
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
@@ -536,22 +533,22 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unsupported with workload models")
+	c.Assert(errors.Cause(err), tc.ErrorMatches, "unsupported with workload models")
 
-	c.Assert(enableHAResult.Maintained, gc.HasLen, 0)
-	c.Assert(enableHAResult.Added, gc.HasLen, 0)
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(enableHAResult.Maintained, tc.HasLen, 0)
+	c.Assert(enableHAResult.Added, tc.HasLen, 0)
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 
 	machines, err := st2.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 0)
 }
 
-func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
+func (s *clientSuite) TestEnableHAMultipleSpecs(c *tc.C) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{
 			{NumControllers: 3},
@@ -559,34 +556,34 @@ func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
 		},
 	}
 	results, err := s.haServer.EnableHA(arg)
-	c.Check(err, gc.ErrorMatches, "only one controller spec is supported")
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(err, tc.ErrorMatches, "only one controller spec is supported")
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
+func (s *clientSuite) TestEnableHANoSpecs(c *tc.C) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{},
 	}
 	results, err := s.haServer.EnableHA(arg)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
+func (s *clientSuite) TestEnableHABootstrap(c *tc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, 1)
 
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
-	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, tc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, tc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, tc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, tc.HasLen, 0)
 }
 
-func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
+func (s *clientSuite) TestHighAvailabilityCAASFails(c *tc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
@@ -595,5 +592,5 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
+	c.Assert(err, tc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

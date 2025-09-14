@@ -4,16 +4,20 @@
 package sshsession_test
 
 import (
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/sshsession"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-var _ = gc.Suite(&sshreqconnSuite{})
+func TestSshreqconnSuite(t *tctesting.T) {
+	tc.Run(t, &sshreqconnSuite{})
+}
 
 type sshreqconnSuite struct {
 	ctxMock        *MockContext
@@ -22,7 +26,7 @@ type sshreqconnSuite struct {
 	authorizerMock *MockAuthorizer
 }
 
-func (s *sshreqconnSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *sshreqconnSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.ctxMock = NewMockContext(ctrl)
 	s.backendMock = NewMockBackend(ctrl)
@@ -31,17 +35,17 @@ func (s *sshreqconnSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *sshreqconnSuite) TestAuth(c *gc.C) {
+func (s *sshreqconnSuite) TestAuth(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.ctxMock.EXPECT().Auth().Return(s.authorizerMock)
 	s.authorizerMock.EXPECT().AuthMachineAgent().Return(false)
 
 	_, err := sshsession.NewExternalFacade(s.ctxMock)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(err, tc.ErrorMatches, `permission denied`)
 }
 
-func (s *sshreqconnSuite) TestGetSSHConnRequest(c *gc.C) {
+func (s *sshreqconnSuite) TestGetSSHConnRequest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.ctxMock.EXPECT().Resources().Return(s.resourceMock)
@@ -54,13 +58,13 @@ func (s *sshreqconnSuite) TestGetSSHConnRequest(c *gc.C) {
 	}, nil)
 
 	result, err := f.GetSSHConnRequest("doc-id")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.SSHConnRequest.Username, gc.Equals, "username")
-	c.Assert(result.SSHConnRequest.Password, gc.Equals, "password")
+	c.Assert(err, tc.IsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.SSHConnRequest.Username, tc.Equals, "username")
+	c.Assert(result.SSHConnRequest.Password, tc.Equals, "password")
 }
 
-func (s *sshreqconnSuite) TestWatchSSHConnReq(c *gc.C) {
+func (s *sshreqconnSuite) TestWatchSSHConnReq(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	sshConnChanges := make(chan []string, 1)
@@ -75,13 +79,13 @@ func (s *sshreqconnSuite) TestWatchSSHConnReq(c *gc.C) {
 
 	sshConnChanges <- []string{"doc-id"}
 	result, err := f.WatchSSHConnRequest("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "id")
-	c.Assert(result.Changes, gc.DeepEquals, []string{"doc-id"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "id")
+	c.Assert(result.Changes, tc.DeepEquals, []string{"doc-id"})
 
 	sshConnChanges <- []string{"doc-id2"}
 	result, err = f.WatchSSHConnRequest("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.StringsWatcherId, gc.Equals, "id")
-	c.Assert(result.Changes, gc.DeepEquals, []string{"doc-id2"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(result.StringsWatcherId, tc.Equals, "id")
+	c.Assert(result.Changes, tc.DeepEquals, []string{"doc-id2"})
 }

@@ -4,16 +4,17 @@
 package hostkeyreporter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type facadeSuite struct {
@@ -23,17 +24,19 @@ type facadeSuite struct {
 	facade     *hostkeyreporter.Facade
 }
 
-var _ = gc.Suite(&facadeSuite{})
+func TestFacadeSuite(t *tctesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
 
-func (s *facadeSuite) SetUpTest(c *gc.C) {
+func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	facade, err := hostkeyreporter.New(s.backend, nil, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 }
 
-func (s *facadeSuite) TestReportKeys(c *gc.C) {
+func (s *facadeSuite) TestReportKeys(c *tc.C) {
 	s.authorizer.Tag = names.NewMachineTag("1")
 
 	args := params.SSHHostKeySet{
@@ -48,15 +51,15 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 		},
 	}
 	result, err := s.facade.ReportKeys(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{nil},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{{
 		"SetSSHHostKeys",
 		[]interface{}{
 			names.NewMachineTag("1"),
@@ -66,7 +69,7 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 }
 
 type mockBackend struct {
-	stub jujutesting.Stub
+	stub testhelpers.Stub
 }
 
 func (backend *mockBackend) SetSSHHostKeys(tag names.MachineTag, keys state.SSHHostKeys) error {

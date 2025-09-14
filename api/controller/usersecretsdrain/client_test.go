@@ -4,21 +4,26 @@
 package usersecretsdrain_test
 
 import (
+	tctesting "testing"
+
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/usersecretsdrain"
 	"github.com/juju/juju/api/controller/usersecretsdrain/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&userSecretsdrainSuite{})
+func TestUserSecretsdrainSuite(t *tctesting.T) {
+	tc.Run(t, &userSecretsdrainSuite{})
+}
 
 type userSecretsdrainSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *userSecretsdrainSuite) TestNewClient(c *gc.C) {
+func (s *userSecretsdrainSuite) TestNewClient(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -26,5 +31,5 @@ func (s *userSecretsdrainSuite) TestNewClient(c *gc.C) {
 	apiCaller.EXPECT().BestFacadeVersion("UserSecretsDrain").Return(1)
 
 	client := usersecretsdrain.NewClient(apiCaller)
-	c.Assert(client, gc.NotNil)
+	c.Assert(client, tc.NotNil)
 }

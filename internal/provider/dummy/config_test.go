@@ -5,9 +5,9 @@ package dummy_test
 
 import (
 	stdcontext "context"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -15,17 +15,19 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 type ConfigSuite struct {
 	testing.BaseSuite
 }
 
-func (s *ConfigSuite) TearDownTest(c *gc.C) {
+func (s *ConfigSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	dummy.Reset(c)
 }
@@ -57,7 +59,7 @@ var firewallModeTests = []struct {
 	},
 }
 
-func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
+func (s *ConfigSuite) TestFirewallMode(c *tc.C) {
 	for i, test := range firewallModeTests {
 		c.Logf("test %d: %s", i, test.configFirewallMode)
 		attrs := dummy.SampleConfig()
@@ -68,7 +70,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		}
 		cfg, err := config.New(config.NoDefaults, attrs)
 		if err != nil {
-			c.Assert(err, gc.ErrorMatches, test.errorMsg)
+			c.Assert(err, tc.ErrorMatches, test.errorMsg)
 			continue
 		}
 		ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
@@ -84,15 +86,15 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			},
 		)
 		if test.errorMsg != "" {
-			c.Assert(err, gc.ErrorMatches, test.errorMsg)
+			c.Assert(err, tc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		env := e.(environs.Environ)
 		defer env.Destroy(context.NewEmptyCloudCallContext())
 
 		firewallMode := env.Config().FirewallMode()
-		c.Assert(firewallMode, gc.Equals, test.firewallMode)
+		c.Assert(firewallMode, tc.Equals, test.firewallMode)
 
 		s.TearDownTest(c)
 	}

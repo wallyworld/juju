@@ -3,16 +3,6 @@
 
 package caasfirewaller
 
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-)
-
-func TestAll(t *testing.T) {
-	gc.TestingT(t)
-}
-
 var (
 	NewFacadeLegacyForTest  = newFacadeLegacy
 	NewFacadeSidecarForTest = newFacadeSidecar

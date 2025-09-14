@@ -5,25 +5,27 @@ package resources_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/resources/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type applierSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&applierSuite{})
+func TestApplierSuite(t *tctesting.T) {
+	tc.Run(t, &applierSuite{})
+}
 
-func (s *applierSuite) TestRun(c *gc.C) {
+func (s *applierSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -31,7 +33,7 @@ func (s *applierSuite) TestRun(c *gc.C) {
 	r2 := mocks.NewMockResource(ctrl)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 	applier.Delete(r2)
 
@@ -45,10 +47,10 @@ func (s *applierSuite) TestRun(c *gc.C) {
 		r2.EXPECT().Get(gomock.Any()).Return(errors.NewNotFound(nil, "")),
 		r2.EXPECT().Delete(gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.TODO(), false), tc.ErrorIsNil)
 }
 
-func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
+func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -61,7 +63,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 	applier.Apply(r2)
 
@@ -92,10 +94,10 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 		r1.EXPECT().Delete(gomock.Any()).Return(nil),
 	)
 	c.Assert(applier.Run(context.TODO(), false),
-		gc.ErrorMatches, `applying resource "r2": something was wrong`)
+		tc.ErrorMatches, `applying resource "r2": something was wrong`)
 }
 
-func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
+func (s *applierSuite) TestRunApplyResourceVersionChanged(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,7 +109,7 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 	r1.EXPECT().GetObjectMeta().AnyTimes().Return(r1Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 
 	existingR1 := mocks.NewMockResource(ctrl)
@@ -121,10 +123,10 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 		existingR1.EXPECT().Get(gomock.Any()).Return(nil),
 		r1.EXPECT().Apply(gomock.Any()).Return(errors.New("resource version conflict")),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `applying resource "r1": resource version conflict`)
+	c.Assert(applier.Run(context.TODO(), false), tc.ErrorMatches, `applying resource "r1": resource version conflict`)
 }
 
-func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
+func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -137,7 +139,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Apply(r1)
 	applier.Apply(r2)
 
@@ -168,10 +170,10 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 		existingR1.EXPECT().ID().Return(resources.ID{"B", "existingr1", "namespace"}),
 	)
 	c.Assert(applier.Run(context.TODO(), false),
-		gc.ErrorMatches, `applying resource "r2": something was wrong`)
+		tc.ErrorMatches, `applying resource "r2": something was wrong`)
 }
 
-func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
+func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -184,7 +186,7 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 	r2.EXPECT().GetObjectMeta().AnyTimes().Return(r2Meta)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.Delete(r1)
 	applier.Delete(r2)
 
@@ -213,10 +215,10 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 		existingR1.EXPECT().Apply(gomock.Any()).Return(nil),
 		existingR1.EXPECT().ID().Return(resources.ID{"A", "existingr1", "namespace"}),
 	)
-	c.Assert(applier.Run(context.TODO(), false), gc.ErrorMatches, `deleting resource "r2": something was wrong`)
+	c.Assert(applier.Run(context.TODO(), false), tc.ErrorMatches, `deleting resource "r2": something was wrong`)
 }
 
-func (s *applierSuite) TestApplySet(c *gc.C) {
+func (s *applierSuite) TestApplySet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -242,7 +244,7 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 	r3.EXPECT().Clone().AnyTimes().Return(r3)
 
 	applier := resources.NewApplierForTest()
-	c.Assert(len(applier.Operations()), gc.DeepEquals, 0)
+	c.Assert(len(applier.Operations()), tc.DeepEquals, 0)
 	applier.ApplySet([]resources.Resource{r1, r2}, []resources.Resource{r2Copy, r3})
 
 	gomock.InOrder(
@@ -253,5 +255,5 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 		r3.EXPECT().Get(gomock.Any()).Return(errors.NotFoundf("missing aye")),
 		r3.EXPECT().Apply(gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.TODO(), false), tc.ErrorIsNil)
 }

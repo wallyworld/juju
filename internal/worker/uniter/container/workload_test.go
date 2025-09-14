@@ -4,10 +4,11 @@
 package container_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/container"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -18,9 +19,11 @@ import (
 
 type workloadSuite struct{}
 
-var _ = gc.Suite(&workloadSuite{})
+func TestWorkloadSuite(t *tctesting.T) {
+	tc.Run(t, &workloadSuite{})
+}
 
-func (s *workloadSuite) TestWorkloadEventList(c *gc.C) {
+func (s *workloadSuite) TestWorkloadEventList(c *tc.C) {
 	evt := container.WorkloadEvent{
 		Type:         container.ReadyEvent,
 		WorkloadName: "test",
@@ -29,34 +32,34 @@ func (s *workloadSuite) TestWorkloadEventList(c *gc.C) {
 	expectedErr := errors.Errorf("expected error")
 	events := container.NewWorkloadEvents()
 	id := events.AddWorkloadEvent(evt, func(err error) {
-		c.Assert(err, gc.Equals, expectedErr)
-		c.Assert(cbCalled, jc.IsFalse)
+		c.Assert(err, tc.Equals, expectedErr)
+		c.Assert(cbCalled, tc.IsFalse)
 		cbCalled = true
 	})
-	c.Assert(id, gc.Not(gc.Equals), "")
-	c.Assert(events.Events(), gc.DeepEquals, []container.WorkloadEvent{evt})
-	c.Assert(events.EventIDs(), gc.DeepEquals, []string{id})
+	c.Assert(id, tc.Not(tc.Equals), "")
+	c.Assert(events.Events(), tc.DeepEquals, []container.WorkloadEvent{evt})
+	c.Assert(events.EventIDs(), tc.DeepEquals, []string{id})
 	evt2, cb, err := events.GetWorkloadEvent(id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cb, gc.NotNil)
-	c.Assert(evt2, gc.DeepEquals, evt)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cb, tc.NotNil)
+	c.Assert(evt2, tc.DeepEquals, evt)
 	cb(expectedErr)
-	c.Assert(cbCalled, jc.IsTrue)
+	c.Assert(cbCalled, tc.IsTrue)
 }
 
-func (s *workloadSuite) TestWorkloadEventListFail(c *gc.C) {
+func (s *workloadSuite) TestWorkloadEventListFail(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	evt, cb, err := events.GetWorkloadEvent("nope")
-	c.Assert(err, gc.ErrorMatches, "workload event nope not found")
-	c.Assert(cb, gc.IsNil)
-	c.Assert(evt, gc.DeepEquals, container.WorkloadEvent{})
+	c.Assert(err, tc.ErrorMatches, "workload event nope not found")
+	c.Assert(cb, tc.IsNil)
+	c.Assert(evt, tc.DeepEquals, container.WorkloadEvent{})
 }
 
-func (s *workloadSuite) TestWorkloadReadyHook(c *gc.C) {
+func (s *workloadSuite) TestWorkloadReadyHook(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	expectedErr := errors.Errorf("expected error")
 	handler := func(err error) {
-		c.Assert(err, gc.Equals, expectedErr)
+		c.Assert(err, tc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
 		loggo.GetLogger("test"),
@@ -78,22 +81,22 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *gc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-ready",
 		WorkloadName: "test",
 	})
 }
 
-func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
+func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	expectedErr := errors.Errorf("expected error")
 	handler := func(err error) {
-		c.Assert(err, gc.Equals, expectedErr)
+		c.Assert(err, tc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
 		loggo.GetLogger("test"),
@@ -118,12 +121,12 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-custom-notice",
 		WorkloadName: "test",
 		NoticeID:     "123",
@@ -134,11 +137,11 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 
 // TestWorkloadCheckFailedHook tests that a workload check failed event
 // is correctly translated into a hook operation.
-func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
+func (s *workloadSuite) TestWorkloadCheckFailedHook(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	expectedErr := errors.Errorf("expected error")
 	handler := func(err error) {
-		c.Assert(err, gc.Equals, expectedErr)
+		c.Assert(err, tc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
 		loggo.GetLogger("test"),
@@ -161,12 +164,12 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-check-failed",
 		WorkloadName: "test",
 		CheckName:    "http-check",
@@ -175,11 +178,11 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
 
 // TestWorkloadCheckRecoveredHook tests that a workload check recovered event
 // is correctly translated into a hook operation.
-func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *gc.C) {
+func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *tc.C) {
 	events := container.NewWorkloadEvents()
 	expectedErr := errors.Errorf("expected error")
 	handler := func(err error) {
-		c.Assert(err, gc.Equals, expectedErr)
+		c.Assert(err, tc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
 		loggo.GetLogger("test"),
@@ -202,12 +205,12 @@ func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *gc.C) {
 	}
 	opFactory := &mockOperations{}
 	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op, tc.NotNil)
 	op = operation.Unwrap(op)
 	hookOp, ok := op.(*mockRunHookOp)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(hookOp.hookInfo, tc.DeepEquals, hook.Info{
 		Kind:         "pebble-check-recovered",
 		WorkloadName: "test",
 		CheckName:    "http-check",

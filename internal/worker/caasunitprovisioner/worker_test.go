@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -12,12 +13,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
 	apicaasunitprovisioner "github.com/juju/juju/api/controller/caasunitprovisioner"
@@ -29,14 +28,15 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasunitprovisioner"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config             caasunitprovisioner.Config
 	applicationGetter  mockApplicationGetter
@@ -62,7 +62,9 @@ type WorkerSuite struct {
 	appChanges              chan struct{}
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
 var (
 	containerSpec = `
@@ -116,7 +118,7 @@ func getExpectedServiceParams() *caas.ServiceParams {
 	}
 }
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
@@ -195,7 +197,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) sendContainerSpecChange(c *gc.C) {
+func (s *WorkerSuite) sendContainerSpecChange(c *tc.C) {
 	select {
 	case s.containerSpecChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -203,7 +205,7 @@ func (s *WorkerSuite) sendContainerSpecChange(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+func (s *WorkerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
@@ -247,31 +249,31 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing Logger not valid`)
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {
+func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*caasunitprovisioner.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := caasunitprovisioner.NewWorker(config)
 	if err == nil {
 		workertest.DirtyKill(c, w)
 	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
+func (s *WorkerSuite) setupNewUnitScenario(c *tc.C) worker.Worker {
 	s.statusSetter.EXPECT().SetOperatorStatus(
 		"gitlab", status.Waiting, "ensuring", map[string]interface{}{"foo": "bar"}).MinTimes(1)
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.podSpecGetter.SetErrors(nil, errors.NotFoundf("spec"))
 
@@ -310,7 +312,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
+func (s *WorkerSuite) TestScaleChangedInJuju(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.setupNewUnitScenario(c)
@@ -320,7 +322,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	for _, call := range s.applicationGetter.Calls() {
 		appCallNames = append(appCallNames, call.FuncName)
 	}
-	c.Check(appCallNames, jc.SameContents, []string{"WatchApplications", "DeploymentMode", "WatchApplicationScale", "WatchApplication", "ApplicationScale", "ApplicationConfig"})
+	c.Check(appCallNames, tc.SameContents, []string{"WatchApplications", "DeploymentMode", "WatchApplicationScale", "WatchApplication", "ApplicationScale", "ApplicationConfig"})
 
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "ProvisioningInfo", "ProvisioningInfo")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
@@ -377,7 +379,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
+func (s *WorkerSuite) TestScaleChangedInCluster(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.setupNewUnitScenario(c)
@@ -411,15 +413,15 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.serviceBroker.CheckCallNames(c, "GetService")
-	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
+	c.Assert(s.serviceBroker.Calls()[0].Args, tc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
 	select {
 	case <-s.serviceUpdated:
 		s.applicationUpdater.CheckCallNames(c, "UpdateApplicationService")
-		c.Assert(s.applicationUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		c.Assert(s.applicationUpdater.Calls()[0].Args, tc.DeepEquals, []interface{}{
 			params.UpdateApplicationServiceArg{
 				ApplicationTag: names.NewApplicationTag("gitlab").String(),
 				ProviderId:     "id",
@@ -438,12 +440,12 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if !s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit") {
 		return
 	}
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
-	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload, "u1", names.NewUnitTag("gitlab/0")})
+	c.Assert(s.containerBroker.Calls()[0].Args, tc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
+	c.Assert(s.containerBroker.Calls()[1].Args, tc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload, "u1", names.NewUnitTag("gitlab/0")})
 
 	retryCallArgs.Func = func() error {
 		if len(s.unitUpdater.Calls()) > 0 {
@@ -452,11 +454,11 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
 	scale := 4
-	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+	c.Assert(s.unitUpdater.Calls()[0].Args, tc.DeepEquals, []interface{}{
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Scale:          &scale,
@@ -480,7 +482,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	})
 }
 
-func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
+func (s *WorkerSuite) TestNewPodSpecChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.setupNewUnitScenario(c)
@@ -551,7 +553,7 @@ containers:
 		"gitlab", expectedParams, 1, config.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestInvalidDeploymentChange(c *gc.C) {
+func (s *WorkerSuite) TestInvalidDeploymentChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusSetter.EXPECT().SetOperatorStatus(
@@ -604,10 +606,10 @@ containers:
 	s.sendContainerSpecChange(c)
 	s.podSpecGetter.assertSpecRetrieved(c)
 
-	c.Assert(s.serviceBroker.Calls(), gc.HasLen, 0)
+	c.Assert(s.serviceBroker.Calls(), tc.HasLen, 0)
 }
 
-func (s *WorkerSuite) TestScaleZero(c *gc.C) {
+func (s *WorkerSuite) TestScaleZero(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.setupNewUnitScenario(c)
@@ -647,7 +649,7 @@ func (s *WorkerSuite) TestScaleZero(c *gc.C) {
 		"gitlab", &caas.ServiceParams{}, 0, config.ConfigAttributes(nil))
 }
 
-func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
+func (s *WorkerSuite) TestApplicationDeadRemovesService(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w := s.setupNewUnitScenario(c)
@@ -670,11 +672,11 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 	s.serviceBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 
-func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.lifeGetter.setLife(life.Dead)
@@ -697,11 +699,11 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	s.applicationGetter.CheckCallNames(c, "WatchApplications", "DeploymentMode")
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C) {
+func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
@@ -721,7 +723,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 		},
 	}
 	err = retry.Call(startingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add an additional app worker so we can check that the correct one is accessed.
 	caasunitprovisioner.NewAppWorker(w, "mysql")
@@ -737,7 +739,7 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 
 	// The mysql worker should still be running.
 	_, ok := caasunitprovisioner.AppWorker(w, "mysql")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// Check that the gitlab worker is running or not;
 	// given it time to shutdown.
@@ -754,15 +756,15 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplicationScale(c *gc.C
 		},
 	}
 	err = retry.Call(stoppingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckKilled(c, s.applicationGetter.scaleWatcher)
 }
 
-func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
+func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
@@ -782,7 +784,7 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 		},
 	}
 	err = retry.Call(startingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	s.sendApplicationChanges(c, "gitlab")
@@ -808,7 +810,7 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 		},
 	}
 	err = retry.Call(stoppingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the undertaker worker clears application resources.
 	s.containerBroker.SetErrors(nil, errors.NotFoundf("operator"))
@@ -833,12 +835,12 @@ func (s *WorkerSuite) TestRemoveWorkloadApplicationWaitsForResources(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
+func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.applicationGetter.deploymentMode = caas.ModeOperator
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
@@ -858,7 +860,7 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 		},
 	}
 	err = retry.Call(startingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	s.sendApplicationChanges(c, "gitlab")
@@ -884,7 +886,7 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 		},
 	}
 	err = retry.Call(stoppingRetryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the undertaker worker clears application resources.
 	s.containerBroker.units = nil
@@ -901,11 +903,11 @@ func (s *WorkerSuite) TestRemoveOperatorApplicationWaitsForResources(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.applicationGetter.scale = 1
@@ -921,12 +923,12 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	workertest.CheckKilled(c, s.podSpecGetter.watcher)
 	workertest.CheckKilled(c, s.applicationGetter.watcher)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
-func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
+func (s *WorkerSuite) TestUnitsChange(c *tc.C) {
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
@@ -940,7 +942,7 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 
@@ -948,14 +950,14 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	s.assertUnitChange(c, status.Allocating, status.Unknown)
 }
 
-func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
+func (s *WorkerSuite) TestOperatorChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusSetter.EXPECT().SetOperatorStatus(
 		"gitlab", status.Active, "testing 1. 2. 3.", map[string]interface{}{"zip": "zap"})
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.sendApplicationChanges(c, "gitlab")
@@ -968,7 +970,7 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 	s.containerBroker.ResetCalls()
@@ -988,10 +990,10 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.containerBroker.CheckCallNames(c, "Operator")
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	c.Assert(s.containerBroker.Calls()[0].Args, tc.DeepEquals, []interface{}{"gitlab"})
 	s.containerBroker.ResetCalls()
 
 	select {
@@ -1007,21 +1009,21 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.containerBroker.CheckCallNames(c, "Operator")
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	c.Assert(s.containerBroker.Calls()[0].Args, tc.DeepEquals, []interface{}{"gitlab"})
 
 }
 
-func (s *WorkerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
+func (s *WorkerSuite) TestV2CharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 
 	// Make it a v2 charm
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sendApplicationChanges(c, "gitlab")
 
@@ -1033,13 +1035,13 @@ func (s *WorkerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
 	ctrl.Finish()
 }
 
-func (s *WorkerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+func (s *WorkerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	ctrl := s.setupMocks(c)
 
 	s.charmGetter.charmInfo = nil // ApplicationCharmInfo will return NotFound error
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sendApplicationChanges(c, "gitlab")
 
@@ -1051,12 +1053,12 @@ func (s *WorkerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 	ctrl.Finish()
 }
 
-func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
+func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	waitCharmGetterCalls := func(names ...string) {
@@ -1068,7 +1070,7 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 			return errors.Errorf("Not enough calls yet")
 		}
 		err = retry.Call(retryCallArgs)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.charmGetter.CheckCallNames(c, names...)
 		s.charmGetter.ResetCalls()
 	}
@@ -1089,8 +1091,8 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 		return errors.NotYetAvailablef("worker not up yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appWorker, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appWorker, tc.NotNil)
 
 	// Make it a v2 charm (will make the application worker exit)
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
@@ -1105,10 +1107,10 @@ func (s *WorkerSuite) TestV2CharmExitsApplicationWorker(c *gc.C) {
 
 	// Ensure application worker exits due to charm becoming v2
 	err = workertest.CheckKilled(c, appWorker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
+func (s *WorkerSuite) sendApplicationChanges(c *tc.C, appNames ...string) {
 	select {
 	case s.applicationChanges <- appNames:
 	case <-time.After(coretesting.LongWait):
@@ -1116,7 +1118,7 @@ func (s *WorkerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
 	}
 }
 
-func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus status.Status) {
+func (s *WorkerSuite) assertUnitChange(c *tc.C, reported, expectedUnitStatus status.Status) {
 	defer s.setupMocks(c).Finish()
 
 	s.containerBroker.ResetCalls()
@@ -1137,9 +1139,9 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 		return errors.Errorf("Not enough calls yet")
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.containerBroker.CheckCallNames(c, "Units")
-	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
+	c.Assert(s.containerBroker.Calls()[0].Args, tc.DeepEquals, []interface{}{"gitlab", caas.ModeWorkload})
 
 	retryCallArgs.Func = func() error {
 		if len(s.unitUpdater.Calls()) > 0 {
@@ -1148,10 +1150,10 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
 	scale := 4
-	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+	c.Assert(s.unitUpdater.Calls()[0].Args, tc.DeepEquals, []interface{}{
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Scale:          &scale,
@@ -1171,7 +1173,7 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expectedUnitStatus sta
 	})
 }
 
-func (s *WorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.statusSetter = caasunitprovisioner.NewMockProvisioningStatusSetter(ctrl)

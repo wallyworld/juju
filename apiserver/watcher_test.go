@@ -4,10 +4,11 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -18,9 +19,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
@@ -29,19 +30,21 @@ type watcherSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
-func (s *watcherSuite) SetUpTest(c *gc.C) {
+func (s *watcherSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.resources.StopAll()
 	})
 	s.authorizer = apiservertesting.FakeAuthorizer{}
 }
 
 func (s *watcherSuite) getFacade(
-	c *gc.C,
+	c *tc.C,
 	name string,
 	version int,
 	id string,
@@ -49,7 +52,7 @@ func (s *watcherSuite) getFacade(
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
 	facade, err := factory(s.facadeContext(id, dispose))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return facade
 }
 
@@ -62,13 +65,13 @@ func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Conte
 	}
 }
 
-func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
+func getFacadeFactory(c *tc.C, name string, version int) facade.Factory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return factory
 }
 
-func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
+func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
@@ -76,9 +79,9 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
 		Changes: []params.MachineStorageId{
 			{MachineTag: "machine-0", AttachmentTag: "volume-1"},
 			{MachineTag: "machine-1", AttachmentTag: "volume-2"},
@@ -86,7 +89,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
+func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *tc.C) {
 	ch := make(chan []string, 1)
 	id := s.resources.Register(&fakeStringsWatcher{ch: ch})
 	s.authorizer.Tag = names.NewMachineTag("123")
@@ -94,9 +97,9 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
+	c.Assert(result, tc.DeepEquals, params.MachineStorageIdsWatchResult{
 		Changes: []params.MachineStorageId{
 			{MachineTag: "machine-0", AttachmentTag: "filesystem-1"},
 			{MachineTag: "machine-1", AttachmentTag: "filesystem-2"},
@@ -104,7 +107,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcher(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
@@ -112,10 +115,10 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	defer c.Check(facade.Stop(), tc.ErrorIsNil)
 	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
 		Attempt:        2,
 		Phase:          "IMPORT",
@@ -126,7 +129,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *tc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
 	s.authorizer.Tag = names.NewMachineTag("12")
@@ -134,26 +137,26 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	apiserver.PatchGetMigrationBackend(s, backend, backend)
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
-	defer c.Check(facade.Stop(), jc.ErrorIsNil)
+	defer c.Check(facade.Stop(), tc.ErrorIsNil)
 	result, err := facade.Next()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.MigrationStatus{
 		Phase: "NONE",
 	})
 }
 
-func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
+func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *tc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = factory(facadetest.Context{
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 		ID_:        id,
 	})
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
 type machineStorageIdsWatcher interface {

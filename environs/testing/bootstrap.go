@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -18,6 +17,7 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")
@@ -38,14 +38,14 @@ func DisableFinishBootstrap() func() {
 		logger.Infof("provider/common.FinishBootstrap is disabled")
 		return nil
 	}
-	return testing.PatchValue(&common.FinishBootstrap, f)
+	return testhelpers.PatchValue(&common.FinishBootstrap, f)
 }
 
 // BootstrapContext creates a simple bootstrap execution context.
-func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
+func BootstrapContext(ctx context.Context, c *tc.C) environs.BootstrapContext {
 	return modelcmd.BootstrapContext(ctx, cmdtesting.Context(c))
 }
 
-func BootstrapTODOContext(c *gc.C) environs.BootstrapContext {
+func BootstrapTODOContext(c *tc.C) environs.BootstrapContext {
 	return BootstrapContext(context.TODO(), c)
 }

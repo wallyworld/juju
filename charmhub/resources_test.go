@@ -8,24 +8,26 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ResourcesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ResourcesSuite{})
+func TestResourcesSuite(t *tctesting.T) {
+	tc.Run(t, &ResourcesSuite{})
+}
 
-func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
+func (s *ResourcesSuite) TestListResourceRevisions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -39,12 +41,12 @@ func (s *ResourcesSuite) TestListResourceRevisions(c *gc.C) {
 	s.expectGet(c, restClient, path, name, resource)
 
 	client := newResourcesClient(path, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.Background(), name, resource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response, gc.HasLen, 3)
+	response, err := client.ListResourceRevisions(c.Context(), name, resource)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(response, tc.HasLen, 3)
 }
 
-func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
+func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -58,13 +60,13 @@ func (s *ResourcesSuite) TestListResourceRevisionsFailure(c *gc.C) {
 	s.expectGetFailure(restClient)
 
 	client := newResourcesClient(path, restClient, &FakeLogger{})
-	_, err := client.ListResourceRevisions(context.Background(), name, resource)
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	_, err := client.ListResourceRevisions(c.Context(), name, resource)
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-func (s *ResourcesSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, charm, resource string) {
+func (s *ResourcesSuite) expectGet(c *tc.C, client *MockRESTClient, p path.Path, charm, resource string) {
 	namedPath, err := p.Join(charm, resource, "revisions")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.ResourcesResponse) {
 		response.Revisions = make([]transport.ResourceRevision, 3)
@@ -75,7 +77,7 @@ func (s *ResourcesSuite) expectGetFailure(client *MockRESTClient) {
 	client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(restResponse{StatusCode: http.StatusInternalServerError}, errors.Errorf("boom"))
 }
 
-func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
+func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *tc.C) {
 	resourcesResponse := transport.ResourcesResponse{Revisions: []transport.ResourceRevision{
 		{Name: "image", Revision: 3, Type: "image"},
 		{Name: "image", Revision: 2, Type: "image"},
@@ -86,23 +88,23 @@ func (s *ResourcesSuite) TestListResourceRevisionsRequestPayload(c *gc.C) {
 		w.WriteHeader(http.StatusOK)
 
 		err := json.NewEncoder(w).Encode(resourcesResponse)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
 	basePath, err := basePath(server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resourcesPath, err := basePath.Join("resources")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
 	restClient := newHTTPRESTClient(apiRequester)
 
 	client := newResourcesClient(resourcesPath, restClient, &FakeLogger{})
-	response, err := client.ListResourceRevisions(context.Background(), "wordpress", "image")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(response, gc.DeepEquals, resourcesResponse.Revisions)
+	response, err := client.ListResourceRevisions(c.Context(), "wordpress", "image")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(response, tc.DeepEquals, resourcesResponse.Revisions)
 }

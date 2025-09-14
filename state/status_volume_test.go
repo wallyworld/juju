@@ -4,12 +4,13 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type VolumeStatusSuite struct {
@@ -18,9 +19,11 @@ type VolumeStatusSuite struct {
 	volume  state.Volume
 }
 
-var _ = gc.Suite(&VolumeStatusSuite{})
+func TestVolumeStatusSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &VolumeStatusSuite{})
+}
 
-func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
+func (s *VolumeStatusSuite) SetUpTest(c *tc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -32,33 +35,33 @@ func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	volumeAttachments, err := machine.VolumeAttachments()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volumeAttachments, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(volumeAttachments, tc.HasLen, 1)
 
 	volume, err := s.storageBackend.Volume(volumeAttachments[0].Volume())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine = machine
 	s.volume = volume
 }
 
-func (s *VolumeStatusSuite) TestInitialStatus(c *gc.C) {
+func (s *VolumeStatusSuite) TestInitialStatus(c *tc.C) {
 	s.checkInitialStatus(c)
 }
 
-func (s *VolumeStatusSuite) checkInitialStatus(c *gc.C) {
+func (s *VolumeStatusSuite) checkInitialStatus(c *tc.C) {
 	statusInfo, err := s.volume.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Pending)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Pending)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
+func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
@@ -66,12 +69,12 @@ func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
+func (s *VolumeStatusSuite) TestSetUnknownStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
@@ -79,12 +82,12 @@ func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
+	c.Assert(err, tc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
+func (s *VolumeStatusSuite) TestSetOverwritesData(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
@@ -95,12 +98,12 @@ func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
 		Since: &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c, status.Attaching)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *tc.C) {
 	validStatuses := []status.Status{
 		status.Attaching, status.Attached, status.Detaching,
 		status.Detached, status.Destroying,
@@ -110,7 +113,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 	}
 }
 
-func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Status) {
+func (s *VolumeStatusSuite) checkGetSetStatus(c *tc.C, volumeStatus status.Status) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  volumeStatus,
@@ -123,41 +126,41 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Statu
 		Since: &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	volume, err := s.storageBackend.Volume(s.volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statusInfo, err := volume.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, volumeStatus)
-	c.Check(statusInfo.Message, gc.Equals, "blah")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, volumeStatus)
+	c.Check(statusInfo.Message, tc.Equals, "blah")
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
 			"pew.pew": "zap",
 		},
 	})
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusDying(c *tc.C) {
 	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c, status.Attaching)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusDead(c *tc.C) {
 	err := s.storageBackend.DestroyVolume(s.volume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.storageBackend.DetachVolume(s.machine.MachineTag(), s.volume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolumeAttachment(s.machine.MachineTag(), s.volume.VolumeTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	volume, err := s.storageBackend.Volume(s.volume.VolumeTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(volume.Life(), gc.Equals, state.Dead)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(volume.Life(), tc.Equals, state.Dead)
 
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
@@ -165,7 +168,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c, status.Attaching)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusGone(c *tc.C) {
 	s.obliterateVolume(c, s.volume.VolumeTag())
 
 	now := testing.ZeroTime()
@@ -175,14 +178,14 @@ func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: volume not found`)
+	c.Check(err, tc.ErrorMatches, `cannot set status: volume not found`)
 
 	statusInfo, err := s.volume.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: volume not found`)
-	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
+	c.Check(err, tc.ErrorMatches, `cannot get status: volume not found`)
+	c.Check(statusInfo, tc.DeepEquals, status.StatusInfo{})
 }
 
-func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
+func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -190,14 +193,14 @@ func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.volume.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
+func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *tc.C) {
 	err := s.storageBackend.SetVolumeInfo(s.volume.VolumeTag(), state.VolumeInfo{
 		VolumeId: "vol-ume",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -205,5 +208,5 @@ func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.volume.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "pending"`)
 }

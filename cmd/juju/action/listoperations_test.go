@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
@@ -24,14 +24,16 @@ type ListOperationsSuite struct {
 	command        *action.ListOperationsCommand
 }
 
-var _ = gc.Suite(&ListOperationsSuite{})
+func TestListOperationsSuite(t *tctesting.T) {
+	tc.Run(t, &ListOperationsSuite{})
+}
 
-func (s *ListOperationsSuite) SetUpTest(c *gc.C) {
+func (s *ListOperationsSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 }
 
-func (s *ListOperationsSuite) TestInit(c *gc.C) {
+func (s *ListOperationsSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -70,15 +72,15 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 			} else {
-				c.Check(err, gc.ErrorMatches, t.expectedErr)
+				c.Check(err, tc.ErrorMatches, t.expectedErr)
 			}
 		}
 	}
 }
 
-func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
+func (s *ListOperationsSuite) TestRunQueryArgs(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -96,8 +98,8 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 		args = append([]string{modelFlag, "admin", "--utc"}, args...)
 
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, actionapi.OperationQueryArgs{
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(fakeClient.operationQueryArgs, tc.DeepEquals, actionapi.OperationQueryArgs{
 			Applications: []string{"mysql", "mediawiki"},
 			Units:        []string{"mysql/1", "mediawiki/0"},
 			Machines:     []string{"0", "1"},
@@ -160,7 +162,7 @@ var listOperationResults = actionapi.Operations{
 	}},
 }
 
-func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
+func (s *ListOperationsSuite) TestRunNoResults(c *tc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -169,13 +171,13 @@ func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "no matching operations\n")
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, "")
+		c.Check(ctx.Stderr.(*bytes.Buffer).String(), tc.Equals, "no matching operations\n")
 	}
 }
 
-func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlain(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
 	}
@@ -186,7 +188,7 @@ func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 ID  Status   Started  Finished             Task IDs  Summary
  1  error                                  2         operation 1
@@ -194,11 +196,11 @@ ID  Status   Started  Finished             Task IDs  Summary
  5  pending                                6         operation 5
 10  error                                            operation 10
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
-func (s *ListOperationsSuite) TestRunPlainTruncated(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlainTruncated(c *tc.C) {
 	listOperationResults.Truncated = true
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
@@ -210,7 +212,7 @@ func (s *ListOperationsSuite) TestRunPlainTruncated(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc", "--offset=12", "--limit=4")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 Displaying operation results 13 to 16.
 Run the command again with --offset=16 --limit=4 to see the next batch.
@@ -221,7 +223,7 @@ ID  Status   Started  Finished             Task IDs  Summary
  5  pending                                6         operation 5
 10  error                                            operation 10
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
@@ -269,7 +271,7 @@ var listOperationManyTasksResults = actionapi.Operations{
 	}},
 }
 
-func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlainManyTasks(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationManyTasksResults,
 	}
@@ -280,16 +282,16 @@ func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 ID  Status     Started              Finished  Task IDs      Summary
  1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }
 
-func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
+func (s *ListOperationsSuite) TestRunYaml(c *tc.C) {
 	fakeClient := &fakeAPIClient{
 		operationResults: listOperationResults,
 	}
@@ -300,7 +302,7 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--format", "yaml", "--utc")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		expected := `
 "1":
   summary: operation 1
@@ -343,6 +345,6 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
   summary: operation 10
   status: error
 `[1:]
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expected)
 	}
 }

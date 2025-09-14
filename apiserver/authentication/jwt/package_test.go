@@ -6,18 +6,12 @@ package jwt_test
 import (
 	"context"
 	"encoding/base64"
-	. "testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gc "gopkg.in/check.v1"
 )
-
-func TestPackage(t *T) {
-	gc.TestingT(t)
-}
 
 type testJWTParser struct {
 	notReady bool

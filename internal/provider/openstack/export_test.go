@@ -21,8 +21,8 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 var (

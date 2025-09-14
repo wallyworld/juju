@@ -5,8 +5,7 @@ package action
 
 import (
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -25,9 +24,9 @@ type MockBaseSuite struct {
 	Leadership     *MockReader
 }
 
-func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
+func (s *MockBaseSuite) NewActionAPI(c *tc.C) *ActionAPI {
 	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api.tagToActionReceiverFn = s.tagToActionReceiverFn
 	return api

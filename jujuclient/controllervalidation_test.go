@@ -4,10 +4,12 @@
 package jujuclient_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type ControllerValidationSuite struct {
@@ -15,7 +17,7 @@ type ControllerValidationSuite struct {
 	controller jujuclient.ControllerDetails
 }
 
-func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
+func (s *ControllerValidationSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.controller = jujuclient.ControllerDetails{
 		ControllerUUID: "test.uuid",
@@ -26,18 +28,20 @@ func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&ControllerValidationSuite{})
-
-func (s *ControllerValidationSuite) TestValidateControllerName(c *gc.C) {
-	c.Assert(jujuclient.ValidateControllerName(""), gc.ErrorMatches, "empty controller name not valid")
+func TestControllerValidationSuite(t *tctesting.T) {
+	tc.Run(t, &ControllerValidationSuite{})
 }
 
-func (s *ControllerValidationSuite) TestValidateControllerDetailsNoControllerUUID(c *gc.C) {
+func (s *ControllerValidationSuite) TestValidateControllerName(c *tc.C) {
+	c.Assert(jujuclient.ValidateControllerName(""), tc.ErrorMatches, "empty controller name not valid")
+}
+
+func (s *ControllerValidationSuite) TestValidateControllerDetailsNoControllerUUID(c *tc.C) {
 	s.controller.ControllerUUID = ""
 	s.assertValidateControllerDetailsFails(c, "missing uuid, controller details not valid")
 }
 
-func (s *ControllerValidationSuite) assertValidateControllerDetailsFails(c *gc.C, failureMessage string) {
+func (s *ControllerValidationSuite) assertValidateControllerDetailsFails(c *tc.C, failureMessage string) {
 	err := jujuclient.ValidateControllerDetails(s.controller)
-	c.Assert(err, gc.ErrorMatches, failureMessage)
+	c.Assert(err, tc.ErrorMatches, failureMessage)
 }

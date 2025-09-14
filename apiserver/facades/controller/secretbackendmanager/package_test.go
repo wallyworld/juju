@@ -4,18 +4,11 @@
 package secretbackendmanager
 
 import (
-	"testing"
-
 	"github.com/juju/clock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 // //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/backendstate.go github.com/juju/juju/apiserver/facades/controller/secretbackendmanager BackendState

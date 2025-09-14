@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 
@@ -22,9 +21,10 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/fortress"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var (
@@ -64,7 +64,7 @@ func (c *fakeAgentConfig) DataDir() string {
 }
 
 type fakeClient struct {
-	testing.Stub
+	testhelpers.Stub
 	caasoperator.Client
 	unitsWatcher       *watchertest.MockStringsWatcher
 	containerWatcher   *watchertest.MockStringsWatcher
@@ -173,7 +173,7 @@ func (c *fakeClient) Model() (*model.Model, error) {
 }
 
 type fakeDownloader struct {
-	testing.Stub
+	testhelpers.Stub
 	path string
 }
 
@@ -187,7 +187,7 @@ func (d *fakeDownloader) Download(req downloader.Request) (string, error) {
 
 type mockCharmDirGuard struct {
 	fortress.Guard
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (l *mockCharmDirGuard) Unlock() error {
@@ -209,7 +209,7 @@ func (m *mockHookLogger) Stop() {
 }
 
 type mockExecutor struct {
-	testing.Stub
+	testhelpers.Stub
 
 	status exec.Status
 }

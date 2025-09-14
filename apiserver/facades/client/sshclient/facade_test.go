@@ -6,13 +6,12 @@ package sshclient_test
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -29,9 +28,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type facadeSuite struct {
@@ -44,16 +44,18 @@ type facadeSuite struct {
 	callContext environscontext.ProviderCallContext
 }
 
-var _ = gc.Suite(&facadeSuite{})
+func TestFacadeSuite(t *tctesting.T) {
+	tc.Run(t, &facadeSuite{})
+}
 
-func (s *facadeSuite) SetUpSuite(c *gc.C) {
+func (s *facadeSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.m0 = names.NewMachineTag("0").String()
 	s.uFoo = names.NewUnitTag("foo/0").String()
 	s.uOther = names.NewUnitTag("other/1").String()
 }
 
-func (s *facadeSuite) SetUpTest(c *gc.C) {
+func (s *facadeSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.backend = new(mockBackend)
@@ -62,30 +64,30 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
 	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 }
 
-func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
+func (s *facadeSuite) TestMachineAuthNotAllowed(c *tc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
+func (s *facadeSuite) TestUnitAuthNotAllowed(c *tc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
 	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
 // TestNonAuthUserDenied tests that a user without admin non
 // superuser permission cannot access a facade function.
-func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
+func (s *facadeSuite) TestNonAuthUserDenied(c *tc.C) {
 	s.authorizer.Tag = names.NewUserTag("jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
 	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 
 	args := params.Entities{
@@ -93,18 +95,18 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 	}
 	results, err := s.facade.PublicAddress(args)
 	// Check this was an error permission
-	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
-	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{})
+	c.Assert(err, tc.ErrorMatches, apiservererrors.ErrPerm.Error())
+	c.Assert(results, tc.DeepEquals, params.SSHAddressResults{})
 }
 
 // TestSuperUserAuth tests that a user with superuser privilege
 // can access a facade function.
-func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
+func (s *facadeSuite) TestSuperUserAuth(c *tc.C) {
 	s.authorizer.Tag = names.NewUserTag("superuser-jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
 	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.facade = facade
 
 	args := params.Entities{
@@ -112,15 +114,15 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 	}
 	results, err := s.facade.PublicAddress(args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
 			{Address: "1.1.1.1"},
 			{Address: "3.3.3.3"},
 			{Error: apiservertesting.NotFoundError("entity")},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
@@ -128,56 +130,56 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 
 }
 
-func (s *facadeSuite) TestPublicAddress(c *gc.C) {
+func (s *facadeSuite) TestPublicAddress(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
 	results, err := s.facade.PublicAddress(args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
 			{Address: "1.1.1.1"},
 			{Address: "3.3.3.3"},
 			{Error: apiservertesting.NotFoundError("entity")},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 	})
 }
 
-func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
+func (s *facadeSuite) TestPrivateAddress(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
 	}
 	results, err := s.facade.PrivateAddress(args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
 			{Error: apiservertesting.NotFoundError("entity")},
 			{Address: "2.2.2.2"},
 			{Address: "4.4.4.4"},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
 	})
 }
 
-func (s *facadeSuite) TestAllAddresses(c *gc.C) {
+func (s *facadeSuite) TestAllAddresses(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
 	}
 	results, err := s.facade.AllAddresses(args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHAddressesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SSHAddressesResults{
 		Results: []params.SSHAddressesResult{
 			{Error: apiservertesting.NotFoundError("entity")},
 			// Addresses include those from both the machine and devices.
@@ -197,28 +199,28 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 			}},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"GetMachineForEntity", []interface{}{s.uOther}},
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetMachineForEntity", []interface{}{s.uFoo}},
 	})
 }
 
-func (s *facadeSuite) TestPublicKeys(c *gc.C) {
+func (s *facadeSuite) TestPublicKeys(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uOther}, {s.uFoo}},
 	}
 	results, err := s.facade.PublicKeys(args)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.DeepEquals, params.SSHPublicKeysResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, params.SSHPublicKeysResults{
 		Results: []params.SSHPublicKeysResult{
 			{PublicKeys: []string{"rsa0", "dsa0"}},
 			{Error: apiservertesting.NotFoundError("entity")},
 			{PublicKeys: []string{"rsa1", "dsa1"}},
 		},
 	})
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetSSHHostKeys", []interface{}{names.NewMachineTag("0")}},
 		{"GetMachineForEntity", []interface{}{s.uOther}},
@@ -227,27 +229,27 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 	})
 }
 
-func (s *facadeSuite) TestProxyTrue(c *gc.C) {
+func (s *facadeSuite) TestProxyTrue(c *tc.C) {
 	s.backend.proxySSH = true
 	result, err := s.facade.Proxy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsTrue)
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.UseProxy, tc.IsTrue)
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelConfig", []interface{}{}},
 	})
 }
 
-func (s *facadeSuite) TestProxyFalse(c *gc.C) {
+func (s *facadeSuite) TestProxyFalse(c *tc.C) {
 	s.backend.proxySSH = false
 	result, err := s.facade.Proxy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.UseProxy, jc.IsFalse)
-	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.UseProxy, tc.IsFalse)
+	s.backend.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelConfig", []interface{}{}},
 	})
 }
 
-func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	backend := mocks.NewMockBackend(ctrl)
@@ -267,14 +269,14 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 			return broker, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := facade.ModelCredentialForSSH()
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.IsNil)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Result, tc.IsNil)
 }
 
-func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	backend := mocks.NewMockBackend(ctrl)
@@ -297,14 +299,14 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 			return broker, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := facade.ModelCredentialForSSH()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not supported`)
-	c.Assert(result.Result, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiservererrors.RestoreError(result.Error), tc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not supported`)
+	c.Assert(result.Result, tc.IsNil)
 }
 
-func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	backend := mocks.NewMockBackend(ctrl)
@@ -339,14 +341,14 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 			return broker, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := facade.ModelCredentialForSSH()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
-	c.Assert(result.Result, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiservererrors.RestoreError(result.Error), tc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
+	c.Assert(result.Result, tc.IsNil)
 }
 
-func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSH(c *tc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
 			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
@@ -355,7 +357,7 @@ func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
 	)
 }
 
-func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *tc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
 			authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
@@ -364,7 +366,7 @@ func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
 	)
 }
 
-func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
+func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *tc.C) {
 	s.assertModelCredentialForSSH(c,
 		func(authorizer *mocks.MockAuthorizer) {
 			authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
@@ -372,7 +374,7 @@ func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
 	)
 }
 
-func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mocks.MockAuthorizer)) {
+func (s *facadeSuite) assertModelCredentialForSSH(c *tc.C, f func(authorizer *mocks.MockAuthorizer)) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	backend := mocks.NewMockBackend(ctrl)
@@ -414,16 +416,16 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 	)
 	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
 		func(_ context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
-			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
-			c.Assert(arg.Cloud, gc.DeepEquals, cloudSpec)
+			c.Assert(arg.ControllerUUID, tc.Equals, testing.ControllerTag.Id())
+			c.Assert(arg.Cloud, tc.DeepEquals, cloudSpec)
 			return broker, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := facade.ModelCredentialForSSH()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.DeepEquals, &params.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Result, tc.DeepEquals, &params.CloudSpec{
 		Type:             "type",
 		Name:             "name",
 		Region:           "region",
@@ -444,7 +446,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 }
 
 type mockBackend struct {
-	stub     jujutesting.Stub
+	stub     testhelpers.Stub
 	proxySSH bool
 }
 
@@ -572,9 +574,11 @@ type facadeSuiteNewMocks struct {
 	mockBroker     *mocks.MockBroker
 }
 
-var _ = gc.Suite(&facadeSuiteNewMocks{})
+func TestFacadeSuiteNewMocks(t *tctesting.T) {
+	tc.Run(t, &facadeSuiteNewMocks{})
+}
 
-func (s *facadeSuiteNewMocks) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *facadeSuiteNewMocks) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockBackend = mocks.NewMockBackend(ctrl)
@@ -584,7 +588,7 @@ func (s *facadeSuiteNewMocks) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *facadeSuiteNewMocks) TestGetVirtualHostnameForEntity(c *gc.C) {
+func (s *facadeSuiteNewMocks) TestGetVirtualHostnameForEntity(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.mockBackend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
@@ -597,7 +601,7 @@ func (s *facadeSuiteNewMocks) TestGetVirtualHostnameForEntity(c *gc.C) {
 		},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	container := "container"
 	tests := []struct {
 		name          string
@@ -637,15 +641,15 @@ func (s *facadeSuiteNewMocks) TestGetVirtualHostnameForEntity(c *gc.C) {
 			Container: t.container,
 		})
 		if t.expectedError != "" {
-			c.Assert(err, gc.ErrorMatches, t.expectedError)
+			c.Assert(err, tc.ErrorMatches, t.expectedError)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(res.Address, gc.Equals, t.expected)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(res.Address, tc.Equals, t.expected)
 		}
 	}
 }
 
-func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
@@ -655,7 +659,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 			return s.mockBroker, nil
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	// Set superuser for all calls.
 	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
@@ -670,7 +674,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
+	c.Assert(res, tc.DeepEquals, params.PublicSSHHostKeyResult{
 		Error:               nil,
 		PublicKey:           []byte{1},
 		JumpServerPublicKey: []byte{2},
@@ -684,7 +688,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
+	c.Assert(res, tc.DeepEquals, params.PublicSSHHostKeyResult{
 		Error:               nil,
 		PublicKey:           []byte{1},
 		JumpServerPublicKey: []byte{2},
@@ -698,14 +702,14 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
+	c.Assert(res, tc.DeepEquals, params.PublicSSHHostKeyResult{
 		Error:               nil,
 		PublicKey:           []byte{1},
 		JumpServerPublicKey: []byte{2},
 	})
 }
 
-func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
@@ -715,7 +719,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 			return s.mockBroker, nil
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	// Set superuser for all calls.
 	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
@@ -726,7 +730,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "BLAAAH 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res.Error, gc.ErrorMatches, "failed to parse hostname: could not parse hostname")
+	c.Assert(res.Error, tc.ErrorMatches, "failed to parse hostname: could not parse hostname")
 
 	// Test MachineVirtualHostKey fail.
 	gomock.InOrder(
@@ -735,7 +739,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res.Error, gc.ErrorMatches, "failed to get machine host key: an-error")
+	c.Assert(res.Error, tc.ErrorMatches, "failed to get machine host key: an-error")
 
 	// Test UnitVirtualHostKey fail.
 	gomock.InOrder(
@@ -744,7 +748,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res.Error, gc.ErrorMatches, "failed to get unit host key: an-error")
+	c.Assert(res.Error, tc.ErrorMatches, "failed to get unit host key: an-error")
 
 	// Test SSHServerHostKey fail.
 	gomock.InOrder(
@@ -754,10 +758,10 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res.Error, gc.ErrorMatches, "failed to get controller jumpserver host key: an-error")
+	c.Assert(res.Error, tc.ErrorMatches, "failed to get controller jumpserver host key: an-error")
 }
 
-func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
+func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.mockAuthoriser.EXPECT().AuthClient().Return(true).Times(1)
@@ -767,7 +771,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
 			return s.mockBroker, nil
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	controllerTag := names.NewControllerTag("controller00-0000-0000-000000000000")
 	s.mockBackend.EXPECT().ControllerTag().Return(controllerTag).AnyTimes()
@@ -778,7 +782,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
 	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(res.Error, gc.ErrorMatches, "an-error")
+	c.Assert(res.Error, tc.ErrorMatches, "an-error")
 
 	// Test second has permission for model reader is called and also has no permission/returns error.
 	modelTag := names.NewModelTag("model000-0000-0000-0000-000000000000")
@@ -790,5 +794,5 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
 	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
-	c.Assert(*res.Error, gc.ErrorMatches, "entity missing permission")
+	c.Assert(*res.Error, tc.ErrorMatches, "entity missing permission")
 }

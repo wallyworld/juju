@@ -4,10 +4,12 @@
 package environs_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -16,14 +18,16 @@ type environSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&environSuite{})
+func TestEnvironSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &environSuite{})
+}
 
-func (s *environSuite) TestGetEnvironment(c *gc.C) {
+func (s *environSuite) TestGetEnvironment(c *tc.C) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.Model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(env.Config().UUID(), jc.DeepEquals, config.UUID())
-	c.Check(env, gc.Not(gc.Equals), s.Environ)
+	c.Check(env.Config().UUID(), tc.DeepEquals, config.UUID())
+	c.Check(env, tc.Not(tc.Equals), s.Environ)
 }

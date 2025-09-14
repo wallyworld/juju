@@ -6,10 +6,10 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +30,9 @@ type modelUpgraderSuite struct {
 	broker *dummyUpgradeCAASModel
 }
 
-var _ = gc.Suite(&modelUpgraderSuite{})
+func TestModelUpgraderSuite(t *tctesting.T) {
+	tc.Run(t, &modelUpgraderSuite{})
+}
 
 func (d *dummyUpgradeCAASModel) Client() kubernetes.Interface {
 	return d.client
@@ -44,13 +46,13 @@ func (d *dummyUpgradeCAASModel) Namespace() string {
 	return "test"
 }
 
-func (s *modelUpgraderSuite) SetUpTest(c *gc.C) {
+func (s *modelUpgraderSuite) SetUpTest(c *tc.C) {
 	s.broker = &dummyUpgradeCAASModel{
 		client: fake.NewSimpleClientset(),
 	}
 }
 
-func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
+func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *tc.C) {
 	var (
 		operatorName = modelOperatorName
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -80,14 +82,14 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 				},
 			},
 		}, v1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(modelOperatorUpgrade(operatorName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(modelOperatorUpgrade(operatorName, version.MustParse("9.9.9"), s.broker), tc.ErrorIsNil)
 	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
 		Get(context.TODO(), operatorName, meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(de.Spec.Template.Spec.Containers[0].Image, tc.Equals, newImagePath)
 
-	c.Assert(de.Annotations[utils.AnnotationVersionKey(1)], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(de.Spec.Template.Annotations[utils.AnnotationVersionKey(1)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Annotations[utils.AnnotationVersionKey(1)], tc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Spec.Template.Annotations[utils.AnnotationVersionKey(1)], tc.Equals, version.MustParse("9.9.9").String())
 }

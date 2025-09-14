@@ -4,40 +4,43 @@
 package state
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // linkLayerDevicesInternalSuite contains white-box tests for link-layer network
 // devices' internals, which do not actually access mongo. The rest of the logic
 // is tested in linkLayerDevicesStateSuite.
 type linkLayerDevicesInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&linkLayerDevicesInternalSuite{})
+func TestLinkLayerDevicesInternalSuite(t *tctesting.T) {
+	tc.Run(t, &linkLayerDevicesInternalSuite{})
+}
 
-func (s *linkLayerDevicesInternalSuite) TestNewLinkLayerDeviceCreatesLinkLayerDevice(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestNewLinkLayerDeviceCreatesLinkLayerDevice(c *tc.C) {
 	result := newLinkLayerDevice(nil, linkLayerDeviceDoc{})
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.st, gc.IsNil)
-	c.Assert(result.doc, jc.DeepEquals, linkLayerDeviceDoc{})
+	c.Assert(result, tc.NotNil)
+	c.Assert(result.st, tc.IsNil)
+	c.Assert(result.doc, tc.DeepEquals, linkLayerDeviceDoc{})
 }
 
-func (s *linkLayerDevicesInternalSuite) TestDocIDIncludesModelUUID(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestDocIDIncludesModelUUID(c *tc.C) {
 	const localDocID = "foo"
 	globalDocID := coretesting.ModelTag.Id() + ":" + localDocID
 
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{DocID: localDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
+	c.Assert(result.DocID(), tc.Equals, globalDocID)
 
 	result = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{DocID: globalDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
+	c.Assert(result.DocID(), tc.Equals, globalDocID)
 }
 
 func (s *linkLayerDevicesInternalSuite) newLinkLayerDeviceWithDummyState(doc linkLayerDeviceDoc) *LinkLayerDevice {
@@ -47,33 +50,33 @@ func (s *linkLayerDevicesInternalSuite) newLinkLayerDeviceWithDummyState(doc lin
 	return newLinkLayerDevice(dummyState, doc)
 }
 
-func (s *linkLayerDevicesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *tc.C) {
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(""))
+	c.Assert(result.ProviderID(), tc.Equals, network.Id(""))
 }
 
-func (s *linkLayerDevicesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c *tc.C) {
 	const localProviderID = "foo"
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{ProviderID: localProviderID})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
+	c.Assert(result.ProviderID(), tc.Equals, network.Id(localProviderID))
 }
 
-func (s *linkLayerDevicesInternalSuite) TestParentDeviceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestParentDeviceReturnsNoErrorWhenParentNameNotSet(c *tc.C) {
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
 	parent, err := result.ParentDevice()
-	c.Check(parent, gc.IsNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(parent, tc.IsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesInternalSuite) TestLinkLayerDeviceGlobalKeyHelper(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestLinkLayerDeviceGlobalKeyHelper(c *tc.C) {
 	result := linkLayerDeviceGlobalKey("42", "eno1")
-	c.Assert(result, gc.Equals, "m#42#d#eno1")
+	c.Assert(result, tc.Equals, "m#42#d#eno1")
 
 	result = linkLayerDeviceGlobalKey("", "")
-	c.Assert(result, gc.Equals, "")
+	c.Assert(result, tc.Equals, "")
 }
 
-func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(c *tc.C) {
 	for i, test := range []struct {
 		about              string
 		input              string
@@ -103,17 +106,17 @@ func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(
 		c.Logf("test #%d: %q", i, test.about)
 		gotMachineID, gotParentName, gotError := parseLinkLayerDeviceParentNameAsGlobalKey(test.input)
 		if test.expectedError != "" {
-			c.Check(gotError, gc.ErrorMatches, test.expectedError)
-			c.Check(gotError, jc.Satisfies, errors.IsNotValid)
+			c.Check(gotError, tc.ErrorMatches, test.expectedError)
+			c.Check(gotError, tc.Satisfies, errors.IsNotValid)
 		} else {
-			c.Check(gotError, jc.ErrorIsNil)
+			c.Check(gotError, tc.ErrorIsNil)
 		}
-		c.Check(gotMachineID, gc.Equals, test.expectedMachineID)
-		c.Check(gotParentName, gc.Equals, test.expectedParentName)
+		c.Check(gotMachineID, tc.Equals, test.expectedMachineID)
+		c.Check(gotParentName, tc.Equals, test.expectedParentName)
 	}
 }
 
-func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c *tc.C) {
 	doc := linkLayerDeviceDoc{
 		MachineID: "42",
 		Name:      "foo",
@@ -122,10 +125,10 @@ func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c
 	result := s.newLinkLayerDeviceWithDummyState(doc)
 	expectedString := `bond device "foo" on machine "42"`
 
-	c.Assert(result.String(), gc.Equals, expectedString)
+	c.Assert(result.String(), tc.Equals, expectedString)
 }
 
-func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
+func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *tc.C) {
 	doc := linkLayerDeviceDoc{
 		Name:        "bond0",
 		MachineID:   "99",
@@ -138,12 +141,12 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 	}
 	result := s.newLinkLayerDeviceWithDummyState(doc)
 
-	c.Check(result.Name(), gc.Equals, "bond0")
-	c.Check(result.MachineID(), gc.Equals, "99")
-	c.Check(result.MTU(), gc.Equals, uint(9000))
-	c.Check(result.Type(), gc.Equals, network.BondDevice)
-	c.Check(result.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")
-	c.Check(result.IsAutoStart(), jc.IsTrue)
-	c.Check(result.IsUp(), jc.IsTrue)
-	c.Check(result.ParentName(), gc.Equals, "br-bond0")
+	c.Check(result.Name(), tc.Equals, "bond0")
+	c.Check(result.MachineID(), tc.Equals, "99")
+	c.Check(result.MTU(), tc.Equals, uint(9000))
+	c.Check(result.Type(), tc.Equals, network.BondDevice)
+	c.Check(result.MACAddress(), tc.Equals, "aa:bb:cc:dd:ee:f0")
+	c.Check(result.IsAutoStart(), tc.IsTrue)
+	c.Check(result.IsUp(), tc.IsTrue)
+	c.Check(result.ParentName(), tc.Equals, "br-bond0")
 }

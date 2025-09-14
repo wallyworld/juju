@@ -11,20 +11,21 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type resourcesUploadSuite struct {
@@ -35,17 +36,19 @@ type resourcesUploadSuite struct {
 	importingModel *state.Model
 }
 
-var _ = gc.Suite(&resourcesUploadSuite{})
+func TestResourcesUploadSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &resourcesUploadSuite{})
+}
 
-func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
+func (s *resourcesUploadSuite) SetUpTest(c *tc.C) {
 	s.apiserverBaseSuite.SetUpTest(c)
 
 	// Create an importing model to work with.
 	var err error
 	s.importingState = s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { s.importingState.Close() })
+	s.AddCleanup(func(*tc.C) { s.importingState.Close() })
 	s.importingModel, err = s.importingState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newFactory := factory.NewFactory(s.importingState, s.StatePool)
 	app := newFactory.MakeApplication(c, nil)
@@ -56,17 +59,17 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	})
 
 	err = s.importingModel.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *resourcesUploadSuite) sendHTTPRequest(c *gc.C, p apitesting.HTTPRequestParams) *http.Response {
+func (s *resourcesUploadSuite) sendHTTPRequest(c *tc.C, p apitesting.HTTPRequestParams) *http.Response {
 	p.ExtraHeaders = map[string]string{
 		params.MigrationModelHTTPHeader: s.importingModel.UUID(),
 	}
 	return s.apiserverBaseSuite.sendHTTPRequest(c, p)
 }
 
-func (s *resourcesUploadSuite) TestServedSecurely(c *gc.C) {
+func (s *resourcesUploadSuite) TestServedSecurely(c *tc.C) {
 	url := s.resourcesURL("")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -76,23 +79,23 @@ func (s *resourcesUploadSuite) TestServedSecurely(c *gc.C) {
 	})
 }
 
-func (s *resourcesUploadSuite) TestGETUnsupported(c *gc.C) {
+func (s *resourcesUploadSuite) TestGETUnsupported(c *tc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.resourcesURI("")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
-func (s *resourcesUploadSuite) TestPUTUnsupported(c *gc.C) {
+func (s *resourcesUploadSuite) TestPUTUnsupported(c *tc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.resourcesURI("")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *resourcesUploadSuite) TestPOSTRequiresAuth(c *gc.C) {
+func (s *resourcesUploadSuite) TestPOSTRequiresAuth(c *tc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.resourcesURI("")})
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
+	c.Assert(string(body), tc.Equals, "authentication failed: no credentials provided\n")
 }
 
-func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
+func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *tc.C) {
 	// Add a machine and try to login.
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "noncy",
@@ -106,14 +109,14 @@ func (s *resourcesUploadSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authorization failed: machine 0 is not a user\n")
+	c.Assert(string(body), tc.Equals, "authorization failed: machine 0 is not a user\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.resourcesURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "missing application/unit")
 }
 
-func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
+func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *tc.C) {
 	params := apitesting.HTTPRequestParams{
 		Method: "POST",
 		URL:    s.resourcesURI(""),
@@ -127,19 +130,19 @@ func (s *resourcesUploadSuite) TestRejectsInvalidModel(c *gc.C) {
 
 const content = "stuff"
 
-func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
+func (s *resourcesUploadSuite) makeUploadArgs(c *tc.C) url.Values {
 	return s.makeResourceUploadArgs(c, "file")
 }
 
-func (s *resourcesUploadSuite) makeDockerUploadArgs(c *gc.C) url.Values {
+func (s *resourcesUploadSuite) makeDockerUploadArgs(c *tc.C) url.Values {
 	result := s.makeResourceUploadArgs(c, "oci-image")
 	result.Del("path")
 	return result
 }
 
-func (s *resourcesUploadSuite) makeResourceUploadArgs(c *gc.C, resType string) url.Values {
+func (s *resourcesUploadSuite) makeResourceUploadArgs(c *tc.C, resType string) url.Values {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	q := make(url.Values)
 	q.Add("application", s.appName)
 	q.Add("user", "napoleon")
@@ -155,22 +158,22 @@ func (s *resourcesUploadSuite) makeResourceUploadArgs(c *gc.C, resType string) u
 	return q
 }
 
-func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
+func (s *resourcesUploadSuite) TestUpload(c *tc.C) {
 	outResp := s.uploadAppResource(c, nil)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
+	c.Check(outResp.ID, tc.Not(tc.Equals), "")
+	c.Check(outResp.Timestamp.IsZero(), tc.IsFalse)
 
 	rSt := s.importingState.Resources()
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 	readContent, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(readContent), gc.Equals, content)
-	c.Assert(res.ID, gc.Equals, outResp.ID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(readContent), tc.Equals, content)
+	c.Assert(res.ID, tc.Equals, outResp.ID)
 }
 
-func (s *resourcesUploadSuite) TestUnitUpload(c *gc.C) {
+func (s *resourcesUploadSuite) TestUnitUpload(c *tc.C) {
 	// Upload application resource first. A unit resource can't be
 	// uploaded without the application resource being there first.
 	s.uploadAppResource(c, nil)
@@ -185,27 +188,27 @@ func (s *resourcesUploadSuite) TestUnitUpload(c *gc.C) {
 		Body:        strings.NewReader(content),
 	})
 	outResp := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
+	c.Check(outResp.ID, tc.Not(tc.Equals), "")
+	c.Check(outResp.Timestamp.IsZero(), tc.IsFalse)
 }
 
-func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
+func (s *resourcesUploadSuite) TestPlaceholder(c *tc.C) {
 	query := s.makeUploadArgs(c)
 	query.Del("timestamp") // No timestamp means placeholder
 	outResp := s.uploadAppResource(c, &query)
-	c.Check(outResp.ID, gc.Not(gc.Equals), "")
-	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
+	c.Check(outResp.ID, tc.Not(tc.Equals), "")
+	c.Check(outResp.Timestamp.IsZero(), tc.IsTrue)
 
 	rSt := s.importingState.Resources()
 	res, err := rSt.GetResource(s.appName, "bin")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res.IsPlaceholder(), jc.IsTrue)
-	c.Check(res.ApplicationID, gc.Equals, s.appName)
-	c.Check(res.Name, gc.Equals, "bin")
-	c.Check(res.Size, gc.Equals, int64(len(content)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.IsPlaceholder(), tc.IsTrue)
+	c.Check(res.ApplicationID, tc.Equals, s.appName)
+	c.Check(res.Name, tc.Equals, "bin")
+	c.Check(res.Size, tc.Equals, int64(len(content)))
 }
 
-func (s *resourcesUploadSuite) uploadAppResource(c *gc.C, query *url.Values) params.ResourceUploadResult {
+func (s *resourcesUploadSuite) uploadAppResource(c *tc.C, query *url.Values) params.ResourceUploadResult {
 	if query == nil {
 		q := s.makeUploadArgs(c)
 		query = &q
@@ -219,7 +222,7 @@ func (s *resourcesUploadSuite) uploadAppResource(c *gc.C, query *url.Values) par
 	return s.assertResponse(c, resp, http.StatusOK)
 }
 
-func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
+func (s *resourcesUploadSuite) TestArgValidation(c *tc.C) {
 	checkBadRequest := func(q url.Values, expected string) {
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 			Method: "POST",
@@ -265,7 +268,7 @@ func (s *resourcesUploadSuite) TestArgValidation(c *gc.C) {
 	checkBadRequest(q, "invalid fingerprint")
 }
 
-func (s *resourcesUploadSuite) TestArgValidationCAASModel(c *gc.C) {
+func (s *resourcesUploadSuite) TestArgValidationCAASModel(c *tc.C) {
 	content := `{"ImageName": "image-name", "Username": "fred", "Password":"secret"}`
 	checkRequest := func(q url.Values) {
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -280,9 +283,9 @@ func (s *resourcesUploadSuite) TestArgValidationCAASModel(c *gc.C) {
 	checkRequest(q)
 }
 
-func (s *resourcesUploadSuite) TestFailsWhenModelNotImporting(c *gc.C) {
+func (s *resourcesUploadSuite) TestFailsWhenModelNotImporting(c *tc.C) {
 	err := s.importingModel.SetMigrationMode(state.MigrationModeNone)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	q := s.makeUploadArgs(c)
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -307,22 +310,22 @@ func (s *resourcesUploadSuite) resourcesURL(query string) *url.URL {
 	return url
 }
 
-func (s *resourcesUploadSuite) assertErrorResponse(c *gc.C, resp *http.Response, expStatus int, expError string) {
+func (s *resourcesUploadSuite) assertErrorResponse(c *tc.C, resp *http.Response, expStatus int, expError string) {
 	outResp := s.assertResponse(c, resp, expStatus)
 	err := outResp.Error
-	c.Assert(err, gc.NotNil)
-	c.Check(err.Message, gc.Matches, expError)
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Message, tc.Matches, expError)
 }
 
-func (s *resourcesUploadSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ResourceUploadResult {
+func (s *resourcesUploadSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int) params.ResourceUploadResult {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var outResp params.ResourceUploadResult
 	err := json.Unmarshal(body, &outResp)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Body: %s", body))
 	return outResp
 }
 
-func (s *resourcesUploadSuite) TestSetResource(c *gc.C) {
+func (s *resourcesUploadSuite) TestSetResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 

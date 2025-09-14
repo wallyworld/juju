@@ -3,49 +3,51 @@
 package changestream
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.Clock = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.DBGetter = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.FileNotifyWatcher = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.NewEventQueueWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 }
 
 func (s *workerSuite) getConfig() WorkerConfig {
@@ -60,7 +62,7 @@ func (s *workerSuite) getConfig() WorkerConfig {
 	}
 }
 
-func (s *workerSuite) TestEventQueue(c *gc.C) {
+func (s *workerSuite) TestEventQueue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -75,15 +77,15 @@ func (s *workerSuite) TestEventQueue(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	stream, ok := w.(ChangeStream)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	_, err := stream.EventQueue("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
+func (s *workerSuite) TestEventQueueCalledTwice(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -107,21 +109,21 @@ func (s *workerSuite) TestEventQueueCalledTwice(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	stream, ok := w.(ChangeStream)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("worker does not implement ChangeStream"))
 
 	// Ensure that the event queue is only created once.
 	_, err := stream.EventQueue("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = stream.EventQueue("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	close(done)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C, attempts int) worker.Worker {
 	cfg := WorkerConfig{
 		DBGetter:          s.dbGetter,
 		FileNotifyWatcher: s.fileNotifyWatcher,
@@ -137,6 +139,6 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 	}
 
 	w, err := newWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

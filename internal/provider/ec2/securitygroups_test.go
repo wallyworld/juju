@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	stdcontext "context"
+	tctesting "testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -13,13 +14,12 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/ec2"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type SecurityGroupSuite struct {
@@ -30,17 +30,19 @@ type SecurityGroupSuite struct {
 	cloudCallCtx context.ProviderCallContext
 }
 
-var _ = gc.Suite(&SecurityGroupSuite{})
+func TestSecurityGroupSuite(t *tctesting.T) {
+	tc.Run(t, &SecurityGroupSuite{})
+}
 
-func (s *SecurityGroupSuite) SetUpSuite(c *gc.C) {
+func (s *SecurityGroupSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.deleteFunc = *ec2.DeleteSecurityGroupInsistently
 }
 
-func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
+func (s *SecurityGroupSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clientStub = &stubClient{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		deleteSecurityGroup: func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
 			return nil, nil
 		},
@@ -48,22 +50,22 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 	s.cloudCallCtx = context.NewEmptyCloudCallContext()
 }
 
-func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
+func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *tc.C) {
 	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
-func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C) {
+func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *tc.C) {
 	s.clientStub.deleteSecurityGroup = func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
 		return nil, &smithy.GenericAPIError{Code: "InvalidGroup.NotFound"}
 	}
 	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, testclock.NewClock(time.Time{}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.clientStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
-func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
+func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *tc.C) {
 	t0 := time.Time{}
 	clock := autoAdvancingClock{testclock.NewClock(t0)}
 	count := 0
@@ -76,7 +78,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 		t0.Add(15 * time.Second),
 	}
 	s.clientStub.deleteSecurityGroup = func(group types.GroupIdentifier) (resp *awsec2.DeleteSecurityGroupOutput, err error) {
-		c.Assert(clock.Now(), gc.Equals, expectedTimes[count])
+		c.Assert(clock.Now(), tc.Equals, expectedTimes[count])
 		if count < maxCalls {
 			count++
 			return nil, &smithy.GenericAPIError{Code: "keep going"}
@@ -84,7 +86,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 		return nil, nil
 	}
 	err := s.deleteFunc(s.clientStub, s.cloudCallCtx, types.GroupIdentifier{}, clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCalls := make([]string, maxCalls+1)
 	for i := 0; i < maxCalls+1; i++ {
@@ -104,7 +106,7 @@ func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {
 }
 
 type stubClient struct {
-	*testing.Stub
+	*testhelpers.Stub
 	deleteSecurityGroup func(group types.GroupIdentifier) (*awsec2.DeleteSecurityGroupOutput, error)
 }
 

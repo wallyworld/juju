@@ -7,19 +7,22 @@ import (
 	"encoding/base64"
 	"regexp"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/retry"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 
-var _ = gc.Suite(&DebugHooksSuite{})
+func TestDebugHooksSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &DebugHooksSuite{})
+}
 
 type DebugHooksSuite struct {
 	SSHMachineSuite
@@ -104,7 +107,7 @@ var debugHooksTests = []struct {
 	error: `no unit name specified`,
 }}
 
-func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
+func (s *DebugHooksSuite) TestDebugHooksCommand(c *tc.C) {
 	s.setupModel(c)
 
 	for i, t := range debugHooksTests {
@@ -114,9 +117,9 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy), t.args...)
 		if t.error != "" {
-			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
+			c.Check(err, tc.ErrorMatches, regexp.QuoteMeta(t.error))
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			if t.expected != nil {
 				t.expected.check(c, cmdtesting.Stdout(ctx))
 			}
@@ -124,35 +127,35 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 	}
 }
 
-func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
+func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *tc.C) {
 	s.setupModel(c)
 	s.setHostChecker(validAddresses("0.public"))
 	ctx, err := cmdtesting.RunCommand(c, NewDebugHooksCommand(s.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy),
 		"mysql/0", "install", "start")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	base64Regex := regexp.MustCompile("echo ([A-Za-z0-9+/]+=*) \\| base64")
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	rawContent := base64Regex.FindString(cmdtesting.Stdout(ctx))
-	c.Check(rawContent, gc.Not(gc.Equals), "")
+	c.Check(rawContent, tc.Not(tc.Equals), "")
 	// Strip off the "echo " and " | base64"
 	prefix := "echo "
 	suffix := " | base64"
-	c.Check(strings.HasPrefix(rawContent, prefix), jc.IsTrue)
-	c.Check(strings.HasSuffix(rawContent, suffix), jc.IsTrue)
+	c.Check(strings.HasPrefix(rawContent, prefix), tc.IsTrue)
+	c.Check(strings.HasSuffix(rawContent, suffix), tc.IsTrue)
 	b64content := rawContent[len(prefix) : len(rawContent)-len(suffix)]
 	scriptContent, err := base64.StdEncoding.DecodeString(b64content)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(scriptContent), gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(scriptContent), tc.Not(tc.Equals), "")
 	// Inside the script is another base64 encoded string telling us the debug-hook args
 	debugArgsRegex := regexp.MustCompile(`echo "([A-Z-a-z0-9+/]+=*)" \| base64.*-debug-hooks`)
 	debugArgsCommand := debugArgsRegex.FindString(string(scriptContent))
 	debugArgsB64 := debugArgsCommand[len(`echo "`):strings.Index(debugArgsCommand, `" | base64`)]
 	yamlContent, err := base64.StdEncoding.DecodeString(debugArgsB64)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var args map[string]interface{}
 	err = goyaml.Unmarshal(yamlContent, &args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(args, gc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(args, tc.DeepEquals, map[string]interface{}{
 		"hooks": []interface{}{"install", "start"},
 	})
 }

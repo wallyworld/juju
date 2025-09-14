@@ -5,11 +5,11 @@ package resources_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,15 +26,17 @@ type configmapSuite struct {
 	configmapClient core.ConfigMapInterface
 }
 
-var _ = gc.Suite(&configmapSuite{})
+func TestConfigmapSuite(t *tctesting.T) {
+	tc.Run(t, &configmapSuite{})
+}
 
-func (s *configmapSuite) SetUpTest(c *gc.C) {
+func (s *configmapSuite) SetUpTest(c *tc.C) {
 	s.resourceSuite.SetUpTest(c)
 	s.namespace = "ns1"
 	s.configmapClient = s.client.CoreV1().ConfigMaps(s.namespace)
 }
 
-func (s *configmapSuite) TestApply(c *gc.C) {
+func (s *configmapSuite) TestApply(c *tc.C) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cm1",
@@ -43,26 +45,26 @@ func (s *configmapSuite) TestApply(c *gc.C) {
 
 	// Create.
 	configMapResource := resources.NewConfigMap(s.configmapClient, "cm1", cm)
-	c.Assert(configMapResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(configMapResource.Apply(context.TODO()), tc.ErrorIsNil)
 
 	// Get.
 	result, err := s.configmapClient.Get(context.TODO(), "cm1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Apply.
 	cm.SetAnnotations(map[string]string{"a": "b"})
 	configMapResource = resources.NewConfigMap(s.configmapClient, "cm1", cm)
-	c.Assert(configMapResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(configMapResource.Apply(context.TODO()), tc.ErrorIsNil)
 
 	// Get again to test apply successful.
 	result, err = s.configmapClient.Get(context.TODO(), "cm1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `cm1`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `cm1`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *configmapSuite) TestGet(c *gc.C) {
+func (s *configmapSuite) TestGet(c *tc.C) {
 	template := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cm1",
@@ -73,20 +75,20 @@ func (s *configmapSuite) TestGet(c *gc.C) {
 	// Create cm with annotations.
 	cm.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.configmapClient.Create(context.TODO(), &cm, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create new cm1 configmap object that has no annotations.
 	configMapResource := resources.NewConfigMap(s.configmapClient, "cm1", &template)
-	c.Assert(len(configMapResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(configMapResource.GetAnnotations()), tc.Equals, 0)
 
 	// Get actual resource that has annotations using k8s api.
 	err = configMapResource.Get(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(configMapResource.GetName(), gc.Equals, `cm1`)
-	c.Assert(configMapResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(configMapResource.GetName(), tc.Equals, `cm1`)
+	c.Assert(configMapResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *configmapSuite) TestDelete(c *gc.C) {
+func (s *configmapSuite) TestDelete(c *tc.C) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cm1",
@@ -95,38 +97,38 @@ func (s *configmapSuite) TestDelete(c *gc.C) {
 
 	// Create cm1.
 	_, err := s.configmapClient.Create(context.TODO(), cm, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Get cm1 to ensure it exists.
 	result, err := s.configmapClient.Get(context.TODO(), "cm1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `cm1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `cm1`)
 
 	// Create new cm1 configmap object for deletion.
 	configMapResource := resources.NewConfigMap(s.configmapClient, "cm1", cm)
 
 	// Delete cm1.
 	err = configMapResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete cm1 again.
 	err = configMapResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	err = configMapResource.Get(context.TODO())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.configmapClient.Get(context.TODO(), "cm1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *configmapSuite) TestListConfigMaps(c *gc.C) {
+func (s *configmapSuite) TestListConfigMaps(c *tc.C) {
 	// Set up labels for model and app to list resource.
 	controllerUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelName := "testmodel"
 
@@ -145,7 +147,7 @@ func (s *configmapSuite) TestListConfigMaps(c *gc.C) {
 		},
 	}
 	_, err = s.configmapClient.Create(context.TODO(), cm1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create cm2.
 	cm2Name := "cm2"
@@ -156,26 +158,26 @@ func (s *configmapSuite) TestListConfigMaps(c *gc.C) {
 		},
 	}
 	_, err = s.configmapClient.Create(context.TODO(), cm2, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// List resources with correct labels.
-	cms, err := resources.ListConfigMaps(context.Background(), s.configmapClient, metav1.ListOptions{
+	cms, err := resources.ListConfigMaps(c.Context(), s.configmapClient, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(cms), gc.Equals, 2)
-	c.Assert(cms[0].GetName(), gc.Equals, cm1Name)
-	c.Assert(cms[1].GetName(), gc.Equals, cm2Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(cms), tc.Equals, 2)
+	c.Assert(cms[0].GetName(), tc.Equals, cm1Name)
+	c.Assert(cms[1].GetName(), tc.Equals, cm2Name)
 
 	// List resources with no labels.
-	cms, err = resources.ListConfigMaps(context.Background(), s.configmapClient, metav1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(cms), gc.Equals, 2)
+	cms, err = resources.ListConfigMaps(c.Context(), s.configmapClient, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(cms), tc.Equals, 2)
 
 	// List resources with wrong labels.
-	cms, err = resources.ListConfigMaps(context.Background(), s.configmapClient, metav1.ListOptions{
+	cms, err = resources.ListConfigMaps(c.Context(), s.configmapClient, metav1.ListOptions{
 		LabelSelector: "foo=bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(cms), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(cms), tc.Equals, 0)
 }

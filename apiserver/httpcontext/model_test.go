@@ -7,27 +7,29 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ModelHandlersSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	impliedHandler *httpcontext.ImpliedModelHandler
 	queryHandler   *httpcontext.QueryModelHandler
 	bucketHandler  *httpcontext.BucketModelHandler
 	server         *httptest.Server
 }
 
-var _ = gc.Suite(&ModelHandlersSuite{})
+func TestModelHandlersSuite(t *tctesting.T) {
+	tc.Run(t, &ModelHandlersSuite{})
+}
 
-func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
+func (s *ModelHandlersSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, httpcontext.RequestModelUUID(r))
@@ -51,73 +53,73 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	s.server = httptest.NewServer(mux)
 }
 
-func (s *ModelHandlersSuite) TestRequestModelUUIDNoContext(c *gc.C) {
+func (s *ModelHandlersSuite) TestRequestModelUUIDNoContext(c *tc.C) {
 	uuid := httpcontext.RequestModelUUID(&http.Request{})
-	c.Assert(uuid, gc.Equals, "")
+	c.Assert(uuid, tc.Equals, "")
 }
 
-func (s *ModelHandlersSuite) TestImplied(c *gc.C) {
+func (s *ModelHandlersSuite) TestImplied(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/implied")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
-func (s *ModelHandlersSuite) TestQuery(c *gc.C) {
+func (s *ModelHandlersSuite) TestQuery(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/query?modeluuid=" + coretesting.ModelTag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
-func (s *ModelHandlersSuite) TestQueryInvalidModelUUID(c *gc.C) {
+func (s *ModelHandlersSuite) TestQueryInvalidModelUUID(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/query?modeluuid=zing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `invalid model UUID "zing"`+"\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `invalid model UUID "zing"`+"\n")
 }
 
-func (s *ModelHandlersSuite) TestBucket(c *gc.C) {
+func (s *ModelHandlersSuite) TestBucket(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/model-" + coretesting.ModelTag.Id() + "/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, coretesting.ModelTag.Id())
 }
 
-func (s *ModelHandlersSuite) TestInvalidBucket(c *gc.C) {
+func (s *ModelHandlersSuite) TestInvalidBucket(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/modelwrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "404 page not found\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, "404 page not found\n")
 }
 
-func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *gc.C) {
+func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *tc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/model-wrongbucket/charms/somecharm-abcd0123")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusBadRequest)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `invalid model UUID "wrongbucket"`+"\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.Equals, `invalid model UUID "wrongbucket"`+"\n")
 }

@@ -6,19 +6,19 @@ package dbaccessor
 import (
 	"context"
 	"errors"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
@@ -27,9 +27,11 @@ type workerSuite struct {
 	nodeManager *MockNodeManager
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -68,10 +70,10 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+	c.Assert(errors.Is(err, dependency.ErrBounce), tc.IsTrue)
 }
 
-func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -126,7 +128,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
+func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -220,7 +222,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -257,7 +259,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -294,7 +296,7 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -355,7 +357,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -429,10 +431,10 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+	c.Assert(errors.Is(err, dependency.ErrBounce), tc.IsTrue)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -480,7 +482,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferredAndNotLoopbackBound(c *gc.C) {
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferredAndNotLoopbackBound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -528,16 +530,16 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+	c.Assert(errors.Is(err, dependency.ErrBounce), tc.IsTrue)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 	s.nodeManager = NewMockNodeManager(ctrl)
 	return ctrl
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	cfg := WorkerConfig{
 		NodeManager:  s.nodeManager,
 		Clock:        s.clock,
@@ -554,6 +556,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	}
 
 	w, err := newWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

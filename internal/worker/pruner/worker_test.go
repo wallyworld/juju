@@ -5,37 +5,39 @@ package pruner_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/statushistorypruner"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PrunerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&PrunerSuite{})
+func TestPrunerSuite(t *tctesting.T) {
+	tc.Run(t, &PrunerSuite{})
+}
 
 type newPrunerFunc func(pruner.Config) (worker.Worker, error)
 
-func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade, *testclock.Clock) {
+func (s *PrunerSuite) setupPruner(c *tc.C, newPruner newPrunerFunc) (*fakeFacade, *testclock.Clock) {
 	facade := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
 	attrs["max-status-history-size"] = "3M"
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	facade.modelConfig = cfg
 
 	testClock := testclock.NewClock(time.Time{})
@@ -47,9 +49,9 @@ func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade
 	}
 
 	pruner, err := newPruner(conf)
-	c.Check(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) {
-		c.Assert(worker.Stop(pruner), jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) {
+		c.Assert(worker.Stop(pruner), tc.ErrorIsNil)
 	})
 
 	facade.modelChangesWatcher.changes <- struct{}{}
@@ -57,7 +59,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade
 	return facade, testClock
 }
 
-func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testclock.Clock, collectionSize int) {
+func (s *PrunerSuite) assertWorkerCallsPrune(c *tc.C, facade *fakeFacade, testClock *testclock.Clock, collectionSize int) {
 	// NewTimer/Reset will have been called with the PruneInterval.
 	testClock.WaitAdvance(coretesting.ShortWait-time.Nanosecond, coretesting.LongWait, 1)
 	select {
@@ -68,18 +70,18 @@ func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testCl
 	testClock.Advance(time.Nanosecond)
 	select {
 	case args := <-facade.pruned:
-		c.Assert(args.maxHistoryMB, gc.Equals, collectionSize)
+		c.Assert(args.maxHistoryMB, tc.Equals, collectionSize)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for call to Prune")
 	}
 }
 
-func (s *PrunerSuite) TestWorkerCallsPrune(c *gc.C) {
+func (s *PrunerSuite) TestWorkerCallsPrune(c *tc.C) {
 	facade, clock := s.setupPruner(c, statushistorypruner.New)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 }
 
-func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
+func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *tc.C) {
 	facade, _ := s.setupPruner(c, statushistorypruner.New)
 
 	select {
@@ -89,13 +91,13 @@ func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
 	}
 }
 
-func (s *PrunerSuite) TestModelConfigChange(c *gc.C) {
+func (s *PrunerSuite) TestModelConfigChange(c *tc.C) {
 	facade, clock := s.setupPruner(c, statushistorypruner.New)
 	s.assertWorkerCallsPrune(c, facade, clock, 3)
 
 	var err error
 	facade.modelConfig, err = facade.modelConfig.Apply(map[string]interface{}{"max-status-history-size": "4M"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	facade.modelChangesWatcher.changes <- struct{}{}
 
 	s.assertWorkerCallsPrune(c, facade, clock, 4)

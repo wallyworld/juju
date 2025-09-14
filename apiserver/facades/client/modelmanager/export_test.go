@@ -5,14 +5,14 @@ package modelmanager
 
 import (
 	"github.com/juju/names/v5"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
+func AuthCheck(c *tc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 	mm.authCheck(user)
 	return mm.isAdmin
 }

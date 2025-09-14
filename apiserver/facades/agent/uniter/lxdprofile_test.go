@@ -4,19 +4,20 @@
 package uniter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type lxdProfileSuite struct {
@@ -26,14 +27,16 @@ type lxdProfileSuite struct {
 	unitTag1    names.UnitTag
 }
 
-var _ = gc.Suite(&lxdProfileSuite{})
+func TestLxdProfileSuite(t *tctesting.T) {
+	tc.Run(t, &lxdProfileSuite{})
+}
 
-func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
+func (s *lxdProfileSuite) SetUpTest(c *tc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")
 }
 
-func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
+func (s *lxdProfileSuite) assertBackendAPI(c *tc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
@@ -56,7 +59,7 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 	return api, ctrl, mockBackend
 }
 
-func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
+func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -82,8 +85,8 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 		ApplicationName: "foo-bar",
 	}
 	watches, err := api.WatchLXDProfileUpgradeNotifications(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},
@@ -92,7 +95,7 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	})
 }
 
-func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
+func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -113,8 +116,8 @@ func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 		},
 	}
 	watches, err := api.WatchUnitLXDProfileUpgradeNotifications(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{StringsWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{StringsWatcherId: "1", Changes: []string{""}, Error: nil},

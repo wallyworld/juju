@@ -4,34 +4,37 @@
 package machine_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/machine"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MachineShowCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&MachineShowCommandSuite{})
+func TestMachineShowCommandSuite(t *tctesting.T) {
+	tc.Run(t, &MachineShowCommandSuite{})
+}
 
 func newMachineShowCommand() cmd.Command {
 	return machine.NewShowCommandForTest(&fakeStatusAPI{})
 }
 
-func (s *MachineShowCommandSuite) SetUpTest(c *gc.C) {
+func (s *MachineShowCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
-func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
+func (s *MachineShowCommandSuite) TestShowMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
@@ -103,11 +106,11 @@ func (s *MachineShowCommandSuite) TestShowMachine(c *gc.C) {
 	)
 }
 
-func (s *MachineShowCommandSuite) TestShowSingleMachine(c *gc.C) {
+func (s *MachineShowCommandSuite) TestShowSingleMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
@@ -132,19 +135,19 @@ func (s *MachineShowCommandSuite) TestShowSingleMachine(c *gc.C) {
 		"    hardware: availability-zone=us-east-1\n")
 }
 
-func (s *MachineShowCommandSuite) TestShowTabularMachine(c *gc.C) {
+func (s *MachineShowCommandSuite) TestShowTabularMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "--format", "tabular", "0", "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
 		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
 		"1        started  10.0.0.2  juju-badd06-1        ubuntu@22.04             \n"+
 		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  ubuntu@22.04             \n")
 }
 
-func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
+func (s *MachineShowCommandSuite) TestShowJsonMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineShowCommand(), "--format", "json", "0", "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// TODO(macgreagoir) Spaces in dummyenv?
 	// Make the test more readable by putting all the JSON in a expanded form.
 	// Then to test it, marshal it back into json, so that map equality ordering
@@ -245,8 +248,8 @@ func (s *MachineShowCommandSuite) TestShowJsonMachine(c *gc.C) {
 		"	   }" +
 		"	}" +
 		" }\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actualJSON, err := unmarshalStringAsJSON(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualJSON, gc.DeepEquals, expectedJSON)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(actualJSON, tc.DeepEquals, expectedJSON)
 }

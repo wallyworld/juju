@@ -6,36 +6,36 @@ package caasoperator_test
 import (
 	"os"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/caasoperator/mocks"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/rpc/params"
 	_ "github.com/juju/juju/secrets/provider/all"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	manifold        dependency.Manifold
 	agent           fakeAgent
@@ -44,12 +44,14 @@ type ManifoldSuite struct {
 	client          fakeClient
 	clock           *testclock.Clock
 	dataDir         string
-	stub            testing.Stub
+	stub            testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "127.0.0.1")
@@ -66,14 +68,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 }
 
-func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+func (s *ManifoldSuite) TearDownTest(c *tc.C) {
 	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "")
 	os.Setenv("JUJU_OPERATOR_POD_IP", "")
 
 	s.IsolationSuite.TearDownTest(c)
 }
 
-func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
+func (s *ManifoldSuite) setupManifold(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 
@@ -124,7 +126,7 @@ func (s *ManifoldSuite) newWorker(config caasoperator.Config) (worker.Worker, er
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
 }
 
@@ -140,14 +142,14 @@ func (s *ManifoldSuite) newCharmDownloader(caller base.APICaller) caasoperator.D
 
 var expectedInputs = []string{"agent", "api-caller", "clock", "charm-dir", "hook-retry-strategy"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	ctrl := s.setupManifold(c)
 	defer ctrl.Finish()
 
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	ctrl := s.setupManifold(c)
 	defer ctrl.Finish()
 
@@ -156,11 +158,11 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
@@ -169,24 +171,24 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCall(c, 1, "NewCharmDownloader", s.apiCaller)
 
 	args := s.stub.Calls()[2].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, caasoperator.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, caasoperator.Config{})
 	config := args[0].(caasoperator.Config)
 
 	// Don't care about some helper funcs.
-	c.Assert(config.UniterParams, gc.NotNil)
-	c.Assert(config.LeadershipTrackerFunc, gc.NotNil)
-	c.Assert(config.UniterFacadeFunc, gc.NotNil)
-	c.Assert(config.StartUniterFunc, gc.NotNil)
-	c.Assert(config.RunListenerSocketFunc, gc.NotNil)
-	c.Assert(config.UniterParams.UpdateStatusSignal, gc.NotNil)
-	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
-	c.Assert(config.UniterParams.NewProcessRunner, gc.NotNil)
-	c.Assert(config.UniterParams.NewDeployer, gc.NotNil)
-	c.Assert(config.UniterParams.SecretRotateWatcherFunc, gc.NotNil)
-	c.Assert(config.UniterParams.SecretsBackendGetter, gc.NotNil)
-	c.Assert(config.Logger, gc.NotNil)
-	c.Assert(config.ExecClientGetter, gc.NotNil)
+	c.Assert(config.UniterParams, tc.NotNil)
+	c.Assert(config.LeadershipTrackerFunc, tc.NotNil)
+	c.Assert(config.UniterFacadeFunc, tc.NotNil)
+	c.Assert(config.StartUniterFunc, tc.NotNil)
+	c.Assert(config.RunListenerSocketFunc, tc.NotNil)
+	c.Assert(config.UniterParams.UpdateStatusSignal, tc.NotNil)
+	c.Assert(config.UniterParams.NewOperationExecutor, tc.NotNil)
+	c.Assert(config.UniterParams.NewProcessRunner, tc.NotNil)
+	c.Assert(config.UniterParams.NewDeployer, tc.NotNil)
+	c.Assert(config.UniterParams.SecretRotateWatcherFunc, tc.NotNil)
+	c.Assert(config.UniterParams.SecretsBackendGetter, tc.NotNil)
+	c.Assert(config.Logger, tc.NotNil)
+	c.Assert(config.ExecClientGetter, tc.NotNil)
 	config.LeadershipTrackerFunc = nil
 	config.StartUniterFunc = nil
 	config.UniterFacadeFunc = nil
@@ -203,11 +205,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.Logger = nil
 	config.ExecClientGetter = nil
 
-	c.Assert(config.UniterParams.SocketConfig.TLSConfig, gc.NotNil)
+	c.Assert(config.UniterParams.SocketConfig.TLSConfig, tc.NotNil)
 	config.UniterParams.SocketConfig.TLSConfig = nil
 
 	jujuSecretsAPI := secretsmanager.NewClient(s.apiCaller)
-	c.Assert(config, jc.DeepEquals, caasoperator.Config{
+	c.Assert(config, tc.DeepEquals, caasoperator.Config{
 		ModelUUID:             coretesting.ModelTag.Id(),
 		ModelName:             "gitlab-model",
 		Application:           "gitlab",
@@ -242,14 +244,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	ctrl := s.setupManifold(c)
 	defer ctrl.Finish()
 
 	s.apiCaller.EXPECT().BestFacadeVersion("SecretsManager").AnyTimes().Return(1)
 
 	w, err := s.manifold.Start(s.newContext(nil))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

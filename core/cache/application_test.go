@@ -5,12 +5,12 @@ package cache_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
@@ -22,16 +22,18 @@ type ApplicationSuite struct {
 	cache.EntitySuite
 }
 
-var _ = gc.Suite(&ApplicationSuite{})
+func TestApplicationSuite(t *tctesting.T) {
+	tc.Run(t, &ApplicationSuite{})
+}
 
-func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
+func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *tc.C) {
 	m := s.NewApplication(appChange)
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), tc.Equals, float64(0))
 
 	m.Config()
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), tc.Equals, float64(1))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), tc.Equals, float64(2))
 
 	// Goroutine safety.
 	var wg sync.WaitGroup
@@ -43,12 +45,12 @@ func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 		}()
 	}
 	wg.Wait()
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(5))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), tc.Equals, float64(5))
 }
 
 // See model_test.go for other config watcher tests.
 // Here we just check that WatchConfig is wired up properly.
-func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
+func (s *ApplicationSuite) TestConfigWatcherChange(c *tc.C) {
 	a := s.NewApplication(appChange)
 	w := a.WatchConfig()
 
@@ -70,15 +72,15 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 	wc.AssertOneChange()
 
 	// The hash is generated each time we set the details.
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), tc.Equals, float64(2))
 
 	// The value is retrieved from the cache when the watcher is created and notified.
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheHit), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheHit), tc.Equals, float64(2))
 
 	// Setting the same values causes no notification and no cache miss.
 	a.SetDetails(change)
 	wc.AssertNoChange()
-	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), tc.Equals, float64(2))
 }
 
 func (s *ApplicationSuite) status(value status.Status, when time.Time) status.StatusInfo {
@@ -88,7 +90,7 @@ func (s *ApplicationSuite) status(value status.Status, when time.Time) status.St
 	}
 }
 
-func (s *ApplicationSuite) TestStatusWhenSet(c *gc.C) {
+func (s *ApplicationSuite) TestStatusWhenSet(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -98,11 +100,11 @@ func (s *ApplicationSuite) TestStatusWhenSet(c *gc.C) {
 		Status: appStatus,
 	}, s.Manager)
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, appStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.Status(), tc.DeepEquals, appStatus)
 }
 
-func (s *ApplicationSuite) TestStatusWhenUnsetNoUnits(c *gc.C) {
+func (s *ApplicationSuite) TestStatusWhenUnsetNoUnits(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -112,14 +114,14 @@ func (s *ApplicationSuite) TestStatusWhenUnsetNoUnits(c *gc.C) {
 		Status: s.status(status.Unset, now),
 	}, s.Manager)
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, status.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.Status(), tc.DeepEquals, status.StatusInfo{
 		Status: status.Unknown,
 		Since:  &now,
 	})
 }
 
-func (s *ApplicationSuite) TestStatusWhenUnsetWithUnits(c *gc.C) {
+func (s *ApplicationSuite) TestStatusWhenUnsetWithUnits(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -142,11 +144,11 @@ func (s *ApplicationSuite) TestStatusWhenUnsetWithUnits(c *gc.C) {
 	}, s.Manager)
 
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.Status(), jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.Status(), tc.DeepEquals, expected)
 }
 
-func (s *ApplicationSuite) TestDisplayStatusOperatorRunning(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorRunning(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -157,11 +159,11 @@ func (s *ApplicationSuite) TestDisplayStatusOperatorRunning(c *gc.C) {
 		OperatorStatus: s.status(status.Running, time.Now()),
 	}, s.Manager)
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.DisplayStatus(), jc.DeepEquals, appStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.DisplayStatus(), tc.DeepEquals, appStatus)
 }
 
-func (s *ApplicationSuite) TestDisplayStatusOperatorActive(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorActive(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -172,11 +174,11 @@ func (s *ApplicationSuite) TestDisplayStatusOperatorActive(c *gc.C) {
 		OperatorStatus: s.status(status.Active, time.Now()),
 	}, s.Manager)
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.DisplayStatus(), jc.DeepEquals, appStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.DisplayStatus(), tc.DeepEquals, appStatus)
 }
 
-func (s *ApplicationSuite) TestDisplayStatusOperatorWaiting(c *gc.C) {
+func (s *ApplicationSuite) TestDisplayStatusOperatorWaiting(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -187,11 +189,11 @@ func (s *ApplicationSuite) TestDisplayStatusOperatorWaiting(c *gc.C) {
 		Status:         s.status(status.Active, time.Now()),
 		OperatorStatus: expected}, s.Manager)
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.DisplayStatus(), jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.DisplayStatus(), tc.DeepEquals, expected)
 }
 
-func (s *ApplicationSuite) TestUnitsSorted(c *gc.C) {
+func (s *ApplicationSuite) TestUnitsSorted(c *tc.C) {
 	model := s.NewModel(cache.ModelChange{
 		Name: "test",
 	})
@@ -213,7 +215,7 @@ func (s *ApplicationSuite) TestUnitsSorted(c *gc.C) {
 	}, s.Manager)
 
 	app, err := model.Application("app")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	units := app.Units()
 
 	names := make([]string, len(units))
@@ -222,7 +224,7 @@ func (s *ApplicationSuite) TestUnitsSorted(c *gc.C) {
 	}
 	// Simple alphabetical sort for now as we may well soon have unit IDs that
 	// are hashes.
-	c.Assert(names, jc.DeepEquals, []string{"app/1", "app/10", "app/2"})
+	c.Assert(names, tc.DeepEquals, []string{"app/1", "app/10", "app/2"})
 }
 
 var appChange = cache.ApplicationChange{

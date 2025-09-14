@@ -5,31 +5,33 @@ package upgradevalidation_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
-var _ = gc.Suite(&upgradeValidationSuite{})
-
-type upgradeValidationSuite struct {
-	jujutesting.IsolationSuite
+func TestUpgradeValidationSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeValidationSuite{})
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
+type upgradeValidationSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *tc.C) {
 	blockers1 := upgradevalidation.NewModelUpgradeBlockers(
 		"controller",
 		*upgradevalidation.NewBlocker("model migration is in process"),
@@ -43,7 +45,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 		)
 		blockers1.Join(blockers)
 	}
-	c.Assert(blockers1.String(), gc.Equals, `
+	c.Assert(blockers1.String(), tc.Equals, `
 "controller":
 - model migration is in process
 - unexpected upgrade series lock found
@@ -61,7 +63,7 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 - model migration is in process`[1:])
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
+func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -79,11 +81,11 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheckFailEarly(c *gc.C) {
 	)
 
 	blockers, err := checker.Validate()
-	c.Assert(err, gc.ErrorMatches, `server is unreachable`)
-	c.Assert(blockers, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `server is unreachable`)
+	c.Assert(blockers, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
+func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -103,14 +105,14 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
 	)
 
 	blockers, err := checker.Validate()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockers.String(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blockers.String(), tc.Equals, `
 "admin/model-1":
 - model migration is in process
 - unexpected upgrade series lock found`[1:])
 }
 
-func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -121,15 +123,15 @@ func (s *upgradeValidationSuite) TestCheckNoWinMachinesForModel(c *gc.C) {
 	)
 
 	blocker, err := upgradevalidation.CheckNoWinMachinesForModel("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.CheckNoWinMachinesForModel("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated windows machine(s): win10(1) win7(2)`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `the model hosts deprecated windows machine(s): win10(1) win7(2)`)
 }
 
-func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -137,11 +139,11 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -153,19 +155,19 @@ func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) 
 	)
 
 	blocker, err := upgradevalidation.GetCheckUpgradeSeriesLockForModel(false)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckUpgradeSeriesLockForModel(true)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckUpgradeSeriesLockForModel(false)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `unexpected upgrade series lock found`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `unexpected upgrade series lock found`)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -185,32 +187,32 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 		version.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("1.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `downgrade is not allowed`)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
 		version.MustParse("4.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)("", nil, nil, model)
-	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)
+	c.Assert(blocker, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestCheckModelMigrationModeForControllerUpgrade(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckModelMigrationModeForControllerUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -222,19 +224,19 @@ func (s *upgradeValidationSuite) TestCheckModelMigrationModeForControllerUpgrade
 	)
 
 	blocker, err := upgradevalidation.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `model is under "importing" mode, upgrade blocked`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `model is under "importing" mode, upgrade blocked`)
 
 	blocker, err = upgradevalidation.CheckModelMigrationModeForControllerUpgrade("", nil, nil, model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `model is under "exporting" mode, upgrade blocked`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `model is under "exporting" mode, upgrade blocked`)
 }
 
-func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -306,15 +308,15 @@ func (s *upgradeValidationSuite) TestCheckMongoStatusForControllerUpgrade(c *gc.
 	)
 
 	blocker, err := upgradevalidation.CheckMongoStatusForControllerUpgrade("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.CheckMongoStatusForControllerUpgrade("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `unable to upgrade, database node 1 (1.1.1.1) has state RECOVERING, node 2 (2.2.2.2) has state FATAL, node 3 (3.3.3.3) has state STARTUP2, node 4 (4.4.4.4) has state UNKNOWN, node 5 (5.5.5.5) has state ARBITER, node 6 (6.6.6.6) has state DOWN, node 7 (7.7.7.7) has state ROLLBACK, node 8 (8.8.8.8) has state SHUNNED`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `unable to upgrade, database node 1 (1.1.1.1) has state RECOVERING, node 2 (2.2.2.2) has state FATAL, node 3 (3.3.3.3) has state STARTUP2, node 4 (4.4.4.4) has state UNKNOWN, node 5 (5.5.5.5) has state ARBITER, node 6 (6.6.6.6) has state DOWN, node 7 (7.7.7.7) has state ROLLBACK, node 8 (8.8.8.8) has state SHUNNED`)
 }
 
-func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -325,15 +327,15 @@ func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *gc.C
 	)
 
 	blocker, err := upgradevalidation.CheckMongoVersionForControllerModel("", pool, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 
 	blocker, err = upgradevalidation.CheckMongoVersionForControllerModel("", pool, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `mongo version has to be "4.4" at least, but current version is "4.3"`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker.Error(), tc.Equals, `mongo version has to be "4.4" at least, but current version is "4.3"`)
 }
 
-func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType string) {
+func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *tc.C, cloudType string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -351,19 +353,19 @@ func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType 
 	server.EXPECT().ServerVersion().Return("5.2")
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLXD(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLXD(c *tc.C) {
 	s.assertGetCheckForLXDVersion(c, "lxd")
 }
 
-func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLocalhost(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLocalhost(c *tc.C) {
 	s.assertGetCheckForLXDVersion(c, "localhost")
 }
 
-func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -376,11 +378,11 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(
 	)
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(environscloudspec.CloudSpec{Type: "foo"})("", nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -397,12 +399,12 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 	server.EXPECT().ServerVersion().Return("4.0")
 
 	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.NotNil)
-	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.NotNil)
+	c.Assert(blocker.Error(), tc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
-func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsNotFound(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -410,11 +412,11 @@ func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsNotFound(c *gc.C) {
 	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 
 	blocker, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocker, tc.IsNil)
 }
 
-func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
+func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -422,5 +424,5 @@ func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
 	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.BadRequestf("charm urls"))
 
 	_, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }

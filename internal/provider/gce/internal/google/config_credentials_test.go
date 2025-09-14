@@ -6,22 +6,24 @@ package google_test
 import (
 	"bytes"
 	"encoding/json"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/provider/gce/internal/google"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type credentialsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *tctesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
-func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
+func (s *credentialsSuite) TestNewCredentials(c *tc.C) {
 	values := map[string]string{
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
@@ -29,11 +31,11 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(values)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jsonKey := creds.JSONKey
 	creds.JSONKey = nil
-	c.Check(creds, jc.DeepEquals, &google.Credentials{
+	c.Check(creds, tc.DeepEquals, &google.Credentials{
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
@@ -41,8 +43,8 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 	})
 	data := make(map[string]string)
 	err = json.Unmarshal(jsonKey, &data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(data, jc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.DeepEquals, map[string]string{
 		"type":         "service_account",
 		"client_id":    "abc",
 		"client_email": "xyz@g.com",
@@ -50,16 +52,16 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
+func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *tc.C) {
 	values := map[string]string{
 		"spam": "eggs",
 	}
 	_, err := google.NewCredentials(values)
 
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, tc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *credentialsSuite) TestNewCredentialsValidates(c *gc.C) {
+func (s *credentialsSuite) TestNewCredentialsValidates(c *tc.C) {
 	values := map[string]string{
 		google.OSEnvClientEmail: "xyz@g.com",
 		google.OSEnvPrivateKey:  "<some-key>",
@@ -68,11 +70,11 @@ func (s *credentialsSuite) TestNewCredentialsValidates(c *gc.C) {
 	_, err := google.NewCredentials(values)
 	// This error comes from Credentials.Validate so by implication
 	// if we're getting this error, validation is being performed.
-	c.Check(err, gc.ErrorMatches, `invalid config value \(\) for "GCE_CLIENT_ID": missing ClientID`)
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err, tc.ErrorMatches, `invalid config value \(\) for "GCE_CLIENT_ID": missing ClientID`)
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
 }
 
-func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
+func (s *credentialsSuite) TestParseJSONKey(c *tc.C) {
 	original := `
 {
     "private_key_id": "mnopq",
@@ -83,20 +85,20 @@ func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
     "type": "service_account"
 }`[1:]
 	creds, err := google.ParseJSONKey(bytes.NewBufferString(original))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jsonKey := creds.JSONKey
 	creds.JSONKey = nil
-	c.Check(creds, jc.DeepEquals, &google.Credentials{
+	c.Check(creds, tc.DeepEquals, &google.Credentials{
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
 		ProjectID:   "yup",
 	})
-	c.Check(string(jsonKey), gc.Equals, original)
+	c.Check(string(jsonKey), tc.Equals, original)
 }
 
-func (s *credentialsSuite) TestCredentialsValues(c *gc.C) {
+func (s *credentialsSuite) TestCredentialsValues(c *tc.C) {
 	original := map[string]string{
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
@@ -104,13 +106,13 @@ func (s *credentialsSuite) TestCredentialsValues(c *gc.C) {
 		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(original)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	values := creds.Values()
 
-	c.Check(values, jc.DeepEquals, original)
+	c.Check(values, tc.DeepEquals, original)
 }
 
-func (*credentialsSuite) TestValidateValid(c *gc.C) {
+func (*credentialsSuite) TestValidateValid(c *tc.C) {
 	creds := &google.Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
@@ -118,21 +120,21 @@ func (*credentialsSuite) TestValidateValid(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (*credentialsSuite) TestValidateMissingID(c *gc.C) {
+func (*credentialsSuite) TestValidateMissingID(c *tc.C) {
 	creds := &google.Credentials{
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
-	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_ID")
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_CLIENT_ID")
 }
 
-func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
+func (*credentialsSuite) TestValidateBadEmail(c *tc.C) {
 	creds := &google.Credentials{
 		ClientID:    "spam",
 		ClientEmail: "bad_email",
@@ -140,17 +142,17 @@ func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
-	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_EMAIL")
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_CLIENT_EMAIL")
 }
 
-func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
+func (*credentialsSuite) TestValidateMissingKey(c *tc.C) {
 	creds := &google.Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
-	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_PRIVATE_KEY")
+	c.Assert(err, tc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, tc.Equals, "GCE_PRIVATE_KEY")
 }

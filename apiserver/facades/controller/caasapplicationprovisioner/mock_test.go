@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -26,15 +25,16 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 
 	common.APIAddressAccessor
 	model                        *mockModel
@@ -151,7 +151,7 @@ func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.P
 }
 
 type mockStoragePoolManager struct {
-	testing.Stub
+	testhelpers.Stub
 	poolmanager.PoolManager
 }
 
@@ -164,7 +164,7 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 	state              *mockState
 	modelConfigChanges *statetesting.MockNotifyWatcher
 }
@@ -213,7 +213,7 @@ func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	state.Authenticator
 	life                      state.Life
 	tag                       names.Tag
@@ -408,7 +408,7 @@ func (ch *mockCharm) URL() string {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 }
 
@@ -446,7 +446,7 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 }
 
 type mockUnit struct {
-	testing.Stub
+	testhelpers.Stub
 	destroyOp           *state.DestroyUnitOperation
 	containerInfo       *mockCloudContainer
 	status              status.StatusInfo
@@ -484,7 +484,7 @@ func (u *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.Upda
 }
 
 type mockCloudContainer struct {
-	testing.Stub
+	testhelpers.Stub
 	unit       string
 	providerId string
 }
@@ -506,7 +506,7 @@ func (c *mockCloudContainer) Ports() []string {
 }
 
 type mockStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
 	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
@@ -614,7 +614,7 @@ func (a *mockStorageInstance) StorageName() string {
 
 type mockStorageAttachment struct {
 	state.StorageAttachment
-	testing.Stub
+	testhelpers.Stub
 	unit    names.UnitTag
 	storage names.StorageTag
 }
@@ -624,7 +624,7 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 }
 
 type mockFilesystem struct {
-	*testing.Stub
+	*testhelpers.Stub
 	state.Filesystem
 	tag    names.FilesystemTag
 	volTag names.VolumeTag
@@ -655,7 +655,7 @@ func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
 }
 
 type mockVolume struct {
-	*testing.Stub
+	*testhelpers.Stub
 	state.Volume
 	tag names.VolumeTag
 }
@@ -678,7 +678,7 @@ func (v *mockVolume) Info() (state.VolumeInfo, error) {
 }
 
 type mockResourceOpener struct {
-	testing.Stub
+	testhelpers.Stub
 
 	appName   string
 	resources *mockResources

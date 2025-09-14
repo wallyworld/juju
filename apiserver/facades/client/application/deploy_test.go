@@ -5,12 +5,12 @@ package application_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -21,10 +21,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
@@ -35,25 +35,27 @@ type DeployLocalSuite struct {
 	charm *state.Charm
 }
 
-var _ = gc.Suite(&DeployLocalSuite{})
+func TestDeployLocalSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &DeployLocalSuite{})
+}
 
-func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
+func (s *DeployLocalSuite) SetUpSuite(c *tc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
-func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
+func (s *DeployLocalSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	curl := charm.MustParseURL("local:quantal/dummy")
 	ch := testcharms.RepoForSeries("quantal").CharmDir("dummy")
 	charm, err := testing.PutCharm(s.State, curl, ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charm = charm
 }
 
-func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *tc.C) {
 	ch := s.AddTestingCharm(c, "juju-controller")
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = application.DeployApplication(stateDeployer{s.State},
 		model,
 		application.DeployApplicationParams{
@@ -61,12 +63,12 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 			Charm:           ch,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, gc.ErrorMatches, "manual deploy of the controller charm not supported")
+	c.Assert(err, tc.ErrorMatches, "manual deploy of the controller charm not supported")
 }
 
-func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployMinimal(c *tc.C) {
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
 		application.DeployApplicationParams{
@@ -74,7 +76,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{})
@@ -82,11 +84,11 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertMachines(c, app, constraints.Value{})
 }
 
-func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployChannel(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
 		model,
@@ -95,19 +97,19 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 			Charm:           s.charm,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.CharmOrigin, jc.DeepEquals, &state.CharmOrigin{
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.CharmOrigin, tc.DeepEquals, &state.CharmOrigin{
 		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}})
 }
 
-func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *tc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -117,7 +119,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 			EndpointBindings: nil,
 			CharmOrigin:      corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
 		"": network.AlphaSpaceId,
@@ -135,41 +137,41 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	})
 }
 
-func (s *DeployLocalSuite) addWordpressCharm(c *gc.C) *state.Charm {
+func (s *DeployLocalSuite) addWordpressCharm(c *tc.C) *state.Charm {
 	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress")
 	return s.addWordpressCharmFromURL(c, wordpressCharmURL)
 }
 
-func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Charm {
+func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *tc.C) *state.Charm {
 	wordpressCharmURL := charm.MustParseURL("local:quantal/wordpress-extra-bindings")
 	return s.addWordpressCharmFromURL(c, wordpressCharmURL)
 }
 
-func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
+func (s *DeployLocalSuite) addWordpressCharmFromURL(c *tc.C, charmURL *charm.URL) *state.Charm {
 	ch := testcharms.RepoForSeries("quantal").CharmDir(charmURL.Name)
 	wordpressCharm, err := testing.PutCharm(s.State, charmURL, ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return wordpressCharm
 }
 
-func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, expected map[string]string) {
+func (s *DeployLocalSuite) assertBindings(c *tc.C, app application.Application, expected map[string]string) {
 	type withEndpointBindings interface {
 		EndpointBindings() (application.Bindings, error)
 	}
 	bindings, err := app.(withEndpointBindings).EndpointBindings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings.Map(), jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bindings.Map(), tc.DeepEquals, expected)
 }
 
-func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *tc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
 	dbSpace, err := s.State.AddSpace("db", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -182,7 +184,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
 		// default binding
@@ -200,17 +202,17 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	})
 }
 
-func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *tc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	dbSpace, err := s.State.AddSpace("db", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -225,7 +227,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
 		"":                publicSpace.Id(),
@@ -242,15 +244,15 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 }
 
-func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *tc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
 	_, err := s.State.AddSpace("db", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -263,18 +265,18 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
-	c.Check(app, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cannot add application "bob": space not found`)
+	c.Check(app, tc.IsNil)
 	// The application should not have been added
 	_, err = s.State.Application("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployResources(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
 		model,
@@ -287,16 +289,16 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 			Resources:   map[string]string{"foo": "bar"},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Resources, tc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
-func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
+func (s *DeployLocalSuite) TestDeploySettings(c *tc.C) {
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -309,16 +311,16 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertSettings(c, app, charm.Settings{
 		"title":       "banana cupcakes",
 		"skill-level": int64(9901),
 	})
 }
 
-func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
+func (s *DeployLocalSuite) TestDeploySettingsError(c *tc.C) {
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -330,9 +332,9 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
+	c.Assert(err, tc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = s.State.Application("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func sampleApplicationConfigSchema() environschema.Fields {
@@ -345,15 +347,15 @@ func sampleApplicationConfigSchema() environschema.Fields {
 	return schema
 }
 
-func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *tc.C) {
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"outlook":     "good",
 		"skill-level": 1,
 	}, sampleApplicationConfigSchema(), nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -363,20 +365,20 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 			ApplicationConfig: cfg,
 			CharmOrigin:       corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertApplicationConfig(c, app, coreconfig.ConfigAttributes{
 		"outlook":     "good",
 		"skill-level": 1,
 	})
 }
 
-func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployConstraints(c *tc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	applicationCons := constraints.MustParse("cores=2")
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		model,
@@ -386,15 +388,15 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 			Constraints:     applicationCons,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertConstraints(c, app, constraints.MustParse("cores=2 arch=amd64"))
 }
 
-func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployNumUnits(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationCons := constraints.MustParse("cores=2")
 	_, err = application.DeployApplication(&f,
@@ -406,19 +408,19 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 			NumUnits:        2,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 2)
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, tc.DeepEquals, applicationCons)
+	c.Assert(f.args.NumUnits, tc.Equals, 2)
 }
 
-func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployForceMachineId(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationCons := constraints.MustParse("cores=2")
 	_, err = application.DeployApplication(&f,
@@ -431,21 +433,21 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 1)
-	c.Assert(f.args.Placement, gc.HasLen, 1)
-	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: instance.MachineScope, Directive: "0"})
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, tc.DeepEquals, applicationCons)
+	c.Assert(f.args.NumUnits, tc.Equals, 1)
+	c.Assert(f.args.Placement, tc.HasLen, 1)
+	c.Assert(*f.args.Placement[0], tc.Equals, instance.Placement{Scope: instance.MachineScope, Directive: "0"})
 }
 
-func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationCons := constraints.MustParse("cores=2")
 	_, err = application.DeployApplication(&f,
@@ -458,20 +460,20 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 1)
-	c.Assert(f.args.Placement, gc.HasLen, 1)
-	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXD), Directive: "0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, tc.DeepEquals, applicationCons)
+	c.Assert(f.args.NumUnits, tc.Equals, 1)
+	c.Assert(f.args.Placement, tc.HasLen, 1)
+	c.Assert(*f.args.Placement[0], tc.Equals, instance.Placement{Scope: string(instance.LXD), Directive: "0"})
 }
 
-func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
+func (s *DeployLocalSuite) TestDeploy(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
@@ -490,25 +492,25 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 4)
-	c.Assert(f.args.Placement, gc.DeepEquals, placement)
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, tc.DeepEquals, applicationCons)
+	c.Assert(f.args.NumUnits, tc.Equals, 4)
+	c.Assert(f.args.Placement, tc.DeepEquals, placement)
 }
 
-func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *tc.C) {
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	charm, err := testing.PutCharm(s.State, curl, ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var f = fakeDeployer{}
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
 		model,
@@ -518,20 +520,20 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 			NumUnits:        1,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, gc.ErrorMatches, `(?s)Charm cannot be deployed because:
+	c.Assert(err, tc.ErrorMatches, `(?s)Charm cannot be deployed because:
   - charm requires Juju version >= 42.0.0.*`)
 }
 
-func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *tc.C) {
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	charm, err := testing.PutCharm(s.State, curl, ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var f = fakeDeployer{}
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
 		model,
@@ -542,14 +544,14 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 			Force:           true, // bypass assumes checks
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
+func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *tc.C) {
 	var f fakeDeployer
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
@@ -563,75 +565,75 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 			Placement:       placement,
 			CharmOrigin:     corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.args.Name, gc.Equals, "bob")
-	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
-	c.Assert(f.args.NumUnits, gc.Equals, 3)
-	c.Assert(f.args.Placement, gc.DeepEquals, placement)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.args.Name, tc.Equals, "bob")
+	c.Assert(f.args.Charm, tc.DeepEquals, s.charm)
+	c.Assert(f.args.Constraints, tc.DeepEquals, applicationCons)
+	c.Assert(f.args.NumUnits, tc.Equals, 3)
+	c.Assert(f.args.Placement, tc.DeepEquals, placement)
 }
 
-func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, expect string) {
+func (s *DeployLocalSuite) assertCharm(c *tc.C, app application.Application, expect string) {
 	curl, force := app.CharmURL()
-	c.Assert(*curl, gc.Equals, expect)
-	c.Assert(force, jc.IsFalse)
+	c.Assert(*curl, tc.Equals, expect)
+	c.Assert(force, tc.IsFalse)
 }
 
-func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, _ charm.Settings) {
+func (s *DeployLocalSuite) assertSettings(c *tc.C, app application.Application, _ charm.Settings) {
 	settings, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.charm.Config().DefaultSettings()
 	for name, value := range settings {
 		expected[name] = value
 	}
-	c.Assert(settings, gc.DeepEquals, expected)
+	c.Assert(settings, tc.DeepEquals, expected)
 }
 
-func (s *DeployLocalSuite) assertApplicationConfig(c *gc.C, app application.Application, wantCfg coreconfig.ConfigAttributes) {
+func (s *DeployLocalSuite) assertApplicationConfig(c *tc.C, app application.Application, wantCfg coreconfig.ConfigAttributes) {
 	cfg, err := app.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, gc.DeepEquals, wantCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.DeepEquals, wantCfg)
 }
 
-func (s *DeployLocalSuite) assertConstraints(c *gc.C, app application.Application, expect constraints.Value) {
+func (s *DeployLocalSuite) assertConstraints(c *tc.C, app application.Application, expect constraints.Value) {
 	cons, err := app.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons, tc.DeepEquals, expect)
 }
 
-func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, expectCons constraints.Value, expectIds ...string) {
+func (s *DeployLocalSuite) assertMachines(c *tc.C, app application.Application, expectCons constraints.Value, expectIds ...string) {
 	type withAssignedMachineId interface {
 		AssignedMachineId() (string, error)
 	}
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, len(expectIds))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, len(expectIds))
 	// first manually tell state to assign all the units
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
 		res, err := s.State.AssignStagedUnits([]string{id})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(res[0].Error, jc.ErrorIsNil)
-		c.Assert(res[0].Unit, gc.Equals, id)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(res[0].Error, tc.ErrorIsNil)
+		c.Assert(res[0].Unit, tc.Equals, id)
 	}
 
 	// refresh the list of units from state
 	units, err = app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, len(expectIds))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, len(expectIds))
 	unseenIds := set.NewStrings(expectIds...)
 	for _, unit := range units {
 		id, err := unit.(withAssignedMachineId).AssignedMachineId()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		unseenIds.Remove(id)
 		machine, err := s.State.Machine(id)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cons, err := machine.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cons, gc.DeepEquals, expectCons)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(cons, tc.DeepEquals, expectCons)
 	}
-	c.Assert(unseenIds, gc.DeepEquals, set.NewStrings())
+	c.Assert(unseenIds, tc.DeepEquals, set.NewStrings())
 }
 
 type stateDeployer struct {

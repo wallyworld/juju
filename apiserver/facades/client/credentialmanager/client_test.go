@@ -4,18 +4,19 @@
 package credentialmanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CredentialManagerSuite struct {
@@ -28,9 +29,11 @@ type CredentialManagerSuite struct {
 	api *credentialmanager.CredentialManagerAPI
 }
 
-var _ = gc.Suite(&CredentialManagerSuite{})
+func TestCredentialManagerSuite(t *tctesting.T) {
+	tc.Run(t, &CredentialManagerSuite{})
+}
 
-func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
+func (s *CredentialManagerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.backend = newMockBackend()
 
@@ -39,49 +42,49 @@ func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
 		Tag:      names.NewUserTag("read"),
 		AdminTag: names.NewUserTag("admin"),
 	}
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	api, err := credentialmanager.NewCredentialManagerAPIForTest(s.backend, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredentialUnauthorized(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialUnauthorized(c *tc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := credentialmanager.NewCredentialManagerAPIForTest(s.backend, s.resources, s.authorizer)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *tc.C) {
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *tc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
 func newMockBackend() *testBackend {
 	return &testBackend{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 	}
 }
 
 type testBackend struct {
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (b *testBackend) InvalidateModelCredential(reason string) error {

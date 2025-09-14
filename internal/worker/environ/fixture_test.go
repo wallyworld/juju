@@ -8,17 +8,17 @@ import (
 	"sync"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type fixture struct {
@@ -28,7 +28,7 @@ type fixture struct {
 	initialSpec   environscloudspec.CloudSpec
 }
 
-func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
+func (fix *fixture) Run(c *tc.C, test func(*runContext)) {
 	watcher := newNotifyWatcher(fix.watcherErr)
 	defer workertest.DirtyKill(c, watcher)
 	cloudWatcher := newNotifyWatcher(fix.watcherErr)
@@ -46,7 +46,7 @@ func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 
 type runContext struct {
 	mu               sync.Mutex
-	stub             testing.Stub
+	stub             testhelpers.Stub
 	cloud            environscloudspec.CloudSpec
 	config           map[string]interface{}
 	watcher          *notifyWatcher
@@ -66,14 +66,14 @@ func (context *runContext) ControllerConfig() (controller.Config, error) {
 }
 
 // SetConfig updates the configuration returned by ModelConfig.
-func (context *runContext) SetConfig(c *gc.C, extraAttrs coretesting.Attrs) {
+func (context *runContext) SetConfig(c *tc.C, extraAttrs coretesting.Attrs) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.config = newModelConfig(c, extraAttrs)
 }
 
 // SetCloudSpec updates the spec returned by CloudSpec.
-func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpec) {
+func (context *runContext) SetCloudSpec(c *tc.C, spec environscloudspec.CloudSpec) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.cloud = spec
@@ -184,7 +184,7 @@ func (context *runContext) WatchCredential(cred names.CloudCredentialTag) (watch
 	return context.watcher, nil
 }
 
-func (context *runContext) CheckCallNames(c *gc.C, names ...string) {
+func (context *runContext) CheckCallNames(c *tc.C, names ...string) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.CheckCallNames(c, names...)
@@ -211,13 +211,13 @@ func (w *notifyWatcher) Changes() watcher.NotifyChannel {
 
 // newModelConfig returns an environment config map with the supplied attrs
 // (on top of some default set), or fails the test.
-func newModelConfig(c *gc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
+func newModelConfig(c *tc.C, extraAttrs coretesting.Attrs) map[string]interface{} {
 	return coretesting.CustomModelConfig(c, extraAttrs).AllAttrs()
 }
 
 type mockEnviron struct {
 	environs.Environ
-	testing.Stub
+	testhelpers.Stub
 	cfg  *config.Config
 	spec environscloudspec.CloudSpec
 	mu   sync.Mutex

@@ -4,18 +4,12 @@
 package crossmodel
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	jujutesting "github.com/juju/juju/testing"
 )
-
-func TestAll(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type BaseCrossModelSuite struct {
 	jujutesting.BaseSuite
@@ -23,7 +17,7 @@ type BaseCrossModelSuite struct {
 	store *jujuclient.MemStore
 }
 
-func (s *BaseCrossModelSuite) SetUpTest(c *gc.C) {
+func (s *BaseCrossModelSuite) SetUpTest(c *tc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "test-master"

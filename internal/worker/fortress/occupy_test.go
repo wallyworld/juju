@@ -4,26 +4,28 @@
 package fortress_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type OccupySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&OccupySuite{})
+func TestOccupySuite(t *tctesting.T) {
+	tc.Run(t, &OccupySuite{})
+}
 
-func (*OccupySuite) TestAbort(c *gc.C) {
+func (*OccupySuite) TestAbort(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
@@ -36,8 +38,8 @@ func (*OccupySuite) TestAbort(c *gc.C) {
 	go func() {
 		defer close(done)
 		worker, err := fortress.Occupy(fix.Guest(c), run, abort)
-		c.Check(worker, gc.IsNil)
-		c.Check(errors.Cause(err), gc.Equals, fortress.ErrAborted)
+		c.Check(worker, tc.IsNil)
+		c.Check(errors.Cause(err), tc.Equals, fortress.ErrAborted)
 	}()
 
 	// Observe that nothing happens.
@@ -56,29 +58,29 @@ func (*OccupySuite) TestAbort(c *gc.C) {
 	}
 }
 
-func (*OccupySuite) TestStartError(c *gc.C) {
+func (*OccupySuite) TestStartError(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(), jc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(), tc.ErrorIsNil)
 
 	// Error just passes straight through.
 	run := func() (worker.Worker, error) {
 		return nil, errors.New("splosh")
 	}
 	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splosh")
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splosh")
 
 	// Guard can lock fortress immediately.
 	err = fix.Guard(c).Lockdown(nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	AssertLocked(c, fix.Guest(c))
 }
 
-func (*OccupySuite) TestStartSuccess(c *gc.C) {
+func (*OccupySuite) TestStartSuccess(c *tc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
-	c.Check(fix.Guard(c).Unlock(), jc.ErrorIsNil)
+	c.Check(fix.Guard(c).Unlock(), tc.ErrorIsNil)
 
 	// Start a worker...
 	expect := workertest.NewErrorWorker(nil)
@@ -87,8 +89,8 @@ func (*OccupySuite) TestStartSuccess(c *gc.C) {
 		return expect, nil
 	}
 	worker, err := fortress.Occupy(fix.Guest(c), run, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(worker, tc.Equals, expect)
 
 	// ...and check we can't lockdown again...
 	locked := make(chan error, 1)
@@ -105,7 +107,7 @@ func (*OccupySuite) TestStartSuccess(c *gc.C) {
 	workertest.CleanKill(c, worker)
 	select {
 	case err := <-locked:
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("visit never completed")
 	}

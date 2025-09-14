@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // mockAuth represents a machine which may or may not be a controller.
@@ -32,7 +32,7 @@ func (mockAuth) GetAuthTag() names.Tag {
 
 // mockBackend implements singular.Backend and lease.Claimer.
 type mockBackend struct {
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 // ControllerTag is part of the singular.Backend interface.

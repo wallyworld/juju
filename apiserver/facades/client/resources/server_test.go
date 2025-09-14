@@ -4,33 +4,36 @@
 package resources_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/client/resources"
 )
 
-var _ = gc.Suite(&FacadeSuite{})
+func TestFacadeSuite(t *tctesting.T) {
+	tc.Run(t, &FacadeSuite{})
+}
 
 type FacadeSuite struct {
 	BaseSuite
 }
 
-func (s *FacadeSuite) TestNewFacadeOkay(c *gc.C) {
+func (s *FacadeSuite) TestNewFacadeOkay(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	_, err := resources.NewResourcesAPI(s.backend, func(*charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil })
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *gc.C) {
+func (s *FacadeSuite) TestNewFacadeMissingDataStore(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	_, err := resources.NewResourcesAPI(nil, func(*charm.URL) (resources.NewCharmRepository, error) { return s.factory, nil })
-	c.Check(err, gc.ErrorMatches, `missing data backend`)
+	c.Check(err, tc.ErrorMatches, `missing data backend`)
 }
 
-func (s *FacadeSuite) TestNewFacadeMissingCSClientFactory(c *gc.C) {
+func (s *FacadeSuite) TestNewFacadeMissingCSClientFactory(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	_, err := resources.NewResourcesAPI(s.backend, nil)
-	c.Check(err, gc.ErrorMatches, `missing factory for new repository`)
+	c.Check(err, tc.ErrorMatches, `missing factory for new repository`)
 }

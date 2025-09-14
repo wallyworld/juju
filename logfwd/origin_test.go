@@ -4,28 +4,31 @@
 package logfwd_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/logfwd"
 )
 
 type OriginSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&OriginSuite{})
+func TestOriginSuite(t *tctesting.T) {
+	tc.Run(t, &OriginSuite{})
+}
 
-func (s *OriginSuite) TestOriginForMachineAgent(c *gc.C) {
+func (s *OriginSuite) TestOriginForMachineAgent(c *tc.C) {
 	tag := names.NewMachineTag("99")
 
 	origin := logfwd.OriginForMachineAgent(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
 
-	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+	c.Check(origin, tc.DeepEquals, logfwd.Origin{
 		ControllerUUID: validOrigin.ControllerUUID,
 		ModelUUID:      validOrigin.ModelUUID,
 		Hostname:       "machine-99." + validOrigin.ModelUUID,
@@ -39,12 +42,12 @@ func (s *OriginSuite) TestOriginForMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *OriginSuite) TestOriginForUnitAgent(c *gc.C) {
+func (s *OriginSuite) TestOriginForUnitAgent(c *tc.C) {
 	tag := names.NewUnitTag("svc-a/0")
 
 	origin := logfwd.OriginForUnitAgent(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
 
-	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+	c.Check(origin, tc.DeepEquals, logfwd.Origin{
 		ControllerUUID: validOrigin.ControllerUUID,
 		ModelUUID:      validOrigin.ModelUUID,
 		Hostname:       "unit-svc-a-0." + validOrigin.ModelUUID,
@@ -58,13 +61,13 @@ func (s *OriginSuite) TestOriginForUnitAgent(c *gc.C) {
 	})
 }
 
-func (s *OriginSuite) TestOriginForJuju(c *gc.C) {
+func (s *OriginSuite) TestOriginForJuju(c *tc.C) {
 	tag := names.NewUserTag("bob")
 
 	origin, err := logfwd.OriginForJuju(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+	c.Check(origin, tc.DeepEquals, logfwd.Origin{
 		ControllerUUID: validOrigin.ControllerUUID,
 		ModelUUID:      validOrigin.ModelUUID,
 		Hostname:       "",
@@ -78,118 +81,118 @@ func (s *OriginSuite) TestOriginForJuju(c *gc.C) {
 	})
 }
 
-func (s *OriginSuite) TestValidateValid(c *gc.C) {
+func (s *OriginSuite) TestValidateValid(c *tc.C) {
 	origin := validOrigin
 
 	err := origin.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *OriginSuite) TestValidateEmpty(c *gc.C) {
+func (s *OriginSuite) TestValidateEmpty(c *tc.C) {
 	var origin logfwd.Origin
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *OriginSuite) TestValidateEmptyControllerUUID(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptyControllerUUID(c *tc.C) {
 	origin := validOrigin
 	origin.ControllerUUID = ""
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ControllerUUID`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `empty ControllerUUID`)
 }
 
-func (s *OriginSuite) TestValidateBadControllerUUID(c *gc.C) {
+func (s *OriginSuite) TestValidateBadControllerUUID(c *tc.C) {
 	origin := validOrigin
 	origin.ControllerUUID = "..."
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `ControllerUUID "..." not a valid UUID`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `ControllerUUID "..." not a valid UUID`)
 }
 
-func (s *OriginSuite) TestValidateEmptyModelUUID(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptyModelUUID(c *tc.C) {
 	origin := validOrigin
 	origin.ModelUUID = ""
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ModelUUID`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `empty ModelUUID`)
 }
 
-func (s *OriginSuite) TestValidateBadModelUUID(c *gc.C) {
+func (s *OriginSuite) TestValidateBadModelUUID(c *tc.C) {
 	origin := validOrigin
 	origin.ModelUUID = "..."
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `ModelUUID "..." not a valid UUID`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `ModelUUID "..." not a valid UUID`)
 }
 
-func (s *OriginSuite) TestValidateEmptyHostname(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptyHostname(c *tc.C) {
 	origin := validOrigin
 	origin.Hostname = ""
 
 	err := origin.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *OriginSuite) TestValidateBadOriginType(c *gc.C) {
+func (s *OriginSuite) TestValidateBadOriginType(c *tc.C) {
 	origin := validOrigin
 	origin.Type = logfwd.OriginType(999)
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Type: unsupported origin type`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `invalid Type: unsupported origin type`)
 }
 
-func (s *OriginSuite) TestValidateEmptyName(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptyName(c *tc.C) {
 	origin := validOrigin
 	origin.Name = ""
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty Name`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `empty Name`)
 }
 
-func (s *OriginSuite) TestValidateBadName(c *gc.C) {
+func (s *OriginSuite) TestValidateBadName(c *tc.C) {
 	origin := validOrigin
 	origin.Name = "..."
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Name "...": bad user name`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `invalid Name "...": bad user name`)
 }
 
-func (s *OriginSuite) TestValidateEmptySoftware(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptySoftware(c *tc.C) {
 	origin := validOrigin
 	origin.Software = logfwd.Software{}
 
 	err := origin.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *OriginSuite) TestValidateBadSoftware(c *gc.C) {
+func (s *OriginSuite) TestValidateBadSoftware(c *tc.C) {
 	origin := validOrigin
 	origin.Software.Version = version.Zero
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Software: empty Version`)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `invalid Software: empty Version`)
 }
 
 var validOrigin = logfwd.Origin{

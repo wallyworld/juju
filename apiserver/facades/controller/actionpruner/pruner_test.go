@@ -4,21 +4,23 @@
 package actionpruner_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&ActionPrunerSuite{})
+func TestActionPrunerSuite(t *tctesting.T) {
+	tc.Run(t, &ActionPrunerSuite{})
+}
 
 type ActionPrunerSuite struct {
 	coretesting.BaseSuite
@@ -27,7 +29,7 @@ type ActionPrunerSuite struct {
 	api     *actionpruner.API
 }
 
-func (s *ActionPrunerSuite) SetUpTest(c *gc.C) {
+func (s *ActionPrunerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.PatchValue(&actionpruner.Model, func(_ facade.Context) (state.ModelAccessor, error) {
@@ -37,22 +39,22 @@ func (s *ActionPrunerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.api, err = actionpruner.NewAPI(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ActionPrunerSuite) TestPruneNonController(c *gc.C) {
+func (s *ActionPrunerSuite) TestPruneNonController(c *tc.C) {
 	s.context.Auth_ = testing.FakeAuthorizer{}
 	api, err := actionpruner.NewAPI(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = api.Prune(params.ActionPruneArgs{})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *ActionPrunerSuite) TestPrune(c *gc.C) {
+func (s *ActionPrunerSuite) TestPrune(c *tc.C) {
 	called := false
 	s.PatchValue(&actionpruner.Prune, func(_ <-chan struct{}, st *state.State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-		c.Assert(maxHistoryTime, gc.Equals, time.Hour)
-		c.Assert(maxHistoryMB, gc.Equals, 666)
+		c.Assert(maxHistoryTime, tc.Equals, time.Hour)
+		c.Assert(maxHistoryMB, tc.Equals, 666)
 		called = true
 		return nil
 	})
@@ -60,6 +62,6 @@ func (s *ActionPrunerSuite) TestPrune(c *gc.C) {
 		MaxHistoryTime: time.Hour,
 		MaxHistoryMB:   666,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(called, tc.IsTrue)
 }

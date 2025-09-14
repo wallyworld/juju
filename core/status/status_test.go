@@ -4,19 +4,21 @@
 package status_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 )
 
 type StatusSuite struct{}
 
-var _ = gc.Suite(&StatusSuite{})
+func TestStatusSuite(t *tctesting.T) {
+	tc.Run(t, &StatusSuite{})
+}
 
-func (s *StatusSuite) TestModification(c *gc.C) {
+func (s *StatusSuite) TestModification(c *tc.C) {
 	testcases := []struct {
 		name   string
 		status status.Status
@@ -50,11 +52,11 @@ func (s *StatusSuite) TestModification(c *gc.C) {
 	}
 	for k, v := range testcases {
 		c.Logf("Testing modification status %d %s", k, v.name)
-		c.Assert(v.status.KnownModificationStatus(), gc.Equals, v.valid)
+		c.Assert(v.status.KnownModificationStatus(), tc.Equals, v.valid)
 	}
 }
 
-func (s *StatusSuite) TestValidModelStatus(c *gc.C) {
+func (s *StatusSuite) TestValidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Available,
 		status.Busy,
@@ -62,11 +64,11 @@ func (s *StatusSuite) TestValidModelStatus(c *gc.C) {
 		status.Error,
 		status.Suspended,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsTrue, gc.Commentf("status %q is not valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsTrue, tc.Commentf("status %q is not valid for a model", v))
 	}
 }
 
-func (s *StatusSuite) TestInvalidModelStatus(c *gc.C) {
+func (s *StatusSuite) TestInvalidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Active,
 		status.Allocating,
@@ -98,18 +100,18 @@ func (s *StatusSuite) TestInvalidModelStatus(c *gc.C) {
 		status.Unknown,
 		status.Waiting,
 	} {
-		c.Assert(status.ValidModelStatus(v), jc.IsFalse, gc.Commentf("status %q is valid for a model", v))
+		c.Assert(status.ValidModelStatus(v), tc.IsFalse, tc.Commentf("status %q is valid for a model", v))
 	}
 }
 
-func (s *StatusSuite) TestDerivedStatusEmpty(c *gc.C) {
+func (s *StatusSuite) TestDerivedStatusEmpty(c *tc.C) {
 	info := status.DeriveStatus(nil)
-	c.Assert(info, jc.DeepEquals, status.StatusInfo{
+	c.Assert(info, tc.DeepEquals, status.StatusInfo{
 		Status: status.Unknown,
 	})
 }
 
-func (s *StatusSuite) TestDerivedStatusBringsAllDetails(c *gc.C) {
+func (s *StatusSuite) TestDerivedStatusBringsAllDetails(c *tc.C) {
 	now := time.Now()
 	value := status.StatusInfo{
 		Status:  status.Active,
@@ -118,10 +120,10 @@ func (s *StatusSuite) TestDerivedStatusBringsAllDetails(c *gc.C) {
 		Since:   &now,
 	}
 	info := status.DeriveStatus([]status.StatusInfo{value})
-	c.Assert(info, jc.DeepEquals, value)
+	c.Assert(info, tc.DeepEquals, value)
 }
 
-func (s *StatusSuite) TestDerivedStatusPriority(c *gc.C) {
+func (s *StatusSuite) TestDerivedStatusPriority(c *tc.C) {
 	for _, t := range []struct{ status1, status2, expected status.Status }{
 		{status.Active, status.Waiting, status.Waiting},
 		{status.Maintenance, status.Waiting, status.Maintenance},
@@ -136,6 +138,6 @@ func (s *StatusSuite) TestDerivedStatusPriority(c *gc.C) {
 		value := status.DeriveStatus([]status.StatusInfo{
 			{Status: t.status1}, {Status: t.status2},
 		})
-		c.Check(value.Status, gc.Equals, t.expected)
+		c.Check(value.Status, tc.Equals, t.expected)
 	}
 }

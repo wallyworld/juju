@@ -4,21 +4,24 @@
 package jujuc_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/testing"
 )
 
 type ErrorsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ErrorsSuite{})
+func TestErrorsSuite(t *tctesting.T) {
+	tc.Run(t, &ErrorsSuite{})
+}
 
-func (t *ErrorsSuite) TestNotAvailableErr(c *gc.C) {
+func (t *ErrorsSuite) TestNotAvailableErr(c *tc.C) {
 	err := jujuc.NotAvailable("the thing")
-	c.Assert(err, gc.ErrorMatches, "the thing is not available")
-	c.Assert(jujuc.IsNotAvailable(err), jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "the thing is not available")
+	c.Assert(jujuc.IsNotAvailable(err), tc.IsTrue)
 }

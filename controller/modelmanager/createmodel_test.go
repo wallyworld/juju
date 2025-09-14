@@ -4,13 +4,13 @@
 package modelmanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
@@ -22,7 +22,8 @@ import (
 	_ "github.com/juju/juju/internal/provider/ec2"
 	_ "github.com/juju/juju/internal/provider/maas"
 	_ "github.com/juju/juju/internal/provider/openstack"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/tools"
 )
 
@@ -33,9 +34,11 @@ type ModelConfigCreatorSuite struct {
 	baseConfig *config.Config
 }
 
-var _ = gc.Suite(&ModelConfigCreatorSuite{})
+func TestModelConfigCreatorSuite(t *tctesting.T) {
+	tc.Run(t, &ModelConfigCreatorSuite{})
+}
 
-func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
+func (s *ModelConfigCreatorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.fake = fakeProvider{
 		restrictedConfigAttributes: []string{"restricted"},
@@ -56,7 +59,7 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 			"agent-version": "2.0.0",
 		}),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.baseConfig = baseConfig
 }
 
@@ -65,7 +68,7 @@ func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (
 	return s.creator.NewModelConfig(cloudSpec, s.baseConfig, attrs)
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *tc.C) {
 	newModelUUID := utils.MustNewUUID().String()
 	cfg, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
@@ -74,25 +77,25 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 		"additional": "value",
 		"uuid":       newModelUUID,
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := s.baseConfig.AllAttrs()
 	expected["name"] = "new-model"
 	expected["type"] = "fake"
 	expected["additional"] = "value"
 	expected["uuid"] = newModelUUID
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+	c.Assert(cfg.AllAttrs(), tc.DeepEquals, expected)
 
 	s.fake.Stub.CheckCallNames(c,
 		"PrepareConfig",
 		"Validate",
 	)
 	validateCall := s.fake.Stub.Calls()[1]
-	c.Assert(validateCall.Args, gc.HasLen, 2)
-	c.Assert(validateCall.Args[0], gc.Equals, cfg)
-	c.Assert(validateCall.Args[1], gc.IsNil)
+	c.Assert(validateCall.Args, tc.HasLen, 2)
+	c.Assert(validateCall.Args[0], tc.Equals, cfg)
+	c.Assert(validateCall.Args[1], tc.IsNil)
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelCheckAuthorizedKeys(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelCheckAuthorizedKeys(c *tc.C) {
 	authorizedKeys := `
 			ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDLNN6YxkRJ8liYGh9qymZi23lDRlFrD3ujGfcgkjqa7vOqBHJaWklaIW4vFX0XkYuhgnDlXREi7RRK+4I0XBD051LxADobguLXyeGoOhSRlLLThYMF7Ui8nNylLxY0MYpKUIE6ejve2DHtrwGXBJBUXGJr8z5gKuIZD9J39B3ld1e7v2fpK3SqQ84H8mSZxPBbZqA0NIoq9wl+ke780fYsDxBpsAJhaZW2SjCqcrmNc3m9HgYwzeHhsXDZN2xonoyK2UVMGCsqR0vTHZNpnhME4FdGsmK6WIRMq+z5Mxrw3rSYIgbWi1uACfSsPeBMXmkWORujZrf1w1OKoy1dKeWp juju-client-key
 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCwvae4M/oc+p5d3vj5TBS/4Mx+us5nVuMBgpYCQYq1Bk+QyfyefVfhQwuILAhmzehKnxUse1kGERQ0wNCtn7wU/HhvAuzQBWkxMvShyO9x7GS+4cDEGhkhMGGCu5NvBBCvp24+WdNeqsvoMDRHtBO1kFVc3FQZ01IjR+FTAICW5hE8e7ssCFK+pIDa8TI44rz41grytVJ1iACvaXc7nTyFZg95EXxSurPv0EnO82Gxfdt4bkiSXPXQqNcTLNiJ2oKRyDVYAjZNIr2Yf+UGCK9fy0VAdM7dwVZ9FOQX430blrDpDNo096+FXs2MoRB5SLzueZo2Eurya5OxcYpfIkdrzNpgAUgiL7cVURCh0+xJrIX/Ow9Axle+GvDcWAS9aZsRO+nsJ9Mry0zGWN/2IAEEZY9KVr7YO8xcCJ/yZ2gFXhyRAjD2oNBBrIfwpFNHZ35TbT5znmTX1wrJapLPyXqosGHZed8FkTDIyocCZzDlB0PpuBzUtjWp8gKwrPNsBGzTMvso3Qah3xOiznc7DTBCeSf2mqsX+6iY6p2k4YmF9LST+hepbgF4WW8Y3xgSuJ510TE3wtf/QZXDjQY+r7+yLraHSlE6CzQvL07snDyn4NHqfGw3GMAT71dpoa7WVGWW4HdcpCa8ALCtOx1GpyaydFANwNuwr1wOMQuY/9R5dw== juju-system-key
@@ -106,13 +109,13 @@ ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCwvae4M/oc+p5d3vj5TBS/4Mx+us5nVuMBgpYCQYq1
 			"authorized-keys": authorizedKeys,
 		}),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	cfg, err := s.newModelConfig(coretesting.Attrs(baseConfig.AllAttrs()))
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuthorizedKeys(), jc.DeepEquals, authorizedKeys)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(cfg.AuthorizedKeys(), tc.DeepEquals, authorizedKeys)
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelAuthorizedKeysNotIncluded(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelAuthorizedKeysNotIncluded(c *tc.C) {
 	// Ensure that if the new model config has no authorized-keys,
 	// that the resulting config from NewModelConfig has a
 	// juju-system-key at the end.
@@ -129,7 +132,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelAuthorizedKeysNotIncluded(c *gc
 			"development":               false,
 		},
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	attrs := modelConfig.AllAttrs()
 	// Ensure the modelConfig has no authorized-keys
 	delete(attrs, "authorized-keys")
@@ -147,32 +150,32 @@ func (s *ModelConfigCreatorSuite) TestCreateModelAuthorizedKeysNotIncluded(c *gc
 			"authorized-keys": authorizedKeys,
 		}),
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	cloudSpec := environscloudspec.CloudSpec{Type: "fake"}
 	cfg, err := s.creator.NewModelConfig(cloudSpec, customBaseConfig, modelConfig.AllAttrs())
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	obtainedAuthorizedKeys := cfg.AuthorizedKeys()
-	c.Assert(obtainedAuthorizedKeys, jc.Contains, "juju-system-key")
+	c.Assert(obtainedAuthorizedKeys, tc.Contains, "juju-system-key")
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *tc.C) {
 	cfg, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name": "new-model",
 		"uuid": utils.MustNewUUID().String(),
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	baseAgentVersion, ok := s.baseConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	agentVersion, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, baseAgentVersion)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(agentVersion, tc.Equals, baseAgentVersion)
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelGreaterAgentVersion(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelGreaterAgentVersion(c *tc.C) {
 	_, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
@@ -180,11 +183,11 @@ func (s *ModelConfigCreatorSuite) TestCreateModelGreaterAgentVersion(c *gc.C) {
 		"uuid":          utils.MustNewUUID().String(),
 		"agent-version": "2.0.1",
 	}))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"agent-version .* cannot be greater than the controller .*")
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder(c *tc.C) {
 	_, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
@@ -192,11 +195,11 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder
 		"uuid":          utils.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"agent-version does not match base config, and no tools-finder is supplied")
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFound(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFound(c *tc.C) {
 	s.creator.FindTools = func(version.Number) (tools.List, error) {
 		return tools.List{
 			{}, //contents don't matter, just need a non-empty list
@@ -209,13 +212,13 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFo
 		"uuid":          utils.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, version.MustParse("1.9.9"))
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(agentVersion, tc.Equals, version.MustParse("1.9.9"))
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNotFound(c *gc.C) {
+func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNotFound(c *tc.C) {
 	s.creator.FindTools = func(version.Number) (tools.List, error) {
 		return tools.List{}, nil
 	}
@@ -226,11 +229,11 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNo
 		"uuid":          utils.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
-	c.Assert(err, gc.ErrorMatches, "no agent binaries found for version .*")
+	c.Assert(err, tc.ErrorMatches, "no agent binaries found for version .*")
 }
 
 type fakeProvider struct {
-	testing.Stub
+	testhelpers.Stub
 	environs.EnvironProvider
 	restrictedConfigAttributes []string
 }

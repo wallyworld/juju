@@ -5,8 +5,7 @@ package firewaller_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -35,7 +34,7 @@ type firewallerBaseSuite struct {
 	resources  *common.Resources
 }
 
-func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
+func (s *firewallerBaseSuite) setUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines and units (if any) and create 3
@@ -46,7 +45,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	for i := 0; i <= 2; i++ {
 		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 	// Create an application and three units for these machines.
@@ -55,20 +54,20 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		unit, err := s.application.AddUnit(state.AddUnitParams{})
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
 
 	// Create a relation.
 	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.relations = make([]*state.Relation, 1)
 	s.relations[0], err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the controller.
@@ -82,7 +81,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 }
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
-	c *gc.C,
+	c *tc.C,
 	factory func(_ facade.Context) error,
 ) {
 	anAuthorizer := s.authorizer
@@ -94,22 +93,22 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 		StatePool_: s.StatePool,
 	}
 	err := factory(ctx)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
 func (s *firewallerBaseSuite) testLife(
-	c *gc.C,
+	c *tc.C,
 	facade interface {
 		Life(args params.Entities) (params.LifeResults, error)
 	},
 ) {
 	// Unassign unit 1 from its machine, so we can change its life cycle.
 	err := s.units[1].UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.machines[1].EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertLife(c, 0, state.Alive)
 	s.assertLife(c, 1, state.Dead)
 	s.assertLife(c, 2, state.Alive)
@@ -121,8 +120,8 @@ func (s *firewallerBaseSuite) testLife(
 		{Tag: s.relations[0].Tag().String()},
 	}})
 	result, err := facade.Life(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "alive"},
 			{Life: "dead"},
@@ -139,9 +138,9 @@ func (s *firewallerBaseSuite) testLife(
 
 	// Remove a machine and make sure it's detected.
 	err = s.machines[1].Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	args = params.Entities{
 		Entities: []params.Entity{
@@ -149,8 +148,8 @@ func (s *firewallerBaseSuite) testLife(
 		},
 	}
 	result, err = facade.Life(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.LifeResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.NotFoundError("machine 1")},
 		},
@@ -158,17 +157,17 @@ func (s *firewallerBaseSuite) testLife(
 }
 
 func (s *firewallerBaseSuite) testInstanceId(
-	c *gc.C,
+	c *tc.C,
 	facade interface {
 		InstanceId(args params.Entities) (params.StringResults, error)
 	},
 ) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=s390x", "mem=4G")
 	err = s.machines[1].SetProvisioned("i-am-not", "", "fake_nonce", &hwChars)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -178,8 +177,8 @@ func (s *firewallerBaseSuite) testInstanceId(
 		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := facade.InstanceId(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "i-am"},
 			{Result: "i-am-not"},
@@ -197,24 +196,24 @@ func (s *firewallerBaseSuite) testInstanceId(
 }
 
 func (s *firewallerBaseSuite) testWatchModelMachines(
-	c *gc.C,
+	c *tc.C,
 	facade interface {
 		WatchModelMachines() (params.StringsWatchResult, error)
 	},
 ) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	got, err := facade.WatchModelMachines()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2"},
 	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
+	c.Assert(got.StringsWatcherId, tc.Equals, want.StringsWatcherId)
+	c.Assert(got.Changes, tc.SameContents, want.Changes)
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
@@ -229,13 +228,13 @@ const (
 )
 
 func (s *firewallerBaseSuite) testWatch(
-	c *gc.C,
+	c *tc.C,
 	watcher interface {
 		Watch(args params.Entities) (params.NotifyWatchResults, error)
 	},
 	allowUnits bool,
 ) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -244,9 +243,9 @@ func (s *firewallerBaseSuite) testWatch(
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := watcher.Watch(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	if allowUnits {
-		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
+		c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{
 				{Error: apiservertesting.ErrUnauthorized},
 				{NotifyWatcherId: "1"},
@@ -260,7 +259,7 @@ func (s *firewallerBaseSuite) testWatch(
 			},
 		})
 	} else {
-		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
+		c.Assert(result, tc.DeepEquals, params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{
 				{Error: apiservertesting.ErrUnauthorized},
 				{NotifyWatcherId: "1"},
@@ -277,16 +276,16 @@ func (s *firewallerBaseSuite) testWatch(
 
 	// Verify the resources were registered and stop when done.
 	if allowUnits {
-		c.Assert(s.resources.Count(), gc.Equals, 2)
+		c.Assert(s.resources.Count(), tc.Equals, 2)
 	} else {
-		c.Assert(s.resources.Count(), gc.Equals, 1)
+		c.Assert(s.resources.Count(), tc.Equals, 1)
 	}
-	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[1].NotifyWatcherId, tc.Equals, "1")
 	watcher1 := s.resources.Get("1")
 	defer statetesting.AssertStop(c, watcher1)
 	var watcher2 facade.Resource
 	if allowUnits {
-		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
+		c.Assert(result.Results[2].NotifyWatcherId, tc.Equals, "2")
 		watcher2 = s.resources.Get("2")
 		defer statetesting.AssertStop(c, watcher2)
 	}
@@ -302,12 +301,12 @@ func (s *firewallerBaseSuite) testWatch(
 }
 
 func (s *firewallerBaseSuite) testWatchUnits(
-	c *gc.C,
+	c *tc.C,
 	facade interface {
 		WatchUnits(args params.Entities) (params.StringsWatchResults, error)
 	},
 ) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -315,8 +314,8 @@ func (s *firewallerBaseSuite) testWatchUnits(
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := facade.WatchUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Changes: []string{"wordpress/0"}, StringsWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -331,8 +330,8 @@ func (s *firewallerBaseSuite) testWatchUnits(
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(s.resources.Count(), tc.Equals, 1)
+	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
@@ -343,14 +342,14 @@ func (s *firewallerBaseSuite) testWatchUnits(
 }
 
 func (s *firewallerBaseSuite) testGetAssignedMachine(
-	c *gc.C,
+	c *tc.C,
 	facade interface {
 		GetAssignedMachine(args params.Entities) (params.StringResults, error)
 	},
 ) {
 	// Unassign a unit first.
 	err := s.units[2].UnassignFromMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.units[0].Tag().String()},
@@ -358,8 +357,8 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := facade.GetAssignedMachine(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: s.machines[0].Tag().String()},
 			{Result: s.machines[1].Tag().String()},
@@ -375,24 +374,24 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 
 	// Now reset assign unit 2 again and check.
 	err = s.units[2].AssignToMachine(s.machines[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.units[2].Tag().String()},
 	}}
 	result, err = facade.GetAssignedMachine(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: s.machines[0].Tag().String()},
 		},
 	})
 }
 
-func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+func (s *firewallerBaseSuite) assertLife(c *tc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.machines[index].Life(), tc.Equals, expectLife)
 }
 
 var commonFakeEntities = []params.Entity{

@@ -4,15 +4,16 @@
 package caasapplicationprovisioner_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
@@ -27,14 +28,16 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/docker"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&OpsSuite{})
+func TestOpsSuite(t *tctesting.T) {
+	tc.Run(t, &OpsSuite{})
+}
 
 type OpsSuite struct {
 	coretesting.BaseSuite
@@ -43,14 +46,14 @@ type OpsSuite struct {
 	logger   loggo.Logger
 }
 
-func (s *OpsSuite) SetUpTest(c *gc.C) {
+func (s *OpsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggo.GetLogger("test")
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgraded(c *gc.C) {
+func (s *OpsSuite) TestVerifyCharmUpgraded(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,11 +85,11 @@ func (s *OpsSuite) TestVerifyCharmUpgraded(c *gc.C) {
 	)
 
 	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(shouldExit, tc.IsFalse)
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgradeLifeDead(c *gc.C) {
+func (s *OpsSuite) TestVerifyCharmUpgradeLifeDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -112,11 +115,11 @@ func (s *OpsSuite) TestVerifyCharmUpgradeLifeDead(c *gc.C) {
 	)
 
 	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(shouldExit, tc.IsTrue)
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgradeLifeNotFound(c *gc.C) {
+func (s *OpsSuite) TestVerifyCharmUpgradeLifeNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -142,11 +145,11 @@ func (s *OpsSuite) TestVerifyCharmUpgradeLifeNotFound(c *gc.C) {
 	)
 
 	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(shouldExit, tc.IsTrue)
 }
 
-func (s *OpsSuite) TestVerifyCharmUpgradeInfoNotFound(c *gc.C) {
+func (s *OpsSuite) TestVerifyCharmUpgradeInfoNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -167,11 +170,11 @@ func (s *OpsSuite) TestVerifyCharmUpgradeInfoNotFound(c *gc.C) {
 	)
 
 	shouldExit, err := caasapplicationprovisioner.AppOps.VerifyCharmUpgraded("test", facade, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(shouldExit, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(shouldExit, tc.IsTrue)
 }
 
-func (s *OpsSuite) TestUpgradePodSpec(c *gc.C) {
+func (s *OpsSuite) TestUpgradePodSpec(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -192,10 +195,10 @@ func (s *OpsSuite) TestUpgradePodSpec(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.UpgradePodSpec("test", broker, clk, tomb, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
+func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -208,10 +211,10 @@ func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureTrust("test", app, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestUpdateState(c *gc.C) {
+func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -328,14 +331,14 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 		},
 	}
 	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState("test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentReportedStatus, jc.DeepEquals, map[string]status.StatusInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(currentReportedStatus, tc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
 		"b": {Status: "allocating", Message: "same"},
 	})
 }
 
-func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
+func (s *OpsSuite) TestRefreshApplicationStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -358,10 +361,10 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
+func (s *OpsSuite) TestWaitForTerminated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -374,7 +377,7 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 		}, nil),
 	)
 	err := caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
-	c.Assert(err, gc.ErrorMatches, `application "test" should be terminating but is now running`)
+	c.Assert(err, tc.ErrorMatches, `application "test" should be terminating but is now running`)
 
 	gomock.InOrder(
 		app.EXPECT().Exists().Return(caas.DeploymentState{
@@ -384,11 +387,11 @@ func (s *OpsSuite) TestWaitForTerminated(c *gc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 	)
 	err = caasapplicationprovisioner.AppOps.WaitForTerminated("test", app, clk)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleNotScaling tests that nothing happens when not scaling
-func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -408,11 +411,11 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleNotScaling(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleNilProvisioningState tests that nothing happens with nil provisioning state
-func (s *OpsSuite) TestReconcileDeadUnitScaleNilProvisioningState(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleNilProvisioningState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -428,11 +431,11 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleNilProvisioningState(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleScaleUp tests scale up scenario - app.Scale should NOT be called
-func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -458,11 +461,11 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleUp(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleScaleDownNotAllDead tests scale down when not all excess units are dead - app.Scale should NOT be called
-func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -492,11 +495,11 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNotAllDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleScaleDownAllExcessDead tests scale down when all excess units are dead - app.Scale SHOULD be called
-func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -540,11 +543,11 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownAllExcessDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestReconcileDeadUnitScaleScaleDownNoExcessUnits tests when no units need to be removed
-func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *gc.C) {
+func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -570,10 +573,10 @@ func (s *OpsSuite) TestReconcileDeadUnitScaleScaleDownNoExcessUnits(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleAlive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -601,10 +604,10 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -631,10 +634,10 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, gc.ErrorMatches, `try again`)
+	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
-func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleDyingDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -661,10 +664,10 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Dead, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -704,10 +707,10 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
+func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -742,10 +745,10 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
-	c.Assert(err, gc.ErrorMatches, "PVC creation failed")
+	c.Assert(err, tc.ErrorMatches, "PVC creation failed")
 }
 
-func (s *OpsSuite) TestAppAlive(c *gc.C) {
+func (s *OpsSuite) TestAppAlive(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -866,16 +869,16 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
-			c.Check(config, gc.DeepEquals, ensureParams)
+			c.Check(config, tc.DeepEquals, ensureParams)
 			return nil
 		}),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestAppDying(c *gc.C) {
+func (s *OpsSuite) TestAppDying(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -896,10 +899,10 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying("test", app, life.Dying, facade, unitFacade, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpsSuite) TestAppDead(c *gc.C) {
+func (s *OpsSuite) TestAppDead(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -924,7 +927,7 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func intPtr(i int) *int {

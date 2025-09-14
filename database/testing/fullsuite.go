@@ -11,17 +11,16 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // DBSuite is used to provide a Dqlite-backed sql.DB reference to tests.
 type DBSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	dqlite    *app.App
 	db        *sql.DB
@@ -29,7 +28,7 @@ type DBSuite struct {
 }
 
 // SetUpSuite creates a new Dqlite application and waits for it to be ready.
-func (s *DBSuite) SetUpSuite(c *gc.C) {
+func (s *DBSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	dbPath := c.MkDir()
@@ -40,17 +39,17 @@ func (s *DBSuite) SetUpSuite(c *gc.C) {
 
 	var err error
 	s.dqlite, err = app.New(dbPath, app.WithAddress(url))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.dqlite.Ready(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TearDownSuite terminates the Dqlite node, releasing all resources.
-func (s *DBSuite) TearDownSuite(c *gc.C) {
+func (s *DBSuite) TearDownSuite(c *tc.C) {
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	s.IsolationSuite.TearDownSuite(c)
@@ -58,12 +57,12 @@ func (s *DBSuite) TearDownSuite(c *gc.C) {
 
 // SetUpTest opens a new, randomly named database and
 // makes it available for use by test the next test.
-func (s *DBSuite) SetUpTest(c *gc.C) {
+func (s *DBSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
 	s.db, err = s.dqlite.Open(context.TODO(), strconv.Itoa(rand.Intn(10)))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.trackedDB = &trackedDB{
 		db: s.db,
@@ -72,11 +71,11 @@ func (s *DBSuite) SetUpTest(c *gc.C) {
 
 // TearDownTest closes the database opened in SetUpTest.
 // TODO (manadart 2022-09-12): There is currently no avenue for dropping a DB.
-func (s *DBSuite) TearDownTest(c *gc.C) {
+func (s *DBSuite) TearDownTest(c *tc.C) {
 	if s.db != nil {
 		c.Logf("Closing DB")
 		err := s.db.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	s.IsolationSuite.TearDownTest(c)
@@ -94,9 +93,9 @@ func (s *DBSuite) TrackedDB() coredatabase.TrackedDB {
 // It is prone to racing, so the port should be used as soon as it is acquired
 // to minimise the change of another process using it in the interim.
 // The chances of this should be negligible during testing.
-func FindTCPPort(c *gc.C) int {
+func FindTCPPort(c *tc.C) int {
 	l, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(l.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(l.Close(), tc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
 }

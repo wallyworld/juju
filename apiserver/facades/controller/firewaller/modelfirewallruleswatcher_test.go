@@ -4,34 +4,37 @@
 package firewaller_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&ModelFirewallRulesWatcherSuite{})
+func TestModelFirewallRulesWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &ModelFirewallRulesWatcherSuite{})
+}
 
 type ModelFirewallRulesWatcherSuite struct {
 	st *mocks.MockState
 }
 
-func (s *ModelFirewallRulesWatcherSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ModelFirewallRulesWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.st = mocks.NewMockState(ctrl)
 
 	return ctrl
 }
 
-func cfg(c *gc.C, in map[string]interface{}) *config.Config {
+func cfg(c *tc.C, in map[string]interface{}) *config.Config {
 	attrs := coretesting.FakeConfig().Merge(in)
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -45,7 +48,7 @@ func mockNotifyWatcher(ctrl *gomock.Controller) (*mocks.MockNotifyWatcher, chan 
 	return watcher, ch
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -56,7 +59,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
@@ -65,7 +68,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 	wc.AssertChanges(1)
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -78,7 +81,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 
@@ -91,7 +94,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 	wc.AssertChanges(1)
 }
 
-func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
+func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -104,7 +107,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
 	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 

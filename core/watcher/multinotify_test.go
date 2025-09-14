@@ -4,7 +4,9 @@
 package watcher_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -12,9 +14,11 @@ import (
 
 type multiNotifyWatcherSuite struct{}
 
-var _ = gc.Suite(&multiNotifyWatcherSuite{})
+func TestMultiNotifyWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &multiNotifyWatcherSuite{})
+}
 
-func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
+func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *tc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)
 	ch1 := make(chan struct{}, 1)

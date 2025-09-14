@@ -4,11 +4,11 @@
 package caasfirewaller_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -17,11 +17,12 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type firewallerBaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	newFunc func(caller base.APICaller) clientCommmon
 	objType string
@@ -39,40 +40,44 @@ type firewallerLegacySuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&firewallerLegacySuite{
-	firewallerBaseSuite{
-		objType: "CAASFirewaller",
-		newFunc: func(caller base.APICaller) clientCommmon {
-			return caasfirewaller.NewClientLegacy(caller)
+func TestFirewallerLegacySuite(t *tctesting.T) {
+	tc.Run(t, &firewallerLegacySuite{
+		firewallerBaseSuite{
+			objType: "CAASFirewaller",
+			newFunc: func(caller base.APICaller) clientCommmon {
+				return caasfirewaller.NewClientLegacy(caller)
+			},
 		},
-	},
-})
+	})
+}
 
 type firewallerSidecarSuite struct {
 	firewallerBaseSuite
 }
 
-var _ = gc.Suite(&firewallerSidecarSuite{
-	firewallerBaseSuite{
-		objType: "CAASFirewallerSidecar",
-		newFunc: func(caller base.APICaller) clientCommmon {
-			return caasfirewaller.NewClientSidecar(caller)
+func TestFirewallerSidecarSuite(t *tctesting.T) {
+	tc.Run(t, &firewallerSidecarSuite{
+		firewallerBaseSuite{
+			objType: "CAASFirewallerSidecar",
+			newFunc: func(caller base.APICaller) clientCommmon {
+				return caasfirewaller.NewClientSidecar(caller)
+			},
 		},
-	},
-})
+	})
+}
 
-func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchOpenedPorts")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchOpenedPorts")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResults{})
 		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -83,18 +88,18 @@ func (s *firewallerSidecarSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	client := caasfirewaller.NewClientSidecar(apiCaller)
 	watcher, err := client.WatchOpenedPorts()
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerSidecarSuite) TestGetOpenedPorts(c *gc.C) {
+func (s *firewallerSidecarSuite) TestGetOpenedPorts(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetOpenedPorts")
-		c.Check(arg, jc.DeepEquals, params.Entity{Tag: "application-gitlab"})
-		c.Assert(result, gc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetOpenedPorts")
+		c.Check(arg, tc.DeepEquals, params.Entity{Tag: "application-gitlab"})
+		c.Assert(result, tc.FitsTypeOf, &params.ApplicationOpenedPortsResults{})
 		*(result.(*params.ApplicationOpenedPortsResults)) = params.ApplicationOpenedPortsResults{
 			Results: []params.ApplicationOpenedPortsResult{{
 				ApplicationPortRanges: []params.ApplicationOpenedPorts{
@@ -115,8 +120,8 @@ func (s *firewallerSidecarSuite) TestGetOpenedPorts(c *gc.C) {
 
 	client := caasfirewaller.NewClientSidecar(apiCaller)
 	result, err := client.GetOpenedPorts("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, network.GroupedPortRanges{
 		"": []network.PortRange{
 			{
 				FromPort: 80,
@@ -127,18 +132,18 @@ func (s *firewallerSidecarSuite) TestGetOpenedPorts(c *gc.C) {
 	})
 }
 
-func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposed(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "IsExposed")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "IsExposed")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{
 				Result: true,
@@ -149,11 +154,11 @@ func (s *firewallerBaseSuite) TestIsExposed(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	exposed, err := client.IsExposed("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exposed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(exposed, tc.IsTrue)
 }
 
-func (s *firewallerBaseSuite) TestIsExposedError(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposedError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.BoolResults)) = params.BoolResults{
 			Results: []params.BoolResult{{Error: &params.Error{
@@ -166,31 +171,31 @@ func (s *firewallerBaseSuite) TestIsExposedError(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	_, err := client.IsExposed("gitlab")
-	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, "bletch")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *firewallerBaseSuite) TestIsExposedInvalidEntityame(c *gc.C) {
+func (s *firewallerBaseSuite) TestIsExposedInvalidEntityame(c *tc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.IsExposed("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *firewallerBaseSuite) TestLife(c *gc.C) {
+func (s *firewallerBaseSuite) TestLife(c *tc.C) {
 	tag := names.NewApplicationTag("gitlab")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Life")
-		c.Check(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "Life")
+		c.Check(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: tag.String(),
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{
 				Life: life.Alive,
@@ -201,11 +206,11 @@ func (s *firewallerBaseSuite) TestLife(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	lifeValue, err := client.Life(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lifeValue, gc.Equals, life.Alive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(lifeValue, tc.Equals, life.Alive)
 }
 
-func (s *firewallerBaseSuite) TestLifeError(c *gc.C) {
+func (s *firewallerBaseSuite) TestLifeError(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{Error: &params.Error{
@@ -218,25 +223,25 @@ func (s *firewallerBaseSuite) TestLifeError(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	_, err := client.Life("gitlab")
-	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, "bletch")
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *firewallerBaseSuite) TestLifeInvalidEntityame(c *gc.C) {
+func (s *firewallerBaseSuite) TestLifeInvalidEntityame(c *tc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
-	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+	c.Assert(err, tc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *firewallerBaseSuite) TestWatchApplications(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplications(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchApplications")
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchApplications")
+		c.Assert(result, tc.FitsTypeOf, &params.StringsWatchResult{})
 		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		}
@@ -245,22 +250,22 @@ func (s *firewallerBaseSuite) TestWatchApplications(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	watcher, err := client.WatchApplications()
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerBaseSuite) TestWatchApplication(c *gc.C) {
+func (s *firewallerBaseSuite) TestWatchApplication(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Watch")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "Watch")
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
 		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
@@ -271,22 +276,22 @@ func (s *firewallerBaseSuite) TestWatchApplication(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	watcher, err := client.WatchApplication("gitlab")
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(watcher, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
 
-func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
+func (s *firewallerBaseSuite) TestApplicationConfig(c *tc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, s.objType)
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ApplicationsConfig")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
+		c.Check(objType, tc.Equals, s.objType)
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "ApplicationsConfig")
+		c.Assert(arg, tc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ApplicationGetConfigResults{})
+		c.Assert(result, tc.FitsTypeOf, &params.ApplicationGetConfigResults{})
 		*(result.(*params.ApplicationGetConfigResults)) = params.ApplicationGetConfigResults{
 			Results: []params.ConfigResult{{
 				Config: map[string]interface{}{"foo": "bar"},
@@ -297,6 +302,6 @@ func (s *firewallerBaseSuite) TestApplicationConfig(c *gc.C) {
 
 	client := s.newFunc(apiCaller)
 	cfg, err := client.ApplicationConfig("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg, tc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }

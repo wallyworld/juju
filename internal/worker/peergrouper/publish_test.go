@@ -4,18 +4,21 @@
 package peergrouper
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type publishSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&publishSuite{})
+func TestPublishSuite(t *tctesting.T) {
+	tc.Run(t, &publishSuite{})
+}
 
 type mockAPIHostPortsSetter struct {
 	calls        int
@@ -28,7 +31,7 @@ func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts []network.SpaceHos
 	return nil
 }
 
-func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
+func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *tc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 
@@ -39,22 +42,22 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	apiServers := []network.SpaceHostPorts{hostPorts1}
 	for i := 0; i < 2; i++ {
 		err := statePublish.SetAPIHostPorts(apiServers)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
-	c.Assert(mock.calls, gc.Equals, 1)
-	c.Assert(mock.apiHostPorts, gc.DeepEquals, apiServers)
+	c.Assert(mock.calls, tc.Equals, 1)
+	c.Assert(mock.apiHostPorts, tc.DeepEquals, apiServers)
 
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
 		err := statePublish.SetAPIHostPorts(apiServers)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
-	c.Assert(mock.calls, gc.Equals, 2)
-	c.Assert(mock.apiHostPorts, gc.DeepEquals, apiServers)
+	c.Assert(mock.calls, tc.Equals, 2)
+	c.Assert(mock.apiHostPorts, tc.DeepEquals, apiServers)
 }
 
-func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
+func (s *publishSuite) TestPublisherSortsHostPorts(c *tc.C) {
 	ipV4First := network.NewSpaceHostPorts(1234, "testing1.invalid", "127.0.0.1", "::1")
 	ipV6First := network.NewSpaceHostPorts(1234, "testing1.invalid", "::1", "127.0.0.1")
 
@@ -63,19 +66,19 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 		statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 		for i := 0; i < 2; i++ {
 			err := statePublish.SetAPIHostPorts([]network.SpaceHostPorts{publish})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
-		c.Assert(mock.calls, gc.Equals, 1)
-		c.Assert(mock.apiHostPorts, gc.DeepEquals, []network.SpaceHostPorts{expect})
+		c.Assert(mock.calls, tc.Equals, 1)
+		c.Assert(mock.apiHostPorts, tc.DeepEquals, []network.SpaceHostPorts{expect})
 	}
 
 	check(ipV6First, ipV4First)
 	check(ipV4First, ipV4First)
 }
 
-func (s *publishSuite) TestPublisherRejectsNoServers(c *gc.C) {
+func (s *publishSuite) TestPublisherRejectsNoServers(c *tc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 	err := statePublish.SetAPIHostPorts(nil)
-	c.Assert(err, gc.ErrorMatches, "no API servers specified")
+	c.Assert(err, tc.ErrorMatches, "no API servers specified")
 }

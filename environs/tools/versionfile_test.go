@@ -5,29 +5,31 @@ package tools_test
 
 import (
 	"bytes"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type versionSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&versionSuite{})
+func TestVersionSuite(t *tctesting.T) {
+	tc.Run(t, &versionSuite{})
+}
 
-func getVersions(c *gc.C) *tools.Versions {
+func getVersions(c *tc.C) *tools.Versions {
 	r := bytes.NewReader([]byte(data))
 	versions, err := tools.ParseVersions(r)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return versions
 }
 
-func (s *versionSuite) TestParseVersions(c *gc.C) {
-	c.Assert(getVersions(c), gc.DeepEquals, &tools.Versions{
+func (s *versionSuite) TestParseVersions(c *tc.C) {
+	c.Assert(getVersions(c), tc.DeepEquals, &tools.Versions{
 		Versions: []tools.VersionHash{{
 			Version: "2.2.4-ubuntu-amd64",
 			SHA256:  "eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c",
@@ -44,34 +46,34 @@ func (s *versionSuite) TestParseVersions(c *gc.C) {
 	})
 }
 
-func (s *versionSuite) TestVersionsMatching(c *gc.C) {
+func (s *versionSuite) TestVersionsMatching(c *tc.C) {
 	v := getVersions(c)
 	results, err := v.VersionsMatching(bytes.NewReader([]byte(fakeContent1)))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-amd64",
 		"2.2.4-windows-amd64",
 		"2.2.4-centos-amd64",
 	})
 	results, err = v.VersionsMatching(bytes.NewReader([]byte(fakeContent2)))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-arm64",
 	})
 }
 
-func (s *versionSuite) TestVersionsMatchingHash(c *gc.C) {
+func (s *versionSuite) TestVersionsMatchingHash(c *tc.C) {
 	v := getVersions(c)
 	results := tools.VersionsMatchingHash(v,
 		"eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c")
-	c.Assert(results, gc.DeepEquals, []string{
+	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-amd64",
 		"2.2.4-windows-amd64",
 		"2.2.4-centos-amd64",
 	})
 	results = tools.VersionsMatchingHash(v,
 		"f6cf381fc20545d827b307dd413377bff3c123e1894fdf6c239f07a4143beb47")
-	c.Assert(results, gc.DeepEquals, []string{
+	c.Assert(results, tc.DeepEquals, []string{
 		"2.2.4-ubuntu-arm64",
 	})
 }

@@ -4,43 +4,42 @@
 package unitassigner
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-var _ = gc.Suite(testsuite{})
+var _ = tc.Suite(testsuite{})
 
 type testsuite struct{}
 
-func (testsuite) TestAssignUnits(c *gc.C) {
+func (testsuite) TestAssignUnits(c *tc.C) {
 	f := &fakeState{}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	api := API{st: f, res: common.NewResources()}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(args)
-	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
+	c.Assert(f.ids, tc.DeepEquals, []string{"foo/0", "bar/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 2)
+	c.Assert(res.Results, tc.HasLen, 2)
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[1].Error, tc.ErrorMatches, `unit "unit-bar-1" not found`)
 }
 
-func (testsuite) TestWatchUnitAssignment(c *gc.C) {
+func (testsuite) TestWatchUnitAssignment(c *tc.C) {
 	f := &fakeState{}
 	api := API{st: f, res: common.NewResources()}
 	f.ids = []string{"boo", "far"}
 	res, err := api.WatchUnitAssignments()
-	c.Assert(f.watchCalled, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Changes, gc.DeepEquals, f.ids)
+	c.Assert(f.watchCalled, tc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Changes, tc.DeepEquals, f.ids)
 }
 
-func (testsuite) TestSetStatus(c *gc.C) {
+func (testsuite) TestSetStatus(c *tc.C) {
 	f := &fakeStatusSetter{
 		res: params.ErrorResults{
 			Results: []params.ErrorResult{
@@ -50,9 +49,9 @@ func (testsuite) TestSetStatus(c *gc.C) {
 		Entities: []params.EntityStatusArgs{{Tag: "foo/0"}},
 	}
 	res, err := api.SetAgentStatus(args)
-	c.Assert(args, jc.DeepEquals, f.args)
-	c.Assert(res, jc.DeepEquals, f.res)
-	c.Assert(err, gc.Equals, f.err)
+	c.Assert(args, tc.DeepEquals, f.args)
+	c.Assert(res, tc.DeepEquals, f.res)
+	c.Assert(err, tc.Equals, f.err)
 }
 
 type fakeState struct {

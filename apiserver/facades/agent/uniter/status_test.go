@@ -4,16 +4,18 @@
 package uniter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type statusBaseSuite struct {
@@ -24,7 +26,7 @@ type statusBaseSuite struct {
 	api               *uniter.StatusAPI
 }
 
-func (s *statusBaseSuite) SetUpTest(c *gc.C) {
+func (s *statusBaseSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
 	s.leadershipChecker = &fakeLeadershipChecker{true}
@@ -48,75 +50,77 @@ type ApplicationStatusAPISuite struct {
 	statusBaseSuite
 }
 
-var _ = gc.Suite(&ApplicationStatusAPISuite{})
+func TestApplicationStatusAPISuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &ApplicationStatusAPISuite{})
+}
 
-func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestUnauthorized(c *tc.C) {
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		tag.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestNotATag(c *tc.C) {
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		"not a tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestNotFound(c *tc.C) {
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		names.NewUnitTag("foo/0").String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		machine.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	// Can't call application status on a machine.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *tc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		app.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	// Can't call unit status on an application.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *tc.C) {
 	// If the unit isn't the leader, it can't get it.
 	s.leadershipChecker.isLeader = false
 	unit := s.Factory.MakeUnit(c, nil)
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, ".* not leader .*")
+	c.Assert(status.Error, tc.ErrorMatches, ".* not leader .*")
 }
 
-func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *tc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
@@ -126,21 +130,21 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
 		unit.Tag().String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	r := result.Results[0]
-	c.Assert(r.Error, gc.IsNil)
-	c.Assert(r.Application.Error, gc.IsNil)
-	c.Assert(r.Application.Status, gc.Equals, status.Maintenance.String())
+	c.Assert(r.Error, tc.IsNil)
+	c.Assert(r.Application.Error, tc.IsNil)
+	c.Assert(r.Application.Status, tc.Equals, status.Maintenance.String())
 	units := r.Units
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(units, tc.HasLen, 1)
 	unitStatus, ok := units[unit.Name()]
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(unitStatus.Error, gc.IsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Maintenance.String())
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(unitStatus.Error, tc.IsNil)
+	c.Assert(unitStatus.Status, tc.Equals, status.Maintenance.String())
 }
 
-func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
+func (s *ApplicationStatusAPISuite) TestBulk(c *tc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
@@ -150,11 +154,11 @@ func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
 	}, {
 		"bad-tag",
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 3)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[1].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[2].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type fakeCachedModel struct {

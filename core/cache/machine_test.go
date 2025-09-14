@@ -6,17 +6,17 @@ package cache_test
 import (
 	"sort"
 	"strings"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type machineSuite struct {
@@ -27,35 +27,37 @@ type machineSuite struct {
 	wc0      cache.StringsWatcherC
 }
 
-var _ = gc.Suite(&machineSuite{})
+func TestMachineSuite(t *tctesting.T) {
+	tc.Run(t, &machineSuite{})
+}
 
-func (s *machineSuite) SetUpTest(c *gc.C) {
+func (s *machineSuite) SetUpTest(c *tc.C) {
 	s.EntitySuite.SetUpTest(c)
 	s.model = s.NewModel(modelChange)
 }
 
-func (s *machineSuite) TestInstanceId(c *gc.C) {
+func (s *machineSuite) TestInstanceId(c *tc.C) {
 	machine, _ := s.setupMachineWithUnits(c, "0", []string{"test1"})
 
 	id, err := machine.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, instance.Id("juju-gd4c23-0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(id, tc.Equals, instance.Id("juju-gd4c23-0"))
 }
 
-func (s *machineSuite) TestEmptyInstanceId(c *gc.C) {
+func (s *machineSuite) TestEmptyInstanceId(c *tc.C) {
 	mc := cache.MachineChange{
 		Id: "0",
 	}
 	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = machine.InstanceId()
-	c.Assert(err, gc.ErrorMatches, "machine 0 not provisioned")
+	c.Assert(err, tc.ErrorMatches, "machine 0 not provisioned")
 }
 
-func (s *machineSuite) TestCharmProfiles(c *gc.C) {
+func (s *machineSuite) TestCharmProfiles(c *tc.C) {
 	mc := cache.MachineChange{
 		Id:            "0",
 		CharmProfiles: []string{"charm-profile-1"},
@@ -63,22 +65,22 @@ func (s *machineSuite) TestCharmProfiles(c *gc.C) {
 	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	profiles := machine.CharmProfiles()
-	c.Assert(profiles, gc.DeepEquals, mc.CharmProfiles)
+	c.Assert(profiles, tc.DeepEquals, mc.CharmProfiles)
 }
 
-func (s *machineSuite) TestUnits(c *gc.C) {
+func (s *machineSuite) TestUnits(c *tc.C) {
 	machine, expectedUnits := s.setupMachineWithUnits(c, "0", []string{"test1", "test2"})
 	obtainedUnits, err := machine.Units()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Sort(orderedUnits(obtainedUnits))
 	sort.Sort(orderedUnits(expectedUnits))
-	c.Assert(obtainedUnits, jc.DeepEquals, expectedUnits)
+	c.Assert(obtainedUnits, tc.DeepEquals, expectedUnits)
 }
 
-func (s *machineSuite) TestUnitsSubordinate(c *gc.C) {
+func (s *machineSuite) TestUnitsSubordinate(c *tc.C) {
 	machine, expectedUnits := s.setupMachineWithUnits(c, "0", []string{"test1", "test2"})
 
 	// add subordinate
@@ -90,35 +92,35 @@ func (s *machineSuite) TestUnitsSubordinate(c *gc.C) {
 	uc.Subordinate = true
 	s.model.UpdateUnit(uc, s.Manager)
 	unit, err := s.model.Unit(uc.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedUnits = append(expectedUnits, unit)
 
 	obtainedUnits, err := machine.Units()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sort.Sort(orderedUnits(obtainedUnits))
 	sort.Sort(orderedUnits(expectedUnits))
-	c.Assert(obtainedUnits, jc.DeepEquals, expectedUnits)
+	c.Assert(obtainedUnits, tc.DeepEquals, expectedUnits)
 }
 
-func (s *machineSuite) TestUnitsTwoMachines(c *gc.C) {
+func (s *machineSuite) TestUnitsTwoMachines(c *tc.C) {
 	machine0, expectedUnits0 := s.setupMachineWithUnits(c, "0", []string{"test1", "test2"})
 	machine1, expectedUnits1 := s.setupMachineWithUnits(c, "1", []string{"test3", "test4", "test5"})
 
 	obtainedUnits0, err := machine0.Units()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	obtainedUnits1, err := machine1.Units()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sort.Sort(orderedUnits(obtainedUnits0))
 	sort.Sort(orderedUnits(expectedUnits0))
 	sort.Sort(orderedUnits(obtainedUnits1))
 	sort.Sort(orderedUnits(expectedUnits1))
 
-	c.Assert(obtainedUnits0, jc.DeepEquals, expectedUnits0)
-	c.Assert(obtainedUnits1, jc.DeepEquals, expectedUnits1)
+	c.Assert(obtainedUnits0, tc.DeepEquals, expectedUnits0)
+	c.Assert(obtainedUnits1, tc.DeepEquals, expectedUnits1)
 }
 
-func (s *machineSuite) TestWatchContainersStops(c *gc.C) {
+func (s *machineSuite) TestWatchContainersStops(c *tc.C) {
 	s.setupMachine0WithContainerWatcher(c, false)
 
 	// The worker is the first and only resource (1).
@@ -128,11 +130,11 @@ func (s *machineSuite) TestWatchContainersStops(c *gc.C) {
 	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, false)
 }
 
-func (s *machineSuite) TestWatchContainersStartWithContainer(c *gc.C) {
+func (s *machineSuite) TestWatchContainersStartWithContainer(c *tc.C) {
 	defer workertest.CleanKill(c, s.setupMachine0WithContainerWatcher(c, true))
 }
 
-func (s *machineSuite) TestWatchContainersAddContainer(c *gc.C) {
+func (s *machineSuite) TestWatchContainersAddContainer(c *tc.C) {
 	defer workertest.CleanKill(c, s.setupMachine0WithContainerWatcher(c, false))
 
 	// Add a container to the machine
@@ -142,7 +144,7 @@ func (s *machineSuite) TestWatchContainersAddContainer(c *gc.C) {
 	s.wc0.AssertOneChange([]string{mc.Id})
 }
 
-func (s *machineSuite) TestWatchContainersOnlyThisMachinesAddContainers(c *gc.C) {
+func (s *machineSuite) TestWatchContainersOnlyThisMachinesAddContainers(c *tc.C) {
 	defer workertest.CleanKill(c, s.setupMachine0WithContainerWatcher(c, false))
 
 	// Add a container to a different machine
@@ -152,7 +154,7 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesAddContainers(c *gc.C)
 	s.wc0.AssertNoChange()
 }
 
-func (s *machineSuite) TestWatchContainersOnlyThisMachinesRemoveContainers(c *gc.C) {
+func (s *machineSuite) TestWatchContainersOnlyThisMachinesRemoveContainers(c *tc.C) {
 	defer workertest.CleanKill(c, s.setupMachine0WithContainerWatcher(c, false))
 
 	// Remove a container from a different machine
@@ -160,11 +162,11 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesRemoveContainers(c *gc
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "1/lxd/0",
 	}
-	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
+	c.Assert(s.model.RemoveMachine(rm), tc.ErrorIsNil)
 	s.wc0.AssertNoChange()
 }
 
-func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
+func (s *machineSuite) TestWatchContainersRemoveContainer(c *tc.C) {
 	defer workertest.CleanKill(c, s.setupMachine0WithContainerWatcher(c, true))
 
 	// Remove a container from this machine
@@ -172,11 +174,11 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "0/lxd/0",
 	}
-	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
+	c.Assert(s.model.RemoveMachine(rm), tc.ErrorIsNil)
 	s.wc0.AssertOneChange([]string{rm.Id})
 }
 
-func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
+func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *tc.C) {
 	msg := make(chan struct{}, 1)
 	unsub := s.Hub.Subscribe(
 		machineChange.Id+":machine-provisioned",
@@ -193,14 +195,14 @@ func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
 	}
 }
 
-func (s *machineSuite) setupMachine0(c *gc.C) {
+func (s *machineSuite) setupMachine0(c *tc.C) {
 	s.model.UpdateMachine(machineChange, s.Manager)
 	machine, err := s.model.Machine(machineChange.Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.machine0 = machine
 }
 
-func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer bool) *cache.PredicateStringsWatcher {
+func (s *machineSuite) setupMachine0WithContainerWatcher(c *tc.C, addContainer bool) *cache.PredicateStringsWatcher {
 	s.setupMachine0(c)
 
 	if addContainer {
@@ -208,7 +210,7 @@ func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer b
 	}
 
 	w, err := s.machine0.WatchContainers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	if addContainer {
@@ -221,19 +223,19 @@ func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer b
 	return w
 }
 
-func (s *machineSuite) setupMachine0Container(c *gc.C) {
+func (s *machineSuite) setupMachine0Container(c *tc.C) {
 	// Add a container to the machine
 	mc := machineChange
 	mc.Id = "0/lxd/0"
 	s.model.UpdateMachine(mc, s.Manager)
 }
 
-func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (cache.Machine, []cache.Unit) {
+func (s *machineSuite) setupMachineWithUnits(c *tc.C, machineId string, apps []string) (cache.Machine, []cache.Unit) {
 	mc := machineChange
 	mc.Id = machineId
 	s.model.UpdateMachine(mc, s.Manager)
 	machine, err := s.model.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	units := make([]cache.Unit, len(apps))
 	for i, name := range apps {
@@ -244,7 +246,7 @@ func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []s
 		s.model.UpdateUnit(uc, s.Manager)
 
 		unit, err := s.model.Unit(uc.Name)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		units[i] = unit
 	}
 

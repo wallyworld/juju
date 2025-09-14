@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -21,10 +22,8 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/unitassigner"
@@ -46,18 +45,19 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreresouces "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseRefreshSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	deployResources      deployer.DeployResourcesFunc
 	resolveCharm         mockCharmResolver
@@ -76,7 +76,7 @@ type BaseRefreshSuite struct {
 	testBase     corebase.Base
 }
 
-func (s *BaseRefreshSuite) runRefresh(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *BaseRefreshSuite) runRefresh(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, s.refreshCommand(), args...)
 }
 
@@ -84,19 +84,21 @@ type RefreshSuite struct {
 	BaseRefreshSuite
 }
 
-var _ = gc.Suite(&RefreshSuite{})
+func TestRefreshSuite(t *tctesting.T) {
+	tc.Run(t, &RefreshSuite{})
+}
 
-func (s *RefreshSuite) SetUpTest(c *gc.C) {
+func (s *RefreshSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
-func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
+func (s *BaseRefreshSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 }
 
-func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, latestCharmURL *charm.URL) {
+func (s *BaseRefreshSuite) setup(c *tc.C, b corebase.Base, currentCharmURL, latestCharmURL *charm.URL) {
 	// Create persistent cookies in a temporary location.
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
@@ -253,9 +255,9 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 	return cmd
 }
 
-func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
+func (s *RefreshSuite) TestStorageConstraints(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--storage", "bar=baz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -278,14 +280,14 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
+func (s *RefreshSuite) TestConfigSettings(c *tc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--config", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -306,9 +308,9 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestConfigSettingsWithTrust(c *gc.C) {
+func (s *RefreshSuite) TestConfigSettingsWithTrust(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--trust", "--config", "foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -328,9 +330,9 @@ func (s *RefreshSuite) TestConfigSettingsWithTrust(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *gc.C) {
+func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--trust=false", "--config", "foo=bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -350,14 +352,14 @@ func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *gc.C) {
+func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *tc.C) {
 	tempdir := c.MkDir()
 	configFile := filepath.Join(tempdir, "config.yaml")
 	err := os.WriteFile(configFile, []byte("foo:{}"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "foo", "--trust", "--config", "foo=bar", "--config", configFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -378,7 +380,7 @@ func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *tc.C) {
 	s.charmAPIClient.bindings = map[string]string{
 		"": "testing",
 	}
@@ -389,7 +391,7 @@ func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]string) {
+func (s *RefreshSuite) testUpgradeWithBind(c *tc.C, expectedBindings map[string]string) {
 	s.apiConnection = mockAPIConnection{
 		serverVersion: &version.Number{
 			Major: 1,
@@ -404,7 +406,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 	}
 
 	_, err := s.runRefresh(c, "foo", "--bind", "ep1=sp1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.spacesClient.CheckCallNames(c, "ListSpaces")
 
@@ -425,7 +427,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *tc.C) {
 	s.apiConnection = mockAPIConnection{
 		serverVersion: &version.Number{
 			Major: 1,
@@ -439,7 +441,7 @@ func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo", "--bind", "unknown=sp1")
-	c.Assert(err, gc.ErrorMatches, `endpoint "unknown" not found`)
+	c.Assert(err, tc.ErrorMatches, `endpoint "unknown" not found`)
 }
 
 type RefreshErrorsStateSuite struct {
@@ -449,9 +451,11 @@ type RefreshErrorsStateSuite struct {
 	cmd     cmd.Command
 }
 
-var _ = gc.Suite(&RefreshErrorsStateSuite{})
+func TestRefreshErrorsStateSuite(t *tctesting.T) {
+	tc.Run(t, &RefreshErrorsStateSuite{})
+}
 
-func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
+func (s *RefreshErrorsStateSuite) SetUpSuite(c *tc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
 	}
@@ -462,7 +466,7 @@ func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
 	})
 }
 
-func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
+func (s *RefreshErrorsStateSuite) SetUpTest(c *tc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	cfgAttrs := map[string]interface{}{
@@ -484,62 +488,62 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *RefreshErrorsStateSuite) runRefresh(c *gc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
+func (s *RefreshErrorsStateSuite) runRefresh(c *tc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func (s *RefreshErrorsStateSuite) TestInvalidArgs(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestInvalidArgs(c *tc.C) {
 	_, err := s.runRefresh(c, s.cmd)
-	c.Assert(err, gc.ErrorMatches, "no application specified")
+	c.Assert(err, tc.ErrorMatches, "no application specified")
 	_, err = s.runRefresh(c, s.cmd, "invalid:name")
-	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
+	c.Assert(err, tc.ErrorMatches, `invalid application name "invalid:name"`)
 	_, err = s.runRefresh(c, s.cmd, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
-func (s *RefreshErrorsStateSuite) TestInvalidApplication(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestInvalidApplication(c *tc.C) {
 	_, err := s.runRefresh(c, s.cmd, "phony")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, `application "phony" not found`)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, `application "phony" not found`)
 }
 
-func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
+func (s *RefreshErrorsStateSuite) deployApplication(c *tc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
 	curl := charm.MustParseURL("local:riak-7")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@18.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	err := runDeploy(c, charmDir.Path, "riak", "--base", "ubuntu@18.04")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RefreshErrorsStateSuite) TestNoPathFails(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestNoPathFails(c *tc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak")
-	c.Assert(err, gc.ErrorMatches, "refreshing a local charm requires either --path or --switch")
+	c.Assert(err, tc.ErrorMatches, "refreshing a local charm requires either --path or --switch")
 }
 
-func (s *RefreshErrorsStateSuite) TestSwitchAndRevisionFails(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestSwitchAndRevisionFails(c *tc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=riak", "--revision=2")
-	c.Assert(err, gc.ErrorMatches, "--switch and --revision are mutually exclusive")
+	c.Assert(err, tc.ErrorMatches, "--switch and --revision are mutually exclusive")
 }
 
-func (s *RefreshErrorsStateSuite) TestPathAndRevisionFails(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestPathAndRevisionFails(c *tc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path=foo", "--revision=2")
-	c.Assert(err, gc.ErrorMatches, "--path and --revision are mutually exclusive")
+	c.Assert(err, tc.ErrorMatches, "--path and --revision are mutually exclusive")
 }
 
-func (s *RefreshErrorsStateSuite) TestSwitchAndPathFails(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestSwitchAndPathFails(c *tc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--switch=riak", "--path=foo")
-	c.Assert(err, gc.ErrorMatches, "--switch and --path are mutually exclusive")
+	c.Assert(err, tc.ErrorMatches, "--switch and --path are mutually exclusive")
 }
 
-func (s *RefreshErrorsStateSuite) TestInvalidRevision(c *gc.C) {
+func (s *RefreshErrorsStateSuite) TestInvalidRevision(c *tc.C) {
 	s.deployApplication(c)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--revision=blah")
-	c.Assert(err, gc.ErrorMatches, `invalid value "blah" for option --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
+	c.Assert(err, tc.ErrorMatches, `invalid value "blah" for option --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
 }
 
 type RefreshSuccessStateSuite struct {
@@ -552,9 +556,11 @@ type RefreshSuccessStateSuite struct {
 	cmd         cmd.Command
 }
 
-var _ = gc.Suite(&RefreshSuccessStateSuite{})
+func TestRefreshSuccessStateSuite(t *tctesting.T) {
+	tc.Run(t, &RefreshSuccessStateSuite{})
+}
 
-func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
+func (s *RefreshSuccessStateSuite) SetUpSuite(c *tc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
 	}
@@ -566,21 +572,21 @@ func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
 
 }
 
-func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) (string, *state.CharmOrigin) {
+func (s *RefreshSuccessStateSuite) assertUpgraded(c *tc.C, riak *state.Application, revision int, forced bool) (string, *state.CharmOrigin) {
 	err := riak.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch, force, err := riak.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, revision)
-	c.Assert(force, gc.Equals, forced)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.Revision(), tc.Equals, revision)
+	c.Assert(force, tc.Equals, forced)
 	return ch.URL(), riak.CharmOrigin()
 }
 
-func (s *RefreshSuccessStateSuite) runRefresh(c *gc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
+func (s *RefreshSuccessStateSuite) runRefresh(c *tc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
+func (s *RefreshSuccessStateSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
 	}
@@ -597,13 +603,13 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	)
 	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, s.path, "--series", "bionic")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl := "local:riak-7"
 	s.riak, _ = s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 
 	_, forced, err := s.riak.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forced, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(forced, tc.IsFalse)
 
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL:  "local:riak",
@@ -611,19 +617,19 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	c.Assert(s.CmdBlockHelper, tc.NotNil)
+	s.AddCleanup(func(*tc.C) { s.CmdBlockHelper.Close() })
 }
 
-func (s *RefreshSuccessStateSuite) assertLocalRevision(c *gc.C, revision int, path string) {
+func (s *RefreshSuccessStateSuite) assertLocalRevision(c *tc.C, revision int, path string) {
 	dir, err := charm.ReadCharmDir(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dir.Revision(), gc.Equals, revision)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dir.Revision(), tc.Equals, revision)
 }
 
-func (s *RefreshSuccessStateSuite) TestLocalRevisionUnchanged(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestLocalRevisionUnchanged(c *tc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", s.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 8, false)
 	s.AssertCharmUploaded(c, curl)
 	// Even though the remote revision is bumped, the local one should
@@ -631,10 +637,10 @@ func (s *RefreshSuccessStateSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.assertLocalRevision(c, 7, s.path)
 }
 
-func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeWithChannel(c *tc.C) {
 	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
@@ -663,14 +669,14 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *tc.C) {
 	// Test setting a new charm channel, without an actual
 	// charm upgrade needed.
 	s.resolvedChannel = charm.Beta
 	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -690,10 +696,10 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 	})
 }
 
-func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C) {
+func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *tc.C) {
 	s.resolvedChannel = charm.Beta
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
 	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, s.testPlatform)
@@ -718,18 +724,18 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeFailWithoutCharmHubOriginID(c *tc.C) {
 	s.resolvedChannel = charm.Beta
 	s.charmAPIClient.charmOrigin.Source = "charm-hub"
 	s.charmAPIClient.charmOrigin.ID = ""
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
-	c.Assert(err, gc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
+	c.Assert(err, tc.ErrorMatches, "\"foo\" deploy incomplete, please try refresh again in a little bit.")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin")
 }
 
-func (s *RefreshSuite) TestSwitch(c *gc.C) {
+func (s *RefreshSuite) TestSwitch(c *tc.C) {
 	_, err := s.runRefresh(c, "foo", "--switch=ch:trusty/anotherriak")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
@@ -737,7 +743,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Stable}, s.testPlatform)
 
 	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmAdder.CheckCall(c, 0, "CheckCharmPlacement", "foo", parsedSwitchUrl)
 	origin.Revision = (*int)(nil)
 	s.charmAdder.CheckCall(c, 1, "AddCharm", s.resolvedCharmURL, origin, false)
@@ -763,44 +769,44 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(curl, gc.NotNil)
-	c.Assert(curl.String(), gc.Equals, "ch:trusty/anotherriak")
+	c.Assert(curl, tc.NotNil)
+	c.Assert(curl.String(), tc.Equals, "ch:trusty/anotherriak")
 }
 
-func (s *RefreshSuite) TestSwitchSameURL(c *gc.C) {
+func (s *RefreshSuite) TestSwitchSameURL(c *tc.C) {
 	s.charmAPIClient.charmURL = s.resolvedCharmURL
 	_, err := s.runRefresh(c, "foo", "--switch="+s.resolvedCharmURL.String())
 	// Should not get error since charm already up-to-date
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RefreshSuite) TestSwitchDifferentRevision(c *gc.C) {
+func (s *RefreshSuite) TestSwitchDifferentRevision(c *tc.C) {
 	curlCopy := *s.resolvedCharmURL
 	s.charmAPIClient.charmURL = &curlCopy
 	s.resolvedCharmURL.Revision++
 	_, err := s.runRefresh(c, "riak", "--switch="+s.resolvedCharmURL.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RefreshSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeWithTermsNotSigned(c *tc.C) {
 	termsRequiredError := &common.TermsRequiredError{Terms: []string{"term/1", "term/2"}}
 	s.charmAdder.SetErrors(termsRequiredError)
 	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	_, err := s.runRefresh(c, "terms1")
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Assert(err, tc.ErrorMatches, expectedError)
 }
-func (s *RefreshSuccessStateSuite) TestBlockRefresh(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestBlockRefresh(c *tc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockRefresh")
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", s.path)
 	s.AssertBlocked(c, err, ".*TestBlockRefresh.*")
 }
 
-func (s *RefreshSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c *tc.C) {
 	dir, err := charm.ReadCharmDir(s.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = dir.SetDiskRevision(42)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL:      "local:riak",
@@ -808,30 +814,30 @@ func (s *RefreshSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C
 		Revision: dir.Revision(),
 	}
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", s.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 42, false)
 	s.AssertCharmUploaded(c, curl)
 	s.assertLocalRevision(c, 42, s.path)
 }
 
-func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *tc.C) {
 	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := runDeploy(c, repoPath, "multi-series", "--series", "bionic")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.Application("multi-series")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.Revision(), tc.Equals, 1)
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 	tags := []names.UnitTag{unit.UnitTag()}
 	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, make([]error, len(units)))
 
 	// Overwrite the metadata.yaml to change the supported series.
 	metadataPath := filepath.Join(repoPath, "metadata.yaml")
@@ -867,35 +873,35 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	//  in 3.x the --force-series argument exists, though it is being
 	//  replaced by --force-base
 	_, err = s.runRefresh(c, s.cmd, "multi-series", "--path", repoPath, "--force-series")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch.Revision(), gc.Equals, 2)
-	c.Check(force, gc.Equals, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ch.Revision(), tc.Equals, 2)
+	c.Check(force, tc.Equals, false)
 }
 
-func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *tc.C) {
 	repoPath := testcharms.RepoWithSeries("jammy").ClonedDirPath(c.MkDir(), "multi-base")
 	err := runDeploy(c, repoPath, "multi-base", "--base", "ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.Application("multi-base")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.Revision(), tc.Equals, 1)
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 	tags := []names.UnitTag{unit.UnitTag()}
 	errs, err := unitassigner.New(s.APIState).AssignUnits(tags)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.DeepEquals, make([]error, len(units)))
 
 	// Overwrite the manifest.yaml to change the supported series.
 	manifestPath := filepath.Join(repoPath, "manifest.yaml")
@@ -930,8 +936,8 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	}
 	// First confirm that normal refresh would be refused
 	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath)
-	c.Check(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `.*base "ubuntu@22.04" not supported by charm, the charm supported bases are: ubuntu@20.04`)
+	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, `.*base "ubuntu@22.04" not supported by charm, the charm supported bases are: ubuntu@20.04`)
 	// jam (2024-11-15): The structure of this test suite is that you can only run
 	//  Refresh one time without reinitializing it. Since we are doing it 2x to test
 	//  that it fails properly before succeeding, we have to reset the internal structure
@@ -946,39 +952,39 @@ func (s *RefreshSuccessStateSuite) TestForcedBaseUpgrade(c *gc.C) {
 	)
 
 	err = app.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch, _, err = app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The charm should not have changed
-	c.Check(ch.Revision(), gc.Equals, 1)
+	c.Check(ch.Revision(), tc.Equals, 1)
 
 	// But with --force-base we are happy
 	_, err = s.runRefresh(c, s.cmd, "multi-base", "--path", repoPath, "--force-base")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = app.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch, force, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check charm is at revision 3 because the local charm is uploaded twice more.
-	c.Check(ch.Revision(), gc.Equals, 3)
-	c.Check(force, gc.Equals, false)
+	c.Check(ch.Revision(), tc.Equals, 3)
+	c.Check(force, tc.Equals, false)
 }
 
-func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *tc.C) {
 	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
 	err := runDeploy(c, repoPath, "lxd-profile-alt", "--to", "lxd")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.Application("lxd-profile-alt")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ch, _, err := app.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch.Revision(), tc.Equals, 0)
 
 	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(units, tc.HasLen, 1)
 	unit := units[0]
 
 	container, err := s.State.AddMachineInsideNewMachine(
@@ -992,10 +998,10 @@ func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 		},
 		instance.LXD,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = unit.AssignToMachine(container)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Overwrite the lxd-profile.yaml to change the supported series.
 	lxdProfilePath := filepath.Join(repoPath, "lxd-profile.yaml")
@@ -1020,19 +1026,19 @@ devices: {}
 	}
 
 	_, err = s.runRefresh(c, s.cmd, "lxd-profile-alt", "--path", repoPath)
-	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "boot.autostart.delay"`)
+	c.Assert(err, tc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "boot.autostart.delay"`)
 }
 
-func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestInitWithResources(c *tc.C) {
 	testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "dummy")
 	dir := c.MkDir()
 
 	foopath := path.Join(dir, "foo")
 	barpath := path.Join(dir, "bar")
 	err := os.WriteFile(foopath, []byte("foo"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(barpath, []byte("bar"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("foo=%s", foopath)
 	res2 := fmt.Sprintf("bar=%s", barpath)
@@ -1041,14 +1047,14 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
 	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(d.Resources, tc.DeepEquals, map[string]string{
 		"foo": foopath,
 		"bar": barpath,
 	})
 }
 
-func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
+func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *tc.C) {
 	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
@@ -1065,12 +1071,12 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 	dir := c.MkDir()
 	barpath := path.Join(dir, "bar")
 	err := os.WriteFile(barpath, []byte("bar"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res1 := fmt.Sprintf("bar=%s", barpath)
 
 	_, err = s.runRefresh(c, "foo", "--resource="+res1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAdder.CheckNoCalls(c)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -1096,19 +1102,21 @@ type RefreshCharmHubSuite struct {
 	BaseRefreshSuite
 }
 
-var _ = gc.Suite(&RefreshCharmHubSuite{})
+func TestRefreshCharmHubSuite(t *tctesting.T) {
+	tc.Run(t, &RefreshCharmHubSuite{})
+}
 
-func (s *RefreshCharmHubSuite) SetUpTest(c *gc.C) {
+func (s *RefreshCharmHubSuite) SetUpTest(c *tc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
-func (s *BaseRefreshSuite) TearDownTest(c *gc.C) {
+func (s *BaseRefreshSuite) TearDownTest(c *tc.C) {
 	//func (s *RefreshCharmHubSuite) TearDownTest(c *gc.C) {
 	s.ResetCalls()
 }
 
-func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
+func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *tc.C) {
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -1134,7 +1142,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
@@ -1151,7 +1159,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	)
 }
 
-func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
+func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *tc.C) {
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -1177,7 +1185,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo", "--resource", "bar=3")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
@@ -1194,7 +1202,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	)
 }
 
-func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *gc.C) {
+func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *tc.C) {
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -1219,68 +1227,68 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *gc.C) {
 	}
 
 	_, err := s.runRefresh(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	for _, call := range s.Calls() {
-		c.Assert(call.FuncName, gc.Not(gc.Equals), "DeployResources", gc.Commentf("DeployResources should not be called here"))
+		c.Assert(call.FuncName, tc.Not(tc.Equals), "DeployResources", tc.Commentf("DeployResources should not be called here"))
 	}
 }
 
-func (s *RefreshSuccessStateSuite) TestForcedUnitsUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestForcedUnitsUpgrade(c *tc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--force-units", "--path", s.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 8, true)
 	s.AssertCharmUploaded(c, curl)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
 }
 
-func (s *RefreshSuccessStateSuite) TestBlockForcedUnitsUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestBlockForcedUnitsUpgrade(c *tc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockForcedUpgrade")
 	_, err := s.runRefresh(c, s.cmd, "riak", "--force-units", "--path", s.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 8, true)
 	s.AssertCharmUploaded(c, curl)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
 }
 
-func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestCharmPath(c *tc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl, gc.Equals, "local:riak-42")
+	c.Assert(curl, tc.Equals, "local:riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
-func (s *RefreshSuccessStateSuite) TestCharmPathNotFound(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestCharmPathNotFound(c *tc.C) {
 	myriakPath := filepath.Join(c.MkDir(), "riak")
 	_, err := os.Stat(myriakPath)
-	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	c.Assert(err, tc.ErrorMatches, ".*no such file or directory")
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
+	c.Assert(err, tc.ErrorMatches, ".*file does not exist")
 }
 
-func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *tc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err := os.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rev := 42
 	curl, origin := s.assertUpgraded(c, s.riak, rev, false)
-	c.Assert(curl, gc.Equals, "local:riak-42")
-	c.Assert(origin, gc.DeepEquals, &state.CharmOrigin{
+	c.Assert(curl, tc.Equals, "local:riak-42")
+	c.Assert(origin, tc.DeepEquals, &state.CharmOrigin{
 		Source:   "local",
 		Revision: &rev,
 		Platform: &state.Platform{
@@ -1292,25 +1300,25 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	s.assertLocalRevision(c, rev, myriakPath)
 }
 
-func (s *RefreshSuccessStateSuite) TestSwitchToLocalNotFound(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestSwitchToLocalNotFound(c *tc.C) {
 	myriakPath := filepath.Join(c.MkDir(), "riak")
 	_, err := os.Stat(myriakPath)
-	c.Assert(err, gc.ErrorMatches, ".*no such file or directory")
+	c.Assert(err, tc.ErrorMatches, ".*no such file or directory")
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
-	c.Assert(err, gc.ErrorMatches, ".*file does not exist")
+	c.Assert(err, tc.ErrorMatches, ".*file does not exist")
 }
 
-func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *tc.C) {
 	// Revision 7 is running to start with.
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	s.assertLocalRevision(c, 7, myriakPath)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 8, false)
-	c.Assert(curl, gc.Equals, "local:riak-8")
+	c.Assert(curl, tc.Equals, "local:riak-8")
 }
 
-func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
+func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *tc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(c.MkDir(), "riak", "myriak")
 	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
@@ -1325,7 +1333,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 		c.Fatal("cannot write to metadata.yaml")
 	}
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
-	c.Assert(err, gc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
+	c.Assert(err, tc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
 }
 
 type mockAPIConnection struct {
@@ -1380,7 +1388,7 @@ func (*mockAPIConnection) Close() error {
 
 type mockCharmAdder struct {
 	store.CharmAdder
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockCharmAdder) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
@@ -1400,7 +1408,7 @@ func (m *mockCharmAdder) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 
 type mockCharmClient struct {
 	utils.CharmClient
-	testing.Stub
+	testhelpers.Stub
 	charmInfo      *apicommoncharms.CharmInfo
 	charmResources []charmresource.Resource
 }
@@ -1422,7 +1430,7 @@ func (m *mockCharmClient) ListCharmResources(curl string, origin commoncharm.Ori
 }
 
 type mockCharmResolver struct {
-	testing.Stub
+	testhelpers.Stub
 	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
@@ -1432,7 +1440,7 @@ func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commonc
 
 type mockCharmRefreshClient struct {
 	CharmRefreshClient
-	testing.Stub
+	testhelpers.Stub
 	charmURL    *charm.URL
 	charmOrigin commoncharm.Origin
 
@@ -1462,7 +1470,7 @@ func newMockModelConfigGetter() mockModelConfigGetter {
 
 type mockModelConfigGetter struct {
 	deployer.ModelConfigGetter
-	testing.Stub
+	testhelpers.Stub
 
 	cfg map[string]interface{}
 }
@@ -1482,7 +1490,7 @@ func (m *mockModelConfigGetter) Close() error {
 
 type mockResourceLister struct {
 	utils.ResourceLister
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockResourceLister) ListResources([]string) ([]coreresouces.ApplicationResources, error) {
@@ -1502,7 +1510,7 @@ func (m *mockResourceLister) ListResources([]string) ([]coreresouces.Application
 
 type mockSpacesClient struct {
 	SpacesAPI
-	testing.Stub
+	testhelpers.Stub
 
 	spaceList []params.Space
 }
@@ -1513,7 +1521,7 @@ func (m *mockSpacesClient) ListSpaces() ([]params.Space, error) {
 }
 
 type mockDownloadBundleClient struct {
-	testing.Stub
+	testhelpers.Stub
 	bundle charm.Bundle
 }
 

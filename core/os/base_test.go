@@ -4,28 +4,31 @@
 package os_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type baseSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 }
 
-var _ = gc.Suite(&baseSuite{})
+func TestBaseSuite(t *tctesting.T) {
+	tc.Run(t, &baseSuite{})
+}
 
 var b = corebase.Base{OS: "freelunch", Channel: corebase.Channel{Track: "0"}}
 
-func (s *baseSuite) TestHostBaseOverride(c *gc.C) {
+func (s *baseSuite) TestHostBaseOverride(c *tc.C) {
 	// Really just tests that HostBase is overridable
 	s.PatchValue(&os.HostBase, func() (corebase.Base, error) {
 		return b, nil
 	})
 	ser, err := os.HostBase()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ser, gc.Equals, b)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ser, tc.Equals, b)
 }

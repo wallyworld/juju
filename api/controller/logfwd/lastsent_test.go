@@ -4,28 +4,30 @@
 package logfwd_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/controller/logfwd"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type LastSentSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&LastSentSuite{})
+func TestLastSentSuite(t *tctesting.T) {
+	tc.Run(t, &LastSentSuite{})
+}
 
-func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *LastSentSuite) TestGetLastSent(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	caller := &stubFacadeCaller{stub: stub}
 	caller.ReturnFacadeCallGet = params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
@@ -52,9 +54,9 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 		Model: modelTag,
 		Sink:  "ham",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []logfwd.LastSentResult{{
+	c.Check(results, tc.DeepEquals, []logfwd.LastSentResult{{
 		LastSentInfo: logfwd.LastSentInfo{
 			LastSentID: logfwd.LastSentID{
 				Model: modelTag,
@@ -100,8 +102,8 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *LastSentSuite) TestSetLastSent(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	caller := &stubFacadeCaller{stub: stub}
 	apiError := apiservererrors.ServerError(errors.New("<failed>"))
 	caller.ReturnFacadeCallSet = params.ErrorResults{
@@ -139,9 +141,9 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 		RecordID:        15,
 		RecordTimestamp: time.Unix(0, 150),
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []logfwd.LastSentResult{{
+	c.Check(results, tc.DeepEquals, []logfwd.LastSentResult{{
 		LastSentInfo: logfwd.LastSentInfo{
 			LastSentID: logfwd.LastSentID{
 				Model: modelTag,
@@ -199,7 +201,7 @@ func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 }
 
 type stubFacadeCaller struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnFacadeCallGet params.LogForwardingGetLastSentResults
 	ReturnFacadeCallSet params.ErrorResults

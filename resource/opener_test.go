@@ -7,21 +7,21 @@ import (
 	"bytes"
 	"io"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type OpenerSuite struct {
@@ -36,9 +36,11 @@ type OpenerSuite struct {
 	unleash sync.Mutex
 }
 
-var _ = gc.Suite(&OpenerSuite{})
+func TestOpenerSuite(t *tctesting.T) {
+	tc.Run(t, &OpenerSuite{})
+}
 
-func (s *OpenerSuite) TestOpenResource(c *gc.C) {
+func (s *OpenerSuite) TestOpenResource(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	res := resources.Resource{
@@ -61,12 +63,12 @@ func (s *OpenerSuite) TestOpenResource(c *gc.C) {
 	}, nil)
 
 	opened, err := s.newOpener(0).OpenResource("wal-e")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(opened.Resource, gc.DeepEquals, res)
-	c.Assert(opened.Close(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(opened.Resource, tc.DeepEquals, res)
+	c.Assert(opened.Close(), tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
+func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	res := resources.Resource{
@@ -102,9 +104,9 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 			defer finished.Done()
 			start.Done()
 			opened, err := s.newOpener(maxConcurrentRequests).OpenResource("wal-e")
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(opened.Resource, gc.DeepEquals, res)
-			c.Assert(opened.Close(), jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(opened.Resource, tc.DeepEquals, res)
+			c.Assert(opened.Close(), tc.ErrorIsNil)
 		}()
 	}
 	// Let all the test routines queue up then unleash.
@@ -123,7 +125,7 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *gc.C) {
 	}
 }
 
-func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
+func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {
 	defer s.setupMocks(c, false).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	res := resources.Resource{
@@ -146,13 +148,13 @@ func (s *OpenerSuite) TestOpenResourceApplication(c *gc.C) {
 	}, nil)
 
 	opened, err := s.newOpener(0).OpenResource("wal-e")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(opened.Resource, gc.DeepEquals, res)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(opened.Resource, tc.DeepEquals, res)
 	err = opened.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OpenerSuite) setupMocks(c *gc.C, includeUnit bool) *gomock.Controller {
+func (s *OpenerSuite) setupMocks(c *tc.C, includeUnit bool) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	if includeUnit {
 		s.unitName = "postgresql/0"
@@ -200,7 +202,7 @@ func (s *OpenerSuite) expectCacheMethods(res resources.Resource, numConcurrentRe
 	}
 }
 
-func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
+func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
 	res := resources.Resource{
@@ -228,10 +230,10 @@ func (s *OpenerSuite) TestGetResourceErrorReleasesLock(c *gc.C) {
 	s.limiter.EXPECT().Release("uuid:postgresql")
 
 	opened, err := s.newOpener(-1).OpenResource("wal-e")
-	c.Assert(err, gc.ErrorMatches, "failed after retrying: boom")
-	c.Check(opened, gc.NotNil)
-	c.Check(opened.Resource, gc.DeepEquals, resources.Resource{})
-	c.Check(opened.ReadCloser, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "failed after retrying: boom")
+	c.Check(opened, tc.NotNil)
+	c.Check(opened.Resource, tc.DeepEquals, resources.Resource{})
+	c.Check(opened.ReadCloser, tc.IsNil)
 }
 
 func (s *OpenerSuite) newOpener(maxRequests int) *resource.ResourceOpener {

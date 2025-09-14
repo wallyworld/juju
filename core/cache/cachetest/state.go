@@ -7,8 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
@@ -22,22 +21,22 @@ import (
 
 // ModelChangeFromState returns a ModelChange representing the current
 // model for the state object.
-func ModelChangeFromState(c *gc.C, st *state.State) cache.ModelChange {
+func ModelChangeFromState(c *tc.C, st *state.State) cache.ModelChange {
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ModelChange(c, m)
 }
 
 // ModelChange returns a ModelChange representing the input state model.
-func ModelChange(c *gc.C, model *state.Model) cache.ModelChange {
+func ModelChange(c *tc.C, model *state.Model) cache.ModelChange {
 	cfg, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	status, err := model.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	users, err := model.Users()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	permissions := make(map[string]permission.Access)
 	for _, user := range users {
 		// Cache permission map is always lower case.
@@ -76,18 +75,18 @@ func CharmChange(modelUUID string, ch *state.Charm) cache.CharmChange {
 
 // ApplicationChange returns an ApplicationChange
 // representing the input state application.
-func ApplicationChange(c *gc.C, modelUUID string, app *state.Application) cache.ApplicationChange {
+func ApplicationChange(c *tc.C, modelUUID string, app *state.Application) cache.ApplicationChange {
 	// Note that this will include charm defaults as if explicitly set.
 	// If this matters for tests, we will have to pass a state and attempt
 	// to access the settings document for this application charm config.
 	config, err := app.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cons, err := app.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sts, err := app.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cURL, _ := app.CharmURL()
 
@@ -105,24 +104,24 @@ func ApplicationChange(c *gc.C, modelUUID string, app *state.Application) cache.
 	}
 }
 
-func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.MachineChange {
+func MachineChange(c *tc.C, modelUUID string, machine *state.Machine) cache.MachineChange {
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	aSts, err := machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	iSts, err := machine.InstanceStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hwc, err := machine.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	chProf, err := machine.CharmProfiles()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	isManual, err := machine.IsManual()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sc, scKnown := machine.SupportedContainers()
 
@@ -148,21 +147,21 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 }
 
 // UnitChange returns a UnitChange representing the input state unit.
-func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
+func UnitChange(c *tc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 	// If these addresses are not set in state, we simply eschew setting them
 	// in the cache rather than propagating such errors.
 	publicAddr, err := unit.PublicAddress()
 	if !network.IsNoAddressError(err) {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	privateAddr, err := unit.PrivateAddress()
 	if !network.IsNoAddressError(err) {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	machineId, err := unit.AssignedMachineId()
 	if !errors.IsNotAssigned(err) {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	var charmURL string
@@ -172,19 +171,19 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 
 	pr, err := unit.OpenedPortRanges()
 	if !errors.IsNotAssigned(err) {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	sts, err := unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	aSts, err := unit.AgentStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	principal, _ := unit.PrincipalName()
 
 	base, err := corebase.ParseBase(unit.Base().OS, unit.Base().Channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cache.UnitChange{
 		ModelUUID:                modelUUID,
 		Name:                     unit.Name(),

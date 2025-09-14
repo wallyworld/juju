@@ -4,9 +4,10 @@
 package space_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/space"
 )
@@ -15,14 +16,16 @@ type MoveSuite struct {
 	BaseSpaceSuite
 }
 
-var _ = gc.Suite(&MoveSuite{})
+func TestMoveSuite(t *tctesting.T) {
+	tc.Run(t, &MoveSuite{})
+}
 
-func (s *MoveSuite) SetUpTest(c *gc.C) {
+func (s *MoveSuite) SetUpTest(c *tc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewMoveCommand
 }
 
-func (s *MoveSuite) TestInit(c *gc.C) {
+func (s *MoveSuite) TestInit(c *tc.C) {
 	for i, test := range []struct {
 		about         string
 		args          []string
@@ -85,17 +88,17 @@ func (s *MoveSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			command := command.(*space.MoveCommand)
-			c.Check(command.Name, gc.Equals, test.expectName)
-			c.Check(command.CIDRs.SortedValues(), gc.DeepEquals, test.expectCIDRs)
+			c.Check(command.Name, tc.Equals, test.expectName)
+			c.Check(command.CIDRs.SortedValues(), tc.DeepEquals, test.expectCIDRs)
 		}
 	}
 }
 
-func (s *MoveSuite) TestOutput(c *gc.C) {
+func (s *MoveSuite) TestOutput(c *tc.C) {
 	assertAPICalls := func() {
 		s.api.CheckCallNames(c, "SubnetsByCIDR", "MoveSubnets", "Close")
 		s.api.ResetCalls()
@@ -156,7 +159,7 @@ internal  	public  	2001:db8::/32
 	}
 }
 
-func (s *MoveSuite) TestWithNoSubnetTags(c *gc.C) {
+func (s *MoveSuite) TestWithNoSubnetTags(c *tc.C) {
 	s.api.SubnetsByCIDRResp = s.api.SubnetsByCIDRResp[0:0]
 
 	expected := "error getting subnet tags for 2001:db8::/32"
@@ -165,7 +168,7 @@ func (s *MoveSuite) TestWithNoSubnetTags(c *gc.C) {
 	s.api.CheckCallNames(c, "SubnetsByCIDR", "Close")
 }
 
-func (s *MoveSuite) TestWhenAPIFails(c *gc.C) {
+func (s *MoveSuite) TestWhenAPIFails(c *tc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
 	expected := "failed to get subnets by CIDR: boom"

@@ -4,12 +4,14 @@
 package charms_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/charms"
@@ -22,9 +24,11 @@ import (
 
 type appCharmInfoSuite struct{}
 
-var _ = gc.Suite(&appCharmInfoSuite{})
+func TestAppCharmInfoSuite(t *tctesting.T) {
+	tc.Run(t, &appCharmInfoSuite{})
+}
 
-func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
+func (s *appCharmInfoSuite) TestBasic(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -53,15 +57,15 @@ func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	charmInfo, err := api.ApplicationCharmInfo(params.Entity{Tag: names.NewApplicationTag("foo").String()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
-	c.Check(charmInfo.Meta.Name, gc.Equals, "foo")
+	c.Check(charmInfo.URL, tc.Equals, "ch:foo-1")
+	c.Check(charmInfo.Meta.Name, tc.Equals, "foo")
 }
 
-func (s *appCharmInfoSuite) TestPermissionDenied(c *gc.C) {
+func (s *appCharmInfoSuite) TestPermissionDenied(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -79,12 +83,12 @@ func (s *appCharmInfoSuite) TestPermissionDenied(c *gc.C) {
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	_, err = api.ApplicationCharmInfo(params.Entity{Tag: names.NewApplicationTag("foo").String()})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
+func (s *appCharmInfoSuite) TestSidecarCharm(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -140,11 +144,11 @@ func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
 
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	charmInfo, err := api.ApplicationCharmInfo(params.Entity{Tag: names.NewApplicationTag("foo").String()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Check(charmInfo, gc.DeepEquals, params.Charm{
+	c.Check(charmInfo, tc.DeepEquals, params.Charm{
 		URL:      "ch:foo-1",
 		Revision: 1,
 		Meta: &params.CharmMeta{

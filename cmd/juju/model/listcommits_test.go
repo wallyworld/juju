@@ -5,13 +5,13 @@ package model_test
 
 import (
 	"errors"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -24,16 +24,18 @@ type commitsSuite struct {
 	api *mocks.MockCommitsCommandAPI
 }
 
-var _ = gc.Suite(&commitsSuite{})
-
-func (cs *commitsSuite) TestInitNoArg(c *gc.C) {
-	err := cs.runInit()
-	c.Assert(err, jc.ErrorIsNil)
+func TestCommitsSuite(t *tctesting.T) {
+	tc.Run(t, &commitsSuite{})
 }
 
-func (cs *commitsSuite) TestInitOneArg(c *gc.C) {
+func (cs *commitsSuite) TestInitNoArg(c *tc.C) {
+	err := cs.runInit()
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (cs *commitsSuite) TestInitOneArg(c *tc.C) {
 	err := cs.runInit(cs.branchName)
-	c.Assert(err, gc.ErrorMatches, `expected no arguments, but got 1`)
+	c.Assert(err, tc.ErrorMatches, `expected no arguments, but got 1`)
 }
 func (cs *commitsSuite) getGenerationCommitValues() []coremodel.GenerationCommit {
 	values := []coremodel.GenerationCommit{
@@ -53,7 +55,7 @@ func (cs *commitsSuite) getGenerationCommitValues() []coremodel.GenerationCommit
 	return values
 }
 
-func (cs *commitsSuite) TestRunCommandTabularOutput(c *gc.C) {
+func (cs *commitsSuite) TestRunCommandTabularOutput(c *tc.C) {
 	defer cs.setup(c).Finish()
 	result := cs.getGenerationCommitValues()
 	expected := `
@@ -64,28 +66,28 @@ Commit	Committed at	Committed by	Branch name
 	cs.api.EXPECT().ListCommits().Return(result, nil)
 
 	ctx, err := cs.runCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }
 
-func (cs *commitsSuite) TestRunCommandAPIError(c *gc.C) {
+func (cs *commitsSuite) TestRunCommandAPIError(c *tc.C) {
 	defer cs.setup(c).Finish()
 
 	cs.api.EXPECT().ListCommits().Return(nil, errors.New("boom"))
 
 	_, err := cs.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (cs *commitsSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewListCommitsCommandForTest(nil, cs.store), args)
 }
 
-func (cs *commitsSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (cs *commitsSuite) runCommand(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewListCommitsCommandForTest(cs.api, cs.store), args...)
 }
 
-func (cs *commitsSuite) setup(c *gc.C) *gomock.Controller {
+func (cs *commitsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	cs.api = mocks.NewMockCommitsCommandAPI(ctrl)
 	cs.api.EXPECT().Close()

@@ -15,28 +15,31 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
 )
 
 type charmsSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&charmsSuite{})
+func TestCharmsSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &charmsSuite{})
+}
 
 func (s *charmsSuite) charmsURL(query string) *url.URL {
 	url := s.URL(fmt.Sprintf("/model/%s/charms", s.State.ModelUUID()), nil)
@@ -51,7 +54,7 @@ func (s *charmsSuite) charmsURI(query string) string {
 	return s.charmsURL(query).String()
 }
 
-func (s *charmsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
+func (s *charmsSuite) uploadRequest(c *tc.C, url, contentType string, content io.Reader) *http.Response {
 	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         url,
@@ -60,48 +63,48 @@ func (s *charmsSuite) uploadRequest(c *gc.C, url, contentType string, content io
 	})
 }
 
-func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {
+func (s *charmsSuite) assertUploadResponse(c *tc.C, resp *http.Response, expCharmURL string) {
 	charmResponse := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(charmResponse.Error, gc.Equals, "")
-	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
+	c.Check(charmResponse.Error, tc.Equals, "")
+	c.Check(charmResponse.CharmURL, tc.Equals, expCharmURL)
 }
 
-func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
+func (s *charmsSuite) assertGetFileResponse(c *tc.C, resp *http.Response, expBody, expContentType string) {
 	body := apitesting.AssertResponse(c, resp, http.StatusOK, expContentType)
-	c.Check(string(body), gc.Equals, expBody)
+	c.Check(string(body), tc.Equals, expBody)
 }
 
-func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, expFiles []string) {
+func (s *charmsSuite) assertGetFileListResponse(c *tc.C, resp *http.Response, expFiles []string) {
 	charmResponse := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(charmResponse.Error, gc.Equals, "")
-	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
+	c.Check(charmResponse.Error, tc.Equals, "")
+	c.Check(charmResponse.Files, tc.DeepEquals, expFiles)
 }
 
-func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *charmsSuite) assertErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 	charmResponse := s.assertResponse(c, resp, expCode)
-	c.Check(charmResponse.Error, gc.Matches, expError)
+	c.Check(charmResponse.Error, tc.Matches, expError)
 }
 
-func (s *charmsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.CharmsResponse {
+func (s *charmsSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int) params.CharmsResponse {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var charmResponse params.CharmsResponse
 	err := json.Unmarshal(body, &charmResponse)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("body: %s", body))
 	return charmResponse
 }
 
-func (s *charmsSuite) setModelImporting(c *gc.C) {
+func (s *charmsSuite) setModelImporting(c *tc.C) {
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmsSuite) SetUpSuite(c *gc.C) {
+func (s *charmsSuite) SetUpSuite(c *tc.C) {
 	s.apiserverBaseSuite.SetUpSuite(c)
 }
 
-func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
+func (s *charmsSuite) TestCharmsServedSecurely(c *tc.C) {
 	url := s.charmsURL("")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -111,25 +114,25 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 	})
 }
 
-func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
+func (s *charmsSuite) TestPOSTRequiresAuth(c *tc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
+	c.Assert(string(body), tc.Equals, "authentication failed: no credentials provided\n")
 }
 
-func (s *charmsSuite) TestGETRequiresAuth(c *gc.C) {
+func (s *charmsSuite) TestGETRequiresAuth(c *tc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.charmsURI("")})
 	body := apitesting.AssertResponse(c, resp, http.StatusUnauthorized, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
+	c.Assert(string(body), tc.Equals, "authentication failed: no credentials provided\n")
 }
 
-func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
+func (s *charmsSuite) TestRequiresPOSTorGET(c *tc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.charmsURI("")})
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "Method Not Allowed\n")
+	c.Assert(string(body), tc.Equals, "Method Not Allowed\n")
 }
 
-func (s *charmsSuite) TestPOSTRejectsNonUserAuth(c *gc.C) {
+func (s *charmsSuite) TestPOSTRejectsNonUserAuth(c *tc.C) {
 	// Add a machine and try to login.
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "noncy",
@@ -143,14 +146,14 @@ func (s *charmsSuite) TestPOSTRejectsNonUserAuth(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
+	c.Assert(string(body), tc.Equals, "authorization failed: permission denied\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 }
 
-func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *gc.C) {
+func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *tc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "oryx",
 		Password:    "gardener",
@@ -166,14 +169,14 @@ func (s *charmsSuite) TestPOSTRejectsUserWithoutPermission(c *gc.C) {
 		ContentType: "foo/bar",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
+	c.Assert(string(body), tc.Equals, "authorization failed: permission denied\n")
 
 	// Now try a user login.
 	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.charmsURI("")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 }
 
-func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
+func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *tc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:     "oryx",
 		Password: "gardener",
@@ -182,9 +185,9 @@ func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
 
 	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
 	ch, err := charm.ReadCharmArchive(pathToArchive)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	f, err := os.Open(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Tag:         u.Tag().String(),
@@ -200,7 +203,7 @@ func (s *charmsSuite) TestPOSTAllowsUserWithWritePermission(c *gc.C) {
 	s.assertUploadResponse(c, resp, inputURL.String())
 }
 
-func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
+func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *tc.C) {
 	var empty bytes.Buffer
 
 	// Pretend we upload a zip by setting the Content-Type, so we can
@@ -213,7 +216,7 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
 }
 
-func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
+func (s *charmsSuite) TestUploadBumpsRevision(c *tc.C) {
 	// Add the dummy charm with revision 1.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
@@ -224,27 +227,27 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 		SHA256:      "dummy-1-sha256",
 	}
 	_, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now try uploading the same revision and verify it gets bumped,
 	// and the BundleSha256 is calculated.
 	f, err := os.Open(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
 	expectedURL := "local:quantal/dummy-2"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.Equals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 2)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.Equals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 2)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 	// No more checks for the hash here, because it is
 	// verified in TestUploadRespectsLocalRevision.
-	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
+	c.Assert(sch.BundleSha256(), tc.Not(tc.Equals), "")
 }
 
-func (s *charmsSuite) TestUploadVersion(c *gc.C) {
+func (s *charmsSuite) TestUploadVersion(c *tc.C) {
 	expectedVersion := "dummy-146-g725cfd3-dirty"
 
 	// Add the dummy charm with version "juju-2.4-beta3-146-g725cfd3-dirty".
@@ -252,32 +255,32 @@ func (s *charmsSuite) TestUploadVersion(c *gc.C) {
 	err := testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
 		"version": expectedVersion,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	ch, err := charm.ReadCharmArchive(pathToArchive)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	f, err := os.Open(ch.Path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
 
 	inputURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, inputURL)
 	sch, err := s.State.Charm(inputURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	version := sch.Version()
-	c.Assert(version, gc.Equals, expectedVersion)
+	c.Assert(version, tc.Equals, expectedVersion)
 }
 
-func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
+func (s *charmsSuite) TestUploadRespectsLocalRevision(c *tc.C) {
 	// Make a dummy charm dir with revision 123.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	dir.SetDiskRevision(123)
 	// Now bundle the dir.
 	var buf bytes.Buffer
 	err := dir.ArchiveTo(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hash := sha256.New()
 	hash.Write(buf.Bytes())
 	expectedSHA256 := hex.EncodeToString(hash.Sum(nil))
@@ -287,29 +290,29 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	expectedURL := "local:quantal/dummy-123"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.Equals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 123)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
-	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.Equals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 123)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
+	c.Assert(sch.BundleSha256(), tc.Equals, expectedSHA256)
 
 	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(downloadedSHA256, tc.Equals, expectedSHA256)
 }
 
-func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
+func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *tc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	resp := s.uploadRequest(c, s.charmsURL("").String(), "application/zip", &fileReader{path: ch.Path})
 	expectedURL := "local:dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 }
 
-func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
+func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *tc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	// Backwards compatibility check, that we can upload charms to
 	// https://host:port/charms
@@ -320,7 +323,7 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL)
 }
 
-func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *tc.C) {
 	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL("series=quantal")
@@ -329,7 +332,7 @@ func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL)
 }
 
-func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 
@@ -342,58 +345,58 @@ func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL)
 }
 
-func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
+func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *tc.C) {
 	// Make a clone of the dummy charm in a nested directory.
 	rootDir := c.MkDir()
 	dirPath := filepath.Join(rootDir, "subdir1", "subdir2")
 	err := os.MkdirAll(dirPath, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	dir := testcharms.Repo.ClonedDir(dirPath, "dummy")
 	// Now tweak the path the dir thinks it is in and bundle it.
 	dir.Path = rootDir
 	var buf bytes.Buffer
 	err = dir.ArchiveTo(&buf)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Try reading it as a bundle - should fail due to nested dirs.
 	_, err = charm.ReadCharmArchiveBytes(buf.Bytes())
-	c.Assert(err, gc.ErrorMatches, `archive file "metadata.yaml" not found`)
+	c.Assert(err, tc.ErrorMatches, `archive file "metadata.yaml" not found`)
 
 	// Now try uploading it - should succeed and be repackaged.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
 	expectedURL := "local:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.Equals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 1)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.Equals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 1)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
 	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer reader.Close()
 
 	data, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	downloadedFile, err := os.CreateTemp(c.MkDir(), "downloaded")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer downloadedFile.Close()
 	defer os.Remove(downloadedFile.Name())
 	err = os.WriteFile(downloadedFile.Name(), data, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bundle, err := charm.ReadCharmArchive(downloadedFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bundle.Revision(), jc.DeepEquals, sch.Revision())
-	c.Assert(bundle.Meta(), jc.DeepEquals, sch.Meta())
-	c.Assert(bundle.Config(), jc.DeepEquals, sch.Config())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bundle.Revision(), tc.DeepEquals, sch.Revision())
+	c.Assert(bundle.Meta(), tc.DeepEquals, sch.Meta())
+	c.Assert(bundle.Config(), tc.DeepEquals, sch.Config())
 }
 
-func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
+func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *tc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := fmt.Sprintf("ch:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	info := state.CharmInfo{
@@ -403,13 +406,13 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 		SHA256:      "dummy-1-sha256",
 	}
 	_, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
 	s.assertErrorResponse(c, resp, 400, ".*charms may only be uploaded during model migration import$")
 }
 
-func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
+func (s *charmsSuite) TestNonLocalCharmUpload(c *tc.C) {
 	// Check that upload of charms with the "ch:" schema works (for
 	// model migrations).
 	s.setModelImporting(c)
@@ -420,13 +423,13 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	expectedURL := "ch:quantal/dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 1)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 1)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 }
 
-func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
+func (s *charmsSuite) TestCharmHubCharmUpload(c *tc.C) {
 	// Check that upload of charms with the "ch:" schema works (for
 	// model migrations).
 	s.setModelImporting(c)
@@ -439,19 +442,19 @@ func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
 		SHA256:      "dummy-1-sha256",
 	}
 	_, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI("?arch=s390x&revision=15&schema=ch&series=bionic"), "application/zip", &fileReader{path: ch.Path})
 
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 15)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 15)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 }
 
-func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
+func (s *charmsSuite) TestUnsupportedSchema(c *tc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
@@ -462,7 +465,7 @@ func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
 	)
 }
 
-func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
+func (s *charmsSuite) TestCharmUploadWithUserOverride(c *tc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
@@ -471,12 +474,12 @@ func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
 	expectedURL := "ch:dummy-1"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.DeepEquals, expectedURL)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 }
 
-func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
+func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *tc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
@@ -485,19 +488,19 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	expectedURL := "ch:dummy-99"
 	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.State.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
-	c.Assert(sch.Revision(), gc.Equals, 99)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sch.URL(), tc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), tc.Equals, 99)
+	c.Assert(sch.IsUploaded(), tc.IsTrue)
 }
 
-func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
+func (s *charmsSuite) TestMigrateCharm(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 	importedModel, err := newSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The default user is just a normal user, not a controller admin
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -517,16 +520,16 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 
 	// The charm was added to the migrated model.
 	_, err = newSt.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmsSuite) TestMigrateCharmName(c *gc.C) {
+func (s *charmsSuite) TestMigrateCharmName(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 	importedModel, err := newSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The default user is just a normal user, not a controller admin
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -546,10 +549,10 @@ func (s *charmsSuite) TestMigrateCharmName(c *gc.C) {
 
 	// The charm was added to the migrated model.
 	_, err = newSt.Charm(expectedURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
+func (s *charmsSuite) TestMigrateCharmNotMigrating(c *tc.C) {
 	migratedModel := s.Factory.MakeModel(c, nil)
 	defer migratedModel.Close()
 
@@ -572,7 +575,7 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	)
 }
 
-func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
+func (s *charmsSuite) TestMigrateCharmUnauthorized(c *tc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
 	url := s.charmsURL("series=quantal")
 	url.Path = "/migrate/charms"
@@ -583,10 +586,10 @@ func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
 		Password: "hunter2",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Matches, "authorization failed: user .* not a controller admin\n")
+	c.Assert(string(body), tc.Matches, "authorization failed: user .* not a controller admin\n")
 }
 
-func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
+func (s *charmsSuite) TestGetRequiresCharmURL(c *tc.C) {
 	uri := s.charmsURI("?file=hooks/install")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertErrorResponse(
@@ -595,7 +598,7 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	)
 }
 
-func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
+func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *tc.C) {
 	uri := s.charmsURI("?url=local:precise/no-such")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertErrorResponse(
@@ -604,7 +607,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	)
 }
 
-func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *tc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
@@ -616,11 +619,11 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 		c.Logf("test %d: %s", i, file)
 		uri := s.charmsURI("?url=local:quantal/dummy-1&file=" + file)
 		resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-		c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+		c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 	}
 }
 
-func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *tc.C) {
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
 		ID:          "ch:focal/dummy-1",
@@ -630,15 +633,15 @@ func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 		Version:     "42",
 	}
 	_, err := s.State.AddCharmMetadata(chInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure a 490 is returned if the charm is pending to be downloaded.
 	uri := s.charmsURI("?url=ch:focal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusConflict, gc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusConflict, tc.Commentf("expected to get 409 for charm that is pending to be downloaded"))
 }
 
-func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *tc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
@@ -646,10 +649,10 @@ func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 	// Ensure a 403 is returned if the requested file is a directory.
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=hooks")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusForbidden)
 }
 
-func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsFileContents(c *tc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
 
@@ -679,7 +682,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
+func (s *charmsSuite) TestGetCharmIcon(c *tc.C) {
 	// Upload the local charms.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
@@ -690,7 +693,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	svgMimeType := mime.TypeByExtension(".svg")
 	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
 	icon, err := os.ReadFile(iconPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tests := []struct {
 		about      string
 		query      string
@@ -733,7 +736,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 	}
 }
 
-func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
+func (s *charmsSuite) TestGetWorksForControllerMachines(c *tc.C) {
 	// Make a controller machine.
 	const nonce = "noncey"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -748,7 +751,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Controller machine should be able to download the charm from
 	// the hosted model. This is required for controller workers which
@@ -766,29 +769,29 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
+func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *tc.C) {
 	// Add the dummy charm.
 	ch, err := charm.ReadCharmDir(
 		testcharms.RepoWithSeries("quantal").ClonedDirPath(c.MkDir(), "dummy"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Create an archive from the charm dir.
 	tempFile, err := os.CreateTemp(c.MkDir(), "charm")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 	err = ch.ArchiveTo(tempFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
 
 	data, err := os.ReadFile(tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertGetFileResponse(c, resp, string(data), "application/zip")
 }
 
-func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
+func (s *charmsSuite) TestGetAllowsTopLevelPath(c *tc.C) {
 	// Backwards compatibility check, that we can GET from charms at
 	// https://host:port/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -799,7 +802,7 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *tc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
 	url := s.charmsURL("url=local:quantal/dummy-1&file=revision")
@@ -807,14 +810,14 @@ func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
+func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 
 	curl := charm.MustParseURL("local:quantal/dummy-1")
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	url := s.charmsURL("url=" + curl.String() + "&file=revision")
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
@@ -822,7 +825,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
+func (s *charmsSuite) TestGetReturnsManifest(c *tc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
@@ -831,14 +834,14 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	uri := s.charmsURI("?url=local:quantal/dummy-1")
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	manifest, err := ch.ArchiveMembers()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)
 	ctype := resp.Header.Get("content-type")
-	c.Assert(ctype, gc.Equals, params.ContentTypeJSON)
+	c.Assert(ctype, tc.Equals, params.ContentTypeJSON)
 }
 
-func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
+func (s *charmsSuite) TestNoTempFilesLeftBehind(c *tc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
@@ -850,8 +853,8 @@ func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
 
 	// Ensure the tmp directory exists but nothing is in it.
 	files, err := os.ReadDir(filepath.Join(s.config.DataDir, "charm-get-tmp"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(files, tc.HasLen, 0)
 }
 
 type fileReader struct {

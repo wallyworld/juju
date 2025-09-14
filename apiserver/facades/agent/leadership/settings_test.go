@@ -4,31 +4,34 @@
 package leadership_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 // TODO(fwereade): this is *severely* undertested.
 type settingsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&settingsSuite{})
+func TestSettingsSuite(t *tctesting.T) {
+	tc.Run(t, &settingsSuite{})
+}
 
-func (s *settingsSuite) TestReadSettings(c *gc.C) {
+func (s *settingsSuite) TestReadSettings(c *tc.C) {
 
 	settingsToReturn := params.Settings(map[string]string{"foo": "bar"})
 	numGetSettingCalls := 0
 	getSettings := func(serviceId string) (map[string]string, error) {
 		numGetSettingCalls++
-		c.Check(serviceId, gc.Equals, StubAppNm)
+		c.Check(serviceId, tc.Equals, StubAppNm)
 		return settingsToReturn, nil
 	}
 	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
@@ -39,31 +42,31 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 			{Tag: names.NewApplicationTag(StubAppNm).String()},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(numGetSettingCalls, gc.Equals, 1)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Check(results.Results[0].Settings, gc.DeepEquals, settingsToReturn)
+	c.Assert(err, tc.IsNil)
+	c.Assert(numGetSettingCalls, tc.Equals, 1)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Check(results.Results[0].Settings, tc.DeepEquals, settingsToReturn)
 }
 
-func (s *settingsSuite) TestWriteSettings(c *gc.C) {
+func (s *settingsSuite) TestWriteSettings(c *tc.C) {
 
 	expectToken := &fakeToken{}
 
 	numLeaderCheckCalls := 0
 	leaderCheck := func(appName, unitId string) coreleadership.Token {
 		numLeaderCheckCalls++
-		c.Check(appName, gc.Equals, StubAppNm)
-		c.Check(unitId, gc.Equals, StubUnitNm)
+		c.Check(appName, tc.Equals, StubAppNm)
+		c.Check(unitId, tc.Equals, StubUnitNm)
 		return expectToken
 	}
 
 	numWriteSettingCalls := 0
 	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
-		c.Check(serviceId, gc.Equals, StubAppNm)
-		c.Check(token, gc.Equals, expectToken)
-		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
+		c.Check(serviceId, tc.Equals, StubAppNm)
+		c.Check(token, tc.Equals, expectToken)
+		c.Check(settings, tc.DeepEquals, map[string]string{"baz": "biz"})
 		return nil
 	}
 
@@ -78,14 +81,14 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.IsNil)
-	c.Check(numWriteSettingCalls, gc.Equals, 1)
-	c.Check(numLeaderCheckCalls, gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.IsNil)
+	c.Check(numWriteSettingCalls, tc.Equals, 1)
+	c.Check(numLeaderCheckCalls, tc.Equals, 1)
 }
 
-func (s *settingsSuite) TestWriteSettingsWrongUnit(c *gc.C) {
+func (s *settingsSuite) TestWriteSettingsWrongUnit(c *tc.C) {
 
 	numLeaderCheckCalls := 0
 	leaderCheck := func(appName, unitId string) coreleadership.Token {
@@ -111,31 +114,31 @@ func (s *settingsSuite) TestWriteSettingsWrongUnit(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Check(numWriteSettingCalls, gc.Equals, 0)
-	c.Check(numLeaderCheckCalls, gc.Equals, 0)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "permission denied")
+	c.Check(numWriteSettingCalls, tc.Equals, 0)
+	c.Check(numLeaderCheckCalls, tc.Equals, 0)
 }
 
-func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
+func (s *settingsSuite) TestWriteSettingsError(c *tc.C) {
 
 	expectToken := &fakeToken{}
 
 	numLeaderCheckCalls := 0
 	leaderCheck := func(serviceId, unitId string) coreleadership.Token {
 		numLeaderCheckCalls++
-		c.Check(serviceId, gc.Equals, StubAppNm)
-		c.Check(unitId, gc.Equals, StubUnitNm)
+		c.Check(serviceId, tc.Equals, StubAppNm)
+		c.Check(unitId, tc.Equals, StubUnitNm)
 		return expectToken
 	}
 
 	numWriteSettingCalls := 0
 	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
-		c.Check(serviceId, gc.Equals, StubAppNm)
-		c.Check(token, gc.Equals, expectToken)
-		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
+		c.Check(serviceId, tc.Equals, StubAppNm)
+		c.Check(token, tc.Equals, expectToken)
+		c.Check(settings, tc.DeepEquals, map[string]string{"baz": "biz"})
 		return errors.New("zap blort")
 	}
 
@@ -150,19 +153,19 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "zap blort")
-	c.Check(numWriteSettingCalls, gc.Equals, 1)
-	c.Check(numLeaderCheckCalls, gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].Error, tc.ErrorMatches, "zap blort")
+	c.Check(numWriteSettingCalls, tc.Equals, 1)
+	c.Check(numLeaderCheckCalls, tc.Equals, 1)
 }
 
-func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
+func (s *settingsSuite) TestBlockUntilChanges(c *tc.C) {
 
 	numSettingsWatcherCalls := 0
 	registerWatcher := func(appName string) (string, error) {
 		numSettingsWatcherCalls++
-		c.Check(appName, gc.Equals, StubAppNm)
+		c.Check(appName, tc.Equals, StubAppNm)
 		return "foo", nil
 	}
 
@@ -172,9 +175,9 @@ func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 	results, err := accessor.WatchLeadershipSettings(params.Entities{Entities: []params.Entity{
 		{Tag: names.NewApplicationTag(StubAppNm).String()},
 	}})
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 }
 
 type fakeToken struct {

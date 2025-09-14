@@ -4,58 +4,61 @@
 package common
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 )
 
 type charmOriginSuite struct{}
 
-var _ = gc.Suite(&charmOriginSuite{})
+func TestCharmOriginSuite(t *tctesting.T) {
+	tc.Run(t, &charmOriginSuite{})
+}
 
-func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginSuccessCharmHub(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{
 		Hash:   "myHash",
 		ID:     "myID",
 		Source: "charm-hub",
 	})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsFalse)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsFalse)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginSuccessLocal(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginSuccessLocal(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "local"})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsFalse)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsFalse)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginNil(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginNil(c *tc.C) {
 	err := ValidateCharmOrigin(nil)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginNilSource(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginNilSource(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: ""})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginBadSource(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginBadSource(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{Source: "charm-store"})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginCharmHubIDNoHash(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginCharmHubIDNoHash(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{
 		ID:     "myID",
 		Source: "charm-hub",
 	})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }
 
-func (s *charmOriginSuite) TestValidateCharmOriginCharmHubHashNoID(c *gc.C) {
+func (s *charmOriginSuite) TestValidateCharmOriginCharmHubHashNoID(c *tc.C) {
 	err := ValidateCharmOrigin(&params.CharmOrigin{
 		Hash:   "myHash",
 		Source: "charm-hub",
 	})
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }

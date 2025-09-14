@@ -4,14 +4,16 @@
 package agent_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -27,20 +29,22 @@ type modelSuite struct {
 	api      *agent.AgentAPI
 }
 
-var _ = gc.Suite(&modelSuite{})
+func TestModelSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &modelSuite{})
+}
 
-func (s *modelSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
 	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.machine0.Tag(),
 	}
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.api, err = agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
@@ -48,7 +52,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
 		s.api, s.State, s.resources,
 	)

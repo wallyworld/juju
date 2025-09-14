@@ -4,18 +4,10 @@
 package secretbackends
 
 import (
-	stdtesting "testing"
-
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/jujuclient"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretbackendsapi.go github.com/juju/juju/cmd/juju/secretbackends ListSecretBackendsAPI,AddSecretBackendsAPI,RemoveSecretBackendsAPI,UpdateSecretBackendsAPI
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 // NewListCommandForTest returns a secret backends command for testing.
 func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretBackendsAPI) *listSecretBackendsCommand {

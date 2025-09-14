@@ -4,29 +4,32 @@
 package spaces
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // ReloadSpacesAPISuite is used to test API calls using mocked model operations.
 type ReloadSpacesAPISuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ReloadSpacesAPISuite{})
+func TestReloadSpacesAPISuite(t *tctesting.T) {
+	tc.Run(t, &ReloadSpacesAPISuite{})
+}
 
-func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
+func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,10 +55,10 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
 	err := spacesAPI.ReloadSpaces()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ReloadSpacesAPISuite) TestReloadSpacesGetControllerConfigFail(c *gc.C) {
+func (s *ReloadSpacesAPISuite) TestReloadSpacesGetControllerConfigFail(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -71,10 +74,10 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesGetControllerConfigFail(c *gc.C) 
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
 	err := spacesAPI.ReloadSpaces()
-	c.Assert(err, gc.ErrorMatches, "get controller config: broken controller")
+	c.Assert(err, tc.ErrorMatches, "get controller config: broken controller")
 }
 
-func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
+func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -99,10 +102,10 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
 	err := spacesAPI.ReloadSpaces()
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
+func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -128,16 +131,18 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
 	err := spacesAPI.ReloadSpaces()
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 type ReloadSpacesAuthorizerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ReloadSpacesAuthorizerSuite{})
+func TestReloadSpacesAuthorizerSuite(t *tctesting.T) {
+	tc.Run(t, &ReloadSpacesAuthorizerSuite{})
+}
 
-func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizer(c *gc.C) {
+func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -154,10 +159,10 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizer(c *gc.C) {
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
 	err := authorizerFn()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerCannotWrite(c *gc.C) {
+func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerCannotWrite(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -173,12 +178,12 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerCannotWrite(c *gc.C) 
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
 	err := authorizerFn()
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, tc.ErrorMatches, "permission denied")
 }
 
 // Note: If HasPermission returns an error, but returns true then they can go
 // through to the block checker.
-func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerNotFound(c *gc.C) {
+func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -195,5 +200,5 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerNotFound(c *gc.C) {
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
 	err := authorizerFn()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

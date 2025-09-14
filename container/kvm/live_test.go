@@ -4,16 +4,15 @@
 package kvm_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
+	tctesting "testing"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
@@ -26,8 +25,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -38,9 +37,11 @@ type LiveSuite struct {
 	RemovedDir   string
 }
 
-var _ = gc.Suite(&LiveSuite{})
+func TestLiveSuite(t *tctesting.T) {
+	tc.Run(t, &LiveSuite{})
+}
 
-func (s *LiveSuite) SetUpTest(c *gc.C) {
+func (s *LiveSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// Skip if not linux
 	if runtime.GOOS != "linux" {
@@ -61,44 +62,44 @@ func (s *LiveSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.container").SetLogLevel(loggo.TRACE)
 }
 
-func (s *LiveSuite) newManager(c *gc.C, name string) container.Manager {
+func (s *LiveSuite) newManager(c *tc.C, name string) container.Manager {
 	manager, err := kvm.NewContainerManager(
 		container.ManagerConfig{
 			container.ConfigModelUUID: coretesting.ModelTag.Id(),
 			container.ConfigLogDir:    c.MkDir(),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return manager
 }
 
-func assertNumberOfContainers(c *gc.C, manager container.Manager, count int) {
+func assertNumberOfContainers(c *tc.C, manager container.Manager, count int) {
 	containers, err := manager.ListContainers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containers, gc.HasLen, count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(containers, tc.HasLen, count)
 }
 
-func (s *LiveSuite) TestNoInitialContainers(c *gc.C) {
+func (s *LiveSuite) TestNoInitialContainers(c *tc.C) {
 	manager := s.newManager(c, "test")
 	assertNumberOfContainers(c, manager, 0)
 }
 
-func shutdownMachines(manager container.Manager) func(*gc.C) {
-	return func(c *gc.C) {
+func shutdownMachines(manager container.Manager) func(*tc.C) {
+	return func(c *tc.C) {
 		instances, err := manager.ListContainers()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		for _, instance := range instances {
 			err := manager.DestroyContainer(instance.Id())
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 }
 
-func createContainer(c *gc.C, manager container.Manager, machineId string) instances.Instance {
+func createContainer(c *tc.C, manager container.Manager, machineId string) instances.Instance {
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
 		imagemetadata.ReleasedStream, corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nics := network.InterfaceInfos{{
 		InterfaceName: "eth0",
@@ -113,20 +114,20 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 			URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	environConfig := dummyConfig(c)
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(context.Background(), instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "12.04"), net, nil, callback)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hardware, gc.NotNil)
+	inst, hardware, err := manager.CreateContainer(c.Context(), instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "12.04"), net, nil, callback)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hardware, tc.NotNil)
 	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())
-	c.Assert(hardware.String(), gc.Equals, expected)
+	c.Assert(hardware.String(), tc.Equals, expected)
 	return inst
 }
 
-func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
+func (s *LiveSuite) TestShutdownMachines(c *tc.C) {
 	manager := s.newManager(c, "test")
 	createContainer(c, manager, "1/kvm/0")
 	createContainer(c, manager, "1/kvm/1")
@@ -136,7 +137,7 @@ func (s *LiveSuite) TestShutdownMachines(c *gc.C) {
 	assertNumberOfContainers(c, manager, 0)
 }
 
-func (s *LiveSuite) TestManagerIsolation(c *gc.C) {
+func (s *LiveSuite) TestManagerIsolation(c *tc.C) {
 	firstManager := s.newManager(c, "first")
 	s.AddCleanup(shutdownMachines(firstManager))
 
@@ -152,14 +153,14 @@ func (s *LiveSuite) TestManagerIsolation(c *gc.C) {
 	assertNumberOfContainers(c, secondManager, 1)
 }
 
-func dummyConfig(c *gc.C) *config.Config {
+func dummyConfig(c *tc.C) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":          "dummy",
 		"controller":    false,
 		"agent-version": jujuversion.Current.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return testConfig
 }

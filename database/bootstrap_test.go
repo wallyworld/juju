@@ -4,28 +4,29 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"net"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type bootstrapSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *tctesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
-func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 	mgr := &testNodeManager{c: c}
 
 	// check tests the variadic operation functionality
@@ -55,12 +56,12 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		return nil
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, check)
-	c.Assert(err, jc.ErrorIsNil)
+	err := BootstrapDqlite(c.Context(), mgr, stubLogger{}, check)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type testNodeManager struct {
-	c       *gc.C
+	c       *tc.C
 	dataDir string
 	port    int
 }
@@ -83,8 +84,8 @@ func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSou
 func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
 	if f.port == 0 {
 		l, err := net.Listen("tcp", ":0")
-		f.c.Assert(err, jc.ErrorIsNil)
-		f.c.Assert(l.Close(), jc.ErrorIsNil)
+		f.c.Assert(err, tc.ErrorIsNil)
+		f.c.Assert(l.Close(), tc.ErrorIsNil)
 		f.port = l.Addr().(*net.TCPAddr).Port
 	}
 	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port))

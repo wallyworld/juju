@@ -5,9 +5,9 @@ package specs_test
 
 import (
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
@@ -15,16 +15,18 @@ import (
 	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ingressSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ingressSuite{})
+func TestIngressSuite(t *tctesting.T) {
+	tc.Run(t, &ingressSuite{})
+}
 
-func (s *ingressSuite) TestK8sIngressV1Beta1(c *gc.C) {
+func (s *ingressSuite) TestK8sIngressV1Beta1(c *tc.C) {
 	specV1Beta1 := `
 name: test-ingress
 labels:
@@ -42,8 +44,8 @@ spec:
 `
 	var obj k8sspecs.K8sIngress
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sIngress{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sIngress{
 		Meta: k8sspecs.Meta{
 			Name: "test-ingress",
 			Labels: map[string]string{
@@ -78,7 +80,7 @@ spec:
 	})
 }
 
-func (s *ingressSuite) TestK8sIngressV1(c *gc.C) {
+func (s *ingressSuite) TestK8sIngressV1(c *tc.C) {
 	specV1Beta1 := `
 name: ingress-resource-backend
 spec:
@@ -100,10 +102,10 @@ spec:
 `
 	var obj k8sspecs.K8sIngress
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pathType := networkingv1.PathTypeImplementationSpecific
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sIngress{
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sIngress{
 		Meta: k8sspecs.Meta{
 			Name: "ingress-resource-backend",
 		},
@@ -143,7 +145,7 @@ spec:
 	})
 }
 
-func (s *ingressSuite) TestIngressSpecToV1(c *gc.C) {
+func (s *ingressSuite) TestIngressSpecToV1(c *tc.C) {
 	specV1Beta1 := `
   name: ingress-resource-v1
   spec:
@@ -172,10 +174,10 @@ func (s *ingressSuite) TestIngressSpecToV1(c *gc.C) {
 `
 	var obj k8sspecs.K8sIngress
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	specV1 := k8sspecs.IngressSpecToV1(&obj.Spec.SpecV1Beta1)
 	pathType := networkingv1.PathTypeImplementationSpecific
-	c.Assert(specV1, jc.DeepEquals, &networkingv1.IngressSpec{
+	c.Assert(specV1, tc.DeepEquals, &networkingv1.IngressSpec{
 		DefaultBackend: &networkingv1.IngressBackend{
 			Service: &networkingv1.IngressServiceBackend{
 				Name: "fooServiceDefault",
@@ -221,7 +223,7 @@ func (s *ingressSuite) TestIngressSpecToV1(c *gc.C) {
 	})
 }
 
-func (s *ingressSuite) TestIngressSpecFromV1(c *gc.C) {
+func (s *ingressSuite) TestIngressSpecFromV1(c *tc.C) {
 	specV1 := `
   name: ingress-resource-v1
   spec:
@@ -254,10 +256,10 @@ func (s *ingressSuite) TestIngressSpecFromV1(c *gc.C) {
 `
 	var obj k8sspecs.K8sIngress
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1), len(specV1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	specV1Beta1 := k8sspecs.IngressSpecFromV1(&obj.Spec.SpecV1)
 	pathType := networkingv1beta1.PathTypeImplementationSpecific
-	c.Assert(specV1Beta1, jc.DeepEquals, &networkingv1beta1.IngressSpec{
+	c.Assert(specV1Beta1, tc.DeepEquals, &networkingv1beta1.IngressSpec{
 		Backend: &networkingv1beta1.IngressBackend{
 			ServiceName: "fooServiceDefault",
 			ServicePort: intstr.FromInt(6666),

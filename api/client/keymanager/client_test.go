@@ -4,12 +4,13 @@
 package keymanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/keymanager"
@@ -19,9 +20,11 @@ import (
 type keymanagerSuite struct {
 }
 
-var _ = gc.Suite(&keymanagerSuite{})
+func TestKeymanagerSuite(t *tctesting.T) {
+	tc.Run(t, &keymanagerSuite{})
+}
 
-func (s *keymanagerSuite) TestListKeys(c *gc.C) {
+func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -44,15 +47,15 @@ func (s *keymanagerSuite) TestListKeys(c *gc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	keyResults, err := client.ListKeys(ssh.Fingerprints, tag.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(keyResults), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(keyResults), tc.Equals, 1)
 	res := keyResults[0]
-	c.Assert(res.Error, gc.IsNil)
-	c.Assert(res.Result, gc.DeepEquals,
+	c.Assert(res.Error, tc.IsNil)
+	c.Assert(res.Result, tc.DeepEquals,
 		[]string{sshtesting.ValidKeyOne.Fingerprint + " (user@host)", sshtesting.ValidKeyTwo.Fingerprint})
 }
 
-func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
+func (s *keymanagerSuite) TestAddKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,15 +79,15 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.AddKeys(tag.Name(), newKeys...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 		{Error: clientError("invalid ssh key: invalid")},
 	})
 }
 
-func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
+func (s *keymanagerSuite) TestDeleteKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,15 +110,15 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.DeleteKeys(tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 		{Error: clientError("invalid ssh key: missing")},
 	})
 }
 
-func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
+func (s *keymanagerSuite) TestImportKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -138,8 +141,8 @@ func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.ImportKeys(tag.Name(), keyIds...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResults, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: clientError("invalid ssh key id: invalid-key")},
 	})

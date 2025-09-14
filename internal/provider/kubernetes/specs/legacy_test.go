@@ -4,8 +4,9 @@
 package specs_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -13,16 +14,18 @@ import (
 
 	"github.com/juju/juju/caas/specs"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type legacySpecsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&legacySpecsSuite{})
+func TestLegacySpecsSuite(t *tctesting.T) {
+	tc.Run(t, &legacySpecsSuite{})
+}
 
-func (s *legacySpecsSuite) TestParse(c *gc.C) {
+func (s *legacySpecsSuite) TestParse(c *tc.C) {
 
 	specStrBase := `
 omitServiceFrontend: true
@@ -367,21 +370,21 @@ echo "do some stuff here for gitlab-init container"
 	}
 
 	spec, err := k8sspecs.ParsePodSpec(specStrBase)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, getExpectedPodSpecBase())
 }
 
-func (s *legacySpecsSuite) TestValidateMissingContainers(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateMissingContainers(c *tc.C) {
 
 	specStr := `
 containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
+	c.Assert(err, tc.ErrorMatches, "require at least one container spec")
 }
 
-func (s *legacySpecsSuite) TestValidateMissingName(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateMissingName(c *tc.C) {
 
 	specStr := `
 containers:
@@ -389,10 +392,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec name is missing")
+	c.Assert(err, tc.ErrorMatches, "spec name is missing")
 }
 
-func (s *legacySpecsSuite) TestValidateMissingImage(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateMissingImage(c *tc.C) {
 
 	specStr := `
 containers:
@@ -400,10 +403,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
+	c.Assert(err, tc.ErrorMatches, "spec image details is missing")
 }
 
-func (s *legacySpecsSuite) TestValidateFileSetPath(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateFileSetPath(c *tc.C) {
 
 	specStr := `
 containers:
@@ -417,10 +420,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
+	c.Assert(err, tc.ErrorMatches, `file set name is missing`)
 }
 
-func (s *legacySpecsSuite) TestValidateMissingMountPath(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateMissingMountPath(c *tc.C) {
 
 	specStr := `
 containers:
@@ -435,10 +438,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
+	c.Assert(err, tc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-func (s *legacySpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+func (s *legacySpecsSuite) TestValidateCustomResourceDefinitions(c *tc.C) {
 	specStr := `
 containers:
   - name: gitlab-helper
@@ -479,10 +482,10 @@ customResourceDefinitions:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
+	c.Assert(err, tc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
-func (s *legacySpecsSuite) TestUnknownFieldError(c *gc.C) {
+func (s *legacySpecsSuite) TestUnknownFieldError(c *tc.C) {
 	specStr := `
 containers:
   - name: gitlab-helper
@@ -494,5 +497,5 @@ foo: a-bad-guy
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `json: unknown field "foo"`)
+	c.Assert(err, tc.ErrorMatches, `json: unknown field "foo"`)
 }

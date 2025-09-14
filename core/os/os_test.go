@@ -5,8 +5,9 @@ package os
 
 import (
 	"runtime"
+	tctesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/os/ostype"
 )
@@ -14,15 +15,17 @@ import (
 type osSuite struct {
 }
 
-var _ = gc.Suite(&osSuite{})
+func TestOsSuite(t *tctesting.T) {
+	tc.Run(t, &osSuite{})
+}
 
-func (s *osSuite) TestHostOS(c *gc.C) {
+func (s *osSuite) TestHostOS(c *tc.C) {
 	os := HostOS()
 	switch runtime.GOOS {
 	case "windows":
-		c.Assert(os, gc.Equals, ostype.Windows)
+		c.Assert(os, tc.Equals, ostype.Windows)
 	case "darwin":
-		c.Assert(os, gc.Equals, ostype.OSX)
+		c.Assert(os, tc.Equals, ostype.OSX)
 	case "linux":
 		// TODO(mjs) - this should really do more by patching out
 		// osReleaseFile and testing the corner cases.

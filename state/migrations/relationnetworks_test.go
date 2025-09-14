@@ -4,19 +4,22 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type RelationNetworksExportSuite struct{}
 
-var _ = gc.Suite(&RelationNetworksExportSuite{})
+func TestRelationNetworksExportSuite(t *tctesting.T) {
+	tc.Run(t, &RelationNetworksExportSuite{})
+}
 
-func (s *RelationNetworksExportSuite) TestExportRelationNetworks(c *gc.C) {
+func (s *RelationNetworksExportSuite) TestExportRelationNetworks(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -38,10 +41,10 @@ func (s *RelationNetworksExportSuite) TestExportRelationNetworks(c *gc.C) {
 
 	migration := ExportRelationNetworks{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RelationNetworksExportSuite) TestExportRelationNetworksFailsGettingEntities(c *gc.C) {
+func (s *RelationNetworksExportSuite) TestExportRelationNetworksFailsGettingEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,7 +55,7 @@ func (s *RelationNetworksExportSuite) TestExportRelationNetworksFailsGettingEnti
 
 	migration := ExportRelationNetworks{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *RelationNetworksExportSuite) migrationRelationNetworks(ctrl *gomock.Controller, id, relationKey string, cidrs []string) *MockMigrationRelationNetworks {

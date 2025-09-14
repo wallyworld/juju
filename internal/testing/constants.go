@@ -6,6 +6,8 @@ package testing
 import (
 	"context"
 
+	"github.com/juju/clock"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	coretesting "github.com/juju/juju/core/testing"
@@ -37,4 +39,10 @@ var LongAttempt = &utils.AttemptStrategy{
 // a LongWait.
 func LongWaitContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), LongWait)
+}
+
+var LongRetryStrategy = retry.CallArgs{
+	Clock:       clock.WallClock,
+	MaxDuration: LongWait,
+	Delay:       ShortWait,
 }

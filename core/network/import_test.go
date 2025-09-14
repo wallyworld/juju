@@ -4,22 +4,25 @@
 package network_test
 
 import (
-	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/collections/set"
+	"github.com/juju/tc"
+
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ImportSuite struct{}
 
-var _ = gc.Suite(&ImportSuite{})
+func TestImportSuite(t *tctesting.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
 var allowedCoreImports = set.NewStrings("core/life")
 
-func (*ImportSuite) TestImports(c *gc.C) {
+func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")
 	for _, packageImport := range found {
-		c.Assert(allowedCoreImports.Contains(packageImport), jc.IsTrue)
+		c.Assert(allowedCoreImports.Contains(packageImport), tc.IsTrue)
 	}
 }

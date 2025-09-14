@@ -4,11 +4,11 @@
 package action_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/action"
@@ -17,9 +17,11 @@ import (
 
 type runSuite struct{}
 
-var _ = gc.Suite(&runSuite{})
+func TestRunSuite(t *tctesting.T) {
+	tc.Run(t, &runSuite{})
+}
 
-func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
+func (s *actionSuite) TestRunOnAllMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -41,8 +43,8 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
 		Actions: []action.ActionResult{{
 			Action: &action.Action{
@@ -53,7 +55,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestRun(c *gc.C) {
+func (s *actionSuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,8 +84,8 @@ func (s *actionSuite) TestRun(c *gc.C) {
 		Timeout:  time.Millisecond,
 		Machines: []string{"0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, action.EnqueuedActions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, action.EnqueuedActions{
 		OperationID: "1",
 		Actions: []action.ActionResult{{
 			Action: &action.Action{

@@ -5,11 +5,11 @@ package jujuc_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/rpc/params"
@@ -19,13 +19,15 @@ type NetworkGetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&NetworkGetSuite{})
+func TestNetworkGetSuite(t *tctesting.T) {
+	tc.Run(t, &NetworkGetSuite{})
+}
 
-func (s *NetworkGetSuite) SetUpSuite(c *gc.C) {
+func (s *NetworkGetSuite) SetUpSuite(c *tc.C) {
 	s.ContextSuite.SetUpSuite(c)
 }
 
-func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
+func (s *NetworkGetSuite) createCommand(c *tc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
 
 	presetBindings := make(map[string]params.NetworkInfoResult)
@@ -116,11 +118,11 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
 
 	com, err := jujuc.NewCommand(hctx, "network-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 
-func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
+func (s *NetworkGetSuite) TestNetworkGet(c *tc.C) {
 	for i, t := range []struct {
 		summary string
 		args    []string
@@ -271,21 +273,21 @@ ingress-addresses:
 	}
 }
 
-func (s *NetworkGetSuite) testScenario(c *gc.C, args []string, code int, out string) {
+func (s *NetworkGetSuite) testScenario(c *tc.C, args []string, code int, out string) {
 	ctx := cmdtesting.Context(c)
 
-	c.Check(cmd.Main(s.createCommand(c), ctx, args), gc.Equals, code)
+	c.Check(cmd.Main(s.createCommand(c), ctx, args), tc.Equals, code)
 
 	if code == 0 {
-		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Check(bufferString(ctx.Stderr), tc.Equals, "")
 		expect := out
 		if expect != "" {
 			expect = expect + "\n"
 		}
-		c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
+		c.Check(bufferString(ctx.Stdout), tc.Equals, expect)
 	} else {
-		c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+		c.Check(bufferString(ctx.Stdout), tc.Equals, "")
 		expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, out)
-		c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
+		c.Check(bufferString(ctx.Stderr), tc.Matches, expect)
 	}
 }

@@ -4,19 +4,20 @@
 package credentialvalidator_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CredentialValidatorSuite struct {
@@ -29,9 +30,11 @@ type CredentialValidatorSuite struct {
 	api *credentialvalidator.CredentialValidatorAPI
 }
 
-var _ = gc.Suite(&CredentialValidatorSuite{})
+func TestCredentialValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &CredentialValidatorSuite{})
+}
 
-func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
+func (s *CredentialValidatorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.backend = newMockBackend()
 
@@ -39,17 +42,17 @@ func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredential(c *tc.C) {
 	result, err := s.api.ModelCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ModelCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelCredential{
 		Model:           names.NewModelTag(modelUUID).String(),
 		Exists:          true,
 		CloudCredential: credentialTag.String(),
@@ -57,67 +60,67 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 	})
 }
 
-func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
+func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *tc.C) {
 	s.backend.mc.Exists = false
 	s.backend.mc.Credential = names.CloudCredentialTag{}
 	s.backend.mc.Valid = false
 	result, err := s.api.ModelCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID).String()})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID).String()})
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchCredential(c *tc.C) {
 	result, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *tc.C) {
 	s.backend.isUsed = false
 	_, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
-	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, apiservererrors.ErrPerm.Error())
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *tc.C) {
 	_, err := s.api.WatchCredential(params.Entity{"my-tag"})
-	c.Assert(err, gc.ErrorMatches, `"my-tag" is not a valid tag`)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, `"my-tag" is not a valid tag`)
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 }
 
-func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *tc.C) {
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
-func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *tc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
-func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredential(c *tc.C) {
 	result, err := s.api.WatchModelCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(s.resources.Count(), tc.Equals, 1)
 }
 
-func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
+func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *tc.C) {
 	s.backend.SetErrors(errors.New("no nope niet"))
 	_, err := s.api.WatchModelCredential()
-	c.Assert(err, gc.ErrorMatches, "no nope niet")
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, "no nope niet")
+	c.Assert(s.resources.Count(), tc.Equals, 0)
 }
 
 // modelUUID is the model tag we're using in the tests.
@@ -129,7 +132,7 @@ var credentialTag = names.NewCloudCredentialTag("cloud/user/credential")
 
 func newMockBackend() *testBackend {
 	b := &testBackend{
-		Stub:   &testing.Stub{},
+		Stub:   &testhelpers.Stub{},
 		isUsed: true,
 		mc: &credentialvalidator.ModelCredential{
 			Model:      names.NewModelTag(modelUUID),
@@ -142,7 +145,7 @@ func newMockBackend() *testBackend {
 }
 
 type testBackend struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	mc     *credentialvalidator.ModelCredential
 	isUsed bool

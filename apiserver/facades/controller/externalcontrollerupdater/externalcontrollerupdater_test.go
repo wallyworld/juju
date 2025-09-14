@@ -4,21 +4,24 @@
 package externalcontrollerupdater_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&CrossControllerSuite{})
+func TestCrossControllerSuite(t *tctesting.T) {
+	tc.Run(t, &CrossControllerSuite{})
+}
 
 type CrossControllerSuite struct {
 	coretesting.BaseSuite
@@ -30,28 +33,28 @@ type CrossControllerSuite struct {
 	api                 *externalcontrollerupdater.ExternalControllerUpdaterAPI
 }
 
-func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
+func (s *CrossControllerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.auth = testing.FakeAuthorizer{Controller: true}
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 	s.watcher = newMockStringsWatcher()
-	s.AddCleanup(func(*gc.C) { s.watcher.Stop() })
+	s.AddCleanup(func(*tc.C) { s.watcher.Stop() })
 	s.externalControllers = &mockExternalControllers{
 		watcher: s.watcher,
 	}
 	api, err := externalcontrollerupdater.NewAPI(s.auth, s.resources, s.externalControllers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *CrossControllerSuite) TestNewAPINonController(c *gc.C) {
+func (s *CrossControllerSuite) TestNewAPINonController(c *tc.C) {
 	s.auth.Controller = false
 	_, err := externalcontrollerupdater.NewAPI(s.auth, s.resources, s.externalControllers)
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
+func (s *CrossControllerSuite) TestExternalControllerInfo(c *tc.C) {
 	s.externalControllers.controllers = append(s.externalControllers.controllers, &mockExternalController{
 		id: coretesting.ControllerTag.Id(),
 		info: crossmodel.ControllerInfo{
@@ -69,8 +72,8 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 			{"machine-42"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ExternalControllerInfoResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ExternalControllerInfoResults{
 		[]params.ExternalControllerInfoResult{{
 			Result: &params.ExternalControllerInfo{
 				ControllerTag: coretesting.ControllerTag.String(),
@@ -89,7 +92,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 	})
 }
 
-func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
+func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *tc.C) {
 	s.externalControllers.controllers = append(s.externalControllers.controllers, &mockExternalController{
 		id: coretesting.ControllerTag.Id(),
 		info: crossmodel.ControllerInfo{
@@ -118,8 +121,8 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{
 			{nil},
 			{nil},
@@ -129,7 +132,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 
 	c.Assert(
 		s.externalControllers.controllers,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		[]*mockExternalController{{
 			id: coretesting.ControllerTag.Id(),
 			info: crossmodel.ControllerInfo{
@@ -150,29 +153,29 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 	)
 }
 
-func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
+func (s *CrossControllerSuite) TestWatchExternalControllers(c *tc.C) {
 	s.watcher.changes <- []string{"a", "b"} // initial value
 	results, err := s.api.WatchExternalControllers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{{
 			StringsWatcherId: "1",
 			Changes:          []string{"a", "b"},
 		}},
 	})
-	c.Assert(s.resources.Get("1"), gc.Equals, s.watcher)
+	c.Assert(s.resources.Get("1"), tc.Equals, s.watcher)
 }
 
-func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
+func (s *CrossControllerSuite) TestWatchControllerInfoError(c *tc.C) {
 	s.watcher.tomb.Kill(errors.New("nope"))
 	close(s.watcher.changes)
 
 	results, err := s.api.WatchExternalControllers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
 	})
-	c.Assert(s.resources.Get("1"), gc.IsNil)
+	c.Assert(s.resources.Get("1"), tc.IsNil)
 }

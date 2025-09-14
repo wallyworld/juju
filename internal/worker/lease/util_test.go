@@ -11,11 +11,10 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // Secretary implements lease.Secretary for testing purposes.
@@ -79,12 +78,12 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call, clock *testclock.C
 // Wait will return when all expected calls have been made, or fail the test
 // if they don't happen within a second. (You control the clock; your tests
 // should pass in *way* less than 10 seconds of wall-clock time.)
-func (store *Store) Wait(c *gc.C) {
+func (store *Store) Wait(c *tc.C) {
 	select {
 	case <-store.done:
 		select {
 		case err := <-store.failed:
-			c.Errorf(err.Error())
+			c.Errorf("%s", err.Error())
 		default:
 		}
 	case <-time.After(coretesting.LongWait):
@@ -194,7 +193,7 @@ func (store *Store) call(method string, args []interface{}) error {
 	}
 
 	if method == expect.method {
-		if ok, _ := jc.DeepEqual(args, expect.args); ok {
+		if ok, _ := tc.DeepEqual(args, expect.args); ok {
 			return expect.err
 		}
 	}

@@ -9,21 +9,23 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type desiredPeerGroupSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&desiredPeerGroupSuite{})
+func TestDesiredPeerGroupSuite(t *tctesting.T) {
+	tc.Run(t, &desiredPeerGroupSuite{})
+}
 
 const (
 	mongoPort         = 1234
@@ -397,35 +399,35 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	}
 }
 
-func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv4(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv4(c *tc.C) {
 	s.doTestDesiredPeerGroup(c, testIPv4)
 }
 
-func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv6(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv6(c *tc.C) {
 	s.doTestDesiredPeerGroup(c, testIPv6)
 }
 
-func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIPVersion) {
+func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *tc.C, ipVersion TestIPVersion) {
 	for ti, test := range desiredPeerGroupTests(ipVersion) {
 		c.Logf("\ntest %d: %s", ti, test.about)
 		trackerMap := make(map[string]*controllerTracker)
 		for _, m := range test.machines {
-			c.Assert(trackerMap[m.Id()], gc.IsNil)
+			c.Assert(trackerMap[m.Id()], tc.IsNil)
 			trackerMap[m.Id()] = m
 		}
 
 		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceInfo{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		desired, err := desiredPeerGroup(info)
 		if test.expectErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectErr)
-			c.Assert(desired.members, gc.IsNil)
-			c.Assert(desired.isChanged, jc.IsFalse)
+			c.Assert(err, tc.ErrorMatches, test.expectErr)
+			c.Assert(desired.members, tc.IsNil)
+			c.Assert(desired.isChanged, tc.IsFalse)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info, gc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(info, tc.NotNil)
 
 		members := make([]replicaset.Member, 0, len(desired.members))
 		for _, m := range desired.members {
@@ -433,9 +435,9 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		}
 
 		sort.Sort(membersById(members))
-		c.Assert(desired.isChanged, gc.Equals, test.expectChanged)
-		c.Assert(desired.stepDownPrimary, gc.Equals, test.expectStepDown)
-		c.Assert(membersToTestMembers(members), jc.DeepEquals, membersToTestMembers(test.expectMembers))
+		c.Assert(desired.isChanged, tc.Equals, test.expectChanged)
+		c.Assert(desired.stepDownPrimary, tc.Equals, test.expectStepDown)
+		c.Assert(membersToTestMembers(members), tc.DeepEquals, membersToTestMembers(test.expectMembers))
 		for i, m := range test.machines {
 			if m.host.Life() == state.Dead {
 				continue
@@ -443,38 +445,38 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 			var vote, votePresent bool
 			for _, member := range desired.members {
 				controllerId, ok := member.Tags[jujuNodeKey]
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 				if controllerId == m.Id() {
 					votePresent = true
 					vote = isVotingMember(member)
 					break
 				}
 			}
-			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
+			c.Check(votePresent, tc.IsTrue)
+			c.Check(vote, tc.Equals, test.expectVoting[i], tc.Commentf("controller %s", m.Id()))
 		}
 
 		// Assure ourselves that the total number of desired votes is odd in
 		// all circumstances.
-		c.Assert(countVotes(members)%2, gc.Equals, 1)
+		c.Assert(countVotes(members)%2, tc.Equals, 1)
 
 		// Make sure that when the members are set as required, that there
 		// is no further change if desiredPeerGroup is called again.
 		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceInfo{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info, gc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(info, tc.NotNil)
 
 		desired, err = desiredPeerGroup(info)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(desired.isChanged, jc.IsFalse)
-		c.Assert(desired.stepDownPrimary, jc.IsFalse)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(desired.isChanged, tc.IsFalse)
+		c.Assert(desired.stepDownPrimary, tc.IsFalse)
 		countPrimaries := 0
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		for i, m := range test.machines {
 			var vote, votePresent bool
 			for _, member := range desired.members {
 				controllerId, ok := member.Tags[jujuNodeKey]
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 				if controllerId == m.Id() {
 					votePresent = true
 					vote = isVotingMember(member)
@@ -482,79 +484,79 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 				}
 			}
 			if m.host.Life() == state.Dead {
-				c.Assert(votePresent, jc.IsFalse)
+				c.Assert(votePresent, tc.IsFalse)
 				continue
 			}
-			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
+			c.Check(votePresent, tc.IsTrue)
+			c.Check(vote, tc.Equals, test.expectVoting[i], tc.Commentf("controller %s", m.Id()))
 			if isPrimaryMember(info, m.Id()) {
 				countPrimaries += 1
 			}
 		}
-		c.Assert(countPrimaries, gc.Equals, 1)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(countPrimaries, tc.Equals, 1)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *desiredPeerGroupSuite) TestIsPrimary(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestIsPrimary(c *tc.C) {
 	machines := mkMachines("11v 12v 13v", testIPv4)
 	trackerMap := make(map[string]*controllerTracker)
 	for _, m := range machines {
-		c.Assert(trackerMap[m.Id()], gc.IsNil)
+		c.Assert(trackerMap[m.Id()], tc.IsNil)
 		trackerMap[m.Id()] = m
 	}
 	members := mkMembers("1v 2v 3v", testIPv4)
 	statuses := mkStatuses("1p 2s 3s", testIPv4)
 	info, err := newPeerGroupInfo(trackerMap, statuses, members, mongoPort, network.SpaceInfo{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	isPrimary, err := info.isPrimary("11")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isPrimary, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isPrimary, tc.IsTrue)
 	isPrimary, err = info.isPrimary("12")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isPrimary, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(isPrimary, tc.IsFalse)
 }
 
-func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *tc.C) {
 	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceInfo{})
-	c.Check(err, gc.ErrorMatches, "current member set is empty")
+	c.Check(err, tc.ErrorMatches, "current member set is empty")
 }
 
-func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *tc.C) {
 	v := 1
 	peerChanges := peerGroupChanges{
 		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(err, gc.ErrorMatches, "non juju voting member .+ found in peer group")
+	c.Check(err, tc.ErrorMatches, "non juju voting member .+ found in peer group")
 }
 
-func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *tc.C) {
 	v := 0
 	peerChanges := peerGroupChanges{
 		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(peerChanges.desired.isChanged, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(peerChanges.desired.isChanged, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *desiredPeerGroupSuite) TestCheckToRemoveMembersReturnsTrueWhenCheckMade(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestCheckToRemoveMembersReturnsTrueWhenCheckMade(c *tc.C) {
 	peerChanges := peerGroupChanges{
 		info: &peerGroupInfo{toRemove: []replicaset.Member{{}}},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(peerChanges.desired.isChanged, jc.IsTrue)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(peerChanges.desired.isChanged, tc.IsTrue)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *gc.C) {
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *tc.C) {
 	peerChanges := peerGroupChanges{
 		info: &peerGroupInfo{},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(peerChanges.desired.isChanged, jc.IsFalse)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(peerChanges.desired.isChanged, tc.IsFalse)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func countVotes(members []replicaset.Member) int {
@@ -722,10 +724,10 @@ var parseDescrTests = []struct {
 	}},
 }}
 
-func (*desiredPeerGroupSuite) TestParseDescr(c *gc.C) {
+func (*desiredPeerGroupSuite) TestParseDescr(c *tc.C) {
 	for i, test := range parseDescrTests {
 		c.Logf("test %d. %q", i, test.descr)
-		c.Assert(parseDescr(test.descr), jc.DeepEquals, test.expect)
+		c.Assert(parseDescr(test.descr), tc.DeepEquals, test.expect)
 	}
 }
 
@@ -750,15 +752,15 @@ func parseDescr(s string) []descr {
 	return descrs
 }
 
-func assertMembers(c *gc.C, obtained interface{}, expected []replicaset.Member) {
-	c.Assert(obtained, gc.FitsTypeOf, []replicaset.Member{})
+func assertMembers(c *tc.C, obtained interface{}, expected []replicaset.Member) {
+	c.Assert(obtained, tc.FitsTypeOf, []replicaset.Member{})
 	// Avoid mutating the obtained slice: because it's usually retrieved
 	// directly from the memberWatcher voyeur.Value,
 	// mutation can cause races.
 	obtainedMembers := deepCopy(obtained).([]replicaset.Member)
 	sort.Sort(membersById(obtainedMembers))
 	sort.Sort(membersById(expected))
-	c.Assert(membersToTestMembers(obtainedMembers), jc.DeepEquals, membersToTestMembers(expected))
+	c.Assert(membersToTestMembers(obtainedMembers), tc.DeepEquals, membersToTestMembers(expected))
 }
 
 type membersById []replicaset.Member
@@ -770,11 +772,11 @@ func (l membersById) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
 // AssertAPIHostPorts asserts of two sets of network.SpaceHostPort slices are the same.
-func AssertAPIHostPorts(c *gc.C, got, want []network.SpaceHostPorts) {
-	c.Assert(got, gc.HasLen, len(want))
+func AssertAPIHostPorts(c *tc.C, got, want []network.SpaceHostPorts) {
+	c.Assert(got, tc.HasLen, len(want))
 	sort.Sort(hostPortSliceByHostPort(got))
 	sort.Sort(hostPortSliceByHostPort(want))
-	c.Assert(got, gc.DeepEquals, want)
+	c.Assert(got, tc.DeepEquals, want)
 }
 
 type hostPortSliceByHostPort []network.SpaceHostPorts
@@ -801,27 +803,29 @@ func (h hostPortSliceByHostPort) Less(i, j int) bool {
 }
 
 type sortAsIntsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&sortAsIntsSuite{})
+func TestSortAsIntsSuite(t *tctesting.T) {
+	tc.Run(t, &sortAsIntsSuite{})
+}
 
-func checkIntSorted(c *gc.C, vals, expected []string) {
+func checkIntSorted(c *tc.C, vals, expected []string) {
 	// we sort in place, so leave 'vals' alone and copy to another slice
 	copied := append([]string(nil), vals...)
 	sortAsInts(copied)
-	c.Check(copied, gc.DeepEquals, expected)
+	c.Check(copied, tc.DeepEquals, expected)
 }
 
-func (*sortAsIntsSuite) TestAllInts(c *gc.C) {
+func (*sortAsIntsSuite) TestAllInts(c *tc.C) {
 	checkIntSorted(c, []string{"1", "10", "2", "20"}, []string{"1", "2", "10", "20"})
 }
 
-func (*sortAsIntsSuite) TestStrings(c *gc.C) {
+func (*sortAsIntsSuite) TestStrings(c *tc.C) {
 	checkIntSorted(c, []string{"a", "c", "b", "X"}, []string{"X", "a", "b", "c"})
 }
 
-func (*sortAsIntsSuite) TestMixed(c *gc.C) {
+func (*sortAsIntsSuite) TestMixed(c *tc.C) {
 	checkIntSorted(c, []string{"1", "20", "10", "2", "2d", "c", "b", "X"},
 		[]string{"1", "2", "10", "20", "2d", "X", "b", "c"})
 }

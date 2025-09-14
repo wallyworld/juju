@@ -4,20 +4,20 @@
 package cache_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 const allEndpoints = ""
@@ -26,11 +26,13 @@ type ModelSuite struct {
 	cache.EntitySuite
 }
 
-var _ = gc.Suite(&ModelSuite{})
+func TestModelSuite(t *tctesting.T) {
+	tc.Run(t, &ModelSuite{})
+}
 
-func (s *ModelSuite) TestEmptyReport(c *gc.C) {
+func (s *ModelSuite) TestEmptyReport(c *tc.C) {
 	m := s.NewModel(modelChange)
-	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(m.Report(), tc.DeepEquals, map[string]interface{}{
 		"name":         "model-owner/test-model",
 		"life":         "alive",
 		"applications": make(map[string]interface{}),
@@ -42,13 +44,13 @@ func (s *ModelSuite) TestEmptyReport(c *gc.C) {
 	})
 }
 
-func (s *ModelSuite) TestReport(c *gc.C) {
+func (s *ModelSuite) TestReport(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateCharm(charmChange, s.Manager)
 	m.UpdateApplication(appChange, s.Manager)
 	m.UpdateUnit(unitChange, s.Manager)
 
-	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(m.Report(), tc.DeepEquals, map[string]interface{}{
 		"name": "model-owner/test-model",
 		"life": "alive",
 		"applications": map[string]interface{}{
@@ -82,32 +84,32 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 	})
 }
 
-func (s *ModelSuite) TestConfig(c *gc.C) {
+func (s *ModelSuite) TestConfig(c *tc.C) {
 	m := s.NewModel(modelChange)
-	c.Assert(m.Config(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(m.Config(), tc.DeepEquals, map[string]interface{}{
 		"key":     "value",
 		"another": "foo",
 	})
 }
 
-func (s *ModelSuite) TestNewModelGeneratesHash(c *gc.C) {
+func (s *ModelSuite) TestNewModelGeneratesHash(c *tc.C) {
 	s.NewModel(modelChange)
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), tc.Equals, float64(1))
 }
 
-func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
+func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *tc.C) {
 	m := s.NewModel(modelChange)
-	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(0))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), tc.Equals, float64(0))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), tc.Equals, float64(1))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), tc.Equals, float64(2))
 }
 
 // Some of the tested behaviour in the following methods is specific to the
 // watcher, but using a cached model avoids the need to put scaffolding code in
 // export_test.go to create a watcher in isolation.
-func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherStops(c *tc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	wc := cache.NewNotifyWatcherC(c, w)
@@ -116,7 +118,7 @@ func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 	wc.AssertStops()
 }
 
-func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherChange(c *tc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	defer workertest.CleanKill(c, w)
@@ -133,18 +135,18 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 	wc.AssertOneChange()
 
 	// The hash is generated each time we set different details.
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), tc.Equals, float64(2))
 
 	// The value is retrieved from the cache when the watcher is created and notified.
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), tc.Equals, float64(2))
 
 	// Setting the same values causes no notification and no cache miss.
 	m.SetDetails(change)
 	wc.AssertNoChange()
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), tc.Equals, float64(2))
 }
 
-func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherOneValue(c *tc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 	defer workertest.CleanKill(c, w)
@@ -162,7 +164,7 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *ModelSuite) TestConfigWatcherSameValueHasNoChange(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherSameValueHasNoChange(c *tc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 
@@ -188,7 +190,7 @@ func (s *ModelSuite) TestConfigWatcherSameValueHasNoChange(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *ModelSuite) TestConfigWatcherValueHasChangeBackToOriginalValue(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherValueHasChangeBackToOriginalValue(c *tc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 
@@ -225,7 +227,7 @@ func (s *ModelSuite) TestConfigWatcherValueHasChangeBackToOriginalValue(c *gc.C)
 	wc.AssertOneChange()
 }
 
-func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
+func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *tc.C) {
 	m := s.NewModel(modelChange)
 
 	w := m.WatchConfig("key", "another")
@@ -235,24 +237,24 @@ func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
 	defer workertest.CleanKill(c, w2)
 
 	// One cache miss for the "all" hash, and one for the specific fields.
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), tc.Equals, float64(2))
 
 	// Specific field hash should get a hit despite the field ordering.
-	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), tc.Equals, float64(1))
 }
 
-func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
+func (s *ModelSuite) TestApplicationNotFoundError(c *tc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Application("nope")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
+func (s *ModelSuite) TestApplicationReturnsCopy(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateApplication(appChange, s.Manager)
 
 	a1, err := m.Application(appChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make a change to the map returned in the copy.
 	ac := a1.Config()
@@ -260,33 +262,33 @@ func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
 
 	// Get another copy from the model and ensure it is unchanged.
 	a2, err := m.Application(appChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a2.Config(), gc.DeepEquals, appChange.Config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(a2.Config(), tc.DeepEquals, appChange.Config)
 }
 
-func (s *ModelSuite) TestApplications(c *gc.C) {
+func (s *ModelSuite) TestApplications(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateApplication(appChange, s.Manager)
 
 	apps := m.Applications()
-	c.Assert(apps, gc.HasLen, 1)
+	c.Assert(apps, tc.HasLen, 1)
 	app := apps[appChange.Name]
-	c.Check(app.CharmURL(), gc.Equals, appChange.CharmURL)
-	c.Check(app.Config(), gc.DeepEquals, appChange.Config)
+	c.Check(app.CharmURL(), tc.Equals, appChange.CharmURL)
+	c.Check(app.Config(), tc.DeepEquals, appChange.Config)
 }
 
-func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
+func (s *ModelSuite) TestCharmNotFoundError(c *tc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Charm("nope")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *ModelSuite) TestCharmReturnsCopy(c *gc.C) {
+func (s *ModelSuite) TestCharmReturnsCopy(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateCharm(charmChange, s.Manager)
 
 	ch1, err := m.Charm(charmChange.CharmURL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make a change to the map returned in the copy.
 	cc := ch1.DefaultConfig()
@@ -294,22 +296,22 @@ func (s *ModelSuite) TestCharmReturnsCopy(c *gc.C) {
 
 	// Get another copy from the model and ensure it is unchanged.
 	ch2, err := m.Charm(charmChange.CharmURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch2.DefaultConfig(), gc.DeepEquals, charmChange.DefaultConfig)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch2.DefaultConfig(), tc.DeepEquals, charmChange.DefaultConfig)
 }
 
-func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
+func (s *ModelSuite) TestMachineNotFoundError(c *tc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Machine("nope")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
+func (s *ModelSuite) TestMachineReturnsCopy(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateMachine(machineChange, s.Manager)
 
 	m1, err := m.Machine(machineChange.Id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make a change to the map returned in the copy.
 	mc := m1.Config()
@@ -317,17 +319,17 @@ func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
 
 	// Get another copy from the model and ensure it is unchanged.
 	m2, err := m.Machine(machineChange.Id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m2.Config(), gc.DeepEquals, machineChange.Config)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m2.Config(), tc.DeepEquals, machineChange.Config)
 }
 
-func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
+func (s *ModelSuite) TestUnitNotFoundError(c *tc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Unit("nope")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
+func (s *ModelSuite) TestUnitReturnsCopy(c *tc.C) {
 	m := s.NewModel(modelChange)
 
 	ch := unitChange
@@ -338,29 +340,29 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	m.UpdateUnit(ch, s.Manager)
 
 	u1, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make a change to the slice returned in the copy.
 	u1.OpenPortRangesByEndpoint()[allEndpoints][0] = network.MustParsePortRange("65432/tcp")
 
 	// Get another copy from the model and ensure it is unchanged.
 	u2, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u2.OpenPortRangesByEndpoint(), gc.DeepEquals, ch.OpenPortRangesByEndpoint)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(u2.OpenPortRangesByEndpoint(), tc.DeepEquals, ch.OpenPortRangesByEndpoint)
 }
 
-func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
+func (s *ModelSuite) TestBranchNotFoundError(c *tc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Branch("nope")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
+func (s *ModelSuite) TestBranchReturnsCopy(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateBranch(branchChange, s.Manager)
 
 	b1, err := m.Branch(branchChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make a change to the map returned in the copy.
 	au := b1.AssignedUnits()
@@ -368,11 +370,11 @@ func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
 
 	// Get another copy from the model and ensure it is unchanged.
 	b2, err := m.Branch(branchChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(b2.AssignedUnits(), gc.DeepEquals, branchChange.AssignedUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(b2.AssignedUnits(), tc.DeepEquals, branchChange.AssignedUnits)
 }
 
-func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
+func (s *ModelSuite) TestRemoveBranchPublishesName(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateBranch(branchChange, s.Manager)
 
@@ -384,7 +386,7 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 		ModelUUID: branchChange.ModelUUID,
 		Id:        branchChange.Id,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case msg := <-rcv:
@@ -392,14 +394,14 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 		if !ok {
 			c.Fatal("wrong type published; expected string.")
 		}
-		c.Check(name, gc.Equals, branchChange.Name)
+		c.Check(name, tc.Equals, branchChange.Name)
 
 	case <-time.After(testing.LongWait):
 		c.Fatal("branch removal message not Received")
 	}
 }
 
-func (s *ModelSuite) TestWaitForUnitNewChange(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitNewChange(c *tc.C) {
 	m := s.NewModel(modelChange)
 	done := m.WaitForUnit("application-name/0", func(u *cache.Unit) bool {
 		return u.Life() == life.Alive
@@ -415,7 +417,7 @@ func (s *ModelSuite) TestWaitForUnitNewChange(c *gc.C) {
 	}
 }
 
-func (s *ModelSuite) TestWaitForUnitExistingValue(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitExistingValue(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateUnit(unitChange, s.Manager)
 
@@ -431,7 +433,7 @@ func (s *ModelSuite) TestWaitForUnitExistingValue(c *gc.C) {
 	}
 }
 
-func (s *ModelSuite) TestWaitForUnitCancelClosesChannel(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitCancelClosesChannel(c *tc.C) {
 	m := s.NewModel(modelChange)
 	cancel := make(chan struct{})
 	done := m.WaitForUnit("anything", func(*cache.Unit) bool { return false }, cancel)

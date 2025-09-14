@@ -4,20 +4,24 @@
 package firewaller
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&UnitToCIDRMappingSuite{})
-
-type UnitToCIDRMappingSuite struct {
-	testing.IsolationSuite
+func TestUnitToCIDRMappingSuite(t *tctesting.T) {
+	tc.Run(t, &UnitToCIDRMappingSuite{})
 }
 
-func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
+type UnitToCIDRMappingSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *tc.C) {
 	portRangesByEndpoint := network.GroupedPortRanges{
 		"foo": []network.PortRange{
 			network.MustParsePortRange("123/tcp"),
@@ -69,10 +73,10 @@ func (s *UnitToCIDRMappingSuite) TestBindingMapping(c *gc.C) {
 		},
 	}
 
-	c.Assert(got, gc.DeepEquals, exp)
+	c.Assert(got, tc.DeepEquals, exp)
 }
 
-func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
+func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *tc.C) {
 	portRangesByEndpoint := network.GroupedPortRanges{
 		"": []network.PortRange{
 			// These ranges should be added to the CIDRs of each
@@ -120,5 +124,5 @@ func (s *UnitToCIDRMappingSuite) TestWildcardExpansion(c *gc.C) {
 		},
 	}
 
-	c.Assert(got, gc.DeepEquals, exp)
+	c.Assert(got, tc.DeepEquals, exp)
 }

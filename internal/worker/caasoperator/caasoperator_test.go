@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,13 +16,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -32,17 +31,18 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	clock                 *testclock.Clock
 	config                caasoperator.Config
@@ -63,14 +63,16 @@ type WorkerSuite struct {
 	mockExecutor          *mockExecutor
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func sockPath(c *gc.C) sockets.Socket {
+func sockPath(c *tc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
 	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	// Create a charm archive, and compute its SHA256 hash
@@ -83,7 +85,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		),
 	}
 	charmSHA256, _, err := utils.ReadFileSHA256(s.charmDownloader.path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charmSHA256 = charmSHA256
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -148,12 +150,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
 	err = os.MkdirAll(agentBinaryDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(s.config.DataDir, "tools", "jujud"), []byte("jujud"), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+func (s *WorkerSuite) TestValidateConfig(c *tc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Application = ""
 	}, `application name "" not valid`)
@@ -224,19 +226,19 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasoperator.Config), expect string) {
+func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*caasoperator.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := caasoperator.NewWorker(config)
 	if err == nil {
 		workertest.DirtyKill(c, w)
 	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 
 	retryCallArgs := retry.CallArgs{
@@ -255,16 +257,16 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
+func (s *WorkerSuite) TestWorkerDownloadsCharm(c *tc.C) {
 	uniterStarted := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
-		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
+		c.Assert(params.UnitTag.Id(), tc.Equals, "gitlab/0")
 		close(uniterStarted)
 		return nil
 	}
 
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -297,28 +299,28 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	s.charmDownloader.CheckCallNames(c, "Download")
 	downloadArgs := s.charmDownloader.Calls()[0].Args
-	c.Assert(downloadArgs, gc.HasLen, 1)
-	c.Assert(downloadArgs[0], gc.FitsTypeOf, downloader.Request{})
+	c.Assert(downloadArgs, tc.HasLen, 1)
+	c.Assert(downloadArgs[0], tc.FitsTypeOf, downloader.Request{})
 	downloadRequest := downloadArgs[0].(downloader.Request)
-	c.Assert(downloadRequest.Abort, gc.NotNil)
-	c.Assert(downloadRequest.Verify, gc.NotNil)
+	c.Assert(downloadRequest.Abort, tc.NotNil)
+	c.Assert(downloadRequest.Verify, tc.NotNil)
 
 	// fakeClient.Charm returns the SHA256 sum of fakeCharmContent.
 	fakeCharmPath := filepath.Join(c.MkDir(), "fake.charm")
 	err = os.WriteFile(fakeCharmPath, fakeCharmContent, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	f, err := os.Open(fakeCharmPath)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer f.Close()
 	err = downloadRequest.Verify(f)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	downloadRequest.Abort = nil
 	downloadRequest.Verify = nil
 	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(
 		downloadRequest,
-		jc.DeepEquals,
+		tc.DeepEquals,
 		downloader.Request{
 			ArchiveSha256: fakeCharmSHA256,
 			URL:           &url.URL{Scheme: "ch", Opaque: "gitlab-1"},
@@ -328,25 +330,25 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	// The download directory should have been removed.
 	_, err = os.Stat(downloadRequest.TargetDir)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	c.Assert(err, tc.Satisfies, os.IsNotExist)
 
 	// The charm archive should have been unpacked into <data-dir>/charm.
 	charmDir := filepath.Join(agentDir, "charm")
 	_, err = os.Stat(filepath.Join(charmDir, "metadata.yaml"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 }
 
-func (s *WorkerSuite) assertUniterStarted(c *gc.C) worker.Worker {
+func (s *WorkerSuite) assertUniterStarted(c *tc.C) worker.Worker {
 	ch := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		defer close(ch)
-		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
+		c.Assert(params.UnitTag.Id(), tc.Equals, "gitlab/0")
 		return nil
 	}
 
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case s.appChanges <- struct{}{}:
@@ -367,9 +369,9 @@ func (s *WorkerSuite) assertUniterStarted(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
+func (s *WorkerSuite) TestWorkerSetsStatus(c *tc.C) {
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
@@ -381,17 +383,17 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (ch:gitlab-1)", map[string]interface{}(nil))
 }
 
-func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *tc.C) {
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.client.unitsWatcher.KillErr(errors.New("splat"))
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
-func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
+func (s *WorkerSuite) TestRemovedUnit(c *tc.C) {
 	w := s.assertUniterStarted(c)
 	defer workertest.CleanKill(c, w)
 
@@ -413,50 +415,50 @@ func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
 	s.client.CheckCall(c, 1, "RemoveUnit", "gitlab/0")
 }
 
-func (s *WorkerSuite) TestRemovedApplication(c *gc.C) {
+func (s *WorkerSuite) TestRemovedApplication(c *tc.C) {
 	s.client.SetErrors(errors.NotFoundf("app"))
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "agent should be terminated")
+	c.Assert(err, tc.ErrorMatches, "agent should be terminated")
 }
 
-func (s *WorkerSuite) TestMakeAgentSymlinks(c *gc.C) {
+func (s *WorkerSuite) TestMakeAgentSymlinks(c *tc.C) {
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	unitTag := names.NewUnitTag("gitlab/0")
 	op := w.(*caasoperator.CaasOperator)
 	unitDir := filepath.Join(op.GetDataDir(), "agents", unitTag.String())
 	err = os.MkdirAll(unitDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	unitCharmLegacySymlink := filepath.Join(unitDir, "charm")
 	fakeAppDir := c.MkDir()
 	err = symlink.New(fakeAppDir, unitCharmLegacySymlink)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertSymlinkExist(c, unitCharmLegacySymlink)
 
 	err = op.MakeAgentSymlinks(unitTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertSymlinkNotExist(c, unitCharmLegacySymlink)
 }
 
-func assertSymlinkExist(c *gc.C, path string) {
+func assertSymlinkExist(c *tc.C, path string) {
 	symlinkExists, err := symlink.IsSymlink(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(symlinkExists, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(symlinkExists, tc.IsTrue)
 }
 
-func assertSymlinkNotExist(c *gc.C, path string) {
+func assertSymlinkNotExist(c *tc.C, path string) {
 	_, err := symlink.IsSymlink(path)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(errors.Cause(err), tc.Satisfies, os.IsNotExist)
 }
 
-func (s *WorkerSuite) TestContainerStart(c *gc.C) {
+func (s *WorkerSuite) TestContainerStart(c *tc.C) {
 	uniterStarted := make(chan struct{})
 	uniterGotRunning := make(chan struct{})
 	s.mockExecutor.status = exec.Status{
@@ -470,16 +472,16 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		go func() {
 			close(uniterStarted)
-			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-			c.Assert(params.NewRemoteRunnerExecutor, gc.NotNil)
+			c.Assert(params.UnitTag.Id(), tc.Equals, "gitlab/0")
+			c.Assert(params.NewRemoteRunnerExecutor, tc.NotNil)
 			select {
 			case <-params.ContainerRunningStatusChannel:
 			case <-time.After(coretesting.LongWait):
 				c.Fatal("timed out sending application change")
 			}
 			running, err := params.ContainerRunningStatusFunc("gitlab-ffff")
-			c.Assert(err, gc.IsNil)
-			c.Assert(running, jc.DeepEquals, &remotestate.ContainerRunningStatus{
+			c.Assert(err, tc.IsNil)
+			c.Assert(running, tc.DeepEquals, &remotestate.ContainerRunningStatus{
 				PodName: "gitlab-ffff",
 				Running: true,
 			})
@@ -489,7 +491,7 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	}
 
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {
@@ -531,20 +533,20 @@ func (s *WorkerSuite) TestContainerStart(c *gc.C) {
 	s.client.CheckCall(c, 6, "Watch", "gitlab")
 }
 
-func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *gc.C) {
+func (s *WorkerSuite) TestOperatorNoWaitContainerStart(c *tc.C) {
 	uniterStarted := make(chan struct{})
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		go func() {
 			close(uniterStarted)
-			c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-			c.Assert(params.ContainerRunningStatusChannel, gc.IsNil)
+			c.Assert(params.UnitTag.Id(), tc.Equals, "gitlab/0")
+			c.Assert(params.ContainerRunningStatusChannel, tc.IsNil)
 		}()
 		return nil
 	}
 	s.client.mode = caas.ModeOperator
 
 	w, err := caasoperator.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	select {

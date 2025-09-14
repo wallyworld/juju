@@ -10,17 +10,16 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
-func charmRes(c *gc.C, name, suffix, description, content string) charmresource.Resource {
+func charmRes(c *tc.C, name, suffix, description, content string) charmresource.Resource {
 	if content == "" {
 		content = name
 	}
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
@@ -35,11 +34,11 @@ func charmRes(c *gc.C, name, suffix, description, content string) charmresource.
 		Size:        int64(len(content)),
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }
 
-func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
+func newCharmResources(c *tc.C, names ...string) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for _, name := range names {
 		var description string
@@ -55,7 +54,7 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 	return resources
 }
 
-func runCmd(c *gc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
+func runCmd(c *tc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
 	ctx := cmdtesting.Context(c)
 	code = jujucmd.Main(command, ctx, args)
 	stdout = string(ctx.Stdout.(*bytes.Buffer).Bytes())

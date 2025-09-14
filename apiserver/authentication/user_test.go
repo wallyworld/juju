@@ -5,6 +5,7 @@ package authentication_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -15,37 +16,39 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type userAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&userAuthenticatorSuite{})
+func TestUserAuthenticatorSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &userAuthenticatorSuite{})
+}
 
-func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
+func (s *userAuthenticatorSuite) TestMachineLoginFails(c *tc.C) {
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", nonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machinePassword := password
 
 	// attempt machine login
@@ -55,18 +58,18 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 		Credentials: machinePassword,
 		Nonce:       nonce,
 	})
-	c.Assert(err, gc.ErrorMatches, "invalid request")
+	c.Assert(err, tc.ErrorMatches, "invalid request")
 }
 
-func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
+func (s *userAuthenticatorSuite) TestUnitLoginFails(c *tc.C) {
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unitPassword := password
 
 	// Attempt unit login
@@ -75,10 +78,10 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 		AuthTag:     unit.UnitTag(),
 		Credentials: unitPassword,
 	})
-	c.Assert(err, gc.ErrorMatches, "invalid request")
+	c.Assert(err, tc.ErrorMatches, "invalid request")
 }
 
-func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
+func (s *userAuthenticatorSuite) TestValidUserLogin(c *tc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
@@ -91,10 +94,10 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 		AuthTag:     user.Tag(),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
+func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *tc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
@@ -107,21 +110,21 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 		AuthTag:     user.Tag(),
 		Credentials: "wrongpassword",
 	})
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(err, tc.ErrorMatches, "invalid entity name or password")
 
 }
 
-func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
+func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *tc.C) {
 
 	// add relation
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
@@ -129,17 +132,17 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 		AuthTag:     relation.Tag(),
 		Credentials: "dummy-secret",
 	})
-	c.Assert(err, gc.ErrorMatches, "invalid request")
+	c.Assert(err, tc.ErrorMatches, "invalid request")
 }
 
-func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
+func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *tc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "bob",
 	})
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	service := mockBakeryService{}
 
@@ -149,22 +152,22 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 		AuthTag:   user.Tag(),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	service.CheckCallNames(c, "Auth")
 	call := service.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 1)
-	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
+	c.Assert(call.Args, tc.HasLen, 1)
+	c.Assert(call.Args[0], tc.DeepEquals, macaroons)
 }
 
-func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
+func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *tc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
 		context.TODO(),
 		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	service.CheckCallNames(c, "NewMacaroon")
 	service.CheckCall(c, 0, "NewMacaroon", []checkers.Caveat{
 		{Condition: "is-authenticated-user bobbrown"},
@@ -172,7 +175,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	})
 }
 
-func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
+func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *tc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	authenticator := &authentication.LocalUserAuthenticator{
@@ -189,12 +192,12 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 			AuthTag: names.NewUserTag("bobbrown"),
 		},
 	)
-	c.Assert(err, gc.FitsTypeOf, &apiservererrors.DischargeRequiredError{})
+	c.Assert(err, tc.FitsTypeOf, &apiservererrors.DischargeRequiredError{})
 
 	service.CheckCallNames(c, "Auth", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{24 * time.Hour})
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
+	c.Assert(calls[1].Args, tc.DeepEquals, []interface{}{24 * time.Hour})
+	c.Assert(calls[2].Args, tc.DeepEquals, []interface{}{
 		[]checkers.Caveat{
 			{Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std"},
 			checkers.NeedDeclaredCaveat(
@@ -210,7 +213,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 }
 
 type mockBakeryService struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
@@ -259,7 +262,9 @@ type macaroonAuthenticatorSuite struct {
 	username string
 }
 
-var _ = gc.Suite(&macaroonAuthenticatorSuite{})
+func TestMacaroonAuthenticatorSuite(t *tctesting.T) {
+	tc.Run(t, &macaroonAuthenticatorSuite{})
+}
 
 var authenticateSuccessTests = []struct {
 	about              string
@@ -308,7 +313,7 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 	return identchecker.SimpleIdentity(user), nil
 }
 
-func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
+func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *tc.C) {
 	discharger := bakerytest.NewDischarger(nil)
 	defer discharger.Close()
 	for i, test := range authenticateSuccessTests {
@@ -331,19 +336,19 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
 		client := httpbakery.NewClient()
-		ms, err := client.DischargeAll(context.Background(), dischargeErr.Macaroon)
-		c.Assert(err, jc.ErrorIsNil)
+		ms, err := client.DischargeAll(c.Context(), dischargeErr.Macaroon)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
 		entity, err := authenticator.Authenticate(context.TODO(), test.finder, authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-			c.Assert(entity, gc.Equals, nil)
+			c.Assert(err, tc.ErrorMatches, test.expectError)
+			c.Assert(entity, tc.Equals, nil)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(entity.Tag().String(), gc.Equals, test.expectTag)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(entity.Tag().String(), tc.Equals, test.expectTag)
 		}
 	}
 }

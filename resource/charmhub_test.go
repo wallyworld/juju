@@ -6,12 +6,12 @@ package resource_test
 import (
 	"bytes"
 	"io"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/resource"
@@ -23,9 +23,11 @@ type CharmHubSuite struct {
 	client *mocks.MockCharmHub
 }
 
-var _ = gc.Suite(&CharmHubSuite{})
+func TestCharmHubSuite(t *tctesting.T) {
+	tc.Run(t, &CharmHubSuite{})
+}
 
-func (s *CharmHubSuite) TestGetResource(c *gc.C) {
+func (s *CharmHubSuite) TestGetResource(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	s.client = mocks.NewMockCharmHub(ctrl)
@@ -52,10 +54,10 @@ func (s *CharmHubSuite) TestGetResource(c *gc.C) {
 		Name:     "wal-e",
 		Revision: 8,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fp, _ := charmresource.ParseFingerprint("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b")
-	c.Assert(result.Resource, gc.DeepEquals, charmresource.Resource{
+	c.Assert(result.Resource, tc.DeepEquals, charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name: "wal-e",
 			Type: 1,

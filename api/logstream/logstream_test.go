@@ -5,20 +5,20 @@ package logstream_test
 
 import (
 	"net/url"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/logstream"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -26,11 +26,13 @@ type LogReaderSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&LogReaderSuite{})
+func TestLogReaderSuite(t *tctesting.T) {
+	tc.Run(t, &LogReaderSuite{})
+}
 
-func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
+func (s *LogReaderSuite) TestOpenFullConfig(c *tc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	conn := &mockConnector{stub: stub}
 	stream := mockStream{stub: stub}
 	conn.ReturnConnectStream = stream
@@ -39,7 +41,7 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 	}
 
 	_, err := logstream.Open(conn, cfg, cUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	stub.CheckCallNames(c, "ConnectStream")
 	stub.CheckCall(c, 0, "ConnectStream", `/logstream`, url.Values{
@@ -47,9 +49,9 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 	})
 }
 
-func (s *LogReaderSuite) TestOpenError(c *gc.C) {
+func (s *LogReaderSuite) TestOpenError(c *tc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	conn := &mockConnector{stub: stub}
 	failure := errors.New("foo")
 	stub.SetErrors(failure)
@@ -57,11 +59,11 @@ func (s *LogReaderSuite) TestOpenError(c *gc.C) {
 
 	_, err := logstream.Open(conn, cfg, cUUID)
 
-	c.Check(err, gc.ErrorMatches, "cannot connect to /logstream: foo")
+	c.Check(err, tc.ErrorMatches, "cannot connect to /logstream: foo")
 	stub.CheckCallNames(c, "ConnectStream")
 }
 
-func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
+func (s *LogReaderSuite) TestNextOneRecord(c *tc.C) {
 	ts := time.Now()
 	apiRec := params.LogStreamRecord{
 		ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
@@ -77,7 +79,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 		Records: []params.LogStreamRecord{apiRec},
 	}
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	conn := &mockConnector{stub: stub}
 	jsonReader := mockStream{stub: stub}
 	logsCh := make(chan params.LogStreamRecords, 1)
@@ -86,7 +88,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	conn.ReturnConnectStream = jsonReader
 	var cfg params.LogStreamConfig
 	stream, err := logstream.Open(conn, cfg, cUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	stub.ResetCalls()
 
 	// Check the record we injected into the stream.
@@ -94,7 +96,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		records, err = stream.Next()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		close(done)
 	}()
 	select {
@@ -102,8 +104,8 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for record")
 	}
-	c.Assert(records, gc.HasLen, 1)
-	c.Check(records[0], jc.DeepEquals, logfwd.Record{
+	c.Assert(records, tc.HasLen, 1)
+	c.Check(records[0], tc.DeepEquals, logfwd.Record{
 		Origin: logfwd.Origin{
 			ControllerUUID: cUUID,
 			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
@@ -131,7 +133,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	done = make(chan struct{})
 	go func() {
 		records, err = stream.Next()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		close(done)
 	}()
 	select {
@@ -141,9 +143,9 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	}
 }
 
-func (s *LogReaderSuite) TestNextError(c *gc.C) {
+func (s *LogReaderSuite) TestNextError(c *tc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	conn := &mockConnector{stub: stub}
 	jsonReader := mockStream{stub: stub}
 	conn.ReturnConnectStream = jsonReader
@@ -151,13 +153,13 @@ func (s *LogReaderSuite) TestNextError(c *gc.C) {
 	stub.SetErrors(nil, failure)
 	var cfg params.LogStreamConfig
 	stream, err := logstream.Open(conn, cfg, cUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	var nextErr error
 	done := make(chan struct{})
 	go func() {
 		_, nextErr = stream.Next()
-		c.Check(errors.Cause(nextErr), gc.Equals, failure)
+		c.Check(errors.Cause(nextErr), tc.Equals, failure)
 		close(done)
 	}()
 	select {
@@ -168,30 +170,30 @@ func (s *LogReaderSuite) TestNextError(c *gc.C) {
 	stub.CheckCallNames(c, "ConnectStream", "ReadJSON")
 }
 
-func (s *LogReaderSuite) TestClose(c *gc.C) {
+func (s *LogReaderSuite) TestClose(c *tc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
-	stub := &testing.Stub{}
+	stub := &testhelpers.Stub{}
 	conn := &mockConnector{stub: stub}
 	jsonReader := mockStream{stub: stub}
 	conn.ReturnConnectStream = jsonReader
 	var cfg params.LogStreamConfig
 	stream, err := logstream.Open(conn, cfg, cUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	stub.ResetCalls()
 
 	err = stream.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = stream.Close() // idempotent
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = stream.Next()
-	c.Check(err, gc.ErrorMatches, `cannot read from closed stream`)
+	c.Check(err, tc.ErrorMatches, `cannot read from closed stream`)
 	stub.CheckCallNames(c, "Close")
 }
 
 type mockConnector struct {
 	basetesting.APICallerFunc
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnConnectStream base.Stream
 }
@@ -206,7 +208,7 @@ func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stre
 
 type mockStream struct {
 	base.Stream
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnReadJSON chan params.LogStreamRecords
 }

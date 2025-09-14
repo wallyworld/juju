@@ -7,9 +7,8 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
@@ -56,9 +55,9 @@ func makeApplication(ctrl *gomock.Controller, schema, charmName, charmID, appID 
 	return app
 }
 
-func makeResource(c *gc.C, name string, revision, size int, hexFingerprint string) resource.Resource {
+func makeResource(c *tc.C, name string, revision, size int, hexFingerprint string) resource.Resource {
 	fingerprint, err := resource.ParseFingerprint(hexFingerprint)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return resource.Resource{
 		Meta: resource.Meta{
 			Name: name,
@@ -128,7 +127,7 @@ func (charmhubConfigMatcher) String() string {
 // charmhubMetricsMatcher matches the controller and model parts of the metrics, then
 // a value within each part.
 type charmhubMetricsMatcher struct {
-	c     *gc.C
+	c     *tc.C
 	exist bool
 }
 
@@ -151,14 +150,14 @@ func (m charmhubMetricsMatcher) Matches(x interface{}) bool {
 		if !ok {
 			return false
 		}
-		m.c.Assert(uuid, gc.Equals, "controller-1")
+		m.c.Assert(uuid, tc.Equals, "controller-1")
 
 		model := y[charmmetrics.Model]
 		cloud, ok := model[charmmetrics.Cloud]
 		if !ok {
 			return false
 		}
-		m.c.Assert(cloud, gc.Equals, "cloud")
+		m.c.Assert(cloud, tc.Equals, "cloud")
 	default:
 		return false
 	}

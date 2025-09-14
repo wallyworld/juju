@@ -6,11 +6,11 @@ package loginprovider_test
 import (
 	"context"
 	"net/http"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -19,9 +19,11 @@ import (
 
 type tryInOrderLoginProviderSuite struct{}
 
-var _ = gc.Suite(&tryInOrderLoginProviderSuite{})
+func TestTryInOrderLoginProviderSuite(t *tctesting.T) {
+	tc.Run(t, &tryInOrderLoginProviderSuite{})
+}
 
-func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
+func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *tc.C) {
 	p1 := &mockLoginProvider{err: errors.New("provider 1 error")}
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
 	header := http.Header{}
@@ -30,17 +32,17 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 
 	logger := loggo.GetLogger("juju.cmd.loginprovider")
 	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
-	_, err := lp.Login(context.Background(), nil)
-	c.Assert(err, gc.ErrorMatches, "provider 2 error")
+	_, err := lp.Login(c.Context(), nil)
+	c.Assert(err, tc.ErrorMatches, "provider 2 error")
 
 	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
 	_, err = lp.AuthHeader()
-	c.Check(err, gc.ErrorMatches, api.ErrorLoginFirst.Error())
-	_, err = lp.Login(context.Background(), nil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorMatches, api.ErrorLoginFirst.Error())
+	_, err = lp.Login(c.Context(), nil)
+	c.Check(err, tc.ErrorIsNil)
 	got, err := lp.AuthHeader()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, header)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, header)
 }
 
 type mockLoginProvider struct {

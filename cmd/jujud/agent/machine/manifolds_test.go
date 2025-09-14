@@ -5,54 +5,56 @@ package machine_test
 
 import (
 	"sort"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	worker "github.com/juju/worker/v3"
+	"github.com/juju/tc"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/testing"
 )
 
 type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+func TestManifoldsSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
-func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
 	s.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
 	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	}))
 }
 
-func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds) {
+func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -138,7 +140,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -205,27 +207,27 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 	)
 }
 
-func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifolds, expectedKeys []string) {
+func (*ManifoldsSuite) assertManifoldNames(c *tc.C, manifolds dependency.Manifolds, expectedKeys []string) {
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradesBlockMigration(c *tc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
 	manifold, ok := manifolds["migration-fortress"]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	checkContains(c, manifold.Inputs, "upgrade-check-flag")
 	checkContains(c, manifold.Inputs, "upgrade-steps-flag")
 }
 
-func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
+func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"api-caller",
@@ -296,7 +298,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
+func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
@@ -356,7 +358,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
+func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
 	ag := &mockAgent{
 		conf: mockConfig{
 			dataPath: c.MkDir(),
@@ -366,15 +368,15 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 		Agent: ag,
 	})
 
-	c.Assert(manifolds["api-caller"], gc.Not(gc.IsNil))
+	c.Assert(manifolds["api-caller"], tc.Not(tc.IsNil))
 	apiCaller := manifolds["api-caller"]
 
 	// Check that when the api-caller maps non-recoverable errors to ErrTerminateAgent.
 	err := apiCaller.Filter(apicaller.ErrConnectImpossible)
-	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
+	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
 }
 
-func checkContains(c *gc.C, names []string, seek string) {
+func checkContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			return
@@ -383,7 +385,7 @@ func checkContains(c *gc.C, names []string, seek string) {
 	c.Errorf("%q not found in %v", seek, names)
 }
 
-func checkNotContains(c *gc.C, names []string, seek string) {
+func checkNotContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			c.Errorf("%q found in %v", seek, names)
@@ -392,7 +394,7 @@ func checkNotContains(c *gc.C, names []string, seek string) {
 	}
 }
 
-func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
+func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
@@ -404,14 +406,14 @@ func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	assertGate(c, manifolds["upgrade-check-gate"], upgradeCheckLock)
 }
 
-func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
+func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	w, err := manifold.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(w)
 
 	var waiter gate.Waiter
 	err = manifold.Output(w, &waiter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-waiter.Unlocked():
@@ -428,7 +430,7 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},
@@ -437,7 +439,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent: &mockAgent{},

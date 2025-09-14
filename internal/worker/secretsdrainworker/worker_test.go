@@ -5,29 +5,29 @@ package secretsdrainworker_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/secretsdrain"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretsdrainworker/mocks"
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	logger loggo.Logger
 
 	facade            *mocks.MockSecretsDrainFacade
@@ -38,9 +38,11 @@ type workerSuite struct {
 	notifyBackendChangedCh chan struct{}
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller) {
+func (s *workerSuite) getWorkerNewer(c *tc.C) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.logger = loggo.GetLogger("test")
 	s.facade = mocks.NewMockSecretsDrainFacade(ctrl)
@@ -60,14 +62,14 @@ func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller)
 			},
 			LeadershipTrackerFunc: func() leadership.ChangeTracker { return s.leadershipTracker },
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(w, gc.NotNil)
-		s.AddCleanup(func(c *gc.C) {
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(w, tc.NotNil)
+		s.AddCleanup(func(c *tc.C) {
 			if expectedErr == "" {
 				workertest.CleanKill(c, w)
 			} else {
 				err := workertest.CheckKilled(c, w)
-				c.Assert(err, gc.ErrorMatches, expectedErr)
+				c.Assert(err, tc.ErrorMatches, expectedErr)
 			}
 		})
 		s.waitDone(c)
@@ -75,7 +77,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller)
 	return start, ctrl
 }
 
-func (s *workerSuite) waitDone(c *gc.C) {
+func (s *workerSuite) waitDone(c *tc.C) {
 	select {
 	case <-s.done:
 	case <-time.After(coretesting.ShortWait):
@@ -83,7 +85,7 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestNothingToDrain(c *gc.C) {
+func (s *workerSuite) TestNothingToDrain(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -102,7 +104,7 @@ func (s *workerSuite) TestNothingToDrain(c *gc.C) {
 	start("")
 }
 
-func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
+func (s *workerSuite) TestDrainNoOPS(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -133,7 +135,7 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 	start("")
 }
 
-func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
+func (s *workerSuite) TestDrainBetweenExternalBackends(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -185,7 +187,7 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	start("")
 }
 
-func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
+func (s *workerSuite) TestDrainFromInternalToExternal(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -229,7 +231,7 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	start("")
 }
 
-func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
+func (s *workerSuite) TestDrainFromExternalToInternal(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
@@ -277,7 +279,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	start("")
 }
 
-func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
+func (s *workerSuite) TestDrainPartiallyFailed(c *tc.C) {
 	// If the drain fails for one revision, it should continue to drain the rest.
 	// But the agent should be restarted to retry.
 	start, ctrl := s.getWorkerNewer(c)
@@ -349,7 +351,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 	start(`failed to drain secret revisions for "secret:.*" to the active backend`)
 }
 
-func (s *workerSuite) TestDrainLeadershipChange(c *gc.C) {
+func (s *workerSuite) TestDrainLeadershipChange(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 

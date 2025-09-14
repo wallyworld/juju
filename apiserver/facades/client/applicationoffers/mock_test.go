@@ -14,7 +14,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jtesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -28,8 +27,9 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 )
 
 type stubApplicationOffers struct {
-	jtesting.Stub
+	testhelpers.Stub
 	jujucrossmodel.ApplicationOffers
 
 	applicationOffer func(name string) (*jujucrossmodel.ApplicationOffer, error)
@@ -84,7 +84,7 @@ func (m *stubApplicationOffers) ApplicationOfferForUUID(uuid string) (*jujucross
 type mockEnviron struct {
 	environs.NetworkingEnviron
 
-	stub      jtesting.Stub
+	stub      testhelpers.Stub
 	spaceInfo *environs.ProviderSpaceInfo
 }
 
@@ -489,7 +489,7 @@ func (st *mockStatePool) GetModel(modelUUID string) (applicationoffers.Model, fu
 
 type mockBakeryService struct {
 	authentication.ExpirableStorageBakery
-	jtesting.Stub
+	testhelpers.Stub
 	caveats map[string][]checkers.Caveat
 }
 

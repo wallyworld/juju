@@ -5,21 +5,23 @@ package libvirt_test
 
 import (
 	"encoding/xml"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	. "github.com/juju/juju/container/kvm/libvirt"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // gocheck boilerplate.
 type domainXMLSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&domainXMLSuite{})
+func TestDomainXMLSuite(t *tctesting.T) {
+	tc.Run(t, &domainXMLSuite{})
+}
 
 var amd64DomainStr = `
 <domain type="kvm">
@@ -147,7 +149,7 @@ var amd64WithOvsBridgeDomainStr = `
     </devices>
 </domain>`[1:]
 
-func (domainXMLSuite) TestNewDomain(c *gc.C) {
+func (domainXMLSuite) TestNewDomain(c *tc.C) {
 	table := []struct {
 		arch, want string
 	}{
@@ -172,14 +174,14 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 		}
 
 		d, err := NewDomain(params)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		ml, err := xml.MarshalIndent(&d, "", "    ")
-		c.Check(err, jc.ErrorIsNil)
-		c.Assert(string(ml), jc.DeepEquals, test.want)
+		c.Check(err, tc.ErrorIsNil)
+		c.Assert(string(ml), tc.DeepEquals, test.want)
 	}
 }
 
-func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
+func (domainXMLSuite) TestNewDomainWithOvsBridge(c *tc.C) {
 	ifaces := []InterfaceInfo{
 		dummyInterface{
 			mac:                   "00:00:00:00:00:00",
@@ -195,16 +197,16 @@ func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
 	params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid", arch: "amd64"}
 
 	d, err := NewDomain(params)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	ml, err := xml.MarshalIndent(&d, "", "    ")
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(string(ml), jc.DeepEquals, amd64WithOvsBridgeDomainStr)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(string(ml), tc.DeepEquals, amd64WithOvsBridgeDomainStr)
 }
 
-func (domainXMLSuite) TestNewDomainError(c *gc.C) {
+func (domainXMLSuite) TestNewDomainError(c *tc.C) {
 	d, err := NewDomain(dummyParams{err: errors.Errorf("boom")})
-	c.Check(d, jc.DeepEquals, Domain{})
-	c.Check(err, gc.ErrorMatches, "boom")
+	c.Check(d, tc.DeepEquals, Domain{})
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 type dummyParams struct {

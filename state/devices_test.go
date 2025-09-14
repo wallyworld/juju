@@ -4,9 +4,11 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -18,22 +20,22 @@ type DevicesStateSuiteBase struct {
 	deviceBackend *state.DeviceBackend
 }
 
-func (s *DevicesStateSuiteBase) SetUpTest(c *gc.C) {
+func (s *DevicesStateSuiteBase) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	if s.series == "kubernetes" {
 		s.st = s.Factory.MakeCAASModel(c, nil)
-		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
+		s.AddCleanup(func(_ *tc.C) { s.st.Close() })
 	} else {
 		s.st = s.State
 		s.series = "quantal"
 	}
 	var err error
 	s.deviceBackend, err = state.NewDeviceBackend(s.st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *DevicesStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Charm {
+func (s *DevicesStateSuiteBase) AddTestingCharm(c *tc.C, name string) *state.Charm {
 	return state.AddTestingCharmForSeries(c, s.st, s.series, name)
 }
 
@@ -45,14 +47,16 @@ type CAASDevicesStateSuite struct {
 	DevicesStateSuiteBase
 }
 
-func (s *CAASDevicesStateSuite) SetUpTest(c *gc.C) {
+func (s *CAASDevicesStateSuite) SetUpTest(c *tc.C) {
 	s.series = "kubernetes"
 	s.DevicesStateSuiteBase.SetUpTest(c)
 }
 
-var _ = gc.Suite(&CAASDevicesStateSuite{})
+func TestCAASDevicesStateSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &CAASDevicesStateSuite{})
+}
 
-func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c *gc.C) {
+func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c *tc.C) {
 	ch := s.AddTestingCharm(c, "bitcoin-miner")
 	addApplication := func(devices map[string]state.DeviceConstraints) (*state.Application, error) {
 		return s.st.AddApplication(state.AddApplicationArgs{Name: "bitcoin-miner", Charm: ch,
@@ -65,7 +69,7 @@ func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c
 	}
 	assertErr := func(devices map[string]state.DeviceConstraints, expect string) {
 		_, err := addApplication(devices)
-		c.Assert(err, gc.ErrorMatches, expect)
+		c.Assert(err, tc.ErrorMatches, expect)
 	}
 
 	deviceCons := map[string]state.DeviceConstraints{
@@ -78,12 +82,12 @@ func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c
 	assertErr(deviceCons, `cannot add application "bitcoin-miner": charm "bitcoin-miner" device "bitcoinminer": minimum device size is 1, 0 specified`)
 	deviceCons["bitcoinminer"] = makeDeviceCons("nvidia.com/gpu", 2)
 	app, err := addApplication(deviceCons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var devs map[string]state.DeviceConstraints
 	devs, err = app.DeviceConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devs, jc.DeepEquals, map[string]state.DeviceConstraints{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(devs, tc.DeepEquals, map[string]state.DeviceConstraints{
 		"bitcoinminer": {
 			Type:       "nvidia.com/gpu",
 			Count:      2,

@@ -5,24 +5,26 @@ package specs_test
 
 import (
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type crdSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&crdSuite{})
+func TestCrdSuite(t *tctesting.T) {
+	tc.Run(t, &crdSuite{})
+}
 
-func (s *crdSuite) TestK8sCustomResourceDefinitionV1Beta1(c *gc.C) {
+func (s *crdSuite) TestK8sCustomResourceDefinitionV1Beta1(c *tc.C) {
 	specV1Beta1 := `
 name: tfjobs.kubeflow.org
 labels:
@@ -77,8 +79,8 @@ spec:
 `
 	var obj k8sspecs.K8sCustomResourceDefinition
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sCustomResourceDefinition{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sCustomResourceDefinition{
 		Meta: k8sspecs.Meta{
 			Name: "tfjobs.kubeflow.org",
 			Labels: map[string]string{
@@ -156,7 +158,7 @@ spec:
 	})
 }
 
-func (s *crdSuite) TestK8sCustomResourceDefinitionV1(c *gc.C) {
+func (s *crdSuite) TestK8sCustomResourceDefinitionV1(c *tc.C) {
 	specV1 := `
 name: certificates.networking.internal.knative.dev
 labels:
@@ -198,8 +200,8 @@ spec:
 `
 	var obj k8sspecs.K8sCustomResourceDefinition
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1), len(specV1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sCustomResourceDefinition{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sCustomResourceDefinition{
 		Meta: k8sspecs.Meta{
 			Name: "certificates.networking.internal.knative.dev",
 			Labels: map[string]string{

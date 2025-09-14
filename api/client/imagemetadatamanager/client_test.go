@@ -5,11 +5,11 @@ package imagemetadatamanager_test
 
 import (
 	"regexp"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/imagemetadatamanager"
@@ -20,9 +20,11 @@ import (
 type imagemetadataSuite struct {
 }
 
-var _ = gc.Suite(&imagemetadataSuite{})
+func TestImagemetadataSuite(t *tctesting.T) {
+	tc.Run(t, &imagemetadataSuite{})
+}
 
-func (s *imagemetadataSuite) TestList(c *gc.C) {
+func (s *imagemetadataSuite) TestList(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -75,11 +77,11 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 		[]corebase.Base{base}, []string{arch},
 		virtType, rootStorageType,
 	)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, instances)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(found, tc.DeepEquals, instances)
 }
 
-func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
+func (s *imagemetadataSuite) TestListFacadeCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -97,11 +99,11 @@ func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall("List", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List("", "", nil, nil, "", "")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.HasLen, 0)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(found, tc.HasLen, 0)
 }
 
-func (s *imagemetadataSuite) TestSave(c *gc.C) {
+func (s *imagemetadataSuite) TestSave(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -120,10 +122,10 @@ func (s *imagemetadataSuite) TestSave(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save([]params.CloudImageMetadata{m, m})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
+func (s *imagemetadataSuite) TestSaveFacadeCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -140,10 +142,10 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(m)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 }
 
-func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
+func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -165,10 +167,10 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(m)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
 }
 
-func (s *imagemetadataSuite) TestDelete(c *gc.C) {
+func (s *imagemetadataSuite) TestDelete(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -185,10 +187,10 @@ func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(imageId)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
+func (s *imagemetadataSuite) TestDeleteMultipleResult(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -205,10 +207,10 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(imageId)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`expected to find one result for image id "tst12345" but found 2`))
 }
 
-func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
+func (s *imagemetadataSuite) TestDeleteFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -225,10 +227,10 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete("tst12345")
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 }
 
-func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
+func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -242,5 +244,5 @@ func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete("tst12345")
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorMatches, msg)
 }

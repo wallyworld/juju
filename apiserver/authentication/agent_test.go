@@ -5,15 +5,16 @@ package authentication_test
 
 import (
 	"context"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type agentAuthenticatorSuite struct {
@@ -27,9 +28,11 @@ type agentAuthenticatorSuite struct {
 	relation        *state.Relation
 }
 
-var _ = gc.Suite(&agentAuthenticatorSuite{})
+func TestAgentAuthenticatorSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &agentAuthenticatorSuite{})
+}
 
-func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
+func (s *agentAuthenticatorSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.user = s.Factory.MakeUser(c, &factory.UserParams{
@@ -40,39 +43,39 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", nonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.machine = machine
 	s.machinePassword = password
 	s.machineNonce = nonce
 
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.unit = unit
 	password, err = utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.unitPassword = password
 
 	// add relation
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // testCase is used for structured table based tests
@@ -84,7 +87,7 @@ type testCase struct {
 	errorMessage string
 }
 
-func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestValidLogins(c *tc.C) {
 	testCases := []testCase{{
 		entity:      s.user,
 		credentials: "password",
@@ -108,12 +111,12 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(entity.Tag(), gc.DeepEquals, t.entity.Tag())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(entity.Tag(), tc.DeepEquals, t.entity.Tag())
 	}
 }
 
-func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestInvalidLogins(c *tc.C) {
 	testCases := []testCase{{
 		entity:       s.relation,
 		credentials:  "dummy-secret",
@@ -145,7 +148,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
-		c.Assert(err, gc.ErrorMatches, t.errorMessage)
-		c.Assert(entity, gc.IsNil)
+		c.Assert(err, tc.ErrorMatches, t.errorMessage)
+		c.Assert(entity, tc.IsNil)
 	}
 }

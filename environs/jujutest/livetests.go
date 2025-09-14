@@ -12,11 +12,9 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
@@ -44,7 +42,11 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -52,8 +54,6 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -66,7 +66,7 @@ const (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	gitjujutesting.CleanupSuite
+	testhelpers.CleanupSuite
 
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
@@ -122,7 +122,7 @@ type LiveTests struct {
 	toolsStorage storage.Storage
 }
 
-func (t *LiveTests) SetUpSuite(c *gc.C) {
+func (t *LiveTests) SetUpSuite(c *tc.C) {
 	t.CleanupSuite.SetUpSuite(c)
 	t.TestDataSuite.SetUpSuite(c)
 	t.ControllerStore = jujuclient.NewMemStore()
@@ -138,7 +138,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.ProviderCallContext = context.NewCloudCallContext(ctx)
 }
 
-func (t *LiveTests) SetUpTest(c *gc.C) {
+func (t *LiveTests) SetUpTest(c *tc.C) {
 	t.CleanupSuite.SetUpTest(c)
 	t.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
@@ -146,40 +146,40 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.DefaultBaseURL = utils.MakeFileURL(baseURLPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(coretesting.FakeVersionNumber))
 }
 
-func (t *LiveTests) TearDownSuite(c *gc.C) {
+func (t *LiveTests) TearDownSuite(c *tc.C) {
 	t.Destroy(c)
 	t.TestDataSuite.TearDownSuite(c)
 	t.CleanupSuite.TearDownSuite(c)
 }
 
-func (t *LiveTests) TearDownTest(c *gc.C) {
+func (t *LiveTests) TearDownTest(c *tc.C) {
 	t.ToolsFixture.TearDownTest(c)
 	t.CleanupSuite.TearDownTest(c)
 }
 
 // PrepareOnce ensures that the environment is
 // available and prepared. It sets t.Env appropriately.
-func (t *LiveTests) PrepareOnce(c *gc.C) {
+func (t *LiveTests) PrepareOnce(c *tc.C) {
 	if t.prepared {
 		return
 	}
 
 	args := t.prepareForBootstrapParams(c)
 	e, err := bootstrap.PrepareController(false, t.BootstrapContext, t.ControllerStore, args)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
-	c.Assert(e, gc.NotNil)
+	c.Assert(err, tc.IsNil, tc.Commentf("preparing environ %#v", t.TestConfig))
+	c.Assert(e, tc.NotNil)
 	t.Env = e.(environs.Environ)
 	t.prepared = true
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
-func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
+func (t *LiveTests) prepareForBootstrapParams(c *tc.C) bootstrap.PrepareParams {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
@@ -230,7 +230,7 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 	}
 }
 
-func (t *LiveTests) BootstrapOnce(c *gc.C) {
+func (t *LiveTests) BootstrapOnce(c *tc.C) {
 	if t.bootstrapped {
 		return
 	}
@@ -242,30 +242,30 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	if t.CanOpenState {
 		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 		_, err := sync.Upload(ss, t.toolsStorage, "released", nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
 
 	err := bootstrap.Bootstrap(t.BootstrapContext, t.Env, t.ProviderCallContext, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	t.bootstrapped = true
 }
 
-func (t *LiveTests) Destroy(c *gc.C) {
+func (t *LiveTests) Destroy(c *tc.C) {
 	if t.Env == nil {
 		return
 	}
 	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ProviderCallContext, t.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
 	t.ControllerUUID = ""
 	t.Env = nil
 }
 
-func (t *LiveTests) TestPrechecker(c *gc.C) {
+func (t *LiveTests) TestPrechecker(c *tc.C) {
 	// All implementations of InstancePrechecker should
 	// return nil for empty constraints (excluding the
 	// manual provider).
@@ -274,51 +274,51 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 		environs.PrecheckInstanceParams{
 			Base: corebase.MakeDefaultBase("ubuntu", "24.04"),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
-func (t *LiveTests) TestStartStop(c *gc.C) {
+func (t *LiveTests) TestStartStop(c *tc.C) {
 	t.BootstrapOnce(c)
 
 	inst, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "0")
-	c.Assert(inst, gc.NotNil)
+	c.Assert(inst, tc.NotNil)
 	id0 := inst.Id()
 
 	insts, err := t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, id0})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Assert(insts[0].Id(), gc.Equals, id0)
-	c.Assert(insts[1].Id(), gc.Equals, id0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(insts, tc.HasLen, 2)
+	c.Assert(insts[0].Id(), tc.Equals, id0)
+	c.Assert(insts[1].Id(), tc.Equals, id0)
 
 	// Asserting on the return of AllInstances makes the test fragile,
 	// as even comparing the before and after start values can be thrown
 	// off if other instances have been created or destroyed in the same
 	// time frame. Instead, just check the instance we created exists.
 	insts, err = t.Env.AllInstances(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	found := false
 	for _, inst := range insts {
 		if inst.Id() == id0 {
-			c.Assert(found, gc.Equals, false, gc.Commentf("%v", insts))
+			c.Assert(found, tc.Equals, false, tc.Commentf("%v", insts))
 			found = true
 		}
 	}
-	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
+	c.Assert(found, tc.Equals, true, tc.Commentf("expected %v in %v", inst, insts))
 
 	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, t.ProviderCallContext, inst.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addresses, tc.Not(tc.HasLen), 0)
 
 	insts, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{id0, ""})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(insts, gc.HasLen, 2)
-	c.Check(insts[0].Id(), gc.Equals, id0)
-	c.Check(insts[1], gc.IsNil)
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
+	c.Assert(insts, tc.HasLen, 2)
+	c.Check(insts[0].Id(), tc.Equals, id0)
+	c.Check(insts[1], tc.IsNil)
 
 	err = t.Env.StopInstances(t.ProviderCallContext, inst.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
@@ -328,30 +328,30 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(err, gc.Equals, environs.ErrNoInstances)
-	c.Assert(insts, gc.HasLen, 0)
+	c.Assert(err, tc.Equals, environs.ErrNoInstances)
+	c.Assert(insts, tc.HasLen, 0)
 }
 
-func (t *LiveTests) TestPorts(c *gc.C) {
+func (t *LiveTests) TestPorts(c *tc.C) {
 	t.BootstrapOnce(c)
 
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
-	c.Assert(inst1, gc.NotNil)
+	c.Assert(inst1, tc.NotNil)
 	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
-	c.Assert(inst2, gc.NotNil)
+	c.Assert(inst2, tc.NotNil)
 	fwInst2, ok := inst2.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
 
 	// Open some ports and check they're there.
@@ -362,11 +362,11 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -374,8 +374,8 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 		},
 	)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
 		"2", firewall.IngressRules{
@@ -383,13 +383,13 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -397,9 +397,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -409,20 +409,20 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Check that opening the same port again is ok.
 	oldRules, err := fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.DeepEquals, oldRules)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, oldRules)
 
 	// Check that opening the same port again and another port is ok.
 	err = fwInst2.OpenPorts(t.ProviderCallContext,
@@ -430,11 +430,11 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -448,21 +448,21 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -477,10 +477,10 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
 	err = fwInst2.ClosePorts(t.ProviderCallContext,
@@ -489,11 +489,11 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("600-700/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
@@ -501,49 +501,49 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	// Check errors when acting on environment.
 	fwEnv, ok := t.Env.(environs.Firewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	err = fwEnv.OpenPorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
 	err = fwEnv.ClosePorts(t.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
 	_, err = fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
-func (t *LiveTests) TestGlobalPorts(c *gc.C) {
+func (t *LiveTests) TestGlobalPorts(c *tc.C) {
 	t.BootstrapOnce(c)
 
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
 		err := t.Env.SetConfig(oldConfig)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	attrs := t.Env.Config().AllAttrs()
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = t.Env.SetConfig(newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
 	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 
 	fwEnv, ok := t.Env.(environs.Firewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "2")
 	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst2.Id()) }()
 
 	err = fwEnv.OpenPorts(t.ProviderCallContext,
@@ -554,12 +554,12 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -575,12 +575,12 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -595,12 +595,12 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwEnv.IngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -609,29 +609,29 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	)
 
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 	// Check errors when acting on instances.
 	err = fwInst1.OpenPorts(t.ProviderCallContext,
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
 	err = fwInst1.ClosePorts(t.ProviderCallContext,
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
+	c.Assert(err, tc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
 }
 
-func (t *LiveTests) TestModelPorts(c *gc.C) {
+func (t *LiveTests) TestModelPorts(c *tc.C) {
 	t.BootstrapOnce(c)
 
 	fwModelEnv, ok := t.Env.(models.ModelFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwModelEnv.ModelIngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		// TODO: extend tests to check the api port isn't on hosted models.
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -643,11 +643,11 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		// TODO: extend tests to check the api port isn't on hosted models.
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -662,11 +662,11 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		// TODO: extend tests to check the api port isn't on hosted models.
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -680,11 +680,11 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("2000-2500/tcp")),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	rules, err = fwModelEnv.ModelIngressRules(t.ProviderCallContext)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, jc.SameContents, firewall.IngressRules{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		// TODO: extend tests to check the api port isn't on hosted models.
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -695,10 +695,10 @@ func (t *LiveTests) TestModelPorts(c *gc.C) {
 	err = fwModelEnv.CloseModelPorts(t.ProviderCallContext, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
+func (t *LiveTests) TestBootstrapMultiple(c *tc.C) {
 	// bootstrap.Bootstrap no longer raises errors if the environment is
 	// already up, this has been moved into the bootstrap command.
 	t.BootstrapOnce(c)
@@ -707,13 +707,13 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	env := t.Env
 	t.Destroy(c)
 	err := env.Destroy(t.ProviderCallContext) // Again, should work fine and do nothing.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
 }
 
-func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
+func (t *LiveTests) TestBootstrapAndDeploy(c *tc.C) {
 	if !t.CanOpenState || !t.HasProvisioner {
 		c.Skip(fmt.Sprintf("skipping provisioner test, CanOpenState: %v, HasProvisioner: %v", t.CanOpenState, t.HasProvisioner))
 	}
@@ -725,46 +725,46 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	owner := model.Owner()
 
 	c.Logf("opening API connection")
 	controllerCfg, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	caCert, _ := controllerCfg.CACert()
 	apiInfo, err := environs.APIInfo(t.ProviderCallContext, model.Tag().Id(), model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo.Tag = owner
 	apiInfo.Password = AdminSecret
 	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer apiState.Close()
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
-	c.Check(ok, jc.IsTrue)
-	c.Check(agentVersion, gc.Equals, jujuversion.Current)
+	c.Check(ok, tc.IsTrue)
+	c.Check(agentVersion, tc.Equals, jujuversion.Current)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := st.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons.String(), gc.Equals, "mem=2048M")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.String(), tc.Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
 	m0, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instId0, err := m0.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the API connection is working.
-	status, err := apiclient.NewClient(apiState, coretesting.NoopLogger{}).Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
+	status, err := apiclient.NewClient(apiState, loggertesting.WrapCheckLog(c)).Status(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.Machines["0"].InstanceId, tc.Equals, string(instId0))
 
 	mw0 := newMachineToolWaiter(m0)
 	defer func() { _ = mw0.Stop() }()
@@ -782,28 +782,28 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying application")
 	ch := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	sch, err := jujutesting.PutCharm(st, charm.MustParseURL("local:dummy"), ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unit, err := svc.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = st.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the unit's machine and associated agent to come up
 	// and announce itself.
 	mid1, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m1, err := st.Machine(mid1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mw1 := newMachineToolWaiter(m1)
 	defer func() { _ = mw1.Stop() }()
 	waitAgentTools(c, mw1, mtools0.Version)
 
 	err = m1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	instId1, err := m1.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	uw := newUnitToolWaiter(unit)
 	defer func() { _ = uw.Stop() }()
 	utools := waitAgentTools(c, uw, expectedVersion)
@@ -826,7 +826,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// check that the PA removes it.
 	c.Logf("removing unit")
 	err = unit.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait until unit is dead
 	uwatch := unit.Watch()
@@ -840,7 +840,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 			c.Logf("unit has been removed")
 			break
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	for {
 		c.Logf("destroying machine")
@@ -848,13 +848,13 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		if err == nil {
 			break
 		}
-		c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+		c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), tc.IsTrue)
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
 		if errors.IsNotFound(err) {
 			break
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, t.Env, instId1)
@@ -919,7 +919,7 @@ func (w *toolsWaiter) Stop() error {
 
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
-func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
+func (w *toolsWaiter) NextTools(c *tc.C) (*coretools.Tools, error) {
 	for range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
@@ -948,29 +948,29 @@ func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.Tools {
+func waitAgentTools(c *tc.C, w *toolsWaiter, expect version.Binary) *coretools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(tools.Version, gc.Equals, expect)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tools.Version, tc.Equals, expect)
 	return tools
 }
 
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
-func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
+func (t *LiveTests) checkUpgrade(c *tc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	upgradeTools, err := sync.Upload(
 		ss, t.toolsStorage, "released",
 		func(version.Number) version.Number { return newVersion.Number },
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the put version really is the version we expect.
-	c.Assert(upgradeTools.Version, gc.Equals, newVersion)
+	c.Assert(upgradeTools.Version, tc.Equals, newVersion)
 	err = statetesting.SetAgentVersion(st, newVersion.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i, w := range waiters {
 		c.Logf("waiting for upgrade of %d: %v", i, w.tooler.String())
@@ -986,7 +986,7 @@ var waitAgent = utils.AttemptStrategy{
 	Delay: 1 * time.Second,
 }
 
-func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId instance.Id) {
+func (t *LiveTests) assertStopInstance(c *tc.C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
 		_, err = t.Env.Instances(t.ProviderCallContext, []instance.Id{instId})
@@ -1001,14 +1001,14 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 	c.Fatalf("provisioner failed to stop machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
+func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *tc.C) {
 	// Check that we get a consistent error when asking for an instance without
 	// a valid machine config.
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
 		"released", corebase.MakeDefaultBase("ubuntu", "24.04"), apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	t.PrepareOnce(c)
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
@@ -1030,17 +1030,17 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		[]string{"amd64"},
 		&params.ImageMetadata,
 	)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	result, err := t.Env.StartInstance(t.ProviderCallContext, params)
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(t.ProviderCallContext, result.Instance.Id())
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
-	c.Assert(result, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")
+	c.Assert(result, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, ".*missing machine nonce")
 }
 
-func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
+func (t *LiveTests) TestBootstrapWithDefaultSeries(c *tc.C) {
 	if !t.HasProvisioner {
 		c.Skip("HasProvisioner is false; cannot test deployment")
 	}
@@ -1059,7 +1059,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		jujuclient.NewMemStore(),
 		args,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = e.(environs.Environ).Destroy(t.ProviderCallContext) }()
 
 	t.Destroy(c)
@@ -1072,35 +1072,35 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	env, err := bootstrap.PrepareController(false, t.BootstrapContext,
 		t.ControllerStore,
 		args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore) }()
 
 	err = bootstrap.Bootstrap(t.BootstrapContext, env, t.ProviderCallContext, t.bootstrapParams())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
 	m0, err := st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer func() { _ = mw0.Stop() }()
 
 	waitAgentTools(c, mw0, other)
 }
 
-func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
+func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *tc.C) {
 	t.BootstrapOnce(c)
 
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ProviderCallContext, t.ControllerUUID, "1")
-	c.Assert(inst1, gc.NotNil)
+	c.Assert(inst1, tc.NotNil)
 	defer func() { _ = t.Env.StopInstances(t.ProviderCallContext, inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	rules, err := fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.HasLen, 0)
 
 	// Open ports with different CIDRs. Check that rules with same port range
 	// get merged.
@@ -1111,11 +1111,11 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("80/tcp")), // open to 0.0.0.0/0
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
 			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -1129,11 +1129,11 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24", "192.168.0.0/24"),
 			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -1147,11 +1147,11 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
 			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -1165,11 +1165,11 @@ func (t *LiveTests) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
 		})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(
-		rules, jc.DeepEquals,
+		rules, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},

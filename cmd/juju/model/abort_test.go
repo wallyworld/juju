@@ -4,12 +4,13 @@
 package model_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -20,24 +21,26 @@ type abortSuite struct {
 	generationBaseSuite
 }
 
-var _ = gc.Suite(&abortSuite{})
+func TestAbortSuite(t *tctesting.T) {
+	tc.Run(t, &abortSuite{})
+}
 
-func (s *abortSuite) TestInit(c *gc.C) {
+func (s *abortSuite) TestInit(c *tc.C) {
 	err := s.runInit(s.branchName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *abortSuite) TestInitNoName(c *gc.C) {
+func (s *abortSuite) TestInitNoName(c *tc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, "expected a branch name")
+	c.Assert(err, tc.ErrorMatches, "expected a branch name")
 }
 
-func (s *abortSuite) TestInitInvalidName(c *gc.C) {
+func (s *abortSuite) TestInitInvalidName(c *tc.C) {
 	err := s.runInit(coremodel.GenerationMaster)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *abortSuite) TestRunCommand(c *gc.C) {
+func (s *abortSuite) TestRunCommand(c *tc.C) {
 	ctrl, api := setUpAbortMocks(c)
 	defer ctrl.Finish()
 
@@ -45,18 +48,18 @@ func (s *abortSuite) TestRunCommand(c *gc.C) {
 	api.EXPECT().AbortBranch(s.branchName).Return(nil)
 
 	ctx, err := s.runCommand(c, api)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Aborting all changes in \""+s.branchName+"\" and closing branch.\n"+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "Aborting all changes in \""+s.branchName+"\" and closing branch.\n"+
 		"Active branch set to \"master\"\n")
 
 	// Ensure the local store has "new-branch" as the target.
 	details, err := s.store.ModelByName(
 		s.store.CurrentControllerName, s.store.Models[s.store.CurrentControllerName].CurrentModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details.ActiveBranch, gc.Equals, "master")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(details.ActiveBranch, tc.Equals, "master")
 }
 
-func (s *abortSuite) TestRunCommandFail(c *gc.C) {
+func (s *abortSuite) TestRunCommandFail(c *tc.C) {
 	ctrl, api := setUpAbortMocks(c)
 	defer ctrl.Finish()
 
@@ -64,28 +67,28 @@ func (s *abortSuite) TestRunCommandFail(c *gc.C) {
 	api.EXPECT().AbortBranch(s.branchName).Return(errors.Errorf("fail"))
 
 	_, err := s.runCommand(c, api)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
-func (s *abortSuite) TestRunCommandFailHasActiveBranch(c *gc.C) {
+func (s *abortSuite) TestRunCommandFailHasActiveBranch(c *tc.C) {
 	ctrl, api := setUpAbortMocks(c)
 	defer ctrl.Finish()
 
 	api.EXPECT().HasActiveBranch(s.branchName).Return(false, nil)
 
 	_, err := s.runCommand(c, api)
-	c.Assert(err, gc.ErrorMatches, "this model has no active branch \""+s.branchName+"\"")
+	c.Assert(err, tc.ErrorMatches, "this model has no active branch \""+s.branchName+"\"")
 }
 
 func (s *abortSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewAbortCommandForTest(nil, s.store), args)
 }
 
-func (s *abortSuite) runCommand(c *gc.C, api model.AbortCommandAPI) (*cmd.Context, error) {
+func (s *abortSuite) runCommand(c *tc.C, api model.AbortCommandAPI) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewAbortCommandForTest(api, s.store), s.branchName)
 }
 
-func setUpAbortMocks(c *gc.C) (*gomock.Controller, *mocks.MockAbortCommandAPI) {
+func setUpAbortMocks(c *tc.C) (*gomock.Controller, *mocks.MockAbortCommandAPI) {
 	ctrl := gomock.NewController(c)
 	api := mocks.NewMockAbortCommandAPI(ctrl)
 	api.EXPECT().Close()

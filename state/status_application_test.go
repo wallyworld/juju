@@ -4,14 +4,14 @@
 package state_test
 
 import (
+	tctesting "testing"
 	"time" // Only used for time types.
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type ApplicationStatusSuite struct {
@@ -19,27 +19,29 @@ type ApplicationStatusSuite struct {
 	application *state.Application
 }
 
-var _ = gc.Suite(&ApplicationStatusSuite{})
+func TestApplicationStatusSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ApplicationStatusSuite{})
+}
 
-func (s *ApplicationStatusSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationStatusSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.application = s.Factory.MakeApplication(c, nil)
 }
 
-func (s *ApplicationStatusSuite) TestInitialStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) TestInitialStatus(c *tc.C) {
 	s.checkInitialStatus(c)
 }
 
-func (s *ApplicationStatusSuite) checkInitialStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) checkInitialStatus(c *tc.C) {
 	statusInfo, err := s.application.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Unset)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Unset)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
@@ -47,12 +49,12 @@ func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.application.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
+	c.Check(err, tc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *ApplicationStatusSuite) TestSetOverwritesData(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetOverwritesData(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
@@ -63,16 +65,16 @@ func (s *ApplicationStatusSuite) TestSetOverwritesData(c *gc.C) {
 		Since: &now,
 	}
 	err := s.application.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *ApplicationStatusSuite) TestGetSetStatusAlive(c *gc.C) {
+func (s *ApplicationStatusSuite) TestGetSetStatusAlive(c *tc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) checkGetSetStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
@@ -85,35 +87,35 @@ func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
 		Since: &now,
 	}
 	err := s.application.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	application, err := s.State.Application(s.application.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statusInfo, err := application.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Active)
-	c.Check(statusInfo.Message, gc.Equals, "healthy")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Active)
+	c.Check(statusInfo.Message, tc.Equals, "healthy")
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{
 		"$ping": map[string]interface{}{
 			"foo.bar": 123,
 		},
 	})
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *ApplicationStatusSuite) TestGetSetStatusDying(c *gc.C) {
+func (s *ApplicationStatusSuite) TestGetSetStatusDying(c *tc.C) {
 	_, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *tc.C) {
 	err := s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -122,14 +124,14 @@ func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.application.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: application not found`)
+	c.Check(err, tc.ErrorMatches, `cannot set status: application not found`)
 
 	statusInfo, err := s.application.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: application not found`)
-	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
+	c.Check(err, tc.ErrorMatches, `cannot get status: application not found`)
+	c.Check(statusInfo, tc.DeepEquals, status.StatusInfo{})
 }
 
-func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetStatusSince(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Maintenance,
@@ -137,12 +139,12 @@ func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.application.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	statusInfo, err := s.application.Status()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	firstTime := statusInfo.Since
-	c.Assert(firstTime, gc.NotNil)
-	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
+	c.Assert(firstTime, tc.NotNil)
+	c.Assert(timeBeforeOrEqual(now, *firstTime), tc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
 	now = now.Add(1 * time.Second)
@@ -152,8 +154,8 @@ func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.application.SetStatus(sInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	statusInfo, err = s.application.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), tc.IsTrue)
 }

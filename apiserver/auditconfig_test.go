@@ -4,20 +4,25 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/internal/testing"
 )
 
 type auditConfigSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&auditConfigSuite{})
+func TestAuditConfigSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &auditConfigSuite{})
+}
 
-func (s *auditConfigSuite) TestUsesGetAuditConfig(c *gc.C) {
+func (s *auditConfigSuite) TestUsesGetAuditConfig(c *tc.C) {
 	var calls int
 	s.config.GetAuditConfig = func() auditlog.Config {
 		calls++
@@ -30,17 +35,17 @@ func (s *auditConfigSuite) TestUsesGetAuditConfig(c *gc.C) {
 	srv := s.newServer(c, s.config)
 
 	auditConfig := srv.GetAuditConfig()
-	c.Assert(auditConfig, gc.DeepEquals, auditlog.Config{
+	c.Assert(auditConfig, tc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("Midlake.Bandits"),
 	})
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(calls, tc.Equals, 1)
 }
 
-func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
+func (s *auditConfigSuite) TestNewServerValidatesConfig(c *tc.C) {
 	s.config.GetAuditConfig = nil
 
 	srv, err := apiserver.NewServer(s.config)
-	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
-	c.Assert(srv, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "missing GetAuditConfig not valid")
+	c.Assert(srv, tc.IsNil)
 }

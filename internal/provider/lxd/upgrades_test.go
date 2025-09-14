@@ -6,71 +6,73 @@ package lxd
 import (
 	"fmt"
 	"os"
+	tctesting "testing"
 
 	"github.com/canonical/lxd/shared/api"
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/context/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type upgradesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	server *MockServer
 	ctx    context.ProviderCallContext
 }
 
-var _ = gc.Suite(&upgradesSuite{})
+func TestUpgradesSuite(t *tctesting.T) {
+	tc.Run(t, &upgradesSuite{})
+}
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentials(c *tc.C) {
 	var paths []string
 	readFile := func(path string) ([]byte, error) {
 		paths = append(paths, path)
 		return []byte("content: " + path), nil
 	}
 	cred, err := ReadLegacyCloudCredentials(readFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cred, tc.DeepEquals, cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		"client-cert": "content: /etc/juju/lxd-client.crt",
 		"client-key":  "content: /etc/juju/lxd-client.key",
 		"server-cert": "content: /etc/juju/lxd-server.crt",
 	}))
-	c.Assert(paths, jc.DeepEquals, []string{
+	c.Assert(paths, tc.DeepEquals, []string{
 		"/etc/juju/lxd-client.crt",
 		"/etc/juju/lxd-client.key",
 		"/etc/juju/lxd-server.crt",
 	})
 }
 
-func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *gc.C) {
+func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *tc.C) {
 	readFile := func(path string) ([]byte, error) {
 		return nil, os.ErrNotExist
 	}
 	_, err := ReadLegacyCloudCredentials(readFile)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *upgradesSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *upgradesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.server = NewMockServer(ctrl)
 	s.ctx = mocks.NewMockProviderCallContext(ctrl)
 	return ctrl
 }
 
-func (s *upgradesSuite) newEnviron(c *gc.C) *environ {
+func (s *upgradesSuite) newEnviron(c *tc.C) *environ {
 	modelUUID := utils.MustNewUUID().String()
 	namespace, err := instance.NewNamespace(modelUUID)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	return &environ{
 		name:           "model",
@@ -80,18 +82,18 @@ func (s *upgradesSuite) newEnviron(c *gc.C) *environ {
 	}
 }
 
-func (s *upgradesSuite) TestDescription(c *gc.C) {
+func (s *upgradesSuite) TestDescription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnviron(c)
 	profileStep := createProfilesStep{env: env}
 
 	desc := profileStep.Description()
 
-	c.Assert(desc, gc.Equals, "Create and assign LXD profiles to instances.")
+	c.Assert(desc, tc.Equals, "Create and assign LXD profiles to instances.")
 }
 
 // TestRunCreateModelAndCharmProfiles runs a test case to create a model and charm profile.
-func (s *upgradesSuite) TestRunCreateModelAndCharmProfiles(c *gc.C) {
+func (s *upgradesSuite) TestRunCreateModelAndCharmProfiles(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnviron(c)
 	modelShortID := names.NewModelTag(env.uuid).ShortId()
@@ -168,11 +170,11 @@ func (s *upgradesSuite) TestRunCreateModelAndCharmProfiles(c *gc.C) {
 
 	err := profileStep.Run(s.ctx)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
 // TestRunCreateCharmProfiles runs a test case where a new model profile already exists (and is attached) so we just create the charm profiles.
-func (s *upgradesSuite) TestRunCreateCharmProfiles(c *gc.C) {
+func (s *upgradesSuite) TestRunCreateCharmProfiles(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnviron(c)
 	modelShortID := names.NewModelTag(env.uuid).ShortId()
@@ -250,10 +252,10 @@ func (s *upgradesSuite) TestRunCreateCharmProfiles(c *gc.C) {
 
 	err := profileStep.Run(s.ctx)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *upgradesSuite) TestRunErrorHasProfile(c *gc.C) {
+func (s *upgradesSuite) TestRunErrorHasProfile(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnviron(c)
 
@@ -263,6 +265,6 @@ func (s *upgradesSuite) TestRunErrorHasProfile(c *gc.C) {
 
 	err := profileStep.Run(s.ctx)
 
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("initializing profile %q: connection issue", env.profileName()))
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("initializing profile %q: connection issue", env.profileName()))
 }

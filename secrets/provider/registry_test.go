@@ -4,25 +4,28 @@
 package provider_test
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 )
 
 type registrySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&registrySuite{})
+func TestRegistrySuite(t *tctesting.T) {
+	tc.Run(t, &registrySuite{})
+}
 
-func (*registrySuite) TestProvider(c *gc.C) {
+func (*registrySuite) TestProvider(c *tc.C) {
 	_, err := provider.Provider("bad")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = provider.Provider("controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

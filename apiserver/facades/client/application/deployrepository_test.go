@@ -6,24 +6,24 @@ package application
 import (
 	"fmt"
 	"reflect"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type validatorSuite struct {
@@ -35,10 +35,14 @@ type validatorSuite struct {
 	state       *MockDeployFromRepositoryState
 }
 
-var _ = gc.Suite(&deployRepositorySuite{})
-var _ = gc.Suite(&validatorSuite{})
+func TestDeployRepositorySuite(t *tctesting.T) {
+	tc.Run(t, &deployRepositorySuite{})
+}
+func TestValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &validatorSuite{})
+}
 
-func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
+func (s *validatorSuite) TestValidateSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -70,8 +74,8 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	dt, errs := s.getValidator().validate(arg)
-	c.Assert(errs, gc.HasLen, 0, gc.Commentf("%s", pretty.Sprint(errs)))
-	c.Assert(dt, gc.DeepEquals, deployTemplate{
+	c.Assert(errs, tc.HasLen, 0, tc.Commentf("%s", pretty.Sprint(errs)))
+	c.Assert(dt, tc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
@@ -80,7 +84,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	})
 }
 
-func (s *validatorSuite) TestValidateIAASAttachStorageFail(c *gc.C) {
+func (s *validatorSuite) TestValidateIAASAttachStorageFail(c *tc.C) {
 	argStorageNames := []string{"one-0"}
 	expectedStorageTags := []names.StorageTag{}
 
@@ -91,7 +95,7 @@ func (s *validatorSuite) TestValidateIAASAttachStorageFail(c *gc.C) {
 	)
 }
 
-func (s *validatorSuite) TestValidateIAASAttachStorageSuccess(c *gc.C) {
+func (s *validatorSuite) TestValidateIAASAttachStorageSuccess(c *tc.C) {
 	argStorageNames := []string{"one/0", "two/3"}
 	expectedStorageTags := []names.StorageTag{names.NewStorageTag("one/0"), names.NewStorageTag("two/3")}
 
@@ -102,7 +106,7 @@ func (s *validatorSuite) TestValidateIAASAttachStorageSuccess(c *gc.C) {
 	)
 }
 
-func (s *validatorSuite) TestValidateCAASAttachStorageFail(c *gc.C) {
+func (s *validatorSuite) TestValidateCAASAttachStorageFail(c *tc.C) {
 	argStorageNames := []string{"one-0"}
 	expectedStorageTags := []names.StorageTag{}
 	s.testValidateAttachStorage(
@@ -112,7 +116,7 @@ func (s *validatorSuite) TestValidateCAASAttachStorageFail(c *gc.C) {
 	)
 }
 
-func (s *validatorSuite) TestValidateCAASAttachStorageSuccess(c *gc.C) {
+func (s *validatorSuite) TestValidateCAASAttachStorageSuccess(c *tc.C) {
 	argStorageNames := []string{"one/0", "two/3"}
 	expectedStorageTags := []names.StorageTag{names.NewStorageTag("one/0"), names.NewStorageTag("two/3")}
 
@@ -123,7 +127,7 @@ func (s *validatorSuite) TestValidateCAASAttachStorageSuccess(c *gc.C) {
 	)
 }
 
-func (s *validatorSuite) testValidateAttachStorage(c *gc.C, argStorage []string, expectedStorageTags []names.StorageTag, getValidatorFunc func() DeployFromRepositoryValidator, expectedErr errors.ConstError) {
+func (s *validatorSuite) testValidateAttachStorage(c *tc.C, argStorage []string, expectedStorageTags []names.StorageTag, getValidatorFunc func() DeployFromRepositoryValidator, expectedErr errors.ConstError) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -156,8 +160,8 @@ func (s *validatorSuite) testValidateAttachStorage(c *gc.C, argStorage []string,
 	}
 	dt, errs := getValidatorFunc().ValidateArg(arg)
 	if expectedErr == "" {
-		c.Assert(errs, gc.HasLen, 0)
-		c.Assert(dt, gc.DeepEquals, deployTemplate{
+		c.Assert(errs, tc.HasLen, 0)
+		c.Assert(dt, tc.DeepEquals, deployTemplate{
 			applicationName: "test-charm",
 			charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
 			charmURL:        resultURL,
@@ -166,12 +170,12 @@ func (s *validatorSuite) testValidateAttachStorage(c *gc.C, argStorage []string,
 			attachStorage:   expectedStorageTags,
 		})
 	} else {
-		c.Assert(errs, gc.HasLen, 1)
-		c.Assert(errors.Is(errs[0], expectedErr), jc.IsTrue)
+		c.Assert(errs, tc.HasLen, 1)
+		c.Assert(errors.Is(errs[0], expectedErr), tc.IsTrue)
 	}
 }
 
-func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
+func (s *validatorSuite) TestValidatePlacementSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -214,8 +218,8 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 		Placement: []*instance.Placement{{Directive: "0", Scope: instance.MachineScope}},
 	}
 	dt, errs := s.getValidator().validate(arg)
-	c.Assert(errs, gc.HasLen, 0)
-	c.Assert(dt, gc.DeepEquals, deployTemplate{
+	c.Assert(errs, tc.HasLen, 0)
+	c.Assert(dt, tc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
@@ -225,7 +229,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	})
 }
 
-func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
+func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -261,8 +265,8 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		EndpointBindings: endpointMap,
 	}
 	dt, errs := s.getValidator().validate(arg)
-	c.Assert(errs, gc.HasLen, 0)
-	c.Assert(dt, gc.DeepEquals, deployTemplate{
+	c.Assert(errs, tc.HasLen, 0)
+	c.Assert(dt, tc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
@@ -272,7 +276,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	})
 }
 
-func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
+func (s *validatorSuite) TestValidateEndpointBindingFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -317,8 +321,8 @@ func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
 		EndpointBindings: endpointMap,
 	}
 	_, errs := v.validate(arg)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(errs[0], tc.ErrorIs, errors.NotFound)
 }
 
 func (s *validatorSuite) expectSimpleValidate() {
@@ -327,7 +331,7 @@ func (s *validatorSuite) expectSimpleValidate() {
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig())).AnyTimes()
 }
 
-func (s *validatorSuite) TestResolveCharm(c *gc.C) {
+func (s *validatorSuite) TestResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -352,12 +356,12 @@ func (s *validatorSuite) TestResolveCharm(c *gc.C) {
 	}, nil)
 
 	obtained, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
-	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, gc.DeepEquals, resolvedOrigin)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.URL, tc.DeepEquals, resultURL)
+	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, tc.DeepEquals, resolvedOrigin)
 }
 
-func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
+func (s *validatorSuite) TestResolveCharmArchAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -380,14 +384,14 @@ func (s *validatorSuite) TestResolveCharmArchAll(c *gc.C) {
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	obtained, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.URL, tc.DeepEquals, resultURL)
 	expectedOrigin := resolvedOrigin
 	expectedOrigin.Platform.Architecture = "arm64"
-	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, gc.DeepEquals, expectedOrigin)
+	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, tc.DeepEquals, expectedOrigin)
 }
 
-func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
+func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -412,12 +416,12 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	obtained, err := s.getValidator().resolveCharm(curl, origin, true, false, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained.URL, gc.DeepEquals, resultURL)
-	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, gc.DeepEquals, resolvedOrigin)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained.URL, tc.DeepEquals, resultURL)
+	c.Assert(obtained.EssentialMetadata.ResolvedOrigin, tc.DeepEquals, resolvedOrigin)
 }
 
-func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
+func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	origin := corecharm.Origin{
@@ -431,10 +435,10 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 	s.repo.EXPECT().ResolveForDeploy(charmID).Return(corecharm.ResolvedDataForDeploy{}, newErr)
 
 	_, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, `series "jammy" not supported by charm, supported series are: focal. Use --force to deploy the charm anyway.`)
+	c.Assert(err, tc.ErrorMatches, `series "jammy" not supported by charm, supported series are: focal. Use --force to deploy the charm anyway.`)
 }
 
-func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.C) {
+func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -457,10 +461,10 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
 
 	_, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{ImageID: strptr("ubuntu-bf2")})
-	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
+	c.Assert(err, tc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
 }
 
-func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc.C) {
+func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
@@ -486,10 +490,10 @@ func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenModelImageID(c *gc
 	}, nil)
 
 	_, err := s.getValidator().resolveCharm(curl, origin, false, false, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
+	c.Assert(err, tc.ErrorMatches, `base must be explicitly provided when image-id constraint is used`)
 }
 
-func (s *validatorSuite) TestCreateOrigin(c *gc.C) {
+func (s *validatorSuite) TestCreateOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
@@ -499,18 +503,18 @@ func (s *validatorSuite) TestCreateOrigin(c *gc.C) {
 		Revision:  intptr(7),
 	}
 	curl, origin, defaultBase, err := s.getValidator().createOrigin(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
-	c.Assert(origin, gc.DeepEquals, corecharm.Origin{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(curl, tc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
+	c.Assert(origin, tc.DeepEquals, corecharm.Origin{
 		Source:   "charm-hub",
 		Revision: intptr(7),
 		Channel:  &corecharm.DefaultChannel,
 		Platform: corecharm.Platform{Architecture: "amd64"},
 	})
-	c.Assert(defaultBase, jc.IsFalse)
+	c.Assert(defaultBase, tc.IsFalse)
 }
 
-func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
+func (s *validatorSuite) TestCreateOriginChannel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
@@ -521,19 +525,19 @@ func (s *validatorSuite) TestCreateOriginChannel(c *gc.C) {
 		Channel:   strptr("yoga/candidate"),
 	}
 	curl, origin, defaultBase, err := s.getValidator().createOrigin(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(curl, tc.DeepEquals, charm.MustParseURL("ch:testcharm-7"))
 	expectedChannel := corecharm.MustParseChannel("yoga/candidate")
-	c.Assert(origin, gc.DeepEquals, corecharm.Origin{
+	c.Assert(origin, tc.DeepEquals, corecharm.Origin{
 		Source:   "charm-hub",
 		Revision: intptr(7),
 		Channel:  &expectedChannel,
 		Platform: corecharm.Platform{Architecture: "amd64"},
 	})
-	c.Assert(defaultBase, jc.IsFalse)
+	c.Assert(defaultBase, tc.IsFalse)
 }
 
-func (s *validatorSuite) TestGetCharm(c *gc.C) {
+func (s *validatorSuite) TestGetCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
@@ -562,13 +566,13 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata))
-	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOrigin, tc.DeepEquals, resolvedOrigin)
+	c.Assert(obtainedCharm, tc.DeepEquals, corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata))
+	c.Assert(obtainedURL, tc.DeepEquals, resultURL)
 }
 
-func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
+func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.expectSimpleValidate()
@@ -599,13 +603,13 @@ func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
 	}
 	obtainedURL, obtainedOrigin, obtainedCharm, err := s.getValidator().getCharm(arg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
-	c.Assert(obtainedCharm, gc.NotNil)
-	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOrigin, tc.DeepEquals, resolvedOrigin)
+	c.Assert(obtainedCharm, tc.NotNil)
+	c.Assert(obtainedURL, tc.DeepEquals, resultURL)
 }
 
-func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
+func (s *validatorSuite) TestGetCharmFindsBundle(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
@@ -631,10 +635,10 @@ func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	_, _, _, err := s.getValidator().getCharm(arg)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue)
 }
 
-func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
+func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
@@ -662,10 +666,10 @@ func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	_, _, _, err := s.getValidator().getCharm(arg)
-	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(errors.Is(err, errors.NotSupported), tc.IsTrue, tc.Commentf("%+v", err))
 }
 
-func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformSimple(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	//model constraint default
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
@@ -673,12 +677,12 @@ func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
 
 	arg := params.DeployFromRepositoryArg{CharmName: "testme"}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
+	c.Assert(err, tc.IsNil)
+	c.Assert(usedModelDefaultBase, tc.IsFalse)
+	c.Assert(plat, tc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
 }
 
-func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformArgArchBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	arg := params.DeployFromRepositoryArg{
@@ -690,16 +694,16 @@ func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 		},
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
+	c.Assert(err, tc.IsNil)
+	c.Assert(usedModelDefaultBase, tc.IsFalse)
+	c.Assert(plat, tc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
 		Channel:      "22.10/stable",
 	})
 }
 
-func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	//model constraint default
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
@@ -708,23 +712,23 @@ func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *gc.C) {
 		"default-base": "ubuntu@22.04",
 	})
 	cfg, err := config.New(config.NoDefaults, sConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsTrue)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
+	c.Assert(err, tc.IsNil)
+	c.Assert(usedModelDefaultBase, tc.IsTrue)
+	c.Assert(plat, tc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
 		Channel:      "22.04/stable",
 	})
 }
 
-func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.state.EXPECT().Machine("0").Return(s.machine, nil)
@@ -743,16 +747,16 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 		},
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
+	c.Assert(err, tc.IsNil)
+	c.Assert(usedModelDefaultBase, tc.IsFalse)
+	c.Assert(plat, tc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
 		Channel:      "22.04",
 	})
 }
 
-func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.machine.EXPECT().Id().Return("5/lxd/6")
@@ -772,10 +776,10 @@ func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *gc.C) {
 		},
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	//model constraint default
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
@@ -788,10 +792,10 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
 		}},
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
+func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	ch := NewMockCharm(ctrl)
@@ -805,11 +809,11 @@ func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
 		NumUnits: intptr(1),
 	}
 	dt, err := s.getValidator().resolvedCharmValidation(ch, arg)
-	c.Assert(err, gc.HasLen, 0)
-	c.Assert(dt.numUnits, gc.Equals, 0)
+	c.Assert(err, tc.HasLen, 0)
+	c.Assert(dt.numUnits, tc.Equals, 0)
 }
 
-func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.state.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).Times(3)
@@ -829,16 +833,16 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 		},
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
+	c.Assert(err, tc.IsNil)
+	c.Assert(usedModelDefaultBase, tc.IsFalse)
+	c.Assert(plat, tc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
 		Channel:      "22.04",
 	})
 }
 
-func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
+func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
 	s.state.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).AnyTimes()
@@ -864,7 +868,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 		},
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(errors.Is(err, errors.BadRequest), tc.IsTrue, tc.Commentf("%+v", err))
 }
 
 var configYaml = `
@@ -873,7 +877,7 @@ testme:
   optionTwo: 8
 `[1:]
 
-func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
+func (s *validatorSuite) TestAppCharmSettings(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
 
@@ -890,23 +894,23 @@ func (s *validatorSuite) TestAppCharmSettings(c *gc.C) {
 	}
 
 	appCfgSchema, _, err := applicationConfigSchema(state.ModelTypeIAAS)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedAppConfig, err := coreconfig.NewConfig(map[string]interface{}{"trust": true}, appCfgSchema, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appConfig, charmConfig, err := s.getValidator().appCharmSettings("testme", true, cfg, configYaml)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(appConfig, gc.DeepEquals, expectedAppConfig)
-	c.Assert(charmConfig["optionOne"], gc.DeepEquals, "one")
-	c.Assert(charmConfig["optionTwo"], gc.DeepEquals, int64(8))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appConfig, tc.DeepEquals, expectedAppConfig)
+	c.Assert(charmConfig["optionOne"], tc.DeepEquals, "one")
+	c.Assert(charmConfig["optionTwo"], tc.DeepEquals, int64(8))
 }
 
 // The purpose of the resolveResourcesArgsMatcher is
 // to compare the slices of resource.Resource, b/c the
 // order is non-deterministic.
 type resolveResourcesArgsMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected *[]resource.Resource
 }
 
@@ -920,7 +924,7 @@ func (m resolveResourcesArgsMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	m.c.Assert(obtainedSlice, gc.HasLen, len(*m.expected))
+	m.c.Assert(obtainedSlice, tc.HasLen, len(*m.expected))
 	// Unfortunately the jc.SameContents don't work here
 	// because resource.Resource is unhashable
 	for _, r := range obtainedSlice {
@@ -931,12 +935,12 @@ func (m resolveResourcesArgsMatcher) Matches(x interface{}) bool {
 				break
 			}
 		}
-		m.c.Assert(found, gc.Equals, true)
+		m.c.Assert(found, tc.Equals, true)
 	}
 	return true
 }
 
-func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
+func (s *validatorSuite) TestResolveResourcesSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	curl := charm.MustParseURL("testcharm")
 	origin := corecharm.Origin{
@@ -1001,12 +1005,12 @@ func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
 		Type:     "file",
 		Filename: "bar",
 	}
-	c.Assert(resolveResErr, jc.ErrorIsNil)
-	c.Assert(resources, gc.DeepEquals, resResult)
-	c.Assert(pendingResourceUploads, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
+	c.Assert(resolveResErr, tc.ErrorIsNil)
+	c.Assert(resources, tc.DeepEquals, resResult)
+	c.Assert(pendingResourceUploads, tc.DeepEquals, []*params.PendingResourceUpload{pendUp})
 }
 
-func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
+func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	// resolveCharm
@@ -1039,8 +1043,8 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	}
 
 	obtainedDT, errs := s.caasDeployFromRepositoryValidator(c).ValidateArg(arg)
-	c.Assert(errs, gc.HasLen, 0)
-	c.Assert(obtainedDT, gc.DeepEquals, deployTemplate{
+	c.Assert(errs, tc.HasLen, 0)
+	c.Assert(obtainedDT, tc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
 		charmURL:        resultURL,
@@ -1049,7 +1053,7 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	})
 }
 
-func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
@@ -1060,10 +1064,10 @@ func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
 	}
 
 	_, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(arg)
-	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs, tc.HasLen, 1)
 }
 
-func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSimpleValidate()
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
@@ -1074,7 +1078,7 @@ func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
 	}
 
 	_, errs := s.caasDeployFromRepositoryValidator(c).ValidateArg(arg)
-	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs, tc.HasLen, 1)
 }
 
 func getResolvedData(resultURL *charm.URL, resolvedOrigin corecharm.Origin) corecharm.ResolvedDataForDeploy {
@@ -1099,7 +1103,7 @@ func getResolvedData(resultURL *charm.URL, resolvedOrigin corecharm.Origin) core
 	}
 }
 
-func (s *validatorSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *validatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.bindings = NewMockBindings(ctrl)
 	s.machine = NewMockMachine(ctrl)
@@ -1122,13 +1126,13 @@ func (s *validatorSuite) getValidator() *deployFromRepositoryValidator {
 	}
 }
 
-func (s *validatorSuite) caasDeployFromRepositoryValidator(c *gc.C) caasDeployFromRepositoryValidator {
+func (s *validatorSuite) caasDeployFromRepositoryValidator(c *tc.C) caasDeployFromRepositoryValidator {
 	return caasDeployFromRepositoryValidator{
 		validator: s.getValidator(),
 		caasPrecheckFunc: func(dt deployTemplate) error {
 			// Do a quick check to ensure the expected deployTemplate
 			// has been passed.
-			c.Assert(dt.applicationName, gc.Equals, "test-charm")
+			c.Assert(dt.applicationName, tc.Equals, "test-charm")
 			return nil
 		},
 	}
@@ -1155,7 +1159,7 @@ type deployRepositorySuite struct {
 	validator   *MockDeployFromRepositoryValidator
 }
 
-func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
+func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -1212,9 +1216,9 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
-	c.Assert(errs, gc.HasLen, 0)
-	c.Assert(resources, gc.HasLen, 0)
-	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
+	c.Assert(errs, tc.HasLen, 0)
+	c.Assert(resources, tc.HasLen, 0)
+	c.Assert(obtainedInfo, tc.DeepEquals, params.DeployFromRepositoryInfo{
 		Architecture:     "amd64",
 		Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
 		Channel:          "stable",
@@ -1228,7 +1232,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 // obtained by casting application.Charm into a state.Charm, but we
 // can't do that cast with a MockCharm
 type addApplicationArgsMatcher struct {
-	c            *gc.C
+	c            *tc.C
 	expectedArgs state.AddApplicationArgs
 }
 
@@ -1245,21 +1249,21 @@ func (m addApplicationArgsMatcher) Matches(x interface{}) bool {
 
 	eA := m.expectedArgs
 	// Check everything but the Charm
-	m.c.Assert(oA.Name, gc.DeepEquals, eA.Name)
-	m.c.Assert(oA.ApplicationConfig, gc.DeepEquals, eA.ApplicationConfig)
-	m.c.Assert(oA.NumUnits, gc.DeepEquals, eA.NumUnits)
-	m.c.Assert(oA.Constraints, gc.DeepEquals, eA.Constraints)
-	m.c.Assert(oA.Storage, gc.DeepEquals, eA.Storage)
-	m.c.Assert(oA.Devices, gc.DeepEquals, eA.Devices)
-	m.c.Assert(eA.AttachStorage, gc.DeepEquals, eA.AttachStorage)
-	m.c.Assert(oA.EndpointBindings, gc.DeepEquals, eA.EndpointBindings)
-	m.c.Assert(oA.CharmConfig, gc.DeepEquals, eA.CharmConfig)
-	m.c.Assert(oA.Placement, gc.DeepEquals, eA.Placement)
-	m.c.Assert(oA.Resources, gc.DeepEquals, eA.Resources)
+	m.c.Assert(oA.Name, tc.DeepEquals, eA.Name)
+	m.c.Assert(oA.ApplicationConfig, tc.DeepEquals, eA.ApplicationConfig)
+	m.c.Assert(oA.NumUnits, tc.DeepEquals, eA.NumUnits)
+	m.c.Assert(oA.Constraints, tc.DeepEquals, eA.Constraints)
+	m.c.Assert(oA.Storage, tc.DeepEquals, eA.Storage)
+	m.c.Assert(oA.Devices, tc.DeepEquals, eA.Devices)
+	m.c.Assert(eA.AttachStorage, tc.DeepEquals, eA.AttachStorage)
+	m.c.Assert(oA.EndpointBindings, tc.DeepEquals, eA.EndpointBindings)
+	m.c.Assert(oA.CharmConfig, tc.DeepEquals, eA.CharmConfig)
+	m.c.Assert(oA.Placement, tc.DeepEquals, eA.Placement)
+	m.c.Assert(oA.Resources, tc.DeepEquals, eA.Resources)
 	return true
 }
 
-func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAPI(c *gc.C) {
+func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAPI(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -1337,9 +1341,9 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
-	c.Assert(errs, gc.HasLen, 0)
-	c.Assert(resources, gc.HasLen, 1)
-	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{
+	c.Assert(errs, tc.HasLen, 0)
+	c.Assert(resources, tc.HasLen, 1)
+	c.Assert(obtainedInfo, tc.DeepEquals, params.DeployFromRepositoryInfo{
 		Architecture:     "amd64",
 		Base:             params.Base{Name: "ubuntu", Channel: "22.04"},
 		Channel:          "stable",
@@ -1348,10 +1352,10 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Revision:         5,
 	})
 
-	c.Assert(resources, gc.DeepEquals, []*params.PendingResourceUpload{pendUp})
+	c.Assert(resources, tc.DeepEquals, []*params.PendingResourceUpload{pendUp})
 }
 
-func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc.C) {
+func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
@@ -1432,9 +1436,9 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(arg)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(resources, gc.HasLen, 0)
-	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{})
+	c.Assert(errs, tc.HasLen, 1)
+	c.Assert(resources, tc.HasLen, 0)
+	c.Assert(obtainedInfo, tc.DeepEquals, params.DeployFromRepositoryInfo{})
 }
 
 func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
@@ -1445,7 +1449,7 @@ func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromReposito
 	}
 }
 
-func (s *deployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *deployRepositorySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charm = NewMockCharm(ctrl)
 	s.state = NewMockDeployFromRepositoryState(ctrl)

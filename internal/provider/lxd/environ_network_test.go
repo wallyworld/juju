@@ -4,11 +4,12 @@
 package lxd_test
 
 import (
+	tctesting "testing"
+
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	jujulxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
@@ -23,9 +24,11 @@ type environNetSuite struct {
 	lxd.EnvironSuite
 }
 
-var _ = gc.Suite(&environNetSuite{})
+func TestEnvironNetSuite(t *tctesting.T) {
+	tc.Run(t, &environNetSuite{})
+}
 
-func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForUnknownContainer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -36,10 +39,10 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.Subnets(ctx, "bogus", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -51,18 +54,18 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	// Space support and by extension, subnet detection is not available.
 	srv.EXPECT().HasExtension("network").Return(false)
 	supportsSpaces, err := env.SupportsSpaces(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supportsSpaces, jc.IsFalse, gc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supportsSpaces, tc.IsFalse, tc.Commentf("expected SupportsSpaces to return false when the lxd server lacks the 'network' extension"))
 
 	// Try to grab subnet details anyway!
 	srv.EXPECT().GetNetworks().Return(nil, errors.New(`server is missing the required "network" API extension`))
 	srv.EXPECT().IsClustered().Return(false)
 	srv.EXPECT().Name().Return("locutus")
 	_, err = env.Subnets(ctx, instance.UnknownId, nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForKnownContainer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -120,7 +123,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -136,10 +139,10 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 			AvailabilityZones: []string{"locutus"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
 
-func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -209,7 +212,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -225,9 +228,9 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
 			AvailabilityZones: []string{"server0", "server1", "server2"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
-func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -271,7 +274,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	// Filter list so we only get a single subnet
 	ctx := context.NewEmptyCloudCallContext()
 	subnets, err := env.Subnets(ctx, "woot", []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -281,10 +284,10 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 			AvailabilityZones: []string{"locutus"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
 
-func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
+func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -364,12 +367,12 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 
 	// Spaces should be supported
 	supportsSpaces, err := env.SupportsSpaces(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(supportsSpaces, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supportsSpaces, tc.IsTrue)
 
 	// List subnets
 	subnets, err := env.Subnets(ctx, instance.UnknownId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expSubnets := []network.SubnetInfo{
 		{
@@ -379,10 +382,10 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 			AvailabilityZones: []string{"locutus"},
 		},
 	}
-	c.Assert(subnets, gc.DeepEquals, expSubnets)
+	c.Assert(subnets, tc.DeepEquals, expSubnets)
 }
 
-func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -458,7 +461,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
 		{
 			{
@@ -493,10 +496,10 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(infos, gc.DeepEquals, expInfos)
+	c.Assert(infos, tc.DeepEquals, expInfos)
 }
 
-func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -534,7 +537,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances, tc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
 		{
 			{
@@ -555,10 +558,10 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 		},
 		nil, // slot for second instance is nil as the container was not found
 	}
-	c.Assert(infos, gc.DeepEquals, expInfos)
+	c.Assert(infos, tc.DeepEquals, expInfos)
 }
 
-func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfacesNoResults(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -570,5 +573,5 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
-	c.Assert(err, gc.Equals, environs.ErrNoInstances, gc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
+	c.Assert(err, tc.Equals, environs.ErrNoInstances, tc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

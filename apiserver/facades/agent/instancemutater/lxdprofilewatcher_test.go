@@ -4,11 +4,13 @@
 package instancemutater_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
@@ -39,9 +41,11 @@ type lxdProfileWatcherSuite struct {
 	wc0 testing.NotifyWatcherC
 }
 
-var _ = gc.Suite(&lxdProfileWatcherSuite{})
+func TestLxdProfileWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &lxdProfileWatcherSuite{})
+}
 
-func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
+func (s *lxdProfileWatcherSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
@@ -64,14 +68,14 @@ func (s *lxdProfileWatcherSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherStartStop(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherStartStop(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNoProfile(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNoProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioNoProfile()
@@ -82,7 +86,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNoProfile(c *gc.C) 
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioNoExistingUnitsWithProfile()
@@ -95,7 +99,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherProfile(c *gc.C) {
 	s.wc0.AssertOneChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNewCharmRev(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNewCharmRev(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
@@ -112,7 +116,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherNewCharmRev(c *gc.C
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherCharmMetadataChange(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherCharmMetadataChange(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
@@ -128,7 +132,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherCharmMetadataChange
 	s.wc0.AssertOneChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnit(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnit(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioNoExistingUnitsWithProfile()
@@ -155,7 +159,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnit(c *gc.C) {
 	s.wc0.AssertOneChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnitWrongMachine(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnitWrongMachine(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
@@ -172,7 +176,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAddUnitWrongMachine
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfile(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioNoExistingUnitsWithProfile()
@@ -195,7 +199,7 @@ func (s *lxdProfileWatcherSuite) assertAddSubordinate() {
 	s.unitChanges <- []string{"foo/0"}
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfileUpdateUnit(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfileUpdateUnit(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -226,7 +230,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfile(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfile(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
@@ -243,7 +247,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfil
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -271,7 +275,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfi
 	s.wc0.AssertOneChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -293,7 +297,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *g
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWrongMachine(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWrongMachine(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -311,7 +315,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWrongMach
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNotFound(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
@@ -329,7 +333,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNo
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeAppNotFound(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeAppNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
@@ -346,7 +350,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeAppNotFou
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLNotFound(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
@@ -364,7 +368,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 	s.wc0.AssertNoChange()
 }
 
-func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(c *gc.C) {
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.setupScenarioWithProfile()
@@ -392,7 +396,7 @@ func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev stri
 	s.appChanges <- []string{"foo"}
 }
 
-func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
+func (s *lxdProfileWatcherSuite) setupWatchers(c *tc.C) {
 	s.state.EXPECT().WatchCharms().Return(s.charmsWatcher)
 	s.state.EXPECT().WatchApplicationCharms().Return(s.appWatcher)
 	s.state.EXPECT().WatchUnits().Return(s.unitsWatcher)
@@ -408,7 +412,7 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.instanceWatcher.EXPECT().Wait().Return(nil)
 }
 
-func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *gc.C) worker.Worker {
+func (s *lxdProfileWatcherSuite) assertStartLxdProfileWatcher(c *tc.C) worker.Worker {
 	s.setupWatchers(c)
 
 	s.machine0.EXPECT().Id().AnyTimes().Return("0")

@@ -4,11 +4,12 @@
 package caasmodeloperator_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
@@ -34,7 +35,9 @@ type dummyBroker struct {
 
 type ModelOperatorManagerSuite struct{}
 
-var _ = gc.Suite(&ModelOperatorManagerSuite{})
+func TestModelOperatorManagerSuite(t *tctesting.T) {
+	tc.Run(t, &ModelOperatorManagerSuite{})
+}
 
 func (b *dummyBroker) EnsureModelOperator(modelUUID, agentPath string, c *caas.ModelOperatorConfig) error {
 	if b.ensureModelOperator == nil {
@@ -85,7 +88,7 @@ func (a *dummyAPI) SetPassword(p string) error {
 	return a.setPassword(p)
 }
 
-func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	const n = 3
 	var (
 		iteration = 0 // ... n
@@ -120,22 +123,22 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 			}()
 			lastConfig = conf
 
-			c.Check(conf.ImageDetails.RegistryPath, gc.Equals, expectedImagePath[iteration])
+			c.Check(conf.ImageDetails.RegistryPath, tc.Equals, expectedImagePath[iteration])
 
 			ac, err := agent.ParseConfigData(conf.AgentConf)
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 			if err != nil {
 				return err
 			}
 			addresses, _ := ac.APIAddresses()
-			c.Check(addresses, gc.DeepEquals, apiAddresses[iteration])
-			c.Check(ac.UpgradedToVersion(), gc.Equals, ver[iteration])
+			c.Check(addresses, tc.DeepEquals, apiAddresses[iteration])
+			c.Check(ac.UpgradedToVersion(), tc.Equals, ver[iteration])
 
 			if password == "" {
 				password = ac.OldPassword()
 			}
-			c.Check(ac.OldPassword(), gc.Equals, password)
-			c.Check(ac.OldPassword(), gc.HasLen, 24)
+			c.Check(ac.OldPassword(), tc.Equals, password)
+			c.Check(ac.OldPassword(), tc.HasLen, 24)
 
 			return nil
 		},
@@ -155,7 +158,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(loggo.Logger{},
 		api, broker, modelUUID, &mockAgentConfig{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	for i := 0; i < n; i++ {
 		changed <- struct{}{}
@@ -163,7 +166,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 
 	worker.Kill()
 	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(iteration, gc.Equals, n)
+	c.Assert(iteration, tc.Equals, n)
 }

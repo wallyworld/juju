@@ -4,21 +4,22 @@
 package google
 
 import (
-	"context"
+	tctesting "testing"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	jujuhttp "github.com/juju/http/v2"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type authSuite struct {
 	Credentials *Credentials
 }
 
-var _ = gc.Suite(&authSuite{})
+func TestAuthSuite(t *tctesting.T) {
+	tc.Run(t, &authSuite{})
+}
 
-func (s *authSuite) SetUpTest(c *gc.C) {
+func (s *authSuite) SetUpTest(c *tc.C) {
 	s.Credentials = &Credentials{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
@@ -34,22 +35,22 @@ func (s *authSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *authSuite) TestNewRESTClient(c *gc.C) {
+func (s *authSuite) TestNewRESTClient(c *tc.C) {
 	cfg, err := newJWTConfig(s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := context.Background()
+	c.Assert(err, tc.ErrorIsNil)
+	ctx := c.Context()
 	_, err = newRESTClient(ctx, cfg.TokenSource(ctx), jujuhttp.NewClient(), compute.NewNetworksRESTClient)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *authSuite) TestCreateJWTConfig(c *gc.C) {
+func (s *authSuite) TestCreateJWTConfig(c *tc.C) {
 	cfg, err := newJWTConfig(s.Credentials)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Scopes, jc.DeepEquals, Scopes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Scopes, tc.DeepEquals, Scopes)
 }
 
-func (s *authSuite) TestCreateJWTConfigWithNoJSONKey(c *gc.C) {
+func (s *authSuite) TestCreateJWTConfigWithNoJSONKey(c *tc.C) {
 	cfg, err := newJWTConfig(&Credentials{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Scopes, jc.DeepEquals, Scopes)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.Scopes, tc.DeepEquals, Scopes)
 }

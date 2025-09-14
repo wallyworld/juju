@@ -4,10 +4,11 @@
 package jujuc_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -16,18 +17,20 @@ type storageAddSuite struct {
 	storageSuite
 }
 
-var _ = gc.Suite(&storageAddSuite{})
+func TestStorageAddSuite(t *tctesting.T) {
+	tc.Run(t, &storageAddSuite{})
+}
 
-func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
+func (s *storageAddSuite) getStorageUnitAddCommand(c *tc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-add")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
 
-func (s *storageAddSuite) assertOutput(c *gc.C, ctx *cmd.Context, o, e string) {
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, o)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, e)
+func (s *storageAddSuite) assertOutput(c *tc.C, ctx *cmd.Context, o, e string) {
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, o)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, e)
 }
 
 type tstData struct {
@@ -36,7 +39,7 @@ type tstData struct {
 	err  string
 }
 
-func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
+func (s *storageAddSuite) TestStorageAddInit(c *tc.C) {
 	tests := []tstData{
 		{[]string{}, 1, "storage add requires a storage directive"},
 		{[]string{"data=-676"}, 1, `.*cannot parse count: count must be gre.*`},
@@ -54,7 +57,7 @@ func (s *storageAddSuite) TestStorageAddInit(c *gc.C) {
 	}
 }
 
-func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
+func (s *storageAddSuite) TestAddUnitStorage(c *tc.C) {
 	tests := []tstData{
 		{[]string{"data=676"}, 0, ""},
 		{[]string{"data"}, 0, ``},
@@ -65,7 +68,7 @@ func (s *storageAddSuite) TestAddUnitStorage(c *gc.C) {
 		com := s.getStorageUnitAddCommand(c)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, gc.Equals, t.code)
+		c.Assert(code, tc.Equals, t.code)
 		s.assertOutput(c, ctx, "", t.err)
 	}
 }

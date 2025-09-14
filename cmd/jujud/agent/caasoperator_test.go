@@ -6,26 +6,26 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujuworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/logsender"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CAASOperatorSuite struct {
@@ -36,13 +36,15 @@ type CAASOperatorSuite struct {
 	prometheus *prometheus.Registry
 }
 
-var _ = gc.Suite(&CAASOperatorSuite{})
+func TestCAASOperatorSuite(t *tctesting.T) {
+	tc.Run(t, &CAASOperatorSuite{})
+}
 
 func newExecClient(modelName string) (exec.Executor, error) {
 	return nil, nil
 }
 
-func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
+func (s *CAASOperatorSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.rootDir = c.MkDir()
 	s.prometheus = prometheus.NewRegistry()
@@ -54,42 +56,42 @@ func (s *CAASOperatorSuite) dataDir() string {
 
 func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 	logger := logsender.NewBufferedLogWriter(1024)
-	s.AddCleanup(func(*gc.C) { logger.Close() })
+	s.AddCleanup(func(*tc.C) { logger.Close() })
 	return logger
 }
 
-func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
+func (s *CAASOperatorSuite) TestParseSuccess(c *tc.C) {
 	// Now init actually reads the agent configuration file.
 	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
 		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmdtesting.InitCommand(a, []string{
 		"--data-dir", s.dataDir(),
 		"--application-name", "wordpress",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(a.AgentConf.DataDir(), gc.Equals, s.dataDir())
-	c.Check(a.ApplicationName, gc.Equals, "wordpress")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(a.AgentConf.DataDir(), tc.Equals, s.dataDir())
+	c.Check(a.ApplicationName, tc.Equals, "wordpress")
 }
 
-func (s *CAASOperatorSuite) TestParseMissing(c *gc.C) {
+func (s *CAASOperatorSuite) TestParseMissing(c *tc.C) {
 	uc, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
 		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = cmdtesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
 
-	c.Assert(err, gc.ErrorMatches, "--application-name option must be set")
+	c.Assert(err, tc.ErrorMatches, "--application-name option must be set")
 }
 
-func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
+func (s *CAASOperatorSuite) TestParseNonsense(c *tc.C) {
 	for _, args := range [][]string{
 		{"--application-name", "wordpress/0"},
 		{"--application-name", "wordpress/seventeen"},
@@ -102,31 +104,31 @@ func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
 			mc.PrometheusRegisterer = s.prometheus
 			return nil
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		err = cmdtesting.InitCommand(a, append(args, "--data-dir", "jc"))
-		c.Check(err, gc.ErrorMatches, `--application-name option expects "<application>" argument`)
+		c.Check(err, tc.ErrorMatches, `--application-name option expects "<application>" argument`)
 	}
 }
 
-func (s *CAASOperatorSuite) TestParseUnknown(c *gc.C) {
+func (s *CAASOperatorSuite) TestParseUnknown(c *tc.C) {
 	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = newExecClient
 		mc.PrometheusRegisterer = s.prometheus
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = cmdtesting.InitCommand(a, []string{
 		"--application-name", "wordpress",
 		"thundering typhoons",
 	})
-	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
+	c.Check(err, tc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *CAASOperatorSuite) TestLogStderr(c *gc.C) {
+func (s *CAASOperatorSuite) TestLogStderr(c *tc.C) {
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	a := CaasOperatorAgent{
 		AgentConf:       FakeAgentConfig{},
@@ -136,10 +138,10 @@ func (s *CAASOperatorSuite) TestLogStderr(c *gc.C) {
 	}
 
 	err = a.Init(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 var agentConfigContents = `
@@ -155,17 +157,17 @@ apiaddresses:
 apiport: 17070
 `[1:]
 
-func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
+func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *tc.C) {
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	dataDir := c.MkDir()
 	agentDir := filepath.Join(dataDir, "agents", "application-mysql")
 	err = os.MkdirAll(agentDir, 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	templateFile := filepath.Join(agentDir, "template-agent.conf")
 
 	err = os.WriteFile(templateFile, []byte(agentConfigContents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	a := &CaasOperatorAgent{
 		AgentConf:          agentconf.NewAgentConf(dataDir),
@@ -188,19 +190,19 @@ func (s *CAASOperatorSuite) TestRunCopiesConfigTemplate(c *gc.C) {
 	})
 
 	err = a.Init(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = a.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { c.Check(a.Stop(), tc.IsNil) }()
 
 	agentConfig := a.CurrentConfig()
-	c.Assert(agentConfig.Controller(), gc.Equals, names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d"))
+	c.Assert(agentConfig.Controller(), tc.Equals, names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d"))
 	addr, err := agentConfig.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.SameContents, []string{"localhost:17070"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.SameContents, []string{"localhost:17070"})
 }
 
-func (s *CAASOperatorSuite) TestChangeConfig(c *gc.C) {
+func (s *CAASOperatorSuite) TestChangeConfig(c *tc.C) {
 	config := FakeAgentConfig{}
 	configChanged := voyeur.NewValue(true)
 	a := CaasOperatorAgent{
@@ -223,12 +225,12 @@ func (s *CAASOperatorSuite) TestChangeConfig(c *gc.C) {
 	}()
 
 	err := a.ChangeConfig(mutate)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(mutateCalled, jc.IsTrue)
+	c.Check(mutateCalled, tc.IsTrue)
 	select {
 	case result := <-configChangedCh:
-		c.Check(result, jc.IsTrue)
+		c.Check(result, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}

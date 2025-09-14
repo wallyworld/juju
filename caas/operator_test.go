@@ -4,40 +4,43 @@
 package caas_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type OperatorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&OperatorSuite{})
+func TestOperatorSuite(t *tctesting.T) {
+	tc.Run(t, &OperatorSuite{})
+}
 
-func (s *OperatorSuite) TestOperatorInfo(c *gc.C) {
+func (s *OperatorSuite) TestOperatorInfo(c *tc.C) {
 	info := caas.OperatorInfo{
 		CACert:     "ca cert",
 		Cert:       "cert",
 		PrivateKey: "private key",
 	}
 	marshaled, err := info.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unmarshaledInfo, err := caas.UnmarshalOperatorInfo(marshaled)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*unmarshaledInfo, jc.DeepEquals, info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*unmarshaledInfo, tc.DeepEquals, info)
 }
 
-func (s *OperatorSuite) TestOperatorClientInfo(c *gc.C) {
+func (s *OperatorSuite) TestOperatorClientInfo(c *tc.C) {
 	info := caas.OperatorClientInfo{
 		ServiceAddress: "1.2.3.4",
 		Token:          "token",
 	}
 	marshaled, err := info.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unmarshaledInfo, err := caas.UnmarshalOperatorClientInfo(marshaled)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*unmarshaledInfo, jc.DeepEquals, info)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(*unmarshaledInfo, tc.DeepEquals, info)
 }

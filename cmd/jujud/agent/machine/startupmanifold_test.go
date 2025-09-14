@@ -4,14 +4,15 @@
 package machine_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MachineStartupSuite struct {
@@ -20,9 +21,11 @@ type MachineStartupSuite struct {
 	startCalled bool
 }
 
-var _ = gc.Suite(&MachineStartupSuite{})
+func TestMachineStartupSuite(t *tctesting.T) {
+	tc.Run(t, &MachineStartupSuite{})
+}
 
-func (s *MachineStartupSuite) SetUpTest(c *gc.C) {
+func (s *MachineStartupSuite) SetUpTest(c *tc.C) {
 	s.startCalled = false
 	s.manifold = machine.MachineStartupManifold(machine.MachineStartupConfig{
 		APICallerName: "api-caller",
@@ -34,20 +37,20 @@ func (s *MachineStartupSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *MachineStartupSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
+func (s *MachineStartupSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, []string{
 		"api-caller",
 	})
 }
 
-func (s *MachineStartupSuite) TestStartSuccess(c *gc.C) {
+func (s *MachineStartupSuite) TestStartSuccess(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": new(mockAPIConn),
 	})
 	worker, err := s.manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "resource permanently unavailable")
-	c.Check(s.startCalled, jc.IsTrue)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "resource permanently unavailable")
+	c.Check(s.startCalled, tc.IsTrue)
 }
 
 type mockAPIConn struct {

@@ -6,24 +6,26 @@ package specs_test
 import (
 	"encoding/base64"
 	"strings"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type webhooksSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&webhooksSuite{})
+func TestWebhooksSuite(t *tctesting.T) {
+	tc.Run(t, &webhooksSuite{})
+}
 
-func (s *webhooksSuite) TestK8sMutatingWebhookV1Beta1(c *gc.C) {
+func (s *webhooksSuite) TestK8sMutatingWebhookV1Beta1(c *tc.C) {
 	specV1Beta1 := `
 name: example-mutatingwebhookconfiguration
 labels:
@@ -56,12 +58,12 @@ webhooks:
 `
 	var obj k8sspecs.K8sMutatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sMutatingWebhook{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sMutatingWebhook{
 		Meta: k8sspecs.Meta{
 			Name:        "example-mutatingwebhookconfiguration",
 			Labels:      map[string]string{"foo": "bar"},
@@ -105,7 +107,7 @@ webhooks:
 	})
 }
 
-func (s *webhooksSuite) TestK8sMutatingWebhookV1(c *gc.C) {
+func (s *webhooksSuite) TestK8sMutatingWebhookV1(c *tc.C) {
 	specV1 := `
 name: example-mutatingwebhookconfiguration
 labels:
@@ -138,12 +140,12 @@ webhooks:
 `
 	var obj k8sspecs.K8sMutatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1), len(specV1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sMutatingWebhook{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sMutatingWebhook{
 		Meta: k8sspecs.Meta{
 			Name:        "example-mutatingwebhookconfiguration",
 			Labels:      map[string]string{"foo": "bar"},
@@ -187,7 +189,7 @@ webhooks:
 	})
 }
 
-func (s *webhooksSuite) TestK8sMutatingWebhookInvalid(c *gc.C) {
+func (s *webhooksSuite) TestK8sMutatingWebhookInvalid(c *tc.C) {
 	spec := `
 name: example-mutatingwebhookconfiguration
 labels:
@@ -197,11 +199,11 @@ annotations:
 `
 	var obj k8sspecs.K8sMutatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(spec), len(spec)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj.Validate(), gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj.Validate(), tc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
 }
 
-func (s *webhooksSuite) TestK8sValidatingWebhookV1Beta1(c *gc.C) {
+func (s *webhooksSuite) TestK8sValidatingWebhookV1Beta1(c *tc.C) {
 
 	specV1Beta1 := `
 name: pod-policy.example.com
@@ -228,13 +230,13 @@ webhooks:
 `
 	var obj k8sspecs.K8sValidatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1Beta1), len(specV1Beta1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scope := admissionregistrationv1beta1.NamespacedScope
 	sideEffects := admissionregistrationv1beta1.SideEffectClassNone
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sValidatingWebhook{
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sValidatingWebhook{
 		Meta: k8sspecs.Meta{
 			Name:        "pod-policy.example.com",
 			Labels:      map[string]string{"foo": "bar"},
@@ -274,7 +276,7 @@ webhooks:
 	})
 }
 
-func (s *webhooksSuite) TestK8sValidatingWebhookV1(c *gc.C) {
+func (s *webhooksSuite) TestK8sValidatingWebhookV1(c *tc.C) {
 
 	specV1 := `
 name: pod-policy.example.com
@@ -301,13 +303,13 @@ webhooks:
 `
 	var obj k8sspecs.K8sValidatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(specV1), len(specV1)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scope := admissionregistrationv1beta1.NamespacedScope
 	sideEffects := admissionregistrationv1beta1.SideEffectClassNone
-	c.Assert(obj, gc.DeepEquals, k8sspecs.K8sValidatingWebhook{
+	c.Assert(obj, tc.DeepEquals, k8sspecs.K8sValidatingWebhook{
 		Meta: k8sspecs.Meta{
 			Name:        "pod-policy.example.com",
 			Labels:      map[string]string{"foo": "bar"},
@@ -347,7 +349,7 @@ webhooks:
 	})
 }
 
-func (s *webhooksSuite) TestK8sValidatingWebhookInvalid(c *gc.C) {
+func (s *webhooksSuite) TestK8sValidatingWebhookInvalid(c *tc.C) {
 
 	spec := `
 name: pod-policy.example.com
@@ -358,6 +360,6 @@ annotations:
 `
 	var obj k8sspecs.K8sValidatingWebhook
 	err := k8sspecs.NewStrictYAMLOrJSONDecoder(strings.NewReader(spec), len(spec)).Decode(&obj)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obj.Validate(), gc.ErrorMatches, `empty webhooks "pod-policy.example.com" not valid`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obj.Validate(), tc.ErrorMatches, `empty webhooks "pod-policy.example.com" not valid`)
 }

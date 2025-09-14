@@ -11,7 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
@@ -69,15 +69,15 @@ type TestingStateParams struct {
 // NewTestingState creates an api.State object that can be used for testing. It
 // isn't backed onto an actual API server, so actual RPC methods can't be
 // called on it. But it can be used for testing general behaviour.
-func NewTestingState(c *gc.C, params TestingStateParams) Connection {
+func NewTestingState(c *tc.C, params TestingStateParams) Connection {
 	var modelTag names.ModelTag
 	if params.ModelTag != "" {
 		t, err := names.ParseModelTag(params.ModelTag)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, tc.IsNil)
 		modelTag = t
 	}
 	url, err := url.Parse(params.Address)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	st := &state{
 		client:         params.RPCConnection,
 		clock:          params.Clock,
