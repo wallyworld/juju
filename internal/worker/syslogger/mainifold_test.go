@@ -5,16 +5,16 @@ package syslogger_test
 
 import (
 	"io"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/syslogger"
 )
 
@@ -22,12 +22,14 @@ type ManifoldSuite struct {
 	manifold dependency.Manifold
 	context  dependency.Context
 	worker   *mockWorker
-	stub     testing.Stub
+	stub     testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.stub.ResetCalls()
 
 	s.worker = &mockWorker{}
@@ -61,53 +63,53 @@ func (s *ManifoldSuite) newLogger(priority syslogger.Priority, tag string) (io.W
 
 var expectedInputs = []string{}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	s.startWorkerClean(c)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, syslogger.WorkerConfig{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, syslogger.WorkerConfig{})
 	config := args[0].(syslogger.WorkerConfig)
 
-	c.Assert(config.NewLogger, gc.NotNil)
+	c.Assert(config.NewLogger, tc.NotNil)
 	config.NewLogger = nil
 
-	c.Assert(config, jc.DeepEquals, syslogger.WorkerConfig{})
+	c.Assert(config, tc.DeepEquals, syslogger.WorkerConfig{})
 }
 
-func (s *ManifoldSuite) TestOutput(c *gc.C) {
+func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	w := s.startWorkerClean(c)
 
 	var logger syslogger.SysLogger
 	err := s.manifold.Output(w, &logger)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.Equals, s.worker)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.Equals, s.worker)
 	return w
 }
 
 type mockWorker struct {
 	worker.Worker
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (r *mockWorker) Log(logs []corelogger.LogRecord) error {

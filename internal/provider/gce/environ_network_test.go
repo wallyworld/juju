@@ -4,12 +4,13 @@
 package gce_test
 
 import (
+	tctesting "testing"
+
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -27,9 +28,11 @@ type environNetSuite struct {
 	subnets   []*computepb.Subnetwork
 }
 
-var _ = gc.Suite(&environNetSuite{})
+func TestEnvironNetSuite(t *tctesting.T) {
+	tc.Run(t, &environNetSuite{})
+}
 
-func (s *environNetSuite) SetUpTest(c *gc.C) {
+func (s *environNetSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.zones = []*computepb.Zone{{
 		Name:   ptr("home-zone"),
@@ -92,21 +95,21 @@ func (s *environNetSuite) SetUpTest(c *gc.C) {
 	}}
 }
 
-func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
+func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, gce.InvalidCredentialError)
 
 	_, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
+func (s *environNetSuite) TestGettingAllSubnets(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -116,9 +119,9 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
 	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1", []any{s.networks[0].Subnetworks}...).Return(s.subnets[:2], nil)
 	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "sub-network1",
 		ProviderNetworkId: "default",
 		CIDR:              "10.0.10.0/24",
@@ -133,7 +136,7 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestGettingAllSubnetsLegacy(c *gc.C) {
+func (s *environNetSuite) TestGettingAllSubnetsLegacy(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -144,9 +147,9 @@ func (s *environNetSuite) TestGettingAllSubnetsLegacy(c *gc.C) {
 	s.MockService.EXPECT().Network(gomock.Any(), "legacy").Return(s.networks[2], nil)
 
 	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "legacy",
 		ProviderNetworkId: "legacy",
 		CIDR:              "10.240.0.0/16",
@@ -155,7 +158,7 @@ func (s *environNetSuite) TestGettingAllSubnetsLegacy(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestGettingAllSubnetsWithNoVPCCompat(c *gc.C) {
+func (s *environNetSuite) TestGettingAllSubnetsWithNoVPCCompat(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -167,9 +170,9 @@ func (s *environNetSuite) TestGettingAllSubnetsWithNoVPCCompat(c *gc.C) {
 	s.MockService.EXPECT().Networks(gomock.Any()).Return([]*computepb.Network{s.networks[2]}, nil)
 
 	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "legacy",
 		ProviderNetworkId: "legacy",
 		CIDR:              "10.240.0.0/16",
@@ -178,7 +181,7 @@ func (s *environNetSuite) TestGettingAllSubnetsWithNoVPCCompat(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
+func (s *environNetSuite) TestSuperSubnets(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -188,14 +191,14 @@ func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
 	s.MockService.EXPECT().Subnetworks(gomock.Any(), "us-east1").Return(s.subnets, nil)
 
 	subnets, err := env.SuperSubnets(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []string{
+	c.Assert(subnets, tc.DeepEquals, []string{
 		"10.0.40.0/24",
 	})
 }
 
-func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
+func (s *environNetSuite) TestRestrictingToSubnets(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -209,8 +212,8 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{
 		"sub-network1",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "sub-network1",
 		ProviderNetworkId: "default",
 		CIDR:              "10.0.10.0/24",
@@ -219,7 +222,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
+func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -229,12 +232,12 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[0], nil)
 
 	subnets, err := env.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"sub-network1", "sub-network4"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["sub-network4"\] not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(subnets, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `subnets \["sub-network4"\] not found`)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(subnets, tc.IsNil)
 }
 
-func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
+func (s *environNetSuite) TestSpecificInstance(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -248,9 +251,9 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 		Return(s.subnets, nil)
 
 	subnets, err := env.Subnets(s.CallCtx, "inst-0", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "sub-network2",
 		ProviderNetworkId: "default",
 		CIDR:              "10.0.20.0/24",
@@ -259,7 +262,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
+func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -273,9 +276,9 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 		Return(s.subnets, nil)
 
 	subnets, err := env.Subnets(s.CallCtx, "inst-0", []corenetwork.Id{"sub-network2"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
+	c.Assert(subnets, tc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "sub-network2",
 		ProviderNetworkId: "default",
 		CIDR:              "10.0.20.0/24",
@@ -284,7 +287,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *gc.C) {
+func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -299,12 +302,12 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 		Return(s.subnets, nil)
 
 	subnets, err := env.Subnets(s.CallCtx, "inst-0", []corenetwork.Id{"sub-network1", "sub-network2"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["sub-network1"\] not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(subnets, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `subnets \["sub-network1"\] not found`)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(subnets, tc.IsNil)
 }
 
-func (s *environNetSuite) TestInterfaces(c *gc.C) {
+func (s *environNetSuite) TestInterfaces(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -318,11 +321,11 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/netif-0",
 		ProviderSubnetId:  "sub-network2",
@@ -342,22 +345,22 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
+func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().Instances(gomock.Any(), s.Prefix(env), "PENDING", "STAGING", "RUNNING").
 		Return(nil, gce.InvalidCredentialError)
 
 	_, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
+func (s *environNetSuite) TestInterfacesForMultipleInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -383,12 +386,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	})
 
 	infoLists, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0", "inst-1"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoLists, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infoLists, tc.HasLen, 2)
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, jc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/netif-0",
 		ProviderSubnetId:  "sub-network2",
@@ -409,7 +412,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 
 	// Check interfaces for second instance
 	infos = infoLists[1]
-	c.Assert(infos, jc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-1/netif-0",
 		ProviderSubnetId:  "sub-network1",
@@ -449,7 +452,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
+func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -463,12 +466,12 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		Return(s.subnets[1:], nil)
 
 	infoLists, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0", "bogus"})
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Assert(infoLists, gc.HasLen, 2)
+	c.Assert(err, tc.Equals, environs.ErrPartialInstances)
+	c.Assert(infoLists, tc.HasLen, 2)
 
 	// Check interfaces for first instance
 	infos := infoLists[0]
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/netif-0",
 		ProviderSubnetId:  "sub-network2",
@@ -488,10 +491,10 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	}})
 
 	// Check that the slot for the second instance is nil
-	c.Assert(infoLists[1], gc.IsNil, gc.Commentf("expected slot for unknown instance to be nil"))
+	c.Assert(infoLists[1], tc.IsNil, tc.Commentf("expected slot for unknown instance to be nil"))
 }
 
-func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
+func (s *environNetSuite) TestInterfacesMulti(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -518,11 +521,11 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/netif-0",
 		ProviderSubnetId:  "sub-network2",
@@ -562,7 +565,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
+func (s *environNetSuite) TestInterfacesLegacy(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -585,11 +588,11 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	s.MockService.EXPECT().Network(gomock.Any(), "some-vpc").Return(s.networks[2], nil)
 
 	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/somenetif",
 		ProviderSubnetId:  "",
@@ -612,7 +615,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
+func (s *environNetSuite) TestInterfacesSameSubnetwork(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -639,11 +642,11 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Return(s.subnets, nil)
 
 	infoList, err := env.NetworkInterfaces(s.CallCtx, []instance.Id{"inst-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	infos := infoList[0]
 
-	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
+	c.Assert(infos, tc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:       0,
 		ProviderId:        "inst-0/netif-0",
 		ProviderSubnetId:  "sub-network2",
@@ -683,7 +686,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceNoSubnets(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceNoSubnets(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -692,11 +695,11 @@ func (s *environNetSuite) TestSubnetsForInstanceNoSubnets(c *gc.C) {
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
 
 	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
-	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
-	c.Assert(err, jc.ErrorIs, gce.ErrNoSubnets)
+	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.ErrorIs, gce.ErrNoSubnets)
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceNoSubnetsAuto(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceNoSubnetsAuto(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -706,13 +709,13 @@ func (s *environNetSuite) TestSubnetsForInstanceNoSubnetsAuto(c *gc.C) {
 	s.MockService.EXPECT().NetworkSubnetworks(gomock.Any(), "us-east1", "/path/to/vpc").Return(nil, nil)
 
 	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 0)
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacementNoSubnetsAuto(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementNoSubnetsAuto(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -724,11 +727,11 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementNoSubnetsAuto(c *gc.C) 
 	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
 		Placement: "subnet=foo",
 	})
-	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
-	c.Assert(err, jc.ErrorIs, gce.ErrAutoSubnetsInvalid)
+	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.ErrorIs, gce.ErrAutoSubnetsInvalid)
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceSpacesNoSubnetsAuto(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceSpacesNoSubnetsAuto(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -740,11 +743,11 @@ func (s *environNetSuite) TestSubnetsForInstanceSpacesNoSubnetsAuto(c *gc.C) {
 	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
 		Constraints: constraints.MustParse("spaces=foo"),
 	})
-	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
-	c.Assert(err, jc.ErrorIs, gce.ErrAutoSubnetsInvalid)
+	c.Assert(err, tc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
+	c.Assert(err, tc.ErrorIs, gce.ErrAutoSubnetsInvalid)
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceNoSpacesOrPlacement(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceNoSpacesOrPlacement(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -763,16 +766,16 @@ func (s *environNetSuite) TestSubnetsForInstanceNoSpacesOrPlacement(c *gc.C) {
 		}}, nil)
 
 	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
 	// Result is picked at random from the available subnets.
-	c.Assert(set.NewStrings("subnet1", "subnet2", "subnet3", "subnet4").Contains(*subnets[0].Name), jc.IsTrue)
+	c.Assert(set.NewStrings("subnet1", "subnet2", "subnet3", "subnet4").Contains(*subnets[0].Name), tc.IsTrue)
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceSpaces(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceSpaces(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -797,17 +800,17 @@ func (s *environNetSuite) TestSubnetsForInstanceSpaces(c *gc.C) {
 			{"subnet3": {"home-zone", "away-zone"}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
 	// Only a single nic is allowed since there's only 1 VPC.
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
 	// Result is picked at random from the available subnets.
-	c.Assert(set.NewStrings("subnet1", "subnet2").Contains(*subnets[0].Name), jc.IsTrue)
+	c.Assert(set.NewStrings("subnet1", "subnet2").Contains(*subnets[0].Name), tc.IsTrue)
 }
 
-func (s *environNetSuite) TestSubnetsForInstanceSpacesFiltersFan(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstanceSpacesFiltersFan(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -825,15 +828,15 @@ func (s *environNetSuite) TestSubnetsForInstanceSpacesFiltersFan(c *gc.C) {
 			{"subnet1": {"home-zone", "away-zone"}, "INFAN": {}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
-	c.Assert(*subnets[0].Name, gc.Equals, "subnet1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
+	c.Assert(*subnets[0].Name, tc.Equals, "subnet1")
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacement(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacement(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -854,15 +857,15 @@ func (s *environNetSuite) TestSubnetsForInstancePlacement(c *gc.C) {
 	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
 		Placement: "subnet=subnet3",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
-	c.Assert(*subnets[0].Name, gc.Equals, "subnet3")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
+	c.Assert(*subnets[0].Name, tc.Equals, "subnet3")
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacementCIDR(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementCIDR(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -887,15 +890,15 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementCIDR(c *gc.C) {
 	vpcLink, subnets, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
 		Placement: "subnet=10.0.30.0/24",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
-	c.Assert(*subnets[0].Name, gc.Equals, "subnet3")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
+	c.Assert(*subnets[0].Name, tc.Equals, "subnet3")
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpaces(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpaces(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -921,15 +924,15 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpaces(c *gc.C) {
 			{"subnet3": {"home-zone", "away-zone"}},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vpcLink, gc.NotNil)
-	c.Assert(*vpcLink, gc.Equals, "/path/to/vpc")
-	c.Assert(subnets, gc.HasLen, 1)
-	c.Assert(subnets[0].Name, gc.NotNil)
-	c.Assert(*subnets[0].Name, gc.Equals, "subnet2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vpcLink, tc.NotNil)
+	c.Assert(*vpcLink, tc.Equals, "/path/to/vpc")
+	c.Assert(subnets, tc.HasLen, 1)
+	c.Assert(subnets[0].Name, tc.NotNil)
+	c.Assert(*subnets[0].Name, tc.Equals, "subnet2")
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpacesNotFound(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpacesNotFound(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -956,10 +959,10 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementWithSpacesNotFound(c *g
 			{"subnet3": {"home-zone", "away-zone"}},
 		},
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }
 
-func (s *environNetSuite) TestSubnetsForInstancePlacementNotFound(c *gc.C) {
+func (s *environNetSuite) TestSubnetsForInstancePlacementNotFound(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -980,5 +983,5 @@ func (s *environNetSuite) TestSubnetsForInstancePlacementNotFound(c *gc.C) {
 	_, _, err := gce.SubnetsForInstance(env, s.CallCtx, environs.StartInstanceParams{
 		Placement: "subnet=subnet5",
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 }

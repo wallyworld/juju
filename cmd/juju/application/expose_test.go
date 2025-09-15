@@ -5,16 +5,16 @@ package application
 
 import (
 	"runtime"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type ExposeSuite struct {
@@ -22,45 +22,47 @@ type ExposeSuite struct {
 	testing.CmdBlockHelper
 }
 
-func (s *ExposeSuite) SetUpTest(c *gc.C) {
+func (s *ExposeSuite) SetUpTest(c *tc.C) {
 	if runtime.GOOS == "darwin" {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	c.Assert(s.CmdBlockHelper, tc.NotNil)
+	s.AddCleanup(func(*tc.C) { s.CmdBlockHelper.Close() })
 }
 
-var _ = gc.Suite(&ExposeSuite{})
+func TestExposeSuite(t *tctesting.T) {
+	tc.Run(t, &ExposeSuite{})
+}
 
-func runExpose(c *gc.C, args ...string) error {
+func runExpose(c *tc.C, args ...string) error {
 	_, err := cmdtesting.RunCommand(c, NewExposeCommand(), args...)
 	return err
 }
 
-func (s *ExposeSuite) assertExposed(c *gc.C, application string) {
+func (s *ExposeSuite) assertExposed(c *tc.C, application string) {
 	svc, err := s.State.Application(application)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	exposed := svc.IsExposed()
-	c.Assert(exposed, jc.IsTrue)
+	c.Assert(exposed, tc.IsTrue)
 }
 
-func (s *ExposeSuite) TestExpose(c *gc.C) {
+func (s *ExposeSuite) TestExpose(c *tc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "some-application-name"})
 
 	err := runExpose(c, "some-application-name")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertExposed(c, "some-application-name")
 
 	err = runExpose(c, "nonexistent-application")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
 		Message: `application "nonexistent-application" not found`,
 		Code:    "not found",
 	})
 }
 
-func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
+func (s *ExposeSuite) TestBlockExpose(c *tc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "some-application-name"})
 
 	// Block operation

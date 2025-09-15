@@ -4,24 +4,24 @@
 package agentconfigupdater_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	logger loggo.Logger
 	agent  *mockAgent
 	hub    *pubsub.StructuredHub
@@ -30,9 +30,11 @@ type WorkerSuite struct {
 	initialConfigMsg controllermsg.ConfigChangedMessage
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.logger = loggo.GetLogger("test")
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
@@ -65,7 +67,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
+func (s *WorkerSuite) TestWorkerConfig(c *tc.C) {
 	for i, test := range []struct {
 		name      string
 		config    func() agentconfigupdater.WorkerConfig
@@ -104,40 +106,40 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 		config := test.config()
 		err := config.Validate()
 		if test.expectErr == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(err, tc.Satisfies, errors.IsNotValid)
+			c.Check(err, tc.ErrorMatches, test.expectErr)
 		}
 	}
 }
 
-func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
+func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	config := s.config
 	config.Agent = nil
 	w, err := agentconfigupdater.NewWorker(config)
-	c.Assert(w, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(w, tc.IsNil)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *WorkerSuite) TestNormalStart(c *gc.C) {
+func (s *WorkerSuite) TestNormalStart(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
+func (s *WorkerSuite) TestUpdateMongoProfile(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -146,29 +148,29 @@ func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
 
 	newConfig.Config[controller.MongoMemoryProfile] = "new-value"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
+func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -177,29 +179,29 @@ func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {
 
 	newConfig.Config[controller.JujuDBSnapChannel] = "latest/candidate"
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -208,29 +210,29 @@ func (s *WorkerSuite) TestUpdateQueryTracingEnabled(c *gc.C) {
 
 	newConfig.Config[controller.QueryTracingEnabled] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
+func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *tc.C) {
 	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	newConfig := s.initialConfigMsg
 	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
@@ -240,14 +242,14 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
 	d := time.Second * 2
 	newConfig.Config[controller.QueryTracingThreshold] = d.String()
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatalf("event not handled")
 	}
 
 	err = workertest.CheckKilled(c, w)
 
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+	c.Assert(err, tc.Equals, jworker.ErrRestartAgent)
 }

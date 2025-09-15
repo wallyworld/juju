@@ -4,25 +4,29 @@
 package kubernetes_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	provider "github.com/juju/juju/internal/provider/kubernetes"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type initSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&initSuite{})
+func TestInitSuite(t *tctesting.T) {
+	tc.Run(t, &initSuite{})
+}
 
-func (s *initSuite) TestLabelSelectorGlobalResourcesLifecycle(c *gc.C) {
+func (s *initSuite) TestLabelSelectorGlobalResourcesLifecycle(c *tc.C) {
 	c.Assert(
-		provider.CompileLifecycleApplicationRemovalSelector().String(), gc.DeepEquals,
+		provider.CompileLifecycleApplicationRemovalSelector().String(), tc.DeepEquals,
 		`juju-resource-lifecycle notin (model,persistent)`,
 	)
 	c.Assert(
-		provider.CompileLifecycleModelTeardownSelector().String(), gc.DeepEquals,
+		provider.CompileLifecycleModelTeardownSelector().String(), tc.DeepEquals,
 		`juju-resource-lifecycle notin (persistent)`,
 	)
 }

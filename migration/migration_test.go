@@ -8,27 +8,27 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
 
@@ -36,9 +36,11 @@ type ImportSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&ImportSuite{})
+func TestImportSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &ImportSuite{})
+}
 
-func (s *ImportSuite) SetUpTest(c *gc.C) {
+func (s *ImportSuite) SetUpTest(c *tc.C) {
 	// Specify the config to use for the controller model before
 	// calling SetUpTest of the StateSuite, otherwise we get
 	// coretesting.ModelConfig(c). The default provider type
@@ -50,18 +52,18 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 }
 
-func (s *ImportSuite) TestBadBytes(c *gc.C) {
+func (s *ImportSuite) TestBadBytes(c *tc.C) {
 	bytes := []byte("not a model")
 	controller := state.NewController(s.StatePool)
 	model, st, err := migration.ImportModel(controller, fakeGetClaimer, bytes)
-	c.Check(st, gc.IsNil)
-	c.Check(model, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
+	c.Check(st, tc.IsNil)
+	c.Check(model, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
+func (s *ImportSuite) exportImport(c *tc.C, leaders map[string]string, getClaimer migration.ClaimerFunc) *state.State {
 	model, err := s.State.Export(leaders)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
@@ -73,25 +75,25 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string, getClaime
 	})
 
 	bytes, err := description.Serialize(model)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	controller := state.NewController(s.StatePool)
 	dbModel, dbState, err := migration.ImportModel(controller, getClaimer, bytes)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { dbState.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { dbState.Close() })
 
 	dbConfig, err := dbModel.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dbConfig.UUID(), gc.Equals, uuid)
-	c.Assert(dbConfig.Name(), gc.Equals, "new-model")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dbConfig.UUID(), tc.Equals, uuid)
+	c.Assert(dbConfig.Name(), tc.Equals, "new-model")
 	return dbState
 }
 
-func (s *ImportSuite) TestImportModel(c *gc.C) {
+func (s *ImportSuite) TestImportModel(c *tc.C) {
 	s.exportImport(c, map[string]string{}, fakeGetClaimer)
 }
 
-func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
+func (s *ImportSuite) TestImportsLeadership(c *tc.C) {
 	s.makeApplicationWithUnits(c, "wordpress", 3)
 	s.makeApplicationWithUnits(c, "mysql", 2)
 	leaders := map[string]string{"wordpress": "wordpress/1"}
@@ -104,12 +106,12 @@ func (s *ImportSuite) TestImportsLeadership(c *gc.C) {
 		modelUUID = uuid
 		return &claimer, nil
 	})
-	c.Assert(modelUUID, gc.Equals, dbState.ModelUUID())
-	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
+	c.Assert(modelUUID, tc.Equals, dbState.ModelUUID())
+	c.Assert(claimer.stub.Calls(), tc.HasLen, 1)
 	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/1", time.Minute)
 }
 
-func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, count int) {
+func (s *ImportSuite) makeApplicationWithUnits(c *tc.C, applicationname string, count int) {
 	units := make([]*state.Unit, count)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: applicationname,
@@ -124,7 +126,7 @@ func (s *ImportSuite) makeApplicationWithUnits(c *gc.C, applicationname string, 
 	}
 }
 
-func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
+func (s *ImportSuite) TestUploadBinariesConfigValidate(c *tc.C) {
 	type T migration.UploadBinariesConfig // alias for brevity
 
 	check := func(modify func(*T), missing string) {
@@ -138,7 +140,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 		}
 		modify(&config)
 		realConfig := migration.UploadBinariesConfig(config)
-		c.Check(realConfig.Validate(), gc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
+		c.Check(realConfig.Validate(), tc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
 	}
 
 	check(func(c *T) { c.CharmDownloader = nil }, "CharmDownloader")
@@ -149,7 +151,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 	check(func(c *T) { c.ResourceUploader = nil }, "ResourceUploader")
 }
 
-func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
+func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		tools:     make(map[version.Binary]string),
@@ -192,7 +194,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedCurls := []string{
 		// Note ordering.
@@ -200,34 +202,34 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}
-	c.Assert(downloader.curls, jc.DeepEquals, expectedCurls)
-	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
+	c.Assert(downloader.curls, tc.DeepEquals, expectedCurls)
+	c.Assert(uploader.curls, tc.DeepEquals, expectedCurls)
 
 	expectedRefs := []string{
 		"postgresql-a77196f",
 		"magic-d348864",
 		"magic-5f44d22",
 	}
-	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
+	c.Assert(uploader.charmRefs, tc.DeepEquals, expectedRefs)
 
-	c.Assert(downloader.uris, jc.SameContents, []string{
+	c.Assert(downloader.uris, tc.SameContents, []string{
 		"/tools/0",
 		"/tools/1",
 	})
-	c.Assert(uploader.tools, jc.DeepEquals, toolsMap)
+	c.Assert(uploader.tools, tc.DeepEquals, toolsMap)
 
-	c.Assert(downloader.resources, jc.SameContents, []string{
+	c.Assert(downloader.resources, tc.SameContents, []string{
 		"app0/blob0",
 		"app1/blob1",
 	})
-	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
+	c.Assert(uploader.resources, tc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
 	})
-	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
+	c.Assert(uploader.unitResources, tc.SameContents, []string{"app1/99-blob1"})
 }
 
-func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
+func (s *ImportSuite) TestWrongCharmURLAssigned(c *tc.C) {
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
 		reassignCharmURL: true,
@@ -243,7 +245,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		ResourceUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-100")
 }
 
@@ -335,7 +337,7 @@ func fakeGetClaimer(string) (leadership.Claimer, error) {
 
 type fakeClaimer struct {
 	leadership.Claimer
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {

@@ -4,32 +4,37 @@
 package pruner_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/pruner"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
 type ManifoldConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config pruner.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldConfigSuite{})
+func TestManifoldConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldConfigSuite{})
+}
 
-func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = s.validConfig()
 }
@@ -44,37 +49,37 @@ func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
 	}
 }
 
-func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
-	c.Check(s.config.Validate(), jc.ErrorIsNil)
+func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingClock(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	s.checkNotValid(c, "nil Clock not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewClient(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingNewClient(c *tc.C) {
 	s.config.NewClient = nil
 	s.checkNotValid(c, "nil NewClient not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+func (s *ManifoldConfigSuite) TestMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
 }
 
-func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
+func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {
 	err := s.config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }

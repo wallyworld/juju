@@ -4,34 +4,37 @@
 package caasunitsmanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/caasunitsmanager"
 	"github.com/juju/juju/internal/worker/caasunitsmanager/mocks"
 	message "github.com/juju/juju/pubsub/agent"
 )
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
 type workerSuite struct{}
 
-func (s *workerSuite) newWorker(c *gc.C, hub caasunitsmanager.Hub) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C, hub caasunitsmanager.Hub) worker.Worker {
 	config := caasunitsmanager.Config{
 		Logger: loggo.GetLogger("test"),
 		Clock:  clock.WallClock,
 		Hub:    hub,
 	}
 	w, err := caasunitsmanager.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *workerSuite) TestStartStop(c *gc.C) {
+func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -72,8 +75,8 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 
 	w.Kill()
 	err := w.Wait()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsubStopCalled, jc.IsTrue)
-	c.Assert(unsubStartCalled, jc.IsTrue)
-	c.Assert(unsubStatusCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unsubStopCalled, tc.IsTrue)
+	c.Assert(unsubStartCalled, tc.IsTrue)
+	c.Assert(unsubStatusCalled, tc.IsTrue)
 }

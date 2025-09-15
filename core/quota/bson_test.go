@@ -4,19 +4,22 @@
 package quota_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/quota"
 )
 
-var _ = gc.Suite(&BSONTotalSizeCheckerSuite{})
+func TestBSONTotalSizeCheckerSuite(t *tctesting.T) {
+	tc.Run(t, &BSONTotalSizeCheckerSuite{})
+}
 
 type BSONTotalSizeCheckerSuite struct {
 }
 
-func (s *BSONTotalSizeCheckerSuite) TestSuccessfulCheck(c *gc.C) {
+func (s *BSONTotalSizeCheckerSuite) TestSuccessfulCheck(c *tc.C) {
 	chk := quota.NewBSONTotalSizeChecker(256)
 	chk.Check(map[string]string{
 		"a long key": "bar",
@@ -25,10 +28,10 @@ func (s *BSONTotalSizeCheckerSuite) TestSuccessfulCheck(c *gc.C) {
 	chk.Check("some string")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *BSONTotalSizeCheckerSuite) TestExceedMaxSize(c *gc.C) {
+func (s *BSONTotalSizeCheckerSuite) TestExceedMaxSize(c *tc.C) {
 	chk := quota.NewBSONTotalSizeChecker(24)
 	chk.Check(map[string]string{
 		"a long key": "bar",
@@ -37,11 +40,11 @@ func (s *BSONTotalSizeCheckerSuite) TestExceedMaxSize(c *gc.C) {
 	chk.Check("some string")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
-	c.Assert(err, gc.ErrorMatches, "max allowed size.*", gc.Commentf("expected error about exceeding max size"))
+	c.Assert(err, tc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorMatches, "max allowed size.*", tc.Commentf("expected error about exceeding max size"))
 }
 
-func (s *BSONTotalSizeCheckerSuite) TestQuotaBypass(c *gc.C) {
+func (s *BSONTotalSizeCheckerSuite) TestQuotaBypass(c *tc.C) {
 	chk := quota.NewBSONTotalSizeChecker(0)
 	chk.Check(map[string]string{
 		"a long key": "bar",
@@ -50,5 +53,5 @@ func (s *BSONTotalSizeCheckerSuite) TestQuotaBypass(c *gc.C) {
 	chk.Check("some string")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

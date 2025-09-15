@@ -4,25 +4,29 @@
 package client
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/state"
 )
 
 type lxdStateCharmProfilerSuite struct{}
 
-var _ = gc.Suite(&lxdStateCharmProfilerSuite{})
+func TestLxdStateCharmProfilerSuite(t *tctesting.T) {
+	tc.Run(t, &lxdStateCharmProfilerSuite{})
+}
 
-func (*lxdStateCharmProfilerSuite) TestLXDProfileEmptyCharm(c *gc.C) {
+func (*lxdStateCharmProfilerSuite) TestLXDProfileEmptyCharm(c *tc.C) {
 	wrapper := lxdStateCharmProfiler{
 		Charm: nil,
 	}
-	c.Check(wrapper.LXDProfile(), gc.IsNil)
+	c.Check(wrapper.LXDProfile(), tc.IsNil)
 }
 
-func (*lxdStateCharmProfilerSuite) TestLXDProfileCharmNoProfile(c *gc.C) {
+func (*lxdStateCharmProfilerSuite) TestLXDProfileCharmNoProfile(c *tc.C) {
 	wrapper := lxdStateCharmProfiler{
 		Charm: &state.Charm{},
 	}
-	c.Check(wrapper.LXDProfile(), gc.IsNil)
+	c.Check(wrapper.LXDProfile(), tc.IsNil)
 }

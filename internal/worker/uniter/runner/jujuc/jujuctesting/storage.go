@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -34,7 +34,7 @@ func (s *Storage) SetAttachment(attach jujuc.ContextStorageAttachment) {
 }
 
 // SetNewAttachment adds the attachment to the storage.
-func (s *Storage) SetNewAttachment(name, location string, kind storage.StorageKind, stub *testing.Stub) {
+func (s *Storage) SetNewAttachment(name, location string, kind storage.StorageKind, stub *testhelpers.Stub) {
 	tag := names.NewStorageTag(name)
 	attachment := &ContextStorageAttachment{
 		info: &StorageAttachment{tag, kind, location},
@@ -44,7 +44,7 @@ func (s *Storage) SetNewAttachment(name, location string, kind storage.StorageKi
 }
 
 // SetBlockStorage adds the attachment to the storage.
-func (s *Storage) SetBlockStorage(name, location string, stub *testing.Stub) {
+func (s *Storage) SetBlockStorage(name, location string, stub *testhelpers.Stub) {
 	s.SetNewAttachment(name, location, storage.StorageKindBlock, stub)
 }
 

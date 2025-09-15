@@ -4,10 +4,11 @@
 package cache_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
@@ -19,43 +20,45 @@ type UnitSuite struct {
 	cache.EntitySuite
 }
 
-var _ = gc.Suite(&UnitSuite{})
+func TestUnitSuite(t *tctesting.T) {
+	tc.Run(t, &UnitSuite{})
+}
 
-func (s *UnitSuite) TestWatchCharmConfigNewWatcher(c *gc.C) {
+func (s *UnitSuite) TestWatchCharmConfigNewWatcher(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateApplication(appChange, s.Manager)
 	m.UpdateUnit(unitChange, s.Manager)
 
 	u, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := u.WatchConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *UnitSuite) TestConfigSettingsNoBranch(c *gc.C) {
+func (s *UnitSuite) TestConfigSettingsNoBranch(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateCharm(charmChange, s.Manager)
 	m.UpdateApplication(appChange, s.Manager)
 	m.UpdateUnit(unitChange, s.Manager)
 
 	u, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := u.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := charm.Settings{
 		"key":       "value",
 		"another":   "foo",
 		"something": "else",
 	}
-	c.Assert(cfg, gc.DeepEquals, expected)
+	c.Assert(cfg, tc.DeepEquals, expected)
 }
 
-func (s *UnitSuite) TestConfigSettingsBranch(c *gc.C) {
+func (s *UnitSuite) TestConfigSettingsBranch(c *tc.C) {
 	m := s.NewModel(modelChange)
 	m.UpdateCharm(charmChange, s.Manager)
 	m.UpdateApplication(appChange, s.Manager)
@@ -73,10 +76,10 @@ func (s *UnitSuite) TestConfigSettingsBranch(c *gc.C) {
 	m.UpdateBranch(br, s.Manager)
 
 	u, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := u.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := charm.Settings{
 		"key":       "default-value",
@@ -84,10 +87,10 @@ func (s *UnitSuite) TestConfigSettingsBranch(c *gc.C) {
 		"new-key":   "new-value",
 		"something": "else",
 	}
-	c.Assert(cfg, gc.DeepEquals, expected)
+	c.Assert(cfg, tc.DeepEquals, expected)
 }
 
-func (s *UnitSuite) TestConfigSettingsDefaultsOnly(c *gc.C) {
+func (s *UnitSuite) TestConfigSettingsDefaultsOnly(c *tc.C) {
 	appNoCfg := appChange
 	appNoCfg.Config = nil
 
@@ -97,16 +100,16 @@ func (s *UnitSuite) TestConfigSettingsDefaultsOnly(c *gc.C) {
 	m.UpdateUnit(unitChange, s.Manager)
 
 	u, err := m.Unit(unitChange.Name)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := u.ConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected := charm.Settings{
 		"key":       "default-value",
 		"something": "else",
 	}
-	c.Assert(cfg, gc.DeepEquals, expected)
+	c.Assert(cfg, tc.DeepEquals, expected)
 }
 
 var unitChange = cache.UnitChange{

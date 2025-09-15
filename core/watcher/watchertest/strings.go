@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	tomb "gopkg.in/tomb.v2"
+	"github.com/juju/tc"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MockStringsWatcher struct {
@@ -56,7 +55,7 @@ func (w *MockStringsWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *tc.C, watcher watcher.StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -64,7 +63,7 @@ func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher) StringsWatcherC
 }
 
 type StringsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher watcher.StringsWatcher
 }
 
@@ -75,7 +74,7 @@ func (c StringsWatcherC) AssertChanges() {
 	select {
 	case change, ok := <-c.Watcher.Changes():
 		c.Logf("received change: %#v", change)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -109,7 +108,7 @@ func (c StringsWatcherC) AssertStops() {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
@@ -134,12 +133,12 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 	actual := c.collectChanges(true, maxCount)
 
 	if maxCount == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
 		actualCount := len(actual)
-		c.Assert(actualCount <= maxCount, jc.IsTrue, gc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		c.Assert(actualCount <= maxCount, tc.IsTrue, tc.Commentf("expected at most %d, got %d", maxCount, actualCount))
 		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
-		c.Assert(unexpected.Values(), gc.HasLen, 0)
+		c.Assert(unexpected.Values(), tc.HasLen, 0)
 	}
 }
 
@@ -148,9 +147,9 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	actual := c.collectChanges(single, len(expect))
 	if len(expect) == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
-		c.Assert(actual, jc.SameContents, expect)
+		c.Assert(actual, tc.SameContents, expect)
 	}
 }
 
@@ -164,7 +163,7 @@ loop:
 	for {
 		select {
 		case changes, ok := <-c.Watcher.Changes():
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			gotOneChange = true
 			actual = append(actual, changes...)
 			if single || len(actual) >= max {

@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"bytes"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
@@ -13,9 +14,8 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
@@ -27,7 +27,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type charmSuite struct {
@@ -43,9 +43,11 @@ type charmSuite struct {
 	url               *charm.URL
 }
 
-var _ = gc.Suite(&charmSuite{})
+func TestCharmSuite(t *tctesting.T) {
+	tc.Run(t, &charmSuite{})
+}
 
-func (s *charmSuite) SetUpTest(c *gc.C) {
+func (s *charmSuite) SetUpTest(c *tc.C) {
 	s.ctx = cmdtesting.Context(c)
 	s.deployResourceIDs = make(map[string]string)
 	s.url = charm.MustParseURL("testme")
@@ -58,7 +60,7 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
+func (s *charmSuite) TestSimpleCharmDeploy(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
 	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
@@ -66,10 +68,10 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *gc.C) {
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
 
 	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
+func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
@@ -89,10 +91,10 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
 	}
 
 	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
+func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
@@ -115,10 +117,10 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
 	}
 
 	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, gc.ErrorMatches, "base must be explicitly provided when image-id constraint is used")
+	c.Assert(err, tc.ErrorMatches, "base must be explicitly provided when image-id constraint is used")
 }
 
-func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) {
+func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
@@ -154,11 +156,11 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	}
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(output.String(), tc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
 }
 
-func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
+func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -197,20 +199,20 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 	}
 
 	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
-		c.Assert(appName, gc.Equals, dInfo.Name)
+		c.Assert(appName, tc.Equals, dInfo.Name)
 		return nil
 	}
 
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(dInfo, nil, nil)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output.String(), gc.Equals,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(output.String(), tc.Equals,
 		"Deployed \"differentThanCharmName\" from charm-hub charm \"testme\", "+
 			"revision 1 in channel latest/stable on ubuntu@20.04\n")
 }
 
-func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
+func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -242,7 +244,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 	s.deployerAPI.EXPECT().DeployFromRepository(gomock.Any()).Return(application.DeployInfo{}, nil, expectedErrors)
 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
-	c.Assert(err, gc.ErrorMatches, "failed to deploy charm \"testme\"")
+	c.Assert(err, tc.ErrorMatches, "failed to deploy charm \"testme\"")
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {
@@ -268,7 +270,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 	}
 }
 
-func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *charmSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil).AnyTimes()
@@ -295,9 +297,9 @@ func (s *charmSuite) expectResolveChannel() {
 		}).AnyTimes()
 }
 
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase corebase.Base) {
+func (s *charmSuite) expectDeployerAPIModelGet(c *tc.C, defaultBase corebase.Base) {
 	cfg, err := config.New(true, minimalModelConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	attrs := cfg.AllAttrs()
 	attrs["default-base"] = defaultBase.String()
 	s.deployerAPI.EXPECT().ModelGet().Return(attrs, nil)

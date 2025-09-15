@@ -7,23 +7,23 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	utilexec "github.com/juju/utils/v3/exec"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	k8sexec "k8s.io/client-go/util/exec"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/caasoperator/mocks"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/runner"
-	"github.com/juju/juju/testing"
 )
 
 type actionSuite struct {
@@ -33,24 +33,26 @@ type actionSuite struct {
 	unitAPI  *mocks.MockProviderIDGetter
 }
 
-var _ = gc.Suite(&actionSuite{})
+func TestActionSuite(t *tctesting.T) {
+	tc.Run(t, &actionSuite{})
+}
 
-func (s *actionSuite) setupExecClient(c *gc.C) *gomock.Controller {
+func (s *actionSuite) setupExecClient(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.executor = mocks.NewMockExecutor(ctrl)
 	s.unitAPI = mocks.NewMockProviderIDGetter(ctrl)
 	return ctrl
 }
 
-func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
+func (s *actionSuite) TestRunnerExecFunc(c *tc.C) {
 	s.assertRunnerExecFunc(c, "")
 }
 
-func (s *actionSuite) TestRunnerExecFuncWithError(c *gc.C) {
+func (s *actionSuite) TestRunnerExecFuncWithError(c *tc.C) {
 	s.assertRunnerExecFunc(c, "boom")
 }
 
-func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
+func (s *actionSuite) assertRunnerExecFunc(c *tc.C, errMsg string) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -65,10 +67,10 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 		unitPaths.GetToolsDir(),
 	} {
 		err := os.MkdirAll(p, 0700)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 	err := utils.AtomicWriteFile(filepath.Join(operatorPaths.GetToolsDir(), "jujud"), []byte(""), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	logger := loggo.GetLogger("test")
 	runnerExecFunc := caasoperator.GetNewRunnerExecutor(logger, s.executor)(s.unitAPI, unitPaths)
@@ -113,16 +115,16 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 			Cancel:       cancel,
 		},
 	)
-	c.Assert(outLogger.stopped, jc.IsTrue)
-	c.Assert(errLogger.stopped, jc.IsTrue)
-	c.Assert(result, jc.DeepEquals, &utilexec.ExecResponse{
+	c.Assert(outLogger.stopped, tc.IsTrue)
+	c.Assert(errLogger.stopped, tc.IsTrue)
+	c.Assert(result, tc.DeepEquals, &utilexec.ExecResponse{
 		Code:   expectedCode,
 		Stdout: []byte("some message"),
 	})
 	if exitErr == nil {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	} else {
-		c.Assert(err, gc.ErrorMatches, "boom")
+		c.Assert(err, tc.ErrorMatches, "boom")
 	}
 }
 

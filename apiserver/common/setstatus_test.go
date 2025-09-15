@@ -4,16 +4,17 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type statusSetterSuite struct {
@@ -21,9 +22,11 @@ type statusSetterSuite struct {
 	setter *common.StatusSetter
 }
 
-var _ = gc.Suite(&statusSetterSuite{})
+func TestStatusSetterSuite(t *tctesting.T) {
+	tc.Run(t, &statusSetterSuite{})
+}
 
-func (s *statusSetterSuite) SetUpTest(c *gc.C) {
+func (s *statusSetterSuite) SetUpTest(c *tc.C) {
 	s.statusBaseSuite.SetUpTest(c)
 
 	s.setter = common.NewStatusSetter(s.State, func() (common.AuthFunc, error) {
@@ -31,56 +34,56 @@ func (s *statusSetterSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
+func (s *statusSetterSuite) TestUnauthorized(c *tc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *statusSetterSuite) TestNotATag(c *gc.C) {
+func (s *statusSetterSuite) TestNotATag(c *tc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Executing.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *statusSetterSuite) TestNotFound(c *gc.C) {
+func (s *statusSetterSuite) TestNotFound(c *tc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewMachineTag("42").String(),
 		Status: status.Down.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetMachineStatus(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
 		Status: status.Started.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineStatus, err := machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.Equals, status.Started)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machineStatus.Status, tc.Equals, status.Started)
 }
 
-func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetUnitStatus(c *tc.C) {
 	// The status has to be a valid workload status, because get status
 	// on the unit returns the workload status not the agent status as it
 	// does on a machine.
@@ -91,18 +94,18 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 		Tag:    unit.Tag().String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	err = unit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unitStatus, err := unit.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unitStatus.Status, tc.Equals, status.Active)
 }
 
-func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
+func (s *statusSetterSuite) TestSetServiceStatus(c *tc.C) {
 	// Calls to set the status of a service should be going through the
 	// ServiceStatusSetter that checks for leadership, so permission denied
 	// here.
@@ -113,18 +116,18 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 		Tag:    service.Tag().String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 
 	err = service.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	serviceStatus, err := service.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceStatus.Status, gc.Equals, status.Maintenance)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(serviceStatus.Status, tc.Equals, status.Maintenance)
 }
 
-func (s *statusSetterSuite) TestBulk(c *gc.C) {
+func (s *statusSetterSuite) TestBulk(c *tc.C) {
 	s.badTag = names.NewMachineTag("42")
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
@@ -133,10 +136,10 @@ func (s *statusSetterSuite) TestBulk(c *gc.C) {
 		Tag:    "bad-tag",
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 2)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[1].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type serviceStatusSetterSuite struct {
@@ -144,9 +147,11 @@ type serviceStatusSetterSuite struct {
 	setter *common.ApplicationStatusSetter
 }
 
-var _ = gc.Suite(&serviceStatusSetterSuite{})
+func TestServiceStatusSetterSuite(t *tctesting.T) {
+	tc.Run(t, &serviceStatusSetterSuite{})
+}
 
-func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
+func (s *serviceStatusSetterSuite) SetUpTest(c *tc.C) {
 	s.statusBaseSuite.SetUpTest(c)
 
 	s.setter = common.NewApplicationStatusSetter(s.State, func() (common.AuthFunc, error) {
@@ -154,7 +159,7 @@ func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
 	}, s.leadershipChecker)
 }
 
-func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestUnauthorized(c *tc.C) {
 	// Machines are unauthorized since they are not units
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
@@ -162,44 +167,44 @@ func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestNotATag(c *tc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
-func (s *serviceStatusSetterSuite) TestNotFound(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestNotFound(c *tc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewUnitTag("foo/0").String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	// Can't call set service status on a machine.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *tc.C) {
 	// TODO: the correct way to fix this is to have the authorizer on the
 	// simple status setter to check to see if the unit (authTag) is a leader
 	// and able to set the service status. However, that is for another day.
@@ -210,14 +215,14 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 		Tag:    service.Tag().String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	// Can't call set service status on a service. Weird I know, but the only
 	// way is to go through the unit leader.
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *tc.C) {
 	// If the unit isn't the leader, it can't set it.
 	s.leadershipChecker.isLeader = false
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
@@ -227,13 +232,13 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 		Tag:    unit.Tag().String(),
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, "not leader")
+	c.Assert(status.Error, tc.ErrorMatches, "not leader")
 }
 
-func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *tc.C) {
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
@@ -249,18 +254,18 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 		Status: status.Active.String(),
 	}}})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	err = service.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	unitStatus, err := service.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.Active)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unitStatus.Status, tc.Equals, status.Active)
 }
 
-func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
+func (s *serviceStatusSetterSuite) TestBulk(c *tc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
@@ -273,18 +278,20 @@ func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
 		Tag:    "bad-tag",
 		Status: status.Active.String(),
 	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
-	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 3)
+	c.Assert(result.Results[0].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[1].Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(result.Results[2].Error, tc.ErrorMatches, `"bad-tag" is not a valid tag`)
 }
 
 type unitAgentFinderSuite struct{}
 
-var _ = gc.Suite(&unitAgentFinderSuite{})
+func TestUnitAgentFinderSuite(t *tctesting.T) {
+	tc.Run(t, &unitAgentFinderSuite{})
+}
 
-func (unitAgentFinderSuite) TestFindEntity(c *gc.C) {
+func (unitAgentFinderSuite) TestFindEntity(c *tc.C) {
 	f := fakeEntityFinder{
 		unit: fakeUnit{
 			agent: &state.UnitAgent{},
@@ -292,21 +299,21 @@ func (unitAgentFinderSuite) TestFindEntity(c *gc.C) {
 	}
 	ua := &common.UnitAgentFinder{f}
 	entity, err := ua.FindEntity(names.NewUnitTag("unit/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.DeepEquals, f.unit.agent)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity, tc.DeepEquals, f.unit.agent)
 }
 
-func (unitAgentFinderSuite) TestFindEntityBadTag(c *gc.C) {
+func (unitAgentFinderSuite) TestFindEntityBadTag(c *tc.C) {
 	ua := &common.UnitAgentFinder{fakeEntityFinder{}}
 	_, err := ua.FindEntity(names.NewApplicationTag("foo"))
-	c.Assert(err, gc.ErrorMatches, "unsupported tag.*")
+	c.Assert(err, tc.ErrorMatches, "unsupported tag.*")
 }
 
-func (unitAgentFinderSuite) TestFindEntityErr(c *gc.C) {
+func (unitAgentFinderSuite) TestFindEntityErr(c *tc.C) {
 	f := fakeEntityFinder{err: errors.Errorf("boo")}
 	ua := &common.UnitAgentFinder{f}
 	_, err := ua.FindEntity(names.NewUnitTag("unit/0"))
-	c.Assert(errors.Cause(err), gc.Equals, f.err)
+	c.Assert(errors.Cause(err), tc.Equals, f.err)
 }
 
 type fakeEntityFinder struct {

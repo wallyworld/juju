@@ -5,27 +5,26 @@ package backups_test
 
 import (
 	"github.com/juju/mgo/v3"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/rpc/params"
 )
 
-func (s *backupsSuite) TestCreateOkay(c *gc.C) {
+func (s *backupsSuite) TestCreateOkay(c *tc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
 	s.setBackups(c, s.meta, "")
 	var args params.BackupsCreateArgs
 	result, err := s.api.Create(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
 
-	c.Check(result, gc.DeepEquals, expected)
+	c.Check(result, tc.DeepEquals, expected)
 }
 
-func (s *backupsSuite) TestCreateNotes(c *gc.C) {
+func (s *backupsSuite) TestCreateNotes(c *tc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
@@ -36,14 +35,14 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 	}
 
 	result, err := s.api.Create(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
 	expected.Notes = "this backup is important"
 
-	c.Check(result, gc.DeepEquals, expected)
+	c.Check(result, tc.DeepEquals, expected)
 }
 
-func (s *backupsSuite) TestCreateError(c *gc.C) {
+func (s *backupsSuite) TestCreateError(c *tc.C) {
 	s.setBackups(c, nil, "failed!")
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
@@ -52,10 +51,10 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 	_, err := s.api.Create(args)
 
 	c.Logf("%v", err)
-	c.Check(err, gc.ErrorMatches, "failed!")
+	c.Check(err, tc.ErrorMatches, "failed!")
 }
 
-func (s *backupsSuite) TestCreateController(c *gc.C) {
+func (s *backupsSuite) TestCreateController(c *tc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
@@ -66,7 +65,7 @@ func (s *backupsSuite) TestCreateController(c *gc.C) {
 	s.setBackups(c, s.meta, "")
 
 	result, err := s.api.Create(params.BackupsCreateArgs{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")
-	c.Check(result, gc.DeepEquals, expected)
+	c.Check(result, tc.DeepEquals, expected)
 }

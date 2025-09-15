@@ -4,23 +4,25 @@
 package common_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type relationUnitsWatcherSuite struct{}
 
-var _ = gc.Suite(&relationUnitsWatcherSuite{})
+func TestRelationUnitsWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &relationUnitsWatcherSuite{})
+}
 
-func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *tc.C) {
 
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
@@ -31,10 +33,10 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromState(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(source.Err(), gc.Equals, tomb.ErrStillAlive)
-	c.Assert(w.Err(), gc.Equals, tomb.ErrStillAlive)
+	c.Assert(source.Err(), tc.Equals, tomb.ErrStillAlive)
+	c.Assert(w.Err(), tc.Equals, tomb.ErrStillAlive)
 
 	event := watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
@@ -56,7 +58,7 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
 
 	select {
 	case result := <-w.Changes():
-		c.Assert(result, gc.DeepEquals, params.RelationUnitsChange{
+		c.Assert(result, tc.DeepEquals, params.RelationUnitsChange{
 			Changed: map[string]params.UnitSettings{
 				"joni/1": {Version: 23},
 			},
@@ -69,19 +71,19 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
 		c.Fatalf("timed out waiting for output event")
 	}
 
-	c.Assert(w.Stop(), jc.ErrorIsNil)
+	c.Assert(w.Stop(), tc.ErrorIsNil)
 	// Ensure that stopping the watcher has stopped the source.
-	c.Assert(source.Err(), jc.ErrorIsNil)
+	c.Assert(source.Err(), tc.ErrorIsNil)
 
 	select {
 	case _, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, false)
+		c.Assert(ok, tc.Equals, false)
 	default:
 		c.Fatalf("didn't close output channel")
 	}
 }
 
-func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *tc.C) {
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
 	}
@@ -91,7 +93,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromState(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer w.Kill()
 
 	event := watcher.RelationUnitsChange{
@@ -110,13 +112,13 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
 
 	select {
 	case err := <-stopped:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for watcher to stop with pending send")
 	}
 }
 
-func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestNilChanged(c *tc.C) {
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
 	}
@@ -126,7 +128,7 @@ func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
 		return nil
 	})
 	w, err := common.RelationUnitsWatcherFromState(source)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	event := watcher.RelationUnitsChange{
 		Departed: []string{"happy", "birthday"},
@@ -134,12 +136,12 @@ func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
 
 	s.send(c, source.changes, event)
 	result := s.receive(c, w)
-	c.Assert(result, gc.DeepEquals, params.RelationUnitsChange{
+	c.Assert(result, tc.DeepEquals, params.RelationUnitsChange{
 		Departed: []string{"happy", "birthday"},
 	})
 }
 
-func (s *relationUnitsWatcherSuite) send(c *gc.C, ch chan watcher.RelationUnitsChange, event watcher.RelationUnitsChange) {
+func (s *relationUnitsWatcherSuite) send(c *tc.C, ch chan watcher.RelationUnitsChange, event watcher.RelationUnitsChange) {
 	select {
 	case ch <- event:
 	case <-time.After(testing.LongWait):
@@ -147,7 +149,7 @@ func (s *relationUnitsWatcherSuite) send(c *gc.C, ch chan watcher.RelationUnitsC
 	}
 }
 
-func (s *relationUnitsWatcherSuite) receive(c *gc.C, w common.RelationUnitsWatcher) params.RelationUnitsChange {
+func (s *relationUnitsWatcherSuite) receive(c *tc.C, w common.RelationUnitsWatcher) params.RelationUnitsChange {
 	select {
 	case result := <-w.Changes():
 		return result

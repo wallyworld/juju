@@ -4,8 +4,10 @@
 package output_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/ansiterm"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/status"
@@ -13,17 +15,19 @@ import (
 
 type OutputSuite struct{}
 
-var _ = gc.Suite(&OutputSuite{})
+func TestOutputSuite(t *tctesting.T) {
+	tc.Run(t, &OutputSuite{})
+}
 
-func (s *OutputSuite) TestStatusColor(c *gc.C) {
+func (s *OutputSuite) TestStatusColor(c *tc.C) {
 	var ctx *ansiterm.Context
 
 	unknown := status.Status("notKnown")
 	allocating := status.Allocating
 
 	ctx = output.StatusColor(unknown)
-	c.Assert(ctx, gc.Equals, output.CurrentHighlight)
+	c.Assert(ctx, tc.Equals, output.CurrentHighlight)
 
 	ctx = output.StatusColor(allocating)
-	c.Assert(ctx, gc.Equals, output.WarningHighlight)
+	c.Assert(ctx, tc.Equals, output.WarningHighlight)
 }

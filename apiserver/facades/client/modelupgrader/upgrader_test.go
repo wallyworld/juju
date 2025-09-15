@@ -4,15 +4,15 @@
 package modelupgrader_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"
@@ -32,9 +32,10 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
@@ -91,7 +92,7 @@ func makeBases(os string, vers []string) []state.Base {
 }
 
 type modelUpgradeSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	adminUser   names.UserTag
 	authoriser  apiservertesting.FakeAuthorizer
@@ -106,9 +107,11 @@ type modelUpgradeSuite struct {
 	broker           *caasmocks.MockBroker
 }
 
-var _ = gc.Suite(&modelUpgradeSuite{})
+func TestModelUpgradeSuite(t *tctesting.T) {
+	tc.Run(t, &modelUpgradeSuite{})
+}
 
-func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
+func (s *modelUpgradeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	adminUser := "admin"
@@ -122,7 +125,7 @@ func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 	s.cloudSpec = lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 }
 
-func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
+func (s *modelUpgradeSuite) getModelUpgraderAPI(c *tc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
@@ -149,19 +152,19 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 			return s.broker, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl, api
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
 	_, err := api.UpgradeModel(params.UpgradeModelParams{ModelTag: "!!!"})
-	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *tc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("user"),
 	}
@@ -174,10 +177,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 			TargetVersion: version.MustParse("3.0.0"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(err, tc.ErrorMatches, `permission denied`)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -189,10 +192,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 			TargetVersion: version.MustParse("3.0.0"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `the operation has been blocked`)
+	c.Assert(err, tc.ErrorMatches, `the operation has been blocked`)
 }
 
-func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
+func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *tc.C, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -210,7 +213,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -304,21 +307,21 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 			DryRun:        dryRun,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UpgradeModelResult{
 		ChosenVersion: version.MustParse("3.9.99"),
 	})
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3(c *tc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, false)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *tc.C) {
 	s.assertUpgradeModelForControllerModelJuju3(c, true)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -336,7 +339,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -416,13 +419,13 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 			DryRun:        false,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UpgradeModelResult{
 		ChosenVersion: version.MustParse("3.9.99"),
 	})
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -440,7 +443,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctrlModel := mocks.NewMockModel(ctrl)
 	model1 := mocks.NewMockModel(ctrl)
 	ctrlModel.EXPECT().IsControllerModel().Return(true).AnyTimes()
@@ -537,8 +540,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Error(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error.Error(), tc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/controller":
 - upgrading a controller to a newer major.minor version 3.9 not supported
@@ -555,7 +558,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
-func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers string, dryRun bool) {
+func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *tc.C, ctrlModelVers string, dryRun bool) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -622,25 +625,25 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 			DryRun:        dryRun,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UpgradeModelResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UpgradeModelResult{
 		ChosenVersion: version.MustParse("3.9.99"),
 	})
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelJuju3(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3(c *tc.C) {
 	s.assertUpgradeModelJuju3(c, "3.10.0", false)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelJuju3SameAsController(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3SameAsController(c *tc.C) {
 	s.assertUpgradeModelJuju3(c, "3.9.99", false)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *tc.C) {
 	s.assertUpgradeModelJuju3(c, "3.10.0", true)
 }
 
-func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
+func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -706,8 +709,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 			TargetVersion: version.MustParse("3.9.99"),
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Error(), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error.Error(), tc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
@@ -716,7 +719,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
-func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
+func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -744,10 +747,10 @@ func (s *modelUpgradeSuite) TestCannotUpgradePastControllerVersion(c *gc.C) {
 			TargetVersion: version.MustParse("3.12.0"),
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade to a version "3.12.0" greater than that of the controller "3.9.99"`)
+	c.Assert(err, tc.ErrorMatches, `cannot upgrade to a version "3.12.0" greater than that of the controller "3.9.99"`)
 }
 
-func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
+func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -761,10 +764,10 @@ func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 		st.EXPECT().AbortCurrentUpgrade().Return(nil),
 	)
 	err := api.AbortModelUpgrade(params.ModelParam{ModelTag: coretesting.ModelTag.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
+func (s *modelUpgradeSuite) TestFindToolsIAAS(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -776,21 +779,21 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 		MajorVersion: 2, ModelType: state.ModelTypeIAAS}).Return(simpleStreams, nil)
 
 	result, err := api.FindAgents(common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
 	})
 }
 
-func (s *modelUpgradeSuite) TestFindToolsCAASReleasedDefault(c *gc.C) {
+func (s *modelUpgradeSuite) TestFindToolsCAASReleasedDefault(c *tc.C) {
 	s.assertFindToolsCAASReleased(c, "", "amd64")
 }
 
-func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
+func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *tc.C) {
 	s.assertFindToolsCAASReleased(c, "arm64", "arm64")
 }
 
-func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectArch string) {
+func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *tc.C, wantArch, expectArch string) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -832,8 +835,8 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 
 	result, err := api.FindAgents(common.FindAgentsParams{
 		MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-" + expectArch)},
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10.1-ubuntu-" + expectArch)},
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-" + expectArch)},
@@ -841,7 +844,7 @@ func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expec
 	})
 }
 
-func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
+func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -874,13 +877,13 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 
 	result, err := api.FindAgents(common.FindAgentsParams{
 		Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 	})
 }
 
-func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
+func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -923,8 +926,8 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
 		ModelType: state.ModelTypeCAAS,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, coretools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
 		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
@@ -932,7 +935,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	})
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -949,11 +952,11 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c
 		version.MustParse("3.9.99"), common.FindAgentsParams{
 			MajorVersion: 3, MinorVersion: 666, ModelType: state.ModelTypeIAAS},
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot find agents from simple streams: fail to exit early`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(err, tc.ErrorMatches, `cannot find agents from simple streams: fail to exit early`)
+	c.Assert(targetVersion, tc.DeepEquals, version.Zero)
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -970,11 +973,11 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 		version.MustParse("3.9.99"),
 		common.FindAgentsParams{Number: version.MustParse("4.9.99"), ModelType: state.ModelTypeIAAS},
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot find agents from simple streams: fail to exit early`)
-	c.Assert(targetVersion, gc.DeepEquals, version.Zero)
+	c.Assert(err, tc.ErrorMatches, `cannot find agents from simple streams: fail to exit early`)
+	c.Assert(targetVersion, tc.DeepEquals, version.Zero)
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -995,11 +998,11 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 		common.FindAgentsParams{
 			Number: version.MustParse("3.9.98"), ModelType: state.ModelTypeIAAS},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("3.9.98"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(targetVersion, tc.DeepEquals, version.MustParse("3.9.98"))
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -1025,11 +1028,11 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
 			MajorVersion: 2, MinorVersion: 0,
 			ModelType: state.ModelTypeIAAS},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.9.100"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(targetVersion, tc.DeepEquals, version.MustParse("2.9.100"))
 }
 
-func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
+func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *tc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
@@ -1053,6 +1056,6 @@ func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
 			MajorVersion: 2,
 			ModelType:    state.ModelTypeIAAS},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(targetVersion, gc.DeepEquals, version.MustParse("2.9.100"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(targetVersion, tc.DeepEquals, version.MustParse("2.9.100"))
 }

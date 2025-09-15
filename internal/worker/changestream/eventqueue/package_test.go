@@ -5,24 +5,20 @@ package eventqueue
 
 import (
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/changestream"
 	dbtesting "github.com/juju/juju/database/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination change_mock_test.go github.com/juju/juju/core/changestream ChangeEvent
 //go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestream/eventqueue Stream
 //go:generate go run go.uber.org/mock/mockgen -package eventqueue -destination logger_mock_test.go github.com/juju/juju/internal/worker/changestream/eventqueue Logger
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type baseSuite struct {
 	dbtesting.ControllerSuite
@@ -32,7 +28,7 @@ type baseSuite struct {
 	changeEvent *MockChangeEvent
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.logger = NewMockLogger(ctrl)
@@ -54,7 +50,7 @@ func (s *baseSuite) expectChangeEvent(mask changestream.ChangeType, topic string
 	s.changeEvent.EXPECT().Namespace().Return(topic).MinTimes(1)
 }
 
-func (s *baseSuite) dispatchEvent(c *gc.C, changes chan<- changestream.ChangeEvent) <-chan struct{} {
+func (s *baseSuite) dispatchEvent(c *tc.C, changes chan<- changestream.ChangeEvent) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)

@@ -4,24 +4,27 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type PermissionSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&PermissionSuite{})
+func TestPermissionSuite(t *tctesting.T) {
+	tc.Run(t, &PermissionSuite{})
+}
 
 type fakeUserAccess struct {
 	subjects []names.UserTag
@@ -36,15 +39,15 @@ func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (permissi
 	return f.access, f.err
 }
 
-func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
+func (r *PermissionSuite) TestNoUserTagLacksPermission(c *tc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	hasPermission, err := common.HasPermission((&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (r *PermissionSuite) TestHasPermission(c *gc.C) {
+func (r *PermissionSuite) TestHasPermission(c *tc.C) {
 	testCases := []struct {
 		title            string
 		userGetterAccess permission.Access
@@ -156,13 +159,13 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 		}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
 		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)
-		c.Assert(hasPermission, gc.Equals, t.expected)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(hasPermission, tc.Equals, t.expected)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 }
 
-func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
+func (r *PermissionSuite) TestUserGetterErrorReturns(c *tc.C) {
 	user := names.NewUserTag("validuser")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
@@ -170,12 +173,12 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 		err:    errors.NotFoundf("a user"),
 	}
 	hasPermission, err := common.HasPermission(userGetter.call, user, permission.ReadAccess, target)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hasPermission, jc.IsFalse)
-	c.Assert(userGetter.subjects, gc.HasLen, 1)
-	c.Assert(userGetter.subjects[0], gc.DeepEquals, user)
-	c.Assert(userGetter.objects, gc.HasLen, 1)
-	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(hasPermission, tc.IsFalse)
+	c.Assert(userGetter.subjects, tc.HasLen, 1)
+	c.Assert(userGetter.subjects[0], tc.DeepEquals, user)
+	c.Assert(userGetter.objects, tc.HasLen, 1)
+	c.Assert(userGetter.objects[0], tc.DeepEquals, target)
 }
 
 type fakeEveryoneUserAccess struct {
@@ -190,7 +193,7 @@ func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (
 	return f.user, nil
 }
 
-func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
+func (r *PermissionSuite) TestEveryoneAtExternal(c *tc.C) {
 	testCases := []struct {
 		title            string
 		userGetterAccess permission.Access
@@ -236,12 +239,12 @@ func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
 		}
 		c.Logf(`HasPermission "everyone" test n %d: %s`, i, t.title)
 		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(hasPermission, gc.Equals, t.expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(hasPermission, tc.Equals, t.expected)
 	}
 }
 
-func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminSuperUser(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -249,11 +252,11 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
 	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
 	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminYes(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -262,11 +265,11 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
 	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
 
 	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsTrue)
 }
 
-func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminNo(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -275,11 +278,11 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
 	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
 
 	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(has, tc.IsFalse)
 }
 
-func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
+func (r *PermissionSuite) TestHasModelAdminError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -289,6 +292,6 @@ func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
 	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(someError)
 
 	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
-	c.Assert(err, jc.ErrorIs, someError)
-	c.Assert(has, jc.IsFalse)
+	c.Assert(err, tc.ErrorIs, someError)
+	c.Assert(has, tc.IsFalse)
 }

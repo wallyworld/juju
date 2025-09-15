@@ -7,23 +7,18 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/reboot"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type machineRebootSuite struct {
 	testing.JujuConnSuite
@@ -33,26 +28,28 @@ type machineRebootSuite struct {
 	reboot  reboot.State
 }
 
-var _ = gc.Suite(&machineRebootSuite{})
+func TestMachineRebootSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &machineRebootSuite{})
+}
 
-func (s *machineRebootSuite) SetUpTest(c *gc.C) {
+func (s *machineRebootSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	s.reboot, err = reboot.NewFromConnection(s.st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.reboot, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.reboot, tc.NotNil)
 }
 
-func (s *machineRebootSuite) TestWatchForRebootEvent(c *gc.C) {
+func (s *machineRebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		return nil
 	})
 	_, err := s.reboot.WatchForRebootEvent()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineRebootSuite) TestWatchForRebootEventError(c *gc.C) {
+func (s *machineRebootSuite) TestWatchForRebootEventError(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.NotifyWatchResult); ok {
 			resp.Error = &params.Error{
@@ -63,10 +60,10 @@ func (s *machineRebootSuite) TestWatchForRebootEventError(c *gc.C) {
 		return nil
 	})
 	_, err := s.reboot.WatchForRebootEvent()
-	c.Assert(err.Error(), gc.Equals, "Some error.")
+	c.Assert(err.Error(), tc.Equals, "Some error.")
 }
 
-func (s *machineRebootSuite) TestRequestReboot(c *gc.C) {
+func (s *machineRebootSuite) TestRequestReboot(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if entities, ok := p.(params.Entities); ok {
 			if len(entities.Entities) != 1 {
@@ -84,10 +81,10 @@ func (s *machineRebootSuite) TestRequestReboot(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.RequestReboot()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineRebootSuite) TestRequestRebootError(c *gc.C) {
+func (s *machineRebootSuite) TestRequestRebootError(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if entities, ok := p.(params.Entities); ok {
 			if len(entities.Entities) != 1 {
@@ -110,10 +107,10 @@ func (s *machineRebootSuite) TestRequestRebootError(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.RequestReboot()
-	c.Assert(err.Error(), gc.Equals, "Some error.")
+	c.Assert(err.Error(), tc.Equals, "Some error.")
 }
 
-func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
+func (s *machineRebootSuite) TestGetRebootAction(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.RebootActionResults); ok {
 			resp.Results = []params.RebootActionResult{
@@ -123,11 +120,11 @@ func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
 		return nil
 	})
 	rAction, err := s.reboot.GetRebootAction()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rAction, tc.Equals, params.ShouldDoNothing)
 }
 
-func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *gc.C) {
+func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.RebootActionResults); ok {
 			resp.Results = []params.RebootActionResult{
@@ -138,10 +135,10 @@ func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *gc.C) {
 		return nil
 	})
 	_, err := s.reboot.GetRebootAction()
-	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
+	c.Assert(err.Error(), tc.Equals, "expected 1 result, got 2")
 }
 
-func (s *machineRebootSuite) TestClearReboot(c *gc.C) {
+func (s *machineRebootSuite) TestClearReboot(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if entities, ok := p.(params.Entities); ok {
 			if len(entities.Entities) != 1 {
@@ -159,10 +156,10 @@ func (s *machineRebootSuite) TestClearReboot(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.ClearReboot()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineRebootSuite) TestClearRebootError(c *gc.C) {
+func (s *machineRebootSuite) TestClearRebootError(c *tc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.ErrorResults); ok {
 			resp.Results = []params.ErrorResult{
@@ -177,5 +174,5 @@ func (s *machineRebootSuite) TestClearRebootError(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.ClearReboot()
-	c.Assert(err.Error(), gc.Equals, "Some error.")
+	c.Assert(err.Error(), tc.Equals, "Some error.")
 }

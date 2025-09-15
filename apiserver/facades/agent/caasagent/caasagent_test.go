@@ -4,17 +4,21 @@
 package caasagent_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&caasagentSuite{})
+func TestCaasagentSuite(t *tctesting.T) {
+	tc.Run(t, &caasagentSuite{})
+}
 
 type caasagentSuite struct {
 	coretesting.BaseSuite
@@ -23,21 +27,21 @@ type caasagentSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 }
 
-func (s *caasagentSuite) SetUpTest(c *gc.C) {
+func (s *caasagentSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 }
 
-func (s *caasagentSuite) TestPermission(c *gc.C) {
+func (s *caasagentSuite) TestPermission(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("someapp"),
 	}
 	_, err := caasagent.NewStateFacadeV2(facadetest.Context{Auth_: s.authorizer})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

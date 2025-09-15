@@ -4,21 +4,24 @@
 package syslog_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/logfwd/syslog"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
-func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateFull(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -28,10 +31,10 @@ func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateWithoutPort(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c",
 		CACert:     coretesting.CACert,
@@ -41,16 +44,16 @@ func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigSuite) TestRawValidateZeroValue(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateZeroValue(c *tc.C) {
 	var cfg syslog.RawConfig
 	err := cfg.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingHost(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Enabled:    true,
 		Host:       "",
@@ -61,10 +64,10 @@ func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `Host "" not valid`)
+	c.Check(err, tc.ErrorMatches, `Host "" not valid`)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingHostNotEnabled(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingHostNotEnabled(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "",
 		CACert:     coretesting.CACert,
@@ -73,10 +76,10 @@ func (s *ConfigSuite) TestRawValidateMissingHostNotEnabled(c *gc.C) {
 	}
 
 	err := cfg.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingHostname(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Enabled:    true,
 		Host:       ":9876",
@@ -87,10 +90,10 @@ func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `Host ":9876" not valid`)
+	c.Check(err, tc.ErrorMatches, `Host ":9876" not valid`)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingCACert(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     "",
@@ -100,10 +103,10 @@ func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadCACert(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     invalidCert,
@@ -113,10 +116,10 @@ func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: x509: malformed certificate`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing CA certificate: x509: malformed certificate`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     "abc",
@@ -126,10 +129,10 @@ func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingCert(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -139,10 +142,10 @@ func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadCert(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -152,10 +155,10 @@ func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: x509: malformed certificate`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: x509: malformed certificate`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadCertFormat(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -165,10 +168,10 @@ func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in certificate input`)
 }
 
-func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateMissingKey(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -178,10 +181,10 @@ func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadKey(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -191,10 +194,10 @@ func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`)
 }
 
-func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -204,10 +207,10 @@ func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 
 	err := cfg.Validate()
 
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: failed to find any PEM data in key input`)
 }
 
-func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
+func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
@@ -216,7 +219,7 @@ func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 	}
 
 	err := cfg.Validate()
-	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`)
+	c.Check(err, tc.ErrorMatches, `validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`)
 }
 
 var invalidCert = `

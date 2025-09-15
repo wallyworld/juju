@@ -6,13 +6,13 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -34,7 +34,9 @@ type OperatorUpgraderSuite struct {
 	broker *DummyUpgradeCAASOperator
 }
 
-var _ = gc.Suite(&OperatorUpgraderSuite{})
+func TestOperatorUpgraderSuite(t *tctesting.T) {
+	tc.Run(t, &OperatorUpgraderSuite{})
+}
 
 func (d *DummyUpgradeCAASOperator) Client() kubernetes.Interface {
 	return d.client
@@ -64,13 +66,13 @@ func (d *DummyUpgradeCAASOperator) OperatorName(n string) string {
 	return n + "-operator"
 }
 
-func (o *OperatorUpgraderSuite) SetUpTest(c *gc.C) {
+func (o *OperatorUpgraderSuite) SetUpTest(c *tc.C) {
 	o.broker = &DummyUpgradeCAASOperator{
 		client: fake.NewSimpleClientset(),
 	}
 }
 
-func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
+func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *tc.C) {
 	var (
 		appName        = "testinitss"
 		oldImagePath   = fmt.Sprintf("%s/%s:2.9.33", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -102,7 +104,7 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -124,7 +126,7 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 			Phase: core.PodRunning,
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).Create(context.TODO(),
 		&apps.StatefulSet{
@@ -149,7 +151,7 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -170,32 +172,32 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 			Phase: core.PodRunning,
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	o.broker.clock = testclock.NewDilatedWallClock(10 * time.Millisecond)
 	err = operatorUpgrade(appName, newVersion, o.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appSS, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appSS.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(appSS.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
 
 	operatorSS, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.OperatorName(appName), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operatorSS.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
-	c.Assert(operatorSS.Spec.Template.Spec.InitContainers[0].VolumeMounts, gc.DeepEquals, []v1.VolumeMount{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(operatorSS.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
+	c.Assert(operatorSS.Spec.Template.Spec.InitContainers[0].VolumeMounts, tc.DeepEquals, []v1.VolumeMount{{
 		Name:      "juju-bins",
 		MountPath: "/opt/juju",
 	}})
-	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Image, gc.Equals, focalCharmBase)
-	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Args, gc.DeepEquals, []string{"-c", "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/juju/jujud $JUJU_TOOLS_DIR/jujud\n\nexec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=testinitss --debug\n"})
-	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].VolumeMounts, gc.DeepEquals, []v1.VolumeMount{{
+	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Image, tc.Equals, focalCharmBase)
+	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].Args, tc.DeepEquals, []string{"-c", "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/juju/jujud $JUJU_TOOLS_DIR/jujud\n\nexec $JUJU_TOOLS_DIR/jujud caasoperator --application-name=testinitss --debug\n"})
+	c.Assert(operatorSS.Spec.Template.Spec.Containers[0].VolumeMounts, tc.DeepEquals, []v1.VolumeMount{{
 		Name:      "juju-bins",
 		MountPath: "/opt/juju",
 	}})
-	c.Assert(operatorSS.Spec.Template.Spec.Volumes, gc.DeepEquals, []v1.Volume{{
+	c.Assert(operatorSS.Spec.Template.Spec.Volumes, tc.DeepEquals, []v1.Volume{{
 		Name: "juju-bins",
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -203,7 +205,7 @@ func (o *OperatorUpgraderSuite) TestOperatorUpgradeToBaseCharm(c *gc.C) {
 	})
 }
 
-func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
+func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *tc.C) {
 	var (
 		appName      = "testinitss"
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -233,15 +235,15 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	podChecker, err := workloadInitUpgrade(appName, newImagePath, o.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -262,11 +264,11 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err := podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsFalse)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -287,14 +289,14 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgrade(c *gc.C) {
 			Phase: core.PodRunning,
 		},
 	}, meta.UpdateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err = podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsTrue)
 }
 
-func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgradePodNotReadyYet(c *gc.C) {
+func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgradePodNotReadyYet(c *tc.C) {
 	var (
 		appName      = "testinitss"
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -325,19 +327,19 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgradePodNotReadyYet(c *gc.C
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	podChecker, err := workloadInitUpgrade(appName, newImagePath, o.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ss, err := o.broker.Client().AppsV1().StatefulSets(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ss.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
 
 	ready, err := podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsFalse)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(
 		context.TODO(),
@@ -360,14 +362,14 @@ func (o *OperatorUpgraderSuite) TestStatefulSetInitUpgradePodNotReadyYet(c *gc.C
 				Phase: core.PodRunning,
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err = podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsTrue)
 }
 
-func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
+func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *tc.C) {
 	var (
 		appName      = "testinitds"
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -397,15 +399,15 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	podChecker, err := workloadInitUpgrade(appName, newImagePath, o.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ds, err := o.broker.Client().AppsV1().DaemonSets(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ds.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ds.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -426,11 +428,11 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err := podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsFalse)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -451,14 +453,14 @@ func (o *OperatorUpgraderSuite) TestDaemonSetInitUpgrade(c *gc.C) {
 			Phase: core.PodRunning,
 		},
 	}, meta.UpdateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err = podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsTrue)
 }
 
-func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
+func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *tc.C) {
 	var (
 		appName      = "testinitds"
 		oldImagePath = fmt.Sprintf("%s/%s:9.9.8", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
@@ -488,15 +490,15 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 				},
 			},
 		}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	podChecker, err := workloadInitUpgrade(appName, newImagePath, o.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	de, err := o.broker.Client().AppsV1().Deployments(o.broker.Namespace()).
 		Get(context.TODO(), o.broker.DeploymentName(appName, true), meta.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(de.Spec.Template.Spec.InitContainers[0].Image, gc.Equals, newImagePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(de.Spec.Template.Spec.InitContainers[0].Image, tc.Equals, newImagePath)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Create(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -517,11 +519,11 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err := podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsFalse)
 
 	_, err = o.broker.Client().CoreV1().Pods(o.broker.Namespace()).Update(context.TODO(), &core.Pod{
 		ObjectMeta: meta.ObjectMeta{
@@ -542,9 +544,9 @@ func (o *OperatorUpgraderSuite) TestDeploymentInitUpgrade(c *gc.C) {
 			Phase: core.PodRunning,
 		},
 	}, meta.UpdateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ready, err = podChecker()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ready, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ready, tc.IsTrue)
 }

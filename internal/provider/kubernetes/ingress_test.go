@@ -4,9 +4,8 @@
 package kubernetes_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -26,10 +25,10 @@ import (
 	"github.com/juju/juju/core/status"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertIngressResources(c *tc.C, ingressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...any) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -39,7 +38,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -129,13 +128,13 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 		"kubernetes-service-externalname":    "ext-name",
 	})
 	if expectedErrString != "" {
-		c.Assert(err, gc.ErrorMatches, expectedErrString)
+		c.Assert(err, tc.ErrorMatches, expectedErrString)
 	} else {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -198,7 +197,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1Beta1(c *gc.C)
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -256,7 +255,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 		},
 	}
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertIngressResources(
 		c, ingressResources, "",
 		s.mockIngressV1Beta1.EXPECT().Create(gomock.Any(), ingress, metav1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
@@ -267,7 +266,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1Beta1(c *gc.C)
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1Beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1Beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -338,7 +337,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -408,7 +407,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreateV1(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -473,7 +472,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 		},
 	}
 	data, err := runtime.Encode(unstructured.UnstructuredJSONScheme, ingress)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertIngressResources(
 		c, ingressResources, "",
 		s.mockIngressV1.EXPECT().Create(gomock.Any(), ingress, gomock.Any()).Return(nil, s.k8sAlreadyExistsError()),
@@ -484,7 +483,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateV1(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngressV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -562,7 +561,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExis
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngressCreatedByJujuExpose(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngressCreatedByJujuExpose(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -611,7 +610,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithIngr
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1Beta1OnV1Cluster(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1Beta1OnV1Cluster(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -685,7 +684,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1Beta1OnV1Cluster(c *
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1OnV1BetaCluster(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesV1OnV1BetaCluster(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

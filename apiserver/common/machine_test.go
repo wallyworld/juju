@@ -4,12 +4,12 @@
 package common_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
@@ -22,9 +22,11 @@ import (
 
 type machineSuite struct{}
 
-var _ = gc.Suite(&machineSuite{})
+func TestMachineSuite(t *tctesting.T) {
+	tc.Run(t, &machineSuite{})
+}
 
-func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
+func (s *machineSuite) TestMachineJobFromParams(c *tc.C) {
 	var tests = []struct {
 		name model.MachineJob
 		want state.MachineJob
@@ -43,9 +45,9 @@ func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 	for _, test := range tests {
 		got, err := common.MachineJobFromParams(test.name)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(got, gc.Equals, test.want)
+		c.Check(got, tc.Equals, test.want)
 	}
 }
 
@@ -53,7 +55,7 @@ const (
 	dontWait = time.Duration(0)
 )
 
-func (s *machineSuite) TestDestroyMachines(c *gc.C) {
+func (s *machineSuite) TestDestroyMachines(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {},
@@ -63,19 +65,19 @@ func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 	}
 	err := common.MockableDestroyMachines(&st, false, dontWait, "1", "2", "3", "4")
 
-	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
-	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsFalse)
+	c.Assert(st.machines["1"].Life(), tc.Equals, state.Dying)
+	c.Assert(st.machines["1"].forceDestroyCalled, tc.IsFalse)
 
-	c.Assert(st.machines["2"].Life(), gc.Equals, state.Alive)
-	c.Assert(st.machines["2"].forceDestroyCalled, jc.IsFalse)
+	c.Assert(st.machines["2"].Life(), tc.Equals, state.Alive)
+	c.Assert(st.machines["2"].forceDestroyCalled, tc.IsFalse)
 
-	c.Assert(st.machines["3"].forceDestroyCalled, jc.IsFalse)
-	c.Assert(st.machines["3"].destroyCalled, jc.IsFalse)
+	c.Assert(st.machines["3"].forceDestroyCalled, tc.IsFalse)
+	c.Assert(st.machines["3"].destroyCalled, tc.IsFalse)
 
-	c.Assert(err, gc.ErrorMatches, "some machines were not destroyed: unit exists error; machine 4 does not exist")
+	c.Assert(err, tc.ErrorMatches, "some machines were not destroyed: unit exists error; machine 4 does not exist")
 }
 
-func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
+func (s *machineSuite) TestForceDestroyMachines(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {},
@@ -84,14 +86,14 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 	}
 	err := common.MockableDestroyMachines(&st, true, dontWait, "1", "2")
 
-	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
-	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsTrue)
-	c.Assert(st.machines["2"].forceDestroyCalled, jc.IsTrue)
+	c.Assert(st.machines["1"].Life(), tc.Equals, state.Dying)
+	c.Assert(st.machines["1"].forceDestroyCalled, tc.IsTrue)
+	c.Assert(st.machines["2"].forceDestroyCalled, tc.IsTrue)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
+func (s *machineSuite) TestMachineHardwareInfo(c *tc.C) {
 	one := uint64(1)
 	amd64 := "amd64"
 	gig := uint64(1024)
@@ -109,8 +111,8 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			DisplayName: "",
@@ -127,7 +129,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfo(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {
@@ -156,8 +158,8 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:         "1",
 			InstanceId: "123",
@@ -176,7 +178,7 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {
@@ -195,8 +197,8 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
@@ -208,7 +210,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {
@@ -227,8 +229,8 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",
@@ -240,7 +242,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	})
 }
 
-func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
+func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *tc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {
@@ -267,9 +269,9 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 		},
 	}
 	info, err := common.ModelMachineInfo(&st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_true := true
-	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+	c.Assert(info, tc.DeepEquals, []params.ModelMachineInfo{
 		{
 			Id:          "1",
 			InstanceId:  "123",

@@ -9,20 +9,19 @@ import (
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/testing/filetesting"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 )
 
-type newCharmResourceFunc func(c *gc.C, name, content string) charmresource.Resource
+type newCharmResourceFunc func(c *tc.C, name, content string) charmresource.Resource
 
 // NewResource produces full resource info for the given name and
 // content. The origin is set set to "upload". A reader is also returned
 // which contains the content.
-func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resources.Opened {
+func NewResource(c *tc.C, stub *testhelpers.Stub, name, applicationID, content string) resources.Opened {
 	username := "a-user"
 	return resources.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmResource),
@@ -33,7 +32,7 @@ func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content strin
 // NewDockerResource produces full resource info for the given name and
 // content. The origin is set set to "upload" (via resource created by  NewCharmDockerResource).
 // A reader is also returned which contains the content.
-func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resources.Opened {
+func NewDockerResource(c *tc.C, stub *testhelpers.Stub, name, applicationID, content string) resources.Opened {
 	username := "a-user"
 	return resources.Opened{
 		Resource:   newResource(c, name, applicationID, username, content, NewCharmDockerResource),
@@ -43,9 +42,9 @@ func NewDockerResource(c *gc.C, stub *testing.Stub, name, applicationID, content
 
 // NewCharmResource produces basic resource info for the given name
 // and content. The origin is set set to "upload".
-func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
+func NewCharmResource(c *tc.C, name, content string) charmresource.Resource {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,
@@ -59,14 +58,14 @@ func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
 		Size:        int64(len(content)),
 	}
 	err = res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return res
 }
 
 // NewCharmDockerResource produces basic docker resource info for the given name
 // and content. The origin is set set to "upload".
-func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resource {
+func NewCharmDockerResource(c *tc.C, name, content string) charmresource.Resource {
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        name,
@@ -79,7 +78,7 @@ func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resourc
 		Size:        0,
 	}
 	err := res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return res
 }
@@ -87,13 +86,13 @@ func NewCharmDockerResource(c *gc.C, name, content string) charmresource.Resourc
 // NewPlaceholderResource returns resource info for a resource that
 // has not been uploaded or pulled from the charm store yet. The origin
 // is set to "upload".
-func NewPlaceholderResource(c *gc.C, name, applicationID string) resources.Resource {
+func NewPlaceholderResource(c *tc.C, name, applicationID string) resources.Resource {
 	res := newResource(c, name, applicationID, "", "", NewCharmResource)
 	res.Fingerprint = charmresource.Fingerprint{}
 	return res
 }
 
-func newResource(c *gc.C, name, applicationID, username, content string, charmResourceFunc newCharmResourceFunc) resources.Resource {
+func newResource(c *tc.C, name, applicationID, username, content string, charmResourceFunc newCharmResourceFunc) resources.Resource {
 	var timestamp time.Time
 	if username != "" {
 		// TODO(perrito666) 2016-05-02 lp:1558657
@@ -108,7 +107,7 @@ func newResource(c *gc.C, name, applicationID, username, content string, charmRe
 		Timestamp:     timestamp,
 	}
 	err := res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }
 
@@ -117,7 +116,7 @@ type stubReadCloser struct {
 	io.Closer
 }
 
-func newStubReadCloser(stub *testing.Stub, content string) io.ReadCloser {
+func newStubReadCloser(stub *testhelpers.Stub, content string) io.ReadCloser {
 	return &stubReadCloser{
 		Reader: filetesting.NewStubReader(stub, content),
 		Closer: &filetesting.StubCloser{

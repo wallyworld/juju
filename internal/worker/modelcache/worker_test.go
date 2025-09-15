@@ -6,6 +6,7 @@ package modelcache_test
 import (
 	"math"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -13,12 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	jt "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
@@ -26,22 +25,25 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/modelcache"
 	multiworker "github.com/juju/juju/internal/worker/multiwatcher"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type WorkerConfigSuite struct {
-	jt.IsolationSuite
+	testhelpers.IsolationSuite
 	config modelcache.Config
 }
 
-var _ = gc.Suite(&WorkerConfigSuite{})
+func TestWorkerConfigSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerConfigSuite{})
+}
 
 type WorkerSuite struct {
 	statetesting.StateSuite
@@ -53,9 +55,11 @@ type WorkerSuite struct {
 	notify    func(interface{})
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &WorkerSuite{})
+}
 
-func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
+func (s *WorkerConfigSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	tracker := &fakeStateTracker{}
@@ -77,7 +81,7 @@ func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.notify = nil
 	s.logger = loggo.GetLogger("test")
@@ -87,7 +91,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Logger: loggo.GetLogger("test"),
 	})
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	w, err := multiworker.NewWorker(
 		multiworker.Config{
 			Clock:                clock.WallClock,
@@ -95,8 +99,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 			Backing:              allWatcherBacking,
 			PrometheusRegisterer: noopRegisterer{},
 		})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	s.mwFactory = w
 
 	s.config = modelcache.Config{
@@ -113,132 +117,132 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingStatePool(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingStatePool(c *tc.C) {
 	s.config.StatePool = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing state pool not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing state pool not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingHub(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingHub(c *tc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing hub not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing hub not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing logger not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing logger not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingWatcherFactory(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingWatcherFactory(c *tc.C) {
 	s.config.WatcherFactory = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing watcher factory not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing watcher factory not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingRegisterer(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingRegisterer(c *tc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing prometheus registerer not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing prometheus registerer not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingCleanup(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingCleanup(c *tc.C) {
 	s.config.Cleanup = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing cleanup func not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMinRestartDelay(c *tc.C) {
 	s.config.WatcherRestartDelayMin = -10 * time.Second
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "non-positive watcher min restart delay not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "non-positive watcher min restart delay not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMaxRestartDelay(c *tc.C) {
 	s.config.WatcherRestartDelayMax = 0
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "non-positive watcher max restart delay not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "non-positive watcher max restart delay not valid")
 }
 
-func (s *WorkerConfigSuite) TestConfigMissingClock(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing clock not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing clock not valid")
 }
 
-func (s *WorkerSuite) getController(c *gc.C, w worker.Worker) *cache.Controller {
+func (s *WorkerSuite) getController(c *tc.C, w worker.Worker) *cache.Controller {
 	var controller *cache.Controller
 	err := modelcache.ExtractCacheController(w, &controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return controller
 }
 
-func (s *WorkerSuite) TestExtractCacheController(c *gc.C) {
+func (s *WorkerSuite) TestExtractCacheController(c *tc.C) {
 	var controller *cache.Controller
 	var empty worker.Worker
 	err := modelcache.ExtractCacheController(empty, &controller)
-	c.Assert(err, gc.ErrorMatches, `in should be a \*modelcache.cacheWorker; got <nil>`)
+	c.Assert(err, tc.ErrorMatches, `in should be a \*modelcache.cacheWorker; got <nil>`)
 }
 
-func (s *WorkerSuite) start(c *gc.C) worker.Worker {
+func (s *WorkerSuite) start(c *tc.C) worker.Worker {
 	config := s.config
 	config.Notify = s.notify
 	w, err := modelcache.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, w)
 	})
 	return w
 }
 
-func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Model) {
+func (s *WorkerSuite) checkModel(c *tc.C, obtained interface{}, model *state.Model) {
 	change, ok := obtained.(cache.ModelChange)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
-	c.Check(change.ModelUUID, gc.Equals, model.UUID())
-	c.Check(change.Name, gc.Equals, model.Name())
-	c.Check(change.Life, gc.Equals, life.Value(model.Life().String()))
-	c.Check(change.Owner, gc.Equals, model.Owner().Name())
-	c.Check(change.IsController, gc.Equals, model.IsControllerModel())
-	c.Check(change.Cloud, gc.Equals, model.CloudName())
-	c.Check(change.CloudRegion, gc.Equals, model.CloudRegion())
+	c.Check(change.ModelUUID, tc.Equals, model.UUID())
+	c.Check(change.Name, tc.Equals, model.Name())
+	c.Check(change.Life, tc.Equals, life.Value(model.Life().String()))
+	c.Check(change.Owner, tc.Equals, model.Owner().Name())
+	c.Check(change.IsController, tc.Equals, model.IsControllerModel())
+	c.Check(change.Cloud, tc.Equals, model.CloudName())
+	c.Check(change.CloudRegion, tc.Equals, model.CloudRegion())
 	cred, _ := model.CloudCredentialTag()
-	c.Check(change.CloudCredential, gc.Equals, cred.Id())
+	c.Check(change.CloudCredential, tc.Equals, cred.Id())
 
 	cfg, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(change.Config, jc.DeepEquals, cfg.AllAttrs())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(change.Config, tc.DeepEquals, cfg.AllAttrs())
 	status, err := model.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(change.Status, jc.DeepEquals, status)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(change.Status, tc.DeepEquals, status)
 
 	users, err := model.Users()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	permissions := make(map[string]permission.Access)
 	for _, user := range users {
 		// Cache permission map is always lower case.
 		permissions[strings.ToLower(user.UserName)] = user.Access
 	}
-	c.Check(change.UserPermissions, jc.DeepEquals, permissions)
+	c.Check(change.UserPermissions, tc.DeepEquals, permissions)
 }
 
-func (s *WorkerSuite) TestInitialModel(c *gc.C) {
+func (s *WorkerSuite) TestInitialModel(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ModelEvents)
 	s.start(c)
 
 	obtained := s.nextChange(c, changes)
 	expected, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.checkModel(c, obtained, expected)
 
 	select {
@@ -248,25 +252,25 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestControllerConfigOnInit(c *gc.C) {
+func (s *WorkerSuite) TestControllerConfigOnInit(c *tc.C) {
 	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := []any{"debug", "test-feature"}
 	err = systemState.UpdateControllerConfig(
 		map[string]interface{}{
 			jujucontroller.Features: expected,
 		}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes := s.captureEvents(c, cachetest.ControllerEvents)
 	w := s.start(c)
 	controller := s.getController(c, w)
 	// discard initial event
 	s.nextChange(c, changes)
-	c.Assert(controller.Config()[jujucontroller.Features], gc.DeepEquals, expected)
+	c.Assert(controller.Config()[jujucontroller.Features], tc.DeepEquals, expected)
 }
 
-func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
+func (s *WorkerSuite) TestControllerConfigPubsubChange(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ControllerEvents)
 	w := s.start(c)
 	controller := s.getController(c, w)
@@ -278,7 +282,7 @@ func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
 			"controller-name": "updated-name",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-pubsub.Wait(handled):
@@ -288,17 +292,17 @@ func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
 
 	// discard update event
 	s.nextChange(c, changes)
-	c.Assert(controller.Name(), gc.Equals, "updated-name")
+	c.Assert(controller.Name(), tc.Equals, "updated-name")
 }
 
-func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
+func (s *WorkerSuite) TestModelConfigChange(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 	// discard initial event
 	s.nextChange(c, changes)
 
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	c.Logf("\nupdating status\n\n")
 
@@ -307,19 +311,19 @@ func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
 	err = model.UpdateModelConfig(map[string]interface{}{
 		"logging-config": expected,
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the change.
 	s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
 	cachedModel, err := controller.Model(s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(cachedModel.Config()["logging-config"], gc.Equals, expected)
+	c.Assert(cachedModel.Config()["logging-config"], tc.Equals, expected)
 }
 
-func (s *WorkerSuite) TestNewModel(c *gc.C) {
+func (s *WorkerSuite) TestNewModel(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 	// grab and discard the event for the initial model
@@ -330,14 +334,14 @@ func (s *WorkerSuite) TestNewModel(c *gc.C) {
 
 	obtained := s.nextChange(c, changes)
 	expected, err := newState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.checkModel(c, obtained, expected)
 
 	controller := s.getController(c, w)
-	c.Assert(controller.ModelUUIDs(), gc.HasLen, 2)
+	c.Assert(controller.ModelUUIDs(), tc.HasLen, 2)
 }
 
-func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
+func (s *WorkerSuite) TestRemovedModel(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 
@@ -351,47 +355,47 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 	s.nextChange(c, changes)
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// grab and discard the event for the new model
 	obtained := s.nextChange(c, changes)
 	modelChange, ok := obtained.(cache.ModelChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(modelChange.Life, gc.Equals, life.Value("dying"))
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(modelChange.Life, tc.Equals, life.Value("dying"))
 
 	err = st.ProcessDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.RemoveDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained = s.nextChange(c, changes)
-	mc := jc.NewMultiChecker()
-	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.Life", tc.Equals, life.Value("dead"))
 	c.Assert(obtained, mc, modelChange)
 
 	obtained = s.nextChange(c, changes)
 	modelChange2, ok := obtained.(cache.ModelChange)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	// Check permissions dropped correctly.
-	mc = jc.NewMultiChecker()
-	mc.AddExpr("_.UserPermissions", gc.HasLen, 0)
-	mc.AddExpr("_.Life", gc.Equals, life.Value("dead"))
+	mc = tc.NewMultiChecker()
+	mc.AddExpr("_.UserPermissions", tc.HasLen, 0)
+	mc.AddExpr("_.Life", tc.Equals, life.Value("dead"))
 	c.Assert(modelChange2, mc, modelChange)
 
 	obtained = s.nextChange(c, changes)
 	change, ok := obtained.(cache.RemoveModel)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(change.ModelUUID, gc.Equals, model.UUID())
+	c.Assert(ok, tc.IsTrue)
+	c.Check(change.ModelUUID, tc.Equals, model.UUID())
 
 	// Controller just has the system state again.
 	controller := s.getController(c, w)
-	c.Assert(controller.ModelUUIDs(), jc.SameContents, []string{s.State.ModelUUID()})
+	c.Assert(controller.ModelUUIDs(), tc.SameContents, []string{s.State.ModelUUID()})
 }
 
-func (s *WorkerSuite) TestAddApplication(c *gc.C) {
+func (s *WorkerSuite) TestAddApplication(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ApplicationEvents)
 	w := s.start(c)
 
@@ -399,22 +403,22 @@ func (s *WorkerSuite) TestAddApplication(c *gc.C) {
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.ApplicationChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.Name, gc.Equals, app.Name())
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.Name, tc.Equals, app.Name())
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
-	c.Check(modUUIDs, gc.HasLen, 1)
+	c.Check(modUUIDs, tc.HasLen, 1)
 
 	mod, err := controller.Model(modUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cachedApp, err := mod.Application(app.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedApp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cachedApp, tc.NotNil)
 }
 
-func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
+func (s *WorkerSuite) TestRemoveApplication(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.ApplicationEvents)
 	w := s.start(c)
 
@@ -424,7 +428,7 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
-	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	c.Assert(app.Destroy(), tc.ErrorIsNil)
 
 	// We will either get our application event,
 	// or time-out after processing all the changes.
@@ -432,16 +436,16 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 		change := s.nextChange(c, changes)
 		if _, ok := change.(cache.RemoveApplication); ok {
 			mod, err := controller.Model(modUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			_, err = mod.Application(app.Name())
-			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			c.Check(errors.IsNotFound(err), tc.IsTrue)
 			return
 		}
 	}
 }
 
-func (s *WorkerSuite) TestAddMachine(c *gc.C) {
+func (s *WorkerSuite) TestAddMachine(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
@@ -449,19 +453,19 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.MachineChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.Id, gc.Equals, machine.Id())
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.Id, tc.Equals, machine.Id())
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
-	c.Check(modUUIDs, gc.HasLen, 1)
+	c.Check(modUUIDs, tc.HasLen, 1)
 
 	mod, err := controller.Model(modUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cachedMachine, err := mod.Machine(machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedMachine, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cachedMachine, tc.NotNil)
 
 	// We don't know how many events we will get because `MakeMachine`
 	// above runs multiple operations, but is not transactional.
@@ -478,12 +482,12 @@ loop:
 	}
 
 	obtained, ok = change.(cache.MachineChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.Id, gc.Equals, machine.Id())
-	c.Check(obtained.InstanceId, gc.Not(gc.Equals), "")
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.Id, tc.Equals, machine.Id())
+	c.Check(obtained.InstanceId, tc.Not(tc.Equals), "")
 }
 
-func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
+func (s *WorkerSuite) TestRemoveMachine(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
@@ -494,11 +498,11 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 	modUUID := controller.ModelUUIDs()[0]
 
 	// Move machine to dying.
-	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(), tc.ErrorIsNil)
 	// Move machine to dead.
-	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), tc.ErrorIsNil)
 	// Remove will delete the machine from the database.
-	c.Assert(machine.Remove(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), tc.ErrorIsNil)
 
 	// We will either get our machine event,
 	// or time-out after processing all the changes.
@@ -506,16 +510,16 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 		change := s.nextChange(c, changes)
 		if _, ok := change.(cache.RemoveMachine); ok {
 			mod, err := controller.Model(modUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			_, err = mod.Machine(machine.Id())
-			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			c.Check(errors.IsNotFound(err), tc.IsTrue)
 			return
 		}
 	}
 }
 
-func (s *WorkerSuite) TestAddCharm(c *gc.C) {
+func (s *WorkerSuite) TestAddCharm(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.CharmEvents)
 	w := s.start(c)
 
@@ -523,22 +527,22 @@ func (s *WorkerSuite) TestAddCharm(c *gc.C) {
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.CharmChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.CharmURL, gc.Equals, charm.URL())
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.CharmURL, tc.Equals, charm.URL())
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
-	c.Check(modUUIDs, gc.HasLen, 1)
+	c.Check(modUUIDs, tc.HasLen, 1)
 
 	mod, err := controller.Model(modUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cachedCharm, err := mod.Charm(charm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedCharm, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cachedCharm, tc.NotNil)
 }
 
-func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
+func (s *WorkerSuite) TestRemoveCharm(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.CharmEvents)
 	w := s.start(c)
 
@@ -549,9 +553,9 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 	modUUID := controller.ModelUUIDs()[0]
 
 	// Move charm to dying.
-	c.Assert(charm.Destroy(), jc.ErrorIsNil)
+	c.Assert(charm.Destroy(), tc.ErrorIsNil)
 	// Remove will delete the charm from the database.
-	c.Assert(charm.Remove(), jc.ErrorIsNil)
+	c.Assert(charm.Remove(), tc.ErrorIsNil)
 
 	// We will either get our charm event,
 	// or time-out after processing all the changes.
@@ -559,16 +563,16 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 		change := s.nextChange(c, changes)
 		if _, ok := change.(cache.RemoveCharm); ok {
 			mod, err := controller.Model(modUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			_, err = mod.Charm(charm.URL())
-			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			c.Check(errors.IsNotFound(err), tc.IsTrue)
 			return
 		}
 	}
 }
 
-func (s *WorkerSuite) TestAddUnit(c *gc.C) {
+func (s *WorkerSuite) TestAddUnit(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.UnitEvents)
 	w := s.start(c)
 
@@ -576,35 +580,35 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.UnitChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.Name, gc.Equals, unit.Name())
-	c.Check(obtained.Application, gc.Equals, unit.ApplicationName())
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.Name, tc.Equals, unit.Name())
+	c.Check(obtained.Application, tc.Equals, unit.ApplicationName())
 
 	// Check the unit is assigned a machine.
 	change = s.nextChange(c, changes)
 	obtained2, ok := change.(cache.UnitChange)
-	c.Assert(ok, jc.IsTrue)
-	mc := jc.NewMultiChecker()
-	mc.AddExpr("_.MachineId", gc.Equals, "0")
+	c.Assert(ok, tc.IsTrue)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr("_.MachineId", tc.Equals, "0")
 	c.Assert(obtained2, mc, obtained)
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
-	c.Check(modUUIDs, gc.HasLen, 1)
+	c.Check(modUUIDs, tc.HasLen, 1)
 
 	mod, err := controller.Model(modUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cachedApp, err := mod.Application(unit.ApplicationName())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedApp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cachedApp, tc.NotNil)
 
 	// TODO(quiescence): this hack checks that any superfluous changes are the same
 	// as what we last received.
 	s.checkSuperfluousChanges(c, changes, obtained2)
 }
 
-func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
+func (s *WorkerSuite) TestRemoveUnit(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.UnitEvents)
 	w := s.start(c)
 
@@ -614,7 +618,7 @@ func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
-	c.Assert(unit.Destroy(), jc.ErrorIsNil)
+	c.Assert(unit.Destroy(), tc.ErrorIsNil)
 
 	// We will either get our unit event,
 	// or time-out after processing all the changes.
@@ -622,57 +626,57 @@ func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
 		change := s.nextChange(c, changes)
 		if _, ok := change.(cache.RemoveUnit); ok {
 			mod, err := controller.Model(modUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			_, err = mod.Unit(unit.Name())
-			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			c.Check(errors.IsNotFound(err), tc.IsTrue)
 			return
 		}
 	}
 }
 
-func (s *WorkerSuite) TestAddBranch(c *gc.C) {
+func (s *WorkerSuite) TestAddBranch(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.BranchEvents)
 	w := s.start(c)
 
 	branchName := "test-branch"
-	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
+	c.Assert(s.State.AddBranch(branchName, "test-user"), tc.ErrorIsNil)
 
 	change := s.nextChange(c, changes)
 	obtained, ok := change.(cache.BranchChange)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(obtained.Name, gc.Equals, "test-branch")
+	c.Assert(ok, tc.IsTrue)
+	c.Check(obtained.Name, tc.Equals, "test-branch")
 
 	controller := s.getController(c, w)
 	modUUIDs := controller.ModelUUIDs()
-	c.Check(modUUIDs, gc.HasLen, 1)
+	c.Check(modUUIDs, tc.HasLen, 1)
 
 	mod, err := controller.Model(modUUIDs[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = mod.Branch(branchName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
+func (s *WorkerSuite) TestRemoveBranch(c *tc.C) {
 	changes := s.captureEvents(c, cachetest.BranchEvents)
 	w := s.start(c)
 
 	branchName := "test-branch"
-	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
+	c.Assert(s.State.AddBranch(branchName, "test-user"), tc.ErrorIsNil)
 	_ = s.nextChange(c, changes)
 
 	controller := s.getController(c, w)
 	modUUID := controller.ModelUUIDs()[0]
 
 	branch, err := s.State.Branch(branchName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Generation docs are not deleted from the DB in any current workflow.
 	// Committing the branch so that it is no longer active should cause
 	// a removal message to be emitted.
 	_, err = branch.Commit("test-user")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We will either get our branch event,
 	// or time-out after processing all the changes.
@@ -680,16 +684,16 @@ func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
 		change := s.nextChange(c, changes)
 		if _, ok := change.(cache.RemoveBranch); ok {
 			mod, err := controller.Model(modUUID)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			_, err = mod.Branch(branchName)
-			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			c.Check(errors.IsNotFound(err), tc.IsTrue)
 			return
 		}
 	}
 }
 
-func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *tc.C) {
 	// Some state to close over.
 	fakeModelSent := false
 	errorSent := false
@@ -747,20 +751,20 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 
 	// Only the real model is there.
 	models := controller.ModelUUIDs()
-	c.Assert(models, gc.HasLen, 1)
-	c.Check(models[0], gc.Not(gc.Equals), "fake-ass-model-uuid")
+	c.Assert(models, tc.HasLen, 1)
+	c.Check(models[0], tc.Not(tc.Equals), "fake-ass-model-uuid")
 
 	mod, err := controller.Model(models[0])
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The application wound up in the cache,
 	// even though we threw an error when we first saw it.
 	cachedApp, err := mod.Application(app.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedApp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cachedApp, tc.NotNil)
 }
 
-func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *tc.C) {
 	clk := testclock.NewClock(time.Now())
 
 	s.config.WatcherRestartDelayMin = 2 * time.Second
@@ -795,7 +799,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 		if delay > s.config.WatcherRestartDelayMax {
 			delay = s.config.WatcherRestartDelayMax
 		}
-		c.Assert(clk.WaitAdvance(delay, time.Second, 1), jc.ErrorIsNil)
+		c.Assert(clk.WaitAdvance(delay, time.Second, 1), tc.ErrorIsNil)
 	}
 
 	// After the last error, the single change (our model) will appear.
@@ -805,31 +809,31 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	maxErrors = 1
 	errCount = 0
 	_ = s.Factory.MakeApplication(c, &factory.ApplicationParams{})
-	c.Assert(clk.WaitAdvance(s.config.WatcherRestartDelayMin, time.Second, 1), jc.ErrorIsNil)
+	c.Assert(clk.WaitAdvance(s.config.WatcherRestartDelayMin, time.Second, 1), tc.ErrorIsNil)
 
 	// After one error, the model and application will appear.
 	_ = s.nextChange(c, changes)
 	_ = s.nextChange(c, changes)
 }
 
-func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *tc.C) {
 	mw := s.mwFactory.WatchController()
 	s.config.WatcherFactory = func() multiwatcher.Watcher { return mw }
 
 	config := s.config
 	config.Notify = s.notify
 	w, err := modelcache.NewWorker(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Stop the backing multiwatcher.
-	c.Assert(mw.Stop(), jc.ErrorIsNil)
+	c.Assert(mw.Stop(), tc.ErrorIsNil)
 
 	// Check that the worker is killed.
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
+	c.Assert(err, tc.Satisfies, multiwatcher.IsErrStopped)
 }
 
-func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
+func (s *WorkerSuite) captureEvents(c *tc.C, matchers ...func(interface{}) bool) <-chan interface{} {
 	events := make(chan interface{})
 	s.notify = func(change interface{}) {
 		send := false
@@ -852,7 +856,7 @@ func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool)
 	return events
 }
 
-func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{} {
+func (s *WorkerSuite) nextChange(c *tc.C, changes <-chan interface{}) interface{} {
 	var obtained interface{}
 	select {
 	case obtained = <-changes:
@@ -864,12 +868,12 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 
 // checkSuperfluousChanges pulls as many changes in testing.ShortWait duration and ensures they
 // match matches arg. This is useful until we have some watcher quiescence again.
-func (s *WorkerSuite) checkSuperfluousChanges(c *gc.C, changes <-chan interface{}, matches interface{}) {
+func (s *WorkerSuite) checkSuperfluousChanges(c *tc.C, changes <-chan interface{}, matches interface{}) {
 	done := time.After(testing.ShortWait)
 	for {
 		select {
 		case obtained := <-changes:
-			c.Assert(obtained, jc.DeepEquals, matches)
+			c.Assert(obtained, tc.DeepEquals, matches)
 		case <-done:
 			return
 		}

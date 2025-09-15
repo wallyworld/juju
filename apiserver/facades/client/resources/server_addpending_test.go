@@ -4,25 +4,28 @@
 package resources_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&AddPendingResourcesSuite{})
+func TestAddPendingResourcesSuite(t *tctesting.T) {
+	tc.Run(t, &AddPendingResourcesSuite{})
+}
 
 type AddPendingResourcesSuite struct {
 	BaseSuite
 }
 
-func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestNoURL(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	id1 := "some-unique-ID"
@@ -38,16 +41,16 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
@@ -72,17 +75,17 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
@@ -110,17 +113,17 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
@@ -161,16 +164,16 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
@@ -209,17 +212,17 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestWithURLUpload(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginUpload
@@ -250,17 +253,17 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestUnknownResource(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res1.Origin = charmresource.OriginStore
@@ -288,16 +291,16 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
 		},
 	})
 }
 
-func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
+func (s *AddPendingResourcesSuite) TestDataStoreError(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	_, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	failure := errors.New("<failure>")
@@ -312,9 +315,9 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 			apiRes1.CharmResource,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
+	c.Check(result, tc.DeepEquals, params.AddPendingResourcesResult{
 		ErrorResult: params.ErrorResult{Error: &params.Error{
 			Message: `while adding pending resource info for "spam": <failure>`,
 		}},
@@ -322,7 +325,7 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 }
 
 type resourceMatcher struct {
-	c *gc.C
+	c *tc.C
 }
 
 func (m resourceMatcher) Matches(x interface{}) bool {

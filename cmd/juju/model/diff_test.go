@@ -5,12 +5,12 @@ package model_test
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -23,24 +23,26 @@ type diffSuite struct {
 	api *mocks.MockDiffCommandAPI
 }
 
-var _ = gc.Suite(&diffSuite{})
+func TestDiffSuite(t *tctesting.T) {
+	tc.Run(t, &diffSuite{})
+}
 
-func (s *diffSuite) TestInitNoBranch(c *gc.C) {
+func (s *diffSuite) TestInitNoBranch(c *tc.C) {
 	err := s.runInit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *diffSuite) TestInitBranchName(c *gc.C) {
+func (s *diffSuite) TestInitBranchName(c *tc.C) {
 	err := s.runInit(s.branchName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *diffSuite) TestInitFail(c *gc.C) {
+func (s *diffSuite) TestInitFail(c *tc.C) {
 	err := s.runInit("multiple", "branch", "names")
-	c.Assert(err, gc.ErrorMatches, "expected at most 1 branch name, got 3 arguments")
+	c.Assert(err, tc.ErrorMatches, "expected at most 1 branch name, got 3 arguments")
 }
 
-func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
+func (s *diffSuite) TestRunCommandNextGenExists(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	result := map[string]coremodel.Generation{
@@ -61,8 +63,8 @@ func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
 	s.api.EXPECT().BranchInfo(s.branchName, true, gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `
 new-branch:
   created: 0001-01-01 00:00:00Z
   created-by: test-user
@@ -79,24 +81,24 @@ new-branch:
 `[1:])
 }
 
-func (s *diffSuite) TestRunCommandAPIError(c *gc.C) {
+func (s *diffSuite) TestRunCommandAPIError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.api.EXPECT().BranchInfo(s.branchName, true, gomock.Any()).Return(nil, errors.New("boom"))
 
 	_, err := s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *diffSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewDiffCommandForTest(nil, s.store), args)
 }
 
-func (s *diffSuite) runCommand(c *gc.C) (*cmd.Context, error) {
+func (s *diffSuite) runCommand(c *tc.C) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewDiffCommandForTest(s.api, s.store), s.branchName, "--all")
 }
 
-func (s *diffSuite) setup(c *gc.C) *gomock.Controller {
+func (s *diffSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.api = mocks.NewMockDiffCommandAPI(ctrl)
 	s.api.EXPECT().Close()

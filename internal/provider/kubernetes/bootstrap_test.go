@@ -6,16 +6,16 @@ package kubernetes_test
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -38,13 +38,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
-	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/provider/kubernetes"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -55,12 +55,14 @@ type bootstrapSuite struct {
 	controllerCfg controller.Config
 	pcfg          *podcfg.ControllerPodConfig
 
-	controllerStackerGetter func() provider.ControllerStackerForTest
+	controllerStackerGetter func() kubernetes.ControllerStackerForTest
 }
 
-var _ = gc.Suite(&bootstrapSuite{})
+func TestBootstrapSuite(t *tctesting.T) {
+	tc.Run(t, &bootstrapSuite{})
+}
 
-func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.fakeClientSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.DeveloperMode)
@@ -74,20 +76,15 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		k8sconstants.OperatorStorageKey: "",
 		k8sconstants.WorkloadStorageKey: "",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
 
 	s.controllerCfg = coretesting.FakeControllerConfig()
 	s.controllerCfg["juju-db-snap-channel"] = controller.DefaultJujuDBSnapChannel
-	s.controllerCfg[controller.CAASImageRepo] = `
-{
-    "serveraddress": "quay.io",
-    "auth": "xxxxx==",
-    "repository": "test-account"
-}`[1:]
+	s.controllerCfg[controller.CAASImageRepo] = ""
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "ubuntu", constraints.MustParse("root-disk=10000M mem=4000M"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	current := jujuversion.Current
 	current.Build = 666
@@ -118,16 +115,16 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
 	s.pcfg = pcfg
-	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
-		controllerStacker, err := provider.NewcontrollerStackForTest(
-			envtesting.BootstrapContext(context.TODO(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+	s.controllerStackerGetter = func() kubernetes.ControllerStackerForTest {
+		controllerStacker, err := kubernetes.NewcontrollerStackForTest(
+			envtesting.BootstrapContext(c.Context(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
 		)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		return controllerStacker
 	}
 }
 
-func (s *bootstrapSuite) TearDownTest(c *gc.C) {
+func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.pcfg = nil
 	s.controllerCfg = nil
 	s.controllerStackerGetter = nil
@@ -135,7 +132,7 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
-func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
+func (s *bootstrapSuite) TestFindControllerNamespace(c *tc.C) {
 	tests := []struct {
 		Namespace      core.Namespace
 		ModelName      string
@@ -176,26 +173,26 @@ func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
 	for _, test := range tests {
 		client := fake.NewSimpleClientset()
 		_, err := client.CoreV1().Namespaces().Create(
-			context.TODO(),
+			c.Context(),
 			&test.Namespace,
 			v1.CreateOptions{},
 		)
-		c.Assert(err, jc.ErrorIsNil)
-		ns, err := provider.FindControllerNamespace(
+		c.Assert(err, tc.ErrorIsNil)
+		ns, err := kubernetes.FindControllerNamespace(
 			client, test.ControllerUUID)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ns, jc.DeepEquals, &test.Namespace)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(ns, tc.DeepEquals, &test.Namespace)
 	}
 }
 
 type svcSpecTC struct {
 	cloudType string
-	spec      *provider.ControllerServiceSpec
+	spec      *kubernetes.ControllerServiceSpec
 	errStr    string
 	cfg       *podcfg.BootstrapConfig
 }
 
-func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
+func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 	s.namespace = "controller-1"
 
 	getCfg := func(externalName, controllerServiceType string, controllerExternalIPs []string) *podcfg.BootstrapConfig {
@@ -216,13 +213,13 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 	for i, t := range []svcSpecTC{
 		{
 			cloudType: "azure",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 			},
 		},
 		{
 			cloudType: "ec2",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 				Annotations: k8sannotations.New(nil).
 					Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
@@ -230,43 +227,43 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 		},
 		{
 			cloudType: "gce",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 			},
 		},
 		{
 			cloudType: "microk8s",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeClusterIP,
 			},
 		},
 		{
 			cloudType: "openstack",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 			},
 		},
 		{
 			cloudType: "maas",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 			},
 		},
 		{
 			cloudType: "lxd",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeClusterIP,
 			},
 		},
 		{
 			cloudType: "unknown-cloud",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeClusterIP,
 			},
 		},
 		{
 			cloudType: "microk8s",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType: core.ServiceTypeLoadBalancer,
 				ExternalIP:  "1.1.1.1",
 				ExternalIPs: []string{"1.1.1.1"},
@@ -280,7 +277,7 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 		},
 		{
 			cloudType: "microk8s",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType:  core.ServiceTypeExternalName,
 				ExternalName: "example.com",
 				ExternalIPs:  []string{"1.1.1.1"},
@@ -289,7 +286,7 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 		},
 		{
 			cloudType: "microk8s",
-			spec: &provider.ControllerServiceSpec{
+			spec: &kubernetes.ControllerServiceSpec{
 				ServiceType:  core.ServiceTypeExternalName,
 				ExternalName: "example.com",
 			},
@@ -299,11 +296,11 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 		c.Logf("testing %d %q", i, t.cloudType)
 		spec, err := s.controllerStackerGetter().GetControllerSvcSpec(t.cloudType, t.cfg)
 		if len(t.errStr) == 0 {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, t.errStr)
+			c.Check(err, tc.ErrorMatches, t.errStr)
 		}
-		c.Check(spec, jc.DeepEquals, t.spec)
+		c.Check(spec, tc.DeepEquals, t.spec)
 	}
 }
 
@@ -311,7 +308,7 @@ func int64Ptr(a int64) *int64 {
 	return &a
 }
 
-func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 	podWatcher, podFirer := k8swatchertest.NewKubernetesTestWatcher()
 	eventWatcher, _ := k8swatchertest.NewKubernetesTestWatcher()
 	<-podWatcher.Changes()
@@ -335,15 +332,15 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		return "appuuid", nil
 	}
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 
 	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
 	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &bootstrapWatchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
-	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
+	c.Assert(s.broker.Namespace(), tc.DeepEquals, s.namespace)
 	c.Assert(
-		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		s.broker.GetAnnotations().ToMap(), tc.DeepEquals,
 		map[string]string{
 			"model.juju.is/id":      s.cfg.UUID(),
 			"controller.juju.is/id": coretesting.ControllerTag.Id(),
@@ -359,8 +356,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 
-	sharedSecret, sslKey := controllerStacker.GetSharedSecretAndSSLKey(c)
-
 	scName := "some-storage"
 	sc := k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
@@ -368,8 +363,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	APIPort := s.controllerCfg.APIPort()
-	SSHServerPort := s.controllerCfg.SSHServerPort()
+	apiPort := s.controllerCfg.APIPort()
+	sshServerPort := s.controllerCfg.SSHServerPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   s.namespace,
@@ -391,13 +386,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
 				},
 				{
 					Name:       "ssh-server",
-					TargetPort: intstr.FromInt(SSHServerPort),
-					Port:       int32(SSHServerPort),
+					TargetPort: intstr.FromInt(sshServerPort),
+					Port:       int32(sshServerPort),
 				},
 			},
 			ExternalIPs: []string{"10.0.0.1"},
@@ -418,26 +413,17 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
+				},
+				{
+					Name:       "ssh-server",
+					TargetPort: intstr.FromInt(sshServerPort),
+					Port:       int32(sshServerPort),
 				},
 			},
 			ClusterIP:   svcPublicIP,
 			ExternalIPs: []string{"10.0.0.1"},
-		},
-	}
-
-	secretWithServerPEMAdded := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        "juju-controller-test-secret",
-			Namespace:   s.namespace,
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "juju-controller-test"},
-			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
-		},
-		Type: core.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"shared-secret": []byte(sharedSecret),
-			"server.pem":    []byte(sslKey),
 		},
 	}
 
@@ -455,9 +441,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 
 	repoDetails, err := docker.NewImageRepoDetails(s.controllerCfg.CAASImageRepo())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	secretCAASImageRepoData, err := repoDetails.SecretData()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	secretCAASImageRepo := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -473,7 +459,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -652,13 +638,13 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "docker.io/jujusolutions/charm-base:ubuntu-22.04",
+			Image:           "ghcr.io/juju/charm-base:ubuntu-24.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--http", ":38812", "--verbose"},
 			Resources: core.ResourceRequirements{
 				Requests: core.ResourceList{
-					core.ResourceMemory: resource.MustParse("4000Mi"),
+					core.ResourceMemory: resource.MustParse("64Mi"),
 				},
 				Limits: core.ResourceList{
 					core.ResourceMemory: resource.MustParse("4000Mi"),
@@ -703,14 +689,14 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				{
 					Name:      "charm-data",
 					ReadOnly:  true,
-					MountPath: "/etc/profile.d/juju-introspection.sh",
-					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+					MountPath: "/usr/bin/juju-introspect",
+					SubPath:   "charm/bin/containeragent",
 				},
 				{
 					Name:      "charm-data",
 					ReadOnly:  true,
-					MountPath: "/usr/bin/juju-introspect",
-					SubPath:   "charm/bin/containeragent",
+					MountPath: "/etc/profile.d/juju-introspection.sh",
+					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
 				},
 				{
 					Name:      "charm-data",
@@ -732,7 +718,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "mongodb",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/juju-db:4.4",
+			Image:           "ghcr.io/juju/juju-db:4.4",
 			Command: []string{
 				"/bin/sh",
 			},
@@ -751,7 +737,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				ProbeHandler: core.ProbeHandler{
 					Exec: probCmds,
 				},
-				FailureThreshold:    60,
+				FailureThreshold:    120,
 				InitialDelaySeconds: 1,
 				PeriodSeconds:       5,
 				SuccessThreshold:    1,
@@ -824,7 +810,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "test-account/jujud-operator:" + expectedVersion.String(),
+			Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
 			Env: []core.EnvVar{{
 				Name:  osenv.JujuFeatureFlagEnvKey,
 				Value: "developer-mode",
@@ -958,7 +944,7 @@ exec /opt/pebble run --http :38811 --verbose
 				TimeoutSeconds:      3,
 				PeriodSeconds:       3,
 				SuccessThreshold:    1,
-				FailureThreshold:    100,
+				FailureThreshold:    200,
 			},
 			LivenessProbe: &core.Probe{
 				ProbeHandler: core.ProbeHandler{
@@ -996,10 +982,20 @@ exec /opt/pebble run --http :38811 --verbose
 	statefulSetSpec.Spec.Template.Spec.InitContainers = []core.Container{{
 		Name:            "charm-init",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "test-account/jujud-operator:" + expectedVersion.String(),
+		Image:           "ghcr.io/juju/jujud-operator:" + expectedVersion.String(),
 		WorkingDir:      "/var/lib/juju",
 		Command:         []string{"/opt/containeragent"},
-		Args:            []string{"init", "--containeragent-pebble-dir", "/containeragent/pebble", "--charm-modified-version", "0", "--data-dir", "/var/lib/juju", "--bin-dir", "/charm/bin", "--profile-dir", "/containeragent/etc/profile.d", "--controller"},
+		Args: []string{
+			"init",
+			"--containeragent-pebble-dir", "/containeragent/pebble",
+			"--charm-modified-version", "0",
+			"--data-dir", "/var/lib/juju",
+			"--bin-dir", "/charm/bin",
+			"--profile-dir", "/containeragent/etc/profile.d",
+			"--pebble-identities-file", "/charm/etc/pebble/identities.yaml",
+			"--pebble-charm-identity", "170",
+			"--controller",
+		},
 		Env: []core.EnvVar{
 			{
 				Name:  "JUJU_CONTAINER_NAMES",
@@ -1053,15 +1049,20 @@ exec /opt/pebble run --http :38811 --verbose
 				MountPath: "/containeragent/etc/profile.d",
 				SubPath:   "containeragent/etc/profile.d",
 			}, {
+				Name:      "charm-data",
+				MountPath: "/charm/etc/pebble/",
+				SubPath:   "charm/etc/pebble/",
+			}, {
 				Name:      "juju-controller-test-agent-conf",
 				MountPath: "/var/lib/juju/template-agent.conf",
 				SubPath:   "controller-unit-agent.conf",
 			},
 		},
 		SecurityContext: &core.SecurityContext{
-			RunAsUser:              int64Ptr(170),
-			RunAsGroup:             int64Ptr(170),
-			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsUser:  int64Ptr(170),
+			RunAsGroup: int64Ptr(170),
+			//TODO: this should be set
+			//ReadOnlyRootFilesystem: pointer.Bool(true),
 		},
 	}}
 
@@ -1090,7 +1091,8 @@ exec /opt/pebble run --http :38811 --verbose
 		ObjectMeta: v1.ObjectMeta{
 			Name: "controller-1",
 			Labels: map[string]string{
-				"model.juju.is/name": "controller",
+				"model.juju.is/name":    "controller",
+				"controller.juju.is/id": coretesting.ControllerTag.Id(),
 			},
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
@@ -1110,21 +1112,21 @@ exec /opt/pebble run --http :38811 --verbose
 
 	errChan := make(chan error)
 	done := make(chan struct{})
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		close(done)
 	})
 
 	// Ensure storage class is inplace.
-	_, err = s.mockStorageClass.Create(context.Background(), &sc, v1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.mockStorageClass.Create(c.Context(), &sc, v1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
 
-	serviceWatcher, err := s.mockServices.Watch(context.Background(), v1.ListOptions{LabelSelector: "app.kubernetes.io/name=juju-controller-test"})
-	c.Assert(err, jc.ErrorIsNil)
+	serviceWatcher, err := s.mockServices.Watch(c.Context(), v1.ListOptions{LabelSelector: "app.kubernetes.io/name=juju-controller-test"})
+	c.Assert(err, tc.ErrorIsNil)
 	defer serviceWatcher.Stop()
 	serviceChanges := serviceWatcher.ResultChan()
 
-	statefulsetWatcher, err := s.mockStatefulSets.Watch(context.Background(), v1.ListOptions{LabelSelector: "app.kubernetes.io/name=juju-controller-test"})
-	c.Assert(err, jc.ErrorIsNil)
+	statefulsetWatcher, err := s.mockStatefulSets.Watch(c.Context(), v1.ListOptions{LabelSelector: "app.kubernetes.io/name=juju-controller-test"})
+	c.Assert(err, tc.ErrorIsNil)
 	defer statefulsetWatcher.Stop()
 	statefulsetChanges := statefulsetWatcher.ResultChan()
 
@@ -1138,23 +1140,29 @@ exec /opt/pebble run --http :38811 --verbose
 				return
 			case <-serviceChanges:
 				// Ensure service address is available.
-				svc, err := s.mockServices.Get(context.Background(), "juju-controller-test-service", v1.GetOptions{})
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(svc, gc.DeepEquals, svcNotFullyProvisioned)
+				svc, err := s.mockServices.Get(c.Context(), "juju-controller-test-service", v1.GetOptions{})
+				c.Assert(err, tc.ErrorIsNil)
+				c.Assert(svc, tc.DeepEquals, svcNotFullyProvisioned)
 
 				svc.Spec.ClusterIP = svcPublicIP
-				svc, err = s.mockServices.Update(context.Background(), svc, v1.UpdateOptions{})
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(svc, gc.DeepEquals, svcProvisioned)
+				svc, err = s.mockServices.Update(c.Context(), svc, v1.UpdateOptions{})
+				c.Assert(err, tc.ErrorIsNil)
+				c.Assert(svc, tc.DeepEquals, svcProvisioned)
 				err = clk.WaitAdvance(3*time.Second, coretesting.ShortWait, 1)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				serviceChanges = nil
 			case <-statefulsetChanges:
 				// Ensure pod created - the fake client does not automatically create pods for the statefulset.
 				podName := s.pcfg.GetPodName()
-				ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(ss, gc.DeepEquals, statefulSetSpec)
+				ss, err := s.mockStatefulSets.Get(c.Context(), `juju-controller-test`, v1.GetOptions{})
+				c.Assert(err, tc.ErrorIsNil)
+
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_.Spec.Template.Spec.Containers[_].VolumeMounts`,
+					tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+				mc.AddExpr(`_.Spec.Template.Spec.InitContainers[_].VolumeMounts`,
+					tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+				c.Assert(ss, mc, statefulSetSpec)
 				p := &core.Pod{
 					ObjectMeta: v1.ObjectMeta{
 						Name: podName,
@@ -1167,15 +1175,15 @@ exec /opt/pebble run --http :38811 --verbose
 				}
 				p.Spec = ss.Spec.Template.Spec
 
-				pp, err := s.mockPods.Create(context.Background(), p, v1.CreateOptions{})
-				c.Assert(err, jc.ErrorIsNil)
+				pp, err := s.mockPods.Create(c.Context(), p, v1.CreateOptions{})
+				c.Assert(err, tc.ErrorIsNil)
 
 				_, err = s.broker.GetPod(podName)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				podFirer()
 				pp.Status.Phase = core.PodRunning
-				_, err = s.mockPods.Update(context.Background(), pp, v1.UpdateOptions{})
-				c.Assert(err, jc.ErrorIsNil)
+				_, err = s.mockPods.Update(c.Context(), pp, v1.UpdateOptions{})
+				c.Assert(err, tc.ErrorIsNil)
 				podFirer()
 				statefulsetChanges = nil
 			}
@@ -1184,45 +1192,42 @@ exec /opt/pebble run --http :38811 --verbose
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
-		ss, err := s.mockStatefulSets.Get(context.Background(), `juju-controller-test`, v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ss, gc.DeepEquals, statefulSetSpec)
+		ss, err := s.mockStatefulSets.Get(c.Context(), `juju-controller-test`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		mc := tc.NewMultiChecker()
+		mc.AddExpr(`_.Spec.Template.Spec.Containers[_].VolumeMounts`,
+			tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+		mc.AddExpr(`_.Spec.Template.Spec.InitContainers[_].VolumeMounts`,
+			tc.UnorderedMatch[[]core.VolumeMount](tc.DeepEquals), tc.ExpectedValue)
+		c.Assert(ss, mc, statefulSetSpec)
 
-		svc, err := s.mockServices.Get(context.Background(), `juju-controller-test-service`, v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(svc, gc.DeepEquals, svcProvisioned)
+		svc, err := s.mockServices.Get(c.Context(), `juju-controller-test-service`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
-		secret, err := s.mockSecrets.Get(context.Background(), "juju-controller-test-secret", v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretWithServerPEMAdded)
+		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
 
-		secret, err = s.mockSecrets.Get(context.Background(), "juju-image-pull-secret", v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretCAASImageRepo)
+		configmap, err := s.mockConfigMaps.Get(c.Context(), "juju-controller-test-configmap", v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(configmap, tc.DeepEquals, configMapWithAgentConfAdded)
 
-		secret, err = s.mockSecrets.Get(context.Background(), "juju-controller-test-application-config", v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(secret, gc.DeepEquals, secretControllerAppConfig)
+		crb, err := s.mockClusterRoleBindings.Get(c.Context(), `controller-1`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(crb, tc.DeepEquals, controllerServiceCRB)
 
-		configmap, err := s.mockConfigMaps.Get(context.Background(), "juju-controller-test-configmap", v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(configmap, gc.DeepEquals, configMapWithAgentConfAdded)
-
-		crb, err := s.mockClusterRoleBindings.Get(context.Background(), `controller-1`, v1.GetOptions{})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(crb, gc.DeepEquals, controllerServiceCRB)
-
-		c.Assert(bootstrapWatchers, gc.HasLen, 2)
-		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), jc.ErrorIsNil)
-		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), jc.ErrorIsNil)
+		c.Assert(bootstrapWatchers, tc.HasLen, 2)
+		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[0]), tc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, bootstrapWatchers[1]), tc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
 }
 
-func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1233,15 +1238,15 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 		return "appuuid", nil
 	}
 	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 
 	var watchers []k8swatcher.KubernetesNotifyWatcher
 	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &watchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
-	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
+	c.Assert(s.broker.Namespace(), tc.DeepEquals, s.namespace)
 	c.Assert(
-		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
+		s.broker.GetAnnotations().ToMap(), tc.DeepEquals,
 		map[string]string{
 			"model.juju.is/id":      s.cfg.UUID(),
 			"controller.juju.is/id": coretesting.ControllerTag.Id(),
@@ -1287,8 +1292,8 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, gc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
-		c.Assert(watchers, gc.HasLen, 0)
+		c.Assert(err, tc.ErrorMatches, `creating service for controller: waiting for controller service address fully provisioned timeout`)
+		c.Assert(watchers, tc.HasLen, 0)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}

@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	. "testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,12 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gc "gopkg.in/check.v1"
 )
-
-func TestPackage(t *T) {
-	gc.TestingT(t)
-}
 
 type mockHTTPClient struct {
 	url  string

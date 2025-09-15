@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -21,7 +21,9 @@ type storageGetSuite struct {
 	storageSuite
 }
 
-var _ = gc.Suite(&storageGetSuite{})
+func TestStorageGetSuite(t *tctesting.T) {
+	tc.Run(t, &storageGetSuite{})
+}
 
 var storageGetTests = []struct {
 	args   []string
@@ -34,46 +36,46 @@ var storageGetTests = []struct {
 	{[]string{"location"}, -1, "/dev/sda\n"},
 }
 
-func (s *storageGetSuite) TestOutputFormatKey(c *gc.C) {
+func (s *storageGetSuite) TestOutputFormatKey(c *tc.C) {
 	for i, t := range storageGetTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx, _ := s.newHookContext()
 		com, err := jujuc.NewCommand(hctx, "storage-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(code, tc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
 
 		var out interface{}
 		var outMap map[string]interface{}
 		switch t.format {
 		case formatYaml:
-			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), gc.IsNil)
+			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
 			out = outMap
 		case formatJson:
-			c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &outMap), gc.IsNil)
+			c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &outMap), tc.IsNil)
 			out = outMap
 		default:
 			out = string(bufferBytes(ctx.Stdout))
 		}
-		c.Assert(out, gc.DeepEquals, t.out)
+		c.Assert(out, tc.DeepEquals, t.out)
 	}
 }
 
-func (s *storageGetSuite) TestOutputPath(c *gc.C) {
+func (s *storageGetSuite) TestOutputPath(c *tc.C) {
 	hctx, _ := s.newHookContext()
 	com, err := jujuc.NewCommand(hctx, "storage-get")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "yaml", "--output", "some-file", "-s", "data/0"})
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), tc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), tc.Equals, "")
 	content, err := os.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var out map[string]interface{}
-	c.Assert(goyaml.Unmarshal(content, &out), gc.IsNil)
-	c.Assert(out, gc.DeepEquals, storageAttributes)
+	c.Assert(goyaml.Unmarshal(content, &out), tc.IsNil)
+	c.Assert(out, tc.DeepEquals, storageAttributes)
 }

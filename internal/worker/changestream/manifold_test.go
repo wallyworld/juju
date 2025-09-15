@@ -4,10 +4,11 @@
 package changestream
 
 import (
-	clock "github.com/juju/clock"
+	tctesting "testing"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
 )
@@ -16,32 +17,34 @@ type manifoldSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.Clock = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.DBAccessor = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.FileNotifyWatcher = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = s.getConfig()
 	cfg.NewEventQueueWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

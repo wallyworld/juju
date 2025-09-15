@@ -5,13 +5,13 @@ package model_test
 
 import (
 	"errors"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -24,27 +24,29 @@ type showCommitsSuite struct {
 	api *mocks.MockShowCommitCommandAPI
 }
 
-var _ = gc.Suite(&showCommitsSuite{})
+func TestShowCommitsSuite(t *tctesting.T) {
+	tc.Run(t, &showCommitsSuite{})
+}
 
-func (s *showCommitsSuite) TestInitNoArg(c *gc.C) {
+func (s *showCommitsSuite) TestInitNoArg(c *tc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, "expected exactly 1 commit id, got 0 arguments")
+	c.Assert(err, tc.ErrorMatches, "expected exactly 1 commit id, got 0 arguments")
 }
 
-func (s *showCommitsSuite) TestInitOneArg(c *gc.C) {
+func (s *showCommitsSuite) TestInitOneArg(c *tc.C) {
 	err := s.runInit("1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *showCommitsSuite) TestInitNotInt(c *gc.C) {
+func (s *showCommitsSuite) TestInitNotInt(c *tc.C) {
 	err := s.runInit("something")
-	c.Assert(err, gc.ErrorMatches, `encountered problem trying to parse "something" into an int`)
+	c.Assert(err, tc.ErrorMatches, `encountered problem trying to parse "something" into an int`)
 }
 
-func (s *showCommitsSuite) TestInitMoreArgs(c *gc.C) {
+func (s *showCommitsSuite) TestInitMoreArgs(c *tc.C) {
 	args := []string{"1", "2", "3"}
 	err := s.runInit(args...)
-	c.Assert(err, gc.ErrorMatches, "expected exactly 1 commit id, got 3 arguments")
+	c.Assert(err, tc.ErrorMatches, "expected exactly 1 commit id, got 3 arguments")
 }
 func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit {
 	values := coremodel.GenerationCommit{
@@ -69,7 +71,7 @@ func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit
 	return values
 }
 
-func (s *showCommitsSuite) TestYamlOutput(c *gc.C) {
+func (s *showCommitsSuite) TestYamlOutput(c *tc.C) {
 	defer s.setup(c).Finish()
 	result := s.getGenerationCommitValue()
 	expected := `
@@ -99,28 +101,28 @@ created-by: test-user
 `[1:]
 	s.api.EXPECT().ShowCommit(1).Return(result, nil)
 	ctx, err := s.runCommand(c, "1", "--format=yaml", "--utc")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expected)
 }
 
-func (s *showCommitsSuite) TestRunCommandAPIError(c *gc.C) {
+func (s *showCommitsSuite) TestRunCommandAPIError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.api.EXPECT().ShowCommit(gomock.Any()).Return(coremodel.GenerationCommit{}, errors.New("boom"))
 
 	_, err := s.runCommand(c, "1")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 func (s *showCommitsSuite) runInit(args ...string) error {
 	return cmdtesting.InitCommand(model.NewShowCommitCommandForTest(nil, s.store), args)
 }
 
-func (s *showCommitsSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *showCommitsSuite) runCommand(c *tc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, model.NewShowCommitCommandForTest(s.api, s.store), args...)
 }
 
-func (s *showCommitsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *showCommitsSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.api = mocks.NewMockShowCommitCommandAPI(ctrl)
 	s.api.EXPECT().Close()

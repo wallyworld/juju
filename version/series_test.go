@@ -4,17 +4,22 @@
 package version
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type seriesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&seriesSuite{})
+func TestSeriesSuite(t *tctesting.T) {
+	tc.Run(t, &seriesSuite{})
+}
 
-func (s *seriesSuite) TestDefaultSupportedLTS(c *gc.C) {
+func (s *seriesSuite) TestDefaultSupportedLTS(c *tc.C) {
 	name := DefaultSupportedLTS()
-	c.Assert(name, gc.Equals, "noble")
+	c.Assert(name, tc.Equals, "noble")
 }

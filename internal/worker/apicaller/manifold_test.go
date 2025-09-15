@@ -4,26 +4,27 @@
 package apicaller_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
-	testing.Stub
+	testhelpers.IsolationSuite
+	testhelpers.Stub
 
 	manifold       dependency.Manifold
 	manifoldConfig apicaller.ManifoldConfig
@@ -32,11 +33,13 @@ type ManifoldSuite struct {
 	context        dependency.Context
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Stub = testing.Stub{}
+	s.Stub = testhelpers.Stub{}
 	s.manifoldConfig = apicaller.ManifoldConfig{
 		AgentName:            "agent-name",
 		APIConfigWatcherName: "api-config-watcher-name",
@@ -44,8 +47,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			panic("just a fake")
 		},
 		NewConnection: func(a agent.Agent, apiOpen api.OpenFunc, logger apicaller.Logger) (api.Connection, error) {
-			c.Check(apiOpen, gc.NotNil) // uncomparable
-			c.Check(logger, gc.NotNil)  // uncomparable
+			c.Check(apiOpen, tc.NotNil) // uncomparable
+			c.Check(logger, tc.NotNil)  // uncomparable
 			s.AddCall("NewConnection", a)
 			if err := s.NextErr(); err != nil {
 				return nil, err
@@ -61,7 +64,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	checkFilter := func() {
 		s.manifold.Filter(errors.New("arrgh"))
 	}
-	c.Check(checkFilter, gc.PanicMatches, "arrgh")
+	c.Check(checkFilter, tc.PanicMatches, "arrgh")
 
 	s.agent = &mockAgent{
 		stub:   &s.Stub,
@@ -76,132 +79,132 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	// are made from the worker's loop goroutine. You should make
 	// sure to stop the worker before checking the mock conn's calls.
 	s.conn = &mockConn{
-		stub:   &testing.Stub{},
+		stub:   &testhelpers.Stub{},
 		broken: make(chan struct{}),
 	}
 }
 
-func (s *ManifoldSuite) TestInputsOptionalConfigPropertiesUnset(c *gc.C) {
+func (s *ManifoldSuite) TestInputsOptionalConfigPropertiesUnset(c *tc.C) {
 	s.manifoldConfig.APIConfigWatcherName = ""
-	c.Check(apicaller.Manifold(s.manifoldConfig).Inputs, jc.DeepEquals, []string{
+	c.Check(apicaller.Manifold(s.manifoldConfig).Inputs, tc.DeepEquals, []string{
 		"agent-name",
 	})
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Check(s.manifold.Inputs, tc.DeepEquals, []string{
 		"agent-name",
 		"api-config-watcher-name",
 	})
 }
 
-func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAgent(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold.Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
 }
 
-func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
+func (s *ManifoldSuite) TestStartCannotOpenAPI(c *tc.C) {
 	s.SetErrors(errors.New("no api for you"))
 
 	worker, err := s.manifold.Start(s.context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
-	s.CheckCalls(c, []testing.StubCall{{
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
 	}})
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
 	worker, err := s.manifold.Start(s.context)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	defer assertStop(c, worker)
-	s.CheckCalls(c, []testing.StubCall{{
+	s.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "NewConnection",
 		Args:     []interface{}{s.agent},
 	}})
 }
 
-func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) setupWorkerTest(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { w.Kill() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { w.Kill() })
 	return w
 }
 
-func (s *ManifoldSuite) TestKillWorkerClosesConnection(c *gc.C) {
+func (s *ManifoldSuite) TestKillWorkerClosesConnection(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 	assertStop(c, worker)
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
 
-func (s *ManifoldSuite) TestKillWorkerReportsCloseErr(c *gc.C) {
+func (s *ManifoldSuite) TestKillWorkerReportsCloseErr(c *tc.C) {
 	s.conn.stub.SetErrors(errors.New("bad plumbing"))
 	worker := s.setupWorkerTest(c)
 
 	assertStopError(c, worker, "bad plumbing")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
 
-func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithCloseErr(c *gc.C) {
+func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithCloseErr(c *tc.C) {
 	s.conn.stub.SetErrors(errors.New("bad plumbing"))
 	worker := s.setupWorkerTest(c)
 
 	close(s.conn.broken)
 	err := worker.Wait()
-	c.Check(err, gc.ErrorMatches, "bad plumbing")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	c.Check(err, tc.ErrorMatches, "bad plumbing")
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
 
-func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithFallbackErr(c *gc.C) {
+func (s *ManifoldSuite) TestBrokenConnectionKillsWorkerWithFallbackErr(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 
 	close(s.conn.broken)
 	err := worker.Wait()
-	c.Check(err, gc.ErrorMatches, "api connection broken unexpectedly")
-	s.conn.stub.CheckCalls(c, []testing.StubCall{{
+	c.Check(err, tc.ErrorMatches, "api connection broken unexpectedly")
+	s.conn.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Close",
 	}})
 }
 
-func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestOutputSuccess(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 
 	var apicaller base.APICaller
 	err := s.manifold.Output(worker, &apicaller)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(apicaller, gc.Equals, s.conn)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(apicaller, tc.Equals, s.conn)
 
 	var conn api.Connection
 	err = s.manifold.Output(worker, &conn)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(conn, gc.Equals, s.conn)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(conn, tc.Equals, s.conn)
 }
 
-func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadWorker(c *tc.C) {
 	var apicaller base.APICaller
 	err := s.manifold.Output(dummyWorker{}, &apicaller)
-	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "in should be a *apicaller.apiConnWorker; got apicaller_test.dummyWorker")
+	c.Check(apicaller, tc.IsNil)
+	c.Check(err.Error(), tc.Equals, "in should be a *apicaller.apiConnWorker; got apicaller_test.dummyWorker")
 }
 
-func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
+func (s *ManifoldSuite) TestOutputBadTarget(c *tc.C) {
 	worker := s.setupWorkerTest(c)
 
 	var apicaller interface{}
 	err := s.manifold.Output(worker, &apicaller)
-	c.Check(apicaller, gc.IsNil)
-	c.Check(err.Error(), gc.Equals, "out should be *base.APICaller or *api.Connection; got *interface {}")
+	c.Check(apicaller, tc.IsNil)
+	c.Check(err.Error(), tc.Equals, "out should be *base.APICaller or *api.Connection; got *interface {}")
 }

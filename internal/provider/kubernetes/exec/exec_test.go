@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"net/url"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -20,16 +20,18 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type execSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&execSuite{})
+func TestExecSuite(t *tctesting.T) {
+	tc.Run(t, &execSuite{})
+}
 
-func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
+func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -39,7 +41,7 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
 		PodName string
 	}
 
-	for _, tc := range []testcase{
+	for _, testCase := range []testcase{
 		{
 			Params: exec.ExecParams{},
 			Err:    "empty commands not valid",
@@ -73,12 +75,12 @@ func (s *execSuite) TestExecParamsValidateCommandsAndPodName(c *gc.C) {
 			Err: `podName "pod/" not valid`,
 		},
 	} {
-		c.Check(tc.Params.Validate(s.mockPodGetter), gc.ErrorMatches, tc.Err)
+		c.Check(testCase.Params.Validate(s.mockPodGetter), tc.ErrorMatches, testCase.Err)
 	}
 
 }
 
-func (s *execSuite) TestProcessEnv(c *gc.C) {
+func (s *execSuite) TestProcessEnv(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -87,11 +89,11 @@ func (s *execSuite) TestProcessEnv(c *gc.C) {
 			"AAA=1", "BBB=1 2", "CCC=1\n2", "DDD=1='2'", "EEE=1;2;\"foo\"",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.Equals, "export AAA=1; export BBB='1 2'; export CCC='1\n2'; export DDD=1=\\'2\\'; export EEE=1\\;2\\;\\\"foo\\\"; ")
 }
 
-func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
+func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -120,7 +122,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Succeeded" pod "gitlab-k8s-0"`)
 
 	// failed - failed pod
 	params = exec.ExecParams{
@@ -145,7 +147,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorMatches, `cannot exec into a container within the "Failed" pod "gitlab-k8s-0"`)
 
 	// failed - containerName not found
 	params = exec.ExecParams{
@@ -171,7 +173,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container "non-existing-container-name" not found`)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorMatches, `container "non-existing-container-name" not found`)
 
 	// all good - container name specified for init container
 	params = exec.ExecParams{
@@ -200,7 +202,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorIsNil)
 
 	// all good - container name specified.
 	params = exec.ExecParams{
@@ -229,7 +231,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorIsNil)
 
 	// non fatal error - container not running - container name specified.
 	params = exec.ExecParams{
@@ -258,14 +260,14 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container \"gitlab-container\" not running`)
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorMatches, `container \"gitlab-container\" not running`)
 
 	// all good - no container name specified, pick the 1st container.
 	params = exec.ExecParams{
 		Commands: []string{"echo", "'hello world'"},
 		PodName:  "gitlab-k8s-uid",
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod = core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -287,11 +289,11 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(gomock.Any(), metav1.ListOptions{}).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
-	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
+	c.Assert(params.Validate(s.mockPodGetter), tc.ErrorIsNil)
+	c.Assert(params.ContainerName, tc.Equals, "gitlab-container")
 }
 
-func (s *execSuite) TestExec(c *gc.C) {
+func (s *execSuite) TestExec(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -305,7 +307,7 @@ func (s *execSuite) TestExec(c *gc.C) {
 		Stderr:   &stderr,
 		Stdin:    &stdin,
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod := core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -362,13 +364,13 @@ func (s *execSuite) TestExec(c *gc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
 }
 
-func (s *execSuite) TestExecCancel(c *gc.C) {
+func (s *execSuite) TestExecCancel(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -384,7 +386,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 		Stderr:   &stderr,
 		Stdin:    &stdin,
 	}
-	c.Assert(params.ContainerName, gc.Equals, "")
+	c.Assert(params.ContainerName, tc.Equals, "")
 	pod := core.Pod{
 		Spec: core.PodSpec{
 			Containers: []core.Container{
@@ -434,15 +436,15 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 	s.restClient.EXPECT().Post().AnyTimes().DoAndReturn(func() *rest.Request {
 		mut.Lock()
 		defer mut.Unlock()
-		c.Assert(callNum, jc.LessThan, len(requests))
+		c.Assert(callNum, tc.LessThan, len(requests))
 		return requests[callNum]
 	})
 	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		DoAndReturn(func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
 			mut.Lock()
 			defer mut.Unlock()
-			c.Assert(callNum, jc.LessThan, len(urls))
-			c.Check(url.String(), gc.Equals, urls[callNum])
+			c.Assert(callNum, tc.LessThan, len(urls))
+			c.Check(url.String(), tc.Equals, urls[callNum])
 			return s.mockRemoteCmdExecutor, nil
 		})
 	s.mockRemoteCmdExecutor.EXPECT().Stream(gomock.Any()).AnyTimes().DoAndReturn(func(opts remotecommand.StreamOptions) error {
@@ -454,7 +456,7 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 		case 0:
 			close(cancel)
 			err := s.clock.WaitAdvance(waitTime, coretesting.LongWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		case 1:
 		case 2:
 		case 3:
@@ -470,15 +472,15 @@ func (s *execSuite) TestExecCancel(c *gc.C) {
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
 }
 
-func (s *execSuite) TestErrorHandling(c *gc.C) {
+func (s *execSuite) TestErrorHandling(c *tc.C) {
 	err := exec.HandleContainerNotFoundError(errors.New(`unable to upgrade connection: container not found ("mariadb-k8s")`))
-	c.Assert(err, gc.FitsTypeOf, &exec.ContainerNotRunningError{})
+	c.Assert(err, tc.FitsTypeOf, &exec.ContainerNotRunningError{})
 	err = exec.HandleContainerNotFoundError(errors.New(`wow`))
-	c.Assert(err, gc.ErrorMatches, "wow")
+	c.Assert(err, tc.ErrorMatches, "wow")
 }

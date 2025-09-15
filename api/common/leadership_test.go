@@ -5,17 +5,17 @@ package common_test
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LeadershipSuite struct {
@@ -27,14 +27,16 @@ type LeadershipSuite struct {
 	machineApps []string
 }
 
-var _ = gc.Suite(&LeadershipSuite{})
+func TestLeadershipSuite(t *tctesting.T) {
+	tc.Run(t, &LeadershipSuite{})
+}
 
-func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
+func (s *LeadershipSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.machineApps = []string{"mysql", "redis", "wordpress"}
 }
 
-func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
+func (s *LeadershipSuite) TestPinnedLeadership(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
@@ -42,32 +44,32 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.PinnedLeadership()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, map[string][]names.Tag{"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, map[string][]names.Tag{"redis": {names.NewMachineTag("0"), names.NewMachineTag("1")}})
 }
 
-func (s *LeadershipSuite) TestPinnedLeadershipError(c *gc.C) {
+func (s *LeadershipSuite) TestPinnedLeadershipError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinnedLeadershipResult{Error: apiservererrors.ServerError(errors.New("splat"))}
 	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
 
 	_, err := s.client.PinnedLeadership()
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
 	s.facade.EXPECT().FacadeCall("PinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.PinMachineApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, s.pinApplicationsClientSuccessResults())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, s.pinApplicationsClientSuccessResults())
 }
 
-func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := apiservererrors.ServerError(errors.New("boom"))
@@ -77,25 +79,25 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("PinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.PinMachineApplications()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
 	exp["wordpress"] = errorRes
-	c.Check(res, gc.DeepEquals, exp)
+	c.Check(res, tc.DeepEquals, exp)
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
 	s.facade.EXPECT().FacadeCall("UnpinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.UnpinMachineApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(res, gc.DeepEquals, s.pinApplicationsClientSuccessResults())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res, tc.DeepEquals, s.pinApplicationsClientSuccessResults())
 }
 
-func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
+func (s *LeadershipSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facade = mocks.NewMockFacadeCaller(ctrl)
@@ -104,7 +106,7 @@ func (s *LeadershipSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
+func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	errorRes := apiservererrors.ServerError(errors.New("boom"))
@@ -114,11 +116,11 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	s.facade.EXPECT().FacadeCall("UnpinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
 
 	res, err := s.client.UnpinMachineApplications()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := s.pinApplicationsClientSuccessResults()
 	exp["redis"] = errorRes
-	c.Check(res, gc.DeepEquals, exp)
+	c.Check(res, tc.DeepEquals, exp)
 }
 
 func (s *LeadershipSuite) pinApplicationsServerSuccessResults() []params.PinApplicationResult {

@@ -4,8 +4,9 @@
 package common_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
@@ -15,9 +16,11 @@ import (
 
 type SpacesSuite struct{}
 
-var _ = gc.Suite(&SpacesSuite{})
+func TestSpacesSuite(t *tctesting.T) {
+	tc.Run(t, &SpacesSuite{})
+}
 
-func (*SpacesSuite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
+func (*SpacesSuite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 	}
@@ -28,11 +31,11 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapOneSpaceConstraint(c *gc.C) {
 	}
 
 	subnetZones, err := common.GetValidSubnetZoneMap(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[0])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[0])
 }
 
-func (*SpacesSuite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
+func (*SpacesSuite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{{
 		network.Id("sub-1"):       {"az-1"},
 		network.Id("sub-INFAN-2"): {"az-2"},
@@ -48,13 +51,13 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapOneBindingFanFiltered(c *gc.C) {
 	}
 
 	subnetZones, err := common.GetValidSubnetZoneMap(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, map[network.Id][]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, map[network.Id][]string{
 		"sub-1": {"az-1"},
 	})
 }
 
-func (*SpacesSuite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
+func (*SpacesSuite) TestGetValidSubnetZoneMapNoIntersectionError(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 		{network.Id("sub-2"): {"az-2"}},
@@ -71,11 +74,11 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapNoIntersectionError(c *gc.C) {
 	}
 
 	_, err := common.GetValidSubnetZoneMap(args)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`unable to satisfy supplied space requirements; spaces: \[admin\], bindings: \[space-1\]`)
 }
 
-func (*SpacesSuite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *gc.C) {
+func (*SpacesSuite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *tc.C) {
 	allSubnetZones := []map[network.Id][]string{
 		{network.Id("sub-1"): {"az-1"}},
 		{network.Id("sub-2"): {"az-2"}},
@@ -98,6 +101,6 @@ func (*SpacesSuite) TestGetValidSubnetZoneMapIntersectionSelectsCorrectIndex(c *
 	// subnets-to-zones map.
 
 	subnetZones, err := common.GetValidSubnetZoneMap(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetZones, gc.DeepEquals, allSubnetZones[1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subnetZones, tc.DeepEquals, allSubnetZones[1])
 }

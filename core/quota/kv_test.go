@@ -4,29 +4,31 @@
 package quota_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/quota"
 )
 
-var _ = gc.Suite(&MapKeyValueCheckerSuite{})
+func TestMapKeyValueCheckerSuite(t *tctesting.T) {
+	tc.Run(t, &MapKeyValueCheckerSuite{})
+}
 
 type MapKeyValueCheckerSuite struct {
 }
 
-func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(24, 42)
 	chk.Check("not-a-map")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, tc.Satisfies, errors.IsNotImplemented)
 }
 
-func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(10, 30)
 	chk.Check(map[string]interface{}{
 		"key": map[string]string{
@@ -36,10 +38,10 @@ func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestMapWithStringKeyValues(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestMapWithStringKeyValues(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(5, 3)
 	chk.Check(map[string]string{
 		"key":  "val",
@@ -47,10 +49,10 @@ func (s *MapKeyValueCheckerSuite) TestMapWithStringKeyValues(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestQuotaBypass(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestQuotaBypass(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(0, 0)
 	chk.Check(map[string]string{
 		"key":  "val",
@@ -58,10 +60,10 @@ func (s *MapKeyValueCheckerSuite) TestQuotaBypass(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(5, 3)
 	chk.Check(map[string]string{
 		"a long key": "bar",
@@ -69,11 +71,11 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
-	c.Assert(err, gc.ErrorMatches, "max allowed key length.*", gc.Commentf("expected error about exceeding max key length"))
+	c.Assert(err, tc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorMatches, "max allowed key length.*", tc.Commentf("expected error about exceeding max key length"))
 }
 
-func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *gc.C) {
+func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *tc.C) {
 	chk := quota.NewMapKeyValueSizeChecker(5, 3)
 	chk.Check(map[string]string{
 		"key1": "val",
@@ -81,6 +83,6 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
-	c.Assert(err, gc.ErrorMatches, "max allowed value length.*", gc.Commentf("expected error about exceeding max value length"))
+	c.Assert(err, tc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, tc.ErrorMatches, "max allowed value length.*", tc.Commentf("expected error about exceeding max value length"))
 }

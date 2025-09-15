@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -12,10 +11,9 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiclient "github.com/juju/juju/api/client/client"
@@ -29,11 +27,12 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/database"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -45,11 +44,11 @@ type dblogSuite struct {
 	agenttest.AgentSuite
 }
 
-func (s *dblogSuite) SetUpTest(c *gc.C) {
+func (s *dblogSuite) SetUpTest(c *tc.C) {
 	s.AgentSuite.SetUpTest(c)
 }
 
-func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
+func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *tc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	// Set up a CAAS model to replace the IAAS one.
 	// Ensure major version 1 is used to prevent an upgrade
@@ -60,15 +59,15 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 		"agent-version": modelVers.String(),
 	}
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{ConfigAttrs: extraAttrs})
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	s.CleanupSuite.AddCleanup(func(*tc.C) { st.Close() })
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)
 	node, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = node.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure controller config matches agent config so the agent worker
 	// does not exist with ErrRestartAgent.
@@ -77,7 +76,7 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 		controller.QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 		controller.QueryTracingThreshold: controller.DefaultQueryTracingThreshold.String(),
 	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	vers := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -88,16 +87,16 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 
 	logger := loggo.GetLogger("juju.featuretests")
 	err = database.BootstrapDqlite(
-		context.Background(),
+		c.Context(),
 		database.NewNodeManager(cfg, true, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
 		s.InitialDBOps...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertAgentLogsGoToDB(c, node.Tag(), true)
 }
 
-func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
+func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *tc.C) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: agent.BootstrapNonce,
@@ -112,12 +111,12 @@ func noPreUpgradeSteps(_ *state.StatePool, _ agent.Config, isController, isCaas 
 	return nil
 }
 
-func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) {
+func (s *dblogSuite) assertAgentLogsGoToDB(c *tc.C, tag names.Tag, isCaas bool) {
 	aCfg := agentconf.NewAgentConf(s.DataDir())
 	err := aCfg.ReadConfig(tag.String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	logger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1000)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		aCfg,
 		logger,
@@ -125,31 +124,31 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 		c.MkDir(),
 	)
 	a, err := machineAgentFactory(tag, isCaas)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
-	c.Assert(s.getLogCount(c, tag), gc.Equals, 0)
+	c.Assert(s.getLogCount(c, tag), tc.Equals, 0)
 
 	// Start the agent.
 	ctx := cmdtesting.Context(c)
-	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(ctx), tc.ErrorIsNil) }()
 	defer a.Stop()
 
 	foundLogs := s.waitForLogs(c, tag)
-	c.Assert(foundLogs, jc.IsTrue)
+	c.Assert(foundLogs, tc.IsTrue)
 }
 
-func (s *dblogSuite) getLogCount(c *gc.C, entity names.Tag) int {
+func (s *dblogSuite) getLogCount(c *tc.C, entity names.Tag) int {
 	// TODO(mjs) - replace this with State's functionality for reading
 	// logs from the DB, once it gets this. This will happen before
 	// the DB logging feature branch is merged.
 	logs := s.Session.DB("logs").C("logs." + s.State.ModelUUID())
 	count, err := logs.Find(bson.M{"n": entity.String()}).Count()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return count
 }
 
-func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
+func (s *dblogSuite) waitForLogs(c *tc.C, entityTag names.Tag) bool {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if s.getLogCount(c, entityTag) > 0 {
 			return true
@@ -166,12 +165,12 @@ type debugLogDbSuite struct {
 	agenttest.AgentSuite
 }
 
-func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
+func (s *debugLogDbSuite) SetUpSuite(c *tc.C) {
 	mgotesting.MgoServer.Restart()
 	s.AgentSuite.SetUpSuite(c)
 }
 
-func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
+func (s *debugLogDbSuite) TearDownSuite(c *tc.C) {
 	mgotesting.MgoServer.Restart()
 	s.AgentSuite.TearDownSuite(c)
 }
@@ -185,7 +184,7 @@ type debugLogDbSuite1 struct {
 	debugLogDbSuite
 }
 
-func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
+func (s *debugLogDbSuite1) TestLogsAPI(c *tc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
@@ -207,13 +206,13 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "no it isn't",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
-		client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+		client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 		logMessages, err := client.WatchDebugLog(common.DebugLogParams{})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		for n := 0; n < numMessages; n++ {
 			messages <- <-logMessages
@@ -223,7 +222,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	assertMessage := func(expected common.LogMessage) {
 		select {
 		case actual := <-messages:
-			c.Check(actual, jc.DeepEquals, expected)
+			c.Check(actual, tc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatal("timed out waiting for log line")
 		}
@@ -257,7 +256,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Level:    loggo.WARNING,
 		Message:  "beep beep",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertMessage(common.LogMessage{
 		Entity:    "not-a-tag",
 		Timestamp: t.Add(2 * time.Second),
@@ -273,7 +272,7 @@ type debugLogDbSuite2 struct {
 	debugLogDbSuite
 }
 
-func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
+func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *tc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
@@ -318,18 +317,18 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 		Level:    loggo.WARNING,
 		Message:  "cold war kids",
 	}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
+	client := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c))
 	logMessages, err := client.WatchDebugLog(common.DebugLogParams{
 		StartTime: t3,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	assertMessage := func(expected common.LogMessage) {
 		select {
 		case actual := <-logMessages:
-			c.Assert(actual, jc.DeepEquals, expected)
+			c.Assert(actual, tc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatal("timed out waiting for log line")
 		}

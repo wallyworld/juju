@@ -7,8 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/block"
@@ -35,18 +34,18 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s BlockHelper) on(c *gc.C, blockType model.BlockType, msg string) {
-	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
+func (s BlockHelper) on(c *tc.C, blockType model.BlockType, msg string) {
+	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), tc.IsNil)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
-func (s BlockHelper) BlockAllChanges(c *gc.C, msg string) {
+func (s BlockHelper) BlockAllChanges(c *tc.C, msg string) {
 	s.on(c, model.BlockChange, msg)
 }
 
 // BlockRemoveObject blocks all operations that remove
 // machines, services, units or relations.
-func (s BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
+func (s BlockHelper) BlockRemoveObject(c *tc.C, msg string) {
 	s.on(c, model.BlockRemove, msg)
 }
 
@@ -56,15 +55,15 @@ func (s BlockHelper) Close() {
 }
 
 // BlockDestroyModel blocks destroy-model.
-func (s BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
+func (s BlockHelper) BlockDestroyModel(c *tc.C, msg string) {
 	s.on(c, model.BlockDestroy, msg)
 }
 
 // AssertBlocked checks if given error is
 // related to switched block.
-func (s BlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+func (s BlockHelper) AssertBlocked(c *tc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), tc.DeepEquals, &params.Error{
 		Message: msg,
 		Code:    "operation is blocked",
 	})

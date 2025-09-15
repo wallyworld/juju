@@ -4,34 +4,29 @@
 package cache
 
 import (
-	"testing"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 // baseSuite is the foundation for test suites in this package.
 type BaseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	Changes chan interface{}
 	Config  ControllerConfig
 	Manager *residentManager
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.Changes = make(chan interface{})
@@ -47,18 +42,18 @@ func (s *BaseSuite) NewResident() *Resident {
 	return s.Manager.new()
 }
 
-func (s *BaseSuite) AssertResident(c *gc.C, id uint64, expectPresent bool) {
+func (s *BaseSuite) AssertResident(c *tc.C, id uint64, expectPresent bool) {
 	_, present := s.Manager.residents[id]
-	c.Assert(present, gc.Equals, expectPresent)
+	c.Assert(present, tc.Equals, expectPresent)
 }
 
-func (s *BaseSuite) AssertNoResidents(c *gc.C) {
-	c.Assert(s.Manager.residents, gc.HasLen, 0)
+func (s *BaseSuite) AssertNoResidents(c *tc.C) {
+	c.Assert(s.Manager.residents, tc.HasLen, 0)
 }
 
-func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64, expectPresent bool) {
+func (s *BaseSuite) AssertWorkerResource(c *tc.C, resident *Resident, id uint64, expectPresent bool) {
 	_, present := resident.workers[id]
-	c.Assert(present, gc.Equals, expectPresent)
+	c.Assert(present, tc.Equals, expectPresent)
 }
 
 func (s *BaseSuite) NewHub() *pubsub.SimpleHub {
@@ -67,15 +62,15 @@ func (s *BaseSuite) NewHub() *pubsub.SimpleHub {
 	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: logger})
 }
 
-func (s *BaseSuite) New(c *gc.C) (*Controller, <-chan interface{}) {
+func (s *BaseSuite) New(c *tc.C) (*Controller, <-chan interface{}) {
 	events := s.CaptureEvents(c)
 	controller, err := s.NewController()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, controller) })
 	return controller, events
 }
 
-func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
+func (s *BaseSuite) CaptureEvents(c *tc.C) <-chan interface{} {
 	events := make(chan interface{})
 	s.Config.Notify = func(change interface{}) {
 		send := false
@@ -104,12 +99,12 @@ func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
 	return events
 }
 
-func (s *BaseSuite) ProcessChange(c *gc.C, change interface{}, notify <-chan interface{}) {
+func (s *BaseSuite) ProcessChange(c *tc.C, change interface{}, notify <-chan interface{}) {
 	s.SendChange(c, change)
 
 	select {
 	case obtained := <-notify:
-		c.Check(obtained, jc.DeepEquals, change)
+		c.Check(obtained, tc.DeepEquals, change)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("controller did not handle change")
 	}
@@ -117,7 +112,7 @@ func (s *BaseSuite) ProcessChange(c *gc.C, change interface{}, notify <-chan int
 
 // SendChange writes the input change to the suite's changes channel.
 // It cares only the the change was read, not about processing.
-func (s *BaseSuite) SendChange(c *gc.C, change interface{}) {
+func (s *BaseSuite) SendChange(c *tc.C, change interface{}) {
 	select {
 	case s.Changes <- change:
 	case <-time.After(coretesting.LongWait):
@@ -125,7 +120,7 @@ func (s *BaseSuite) SendChange(c *gc.C, change interface{}) {
 	}
 }
 
-func (s *BaseSuite) NextChange(c *gc.C, changes <-chan interface{}) interface{} {
+func (s *BaseSuite) NextChange(c *tc.C, changes <-chan interface{}) interface{} {
 	var obtained interface{}
 	select {
 	case obtained = <-changes:
@@ -144,7 +139,7 @@ type EntitySuite struct {
 	Hub    *pubsub.SimpleHub
 }
 
-func (s *EntitySuite) SetUpTest(c *gc.C) {
+func (s *EntitySuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Gauges = createControllerGauges()
@@ -178,13 +173,15 @@ func (s *EntitySuite) NewBranch(details BranchChange) *Branch {
 
 type ImportSuite struct{}
 
-var _ = gc.Suite(&ImportSuite{})
+func TestImportSuite(t *tctesting.T) {
+	tc.Run(t, &ImportSuite{})
+}
 
-func (*ImportSuite) TestImports(c *gc.C) {
+func (*ImportSuite) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/cache")
 
 	// This package only brings in other core packages.
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/arch",
 		"core/constraints",
 		"core/instance",
@@ -201,11 +198,11 @@ func (*ImportSuite) TestImports(c *gc.C) {
 
 // NotifyWatcherC wraps a notify watcher, adding testing convenience methods.
 type NotifyWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher NotifyWatcher
 }
 
-func NewNotifyWatcherC(c *gc.C, watcher NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *tc.C, watcher NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -218,7 +215,7 @@ func NewNotifyWatcherC(c *gc.C, watcher NotifyWatcher) NotifyWatcherC {
 func (c NotifyWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -250,7 +247,7 @@ func (c NotifyWatcherC) AssertStops() {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {
@@ -263,7 +260,7 @@ func (c NotifyWatcherC) AssertStops() {
 	}
 }
 
-func NewStringsWatcherC(c *gc.C, watcher StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *tc.C, watcher StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
 		Watcher: watcher,
@@ -271,7 +268,7 @@ func NewStringsWatcherC(c *gc.C, watcher StringsWatcher) StringsWatcherC {
 }
 
 type StringsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher StringsWatcher
 }
 
@@ -281,8 +278,8 @@ type StringsWatcherC struct {
 func (c StringsWatcherC) AssertOneChange(expected []string) {
 	select {
 	case obtained, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(obtained, jc.SameContents, expected)
+		c.Assert(ok, tc.IsTrue)
+		c.Assert(obtained, tc.SameContents, expected)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
@@ -300,12 +297,12 @@ func (c StringsWatcherC) AssertMaybeCombinedChanges(expected []string) {
 	for {
 		select {
 		case obtained, ok := <-c.Watcher.Changes():
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			c.Logf("expected %v; obtained %v", expectedSet.Values(), obtained)
 
 			// Maybe the expected changes came through as 1 change.
 			if expectedSet.Size() == len(obtained) {
-				c.Assert(obtained, jc.SameContents, expectedSet.Values())
+				c.Assert(obtained, tc.SameContents, expectedSet.Values())
 				c.Logf("")
 				found = true
 				break
@@ -352,7 +349,7 @@ func (c StringsWatcherC) AssertStops() {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher never stopped")
 	case err := <-wait:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	select {

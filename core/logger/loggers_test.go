@@ -4,21 +4,25 @@
 package logger_test
 
 import (
-	"github.com/juju/testing"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/logger/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type LoggersSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&LoggersSuite{})
+func TestLoggersSuite(t *tctesting.T) {
+	tc.Run(t, &LoggersSuite{})
+}
 
-func (s *LoggersSuite) TestMakeLoggersWithOneLogger(c *gc.C) {
+func (s *LoggersSuite) TestMakeLoggersWithOneLogger(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -31,23 +35,23 @@ func (s *LoggersSuite) TestMakeLoggersWithOneLogger(c *gc.C) {
 	loggers := logger.MakeLoggers([]string{
 		logger.DatabaseName,
 	}, logger.LoggersConfig{
-		DBLogger: func() logger.Logger {
+		DBLogger: func() logger.LogWriter {
 			called = true
 			return mockLogger
 		},
-		SysLogger: func() logger.Logger {
+		SysLogger: func() logger.LogWriter {
 			c.Fail()
 			return nil
 		},
 	})
-	c.Assert(called, gc.Equals, true)
+	c.Assert(called, tc.Equals, true)
 
 	loggers.Log([]logger.LogRecord{{
 		Message: "hello",
 	}})
 }
 
-func (s *LoggersSuite) TestMakeLoggersWithMultipleLoggers(c *gc.C) {
+func (s *LoggersSuite) TestMakeLoggersWithMultipleLoggers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,10 +64,10 @@ func (s *LoggersSuite) TestMakeLoggersWithMultipleLoggers(c *gc.C) {
 		logger.DatabaseName,
 		logger.SyslogName,
 	}, logger.LoggersConfig{
-		DBLogger: func() logger.Logger {
+		DBLogger: func() logger.LogWriter {
 			return mockLogger
 		},
-		SysLogger: func() logger.Logger {
+		SysLogger: func() logger.LogWriter {
 			return mockLogger
 		},
 	})

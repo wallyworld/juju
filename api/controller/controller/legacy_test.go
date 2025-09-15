@@ -5,11 +5,11 @@ package controller_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/controller"
@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 // legacySuite has the tests for the controller client-side facade
@@ -34,13 +34,15 @@ type legacySuite struct {
 	commontesting.BlockHelper
 }
 
-var _ = gc.Suite(&legacySuite{})
+func TestLegacySuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &legacySuite{})
+}
 
-func (s *legacySuite) OpenAPI(c *gc.C) *controller.Client {
+func (s *legacySuite) OpenAPI(c *tc.C) *controller.Client {
 	return controller.NewClient(s.OpenControllerAPI(c))
 }
 
-func (s *legacySuite) TestAllModels(c *gc.C) {
+func (s *legacySuite) TestAllModels(c *tc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner}).Close()
@@ -50,12 +52,12 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	models, err := sysManager.AllModels()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(models, tc.HasLen, 3)
 
 	var obtained []string
 	for _, m := range models {
-		c.Assert(m.Type, gc.Equals, model.IAAS)
+		c.Assert(m.Type, tc.Equals, model.IAAS)
 		obtained = append(obtained, fmt.Sprintf("%s/%s", m.Owner, m.Name))
 	}
 	expected := []string{
@@ -63,22 +65,22 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 		"user@remote/first",
 		"user@remote/second",
 	}
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(obtained, tc.SameContents, expected)
 }
 
-func (s *legacySuite) TestControllerConfig(c *gc.C) {
+func (s *legacySuite) TestControllerConfig(c *tc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	cfg, err := sysManager.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(int(cfg["state-port"].(float64)), gc.Equals, cfgFromDB.StatePort())
-	c.Assert(int(cfg["api-port"].(float64)), gc.Equals, cfgFromDB.APIPort())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg["controller-uuid"], tc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(int(cfg["state-port"].(float64)), tc.Equals, cfgFromDB.StatePort())
+	c.Assert(int(cfg["api-port"].(float64)), tc.Equals, cfgFromDB.APIPort())
 }
 
-func (s *legacySuite) TestDestroyController(c *gc.C) {
+func (s *legacySuite) TestDestroyController(c *tc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
 	factory.NewFactory(st, s.StatePool).MakeMachine(c, nil) // make it non-empty
 	st.Close()
@@ -86,20 +88,20 @@ func (s *legacySuite) TestDestroyController(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	err := sysManager.DestroyController(controller.DestroyControllerParams{})
-	c.Assert(err, gc.ErrorMatches, `initiating destroy model operation: failed to destroy model: hosting 1 other model \(controller has hosted models\)`)
+	c.Assert(err, tc.ErrorMatches, `initiating destroy model operation: failed to destroy model: hosting 1 other model \(controller has hosted models\)`)
 }
 
-func (s *legacySuite) TestListBlockedModels(c *gc.C) {
+func (s *legacySuite) TestListBlockedModels(c *tc.C) {
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	results, err := sysManager.ListBlockedModels()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, []params.ModelBlockInfo{
 		{
 			Name:     "controller",
 			UUID:     s.State.ModelUUID(),
@@ -112,51 +114,51 @@ func (s *legacySuite) TestListBlockedModels(c *gc.C) {
 	})
 }
 
-func (s *legacySuite) TestRemoveBlocks(c *gc.C) {
+func (s *legacySuite) TestRemoveBlocks(c *tc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	err := sysManager.RemoveBlocks()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	blocks, err := s.State.AllBlocksForController()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocks, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(blocks, tc.HasLen, 0)
 }
 
-func (s *legacySuite) TestWatchAllModels(c *gc.C) {
+func (s *legacySuite) TestWatchAllModels(c *tc.C) {
 	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 
 	w, err := sysManager.WatchAllModels()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := w.Stop()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	deltasC := make(chan []params.Delta)
 	go func() {
 		deltas, err := w.Next()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		deltasC <- deltas
 	}()
 
 	select {
 	case deltas := <-deltasC:
-		c.Assert(deltas, gc.HasLen, 1)
+		c.Assert(deltas, tc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
 
 		model, err := s.State.Model()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cfg, err := model.Config()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		status, err := model.Status()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Resource tags are unmarshalled as map[string]interface{}
 		// Convert to map[string]string for comparison.
@@ -190,28 +192,28 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 			Message: status.Message,
 		}
 		modelInfo.Status.Since = nil
-		c.Assert(modelInfo.ModelUUID, gc.Equals, model.UUID())
-		c.Assert(modelInfo.Name, gc.Equals, model.Name())
-		c.Assert(modelInfo.Life, gc.Equals, life.Alive)
-		c.Assert(modelInfo.Owner, gc.Equals, model.Owner().Id())
-		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
-		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())
-		c.Assert(modelInfo.Status, jc.DeepEquals, expectedStatus)
+		c.Assert(modelInfo.ModelUUID, tc.Equals, model.UUID())
+		c.Assert(modelInfo.Name, tc.Equals, model.Name())
+		c.Assert(modelInfo.Life, tc.Equals, life.Alive)
+		c.Assert(modelInfo.Owner, tc.Equals, model.Owner().Id())
+		c.Assert(modelInfo.ControllerUUID, tc.Equals, model.ControllerUUID())
+		c.Assert(modelInfo.Config, tc.DeepEquals, cfg.AllAttrs())
+		c.Assert(modelInfo.Status, tc.DeepEquals, expectedStatus)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 }
 
-func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
+func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *tc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sysManager := controller.NewClient(apiState)
 	defer sysManager.Close()
 
 	w, err := sysManager.WatchAllModels()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer w.Stop()
 
 	deltasC := make(chan struct{}, 2)
@@ -263,12 +265,12 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	}
 }
 
-func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
+func (s *legacySuite) TestGetControllerAccess(c *tc.C) {
 	controller := s.OpenAPI(c)
 	defer controller.Close()
 	err := controller.GrantController("fred@external", "superuser")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.Access("superuser"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.Equals, permission.Access("superuser"))
 }

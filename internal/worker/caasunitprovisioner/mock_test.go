@@ -14,8 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/charms"
@@ -27,9 +26,10 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasunitprovisioner"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type fakeAPICaller struct {
@@ -45,7 +45,7 @@ type fakeClient struct {
 }
 
 type mockServiceBroker struct {
-	testing.Stub
+	testhelpers.Stub
 	caas.ContainerEnvironProvider
 	ensured        chan<- struct{}
 	deleted        chan<- struct{}
@@ -97,7 +97,7 @@ func (m *mockServiceBroker) UnexposeService(appName string) error {
 }
 
 type mockContainerBroker struct {
-	testing.Stub
+	testhelpers.Stub
 	caas.ContainerEnvironProvider
 	unitsWatcher           *watchertest.MockNotifyWatcher
 	operatorWatcher        *watchertest.MockNotifyWatcher
@@ -151,7 +151,7 @@ func (m *mockContainerBroker) AnnotateUnit(appName string, mode caas.DeploymentM
 }
 
 type mockApplicationGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	watcher        *watchertest.MockStringsWatcher
 	appWatcher     *watchertest.MockNotifyWatcher
 	scaleWatcher   *watchertest.MockNotifyWatcher
@@ -204,7 +204,7 @@ func (a *mockApplicationGetter) ApplicationScale(application string) (int, error
 }
 
 type mockApplicationUpdater struct {
-	testing.Stub
+	testhelpers.Stub
 	updated chan<- struct{}
 	cleared chan<- struct{}
 }
@@ -222,7 +222,7 @@ func (m *mockApplicationUpdater) ClearApplicationResources(appName string) error
 }
 
 type mockProvisioningInfoGetterGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	provisioningInfo apicaasunitprovisioner.ProvisioningInfo
 	watcher          *watchertest.MockNotifyWatcher
 	specRetrieved    chan struct{}
@@ -233,7 +233,7 @@ func (m *mockProvisioningInfoGetterGetter) setProvisioningInfo(provisioningInfo 
 	m.specRetrieved = make(chan struct{}, 2)
 }
 
-func (m *mockProvisioningInfoGetterGetter) assertSpecRetrieved(c *gc.C) {
+func (m *mockProvisioningInfoGetterGetter) assertSpecRetrieved(c *tc.C) {
 	select {
 	case <-m.specRetrieved:
 	case <-time.After(coretesting.LongWait):
@@ -263,7 +263,7 @@ func (m *mockProvisioningInfoGetterGetter) WatchPodSpec(appName string) (watcher
 }
 
 type mockLifeGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	mu            sync.Mutex
 	life          life.Value
 	lifeRetrieved chan struct{}
@@ -292,7 +292,7 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 }
 
 type mockUnitUpdater struct {
-	testing.Stub
+	testhelpers.Stub
 	unitsInfo *params.UpdateApplicationUnitsInfo
 }
 
@@ -305,7 +305,7 @@ func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) (*param
 }
 
 type mockCharmGetter struct {
-	testing.Stub
+	testhelpers.Stub
 	charmInfo *charms.CharmInfo
 }
 

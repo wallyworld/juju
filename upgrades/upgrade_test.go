@@ -7,34 +7,29 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 // Untl we add upgrade steps for 3.0, keep static analysis happy.
 var _ = findStateStep
 
-func findStateStep(c *gc.C, ver version.Number, description string) upgrades.Step {
+func findStateStep(c *tc.C, ver version.Number, description string) upgrades.Step {
 	for _, op := range (*upgrades.StateUpgradeOperations)() {
 		if op.TargetVersion() == ver {
 			for _, step := range op.Steps() {
@@ -52,7 +47,9 @@ type upgradeSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&upgradeSuite{})
+func TestUpgradeSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSuite{})
+}
 
 type mockUpgradeOperation struct {
 	targetVersion version.Number
@@ -193,7 +190,7 @@ func (mock *mockAgentConfig) Model() names.ModelTag {
 
 type mockStateBackend struct {
 	upgrades.StateBackend
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (mock *mockStateBackend) ControllerUUID() (string, error) {
@@ -456,7 +453,7 @@ var upgradeTests = []upgradeTest{
 	},
 }
 
-func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
+func (s *upgradeSuite) TestPerformUpgrade(c *tc.C) {
 	s.PatchValue(upgrades.StateUpgradeOperations, stateUpgradeOperations)
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 	for i, test := range upgradeTests {
@@ -477,11 +474,11 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		s.PatchValue(&jujuversion.Current, toVersion)
 		err := upgrades.PerformUpgrade(fromVersion, test.targets, ctx)
 		if test.err == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, tc.ErrorMatches, test.err)
 		}
-		c.Check(ctx.messages, jc.DeepEquals, test.expectedSteps)
+		c.Check(ctx.messages, tc.DeepEquals, test.expectedSteps)
 	}
 }
 
@@ -506,7 +503,7 @@ func (s *contextStep) Run(context upgrades.Context) error {
 	return nil
 }
 
-func (s *upgradeSuite) TestStateStepsGetRestrictedContext(c *gc.C) {
+func (s *upgradeSuite) TestStateStepsGetRestrictedContext(c *tc.C) {
 	s.PatchValue(upgrades.StateUpgradeOperations, func() []upgrades.Operation {
 		return []upgrades.Operation{
 			&mockUpgradeOperation{
@@ -522,7 +519,7 @@ func (s *upgradeSuite) TestStateStepsGetRestrictedContext(c *gc.C) {
 	s.checkContextRestriction(c, "API not available from this context")
 }
 
-func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *gc.C) {
+func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *tc.C) {
 	s.PatchValue(upgrades.StateUpgradeOperations,
 		func() []upgrades.Operation { return nil })
 
@@ -538,17 +535,17 @@ func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *gc.C) {
 	s.checkContextRestriction(c, "State not available from this context")
 }
 
-func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
+func (s *upgradeSuite) checkContextRestriction(c *tc.C, expectedPanic string) {
 	fromVersion := version.MustParse("1.20.0")
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
 	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, &mockStateBackend{})
 	c.Assert(
 		func() { _ = upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
-		gc.PanicMatches, expectedPanic,
+		tc.PanicMatches, expectedPanic,
 	)
 }
 
-func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
+func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *tc.C) {
 	stateCount := 0
 	stateUpgradeOperations := func() []upgrades.Operation {
 		stateCount++
@@ -570,9 +567,9 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 		stateCount = 0
 		apiCount = 0
 		err := upgrades.PerformUpgrade(fromVers, targets(target), ctx)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(stateCount, gc.Equals, expectedStateCallCount)
-		c.Assert(apiCount, gc.Equals, 1)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(stateCount, tc.Equals, expectedStateCallCount)
+		c.Assert(apiCount, tc.Equals, 1)
 		state.CheckCallNames(c, expectedStateMethodCalls...)
 		state.ResetCalls()
 	}
@@ -583,33 +580,33 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 	check(upgrades.HostMachine, 0, nil)
 }
 
-func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
+func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *tc.C) {
 	var previous version.Number
 	for i, utv := range (*upgrades.UpgradeOperations)() {
 		vers := utv.TargetVersion()
 		if i > 0 {
-			c.Check(previous.Compare(vers), gc.Equals, -1)
+			c.Check(previous.Compare(vers), tc.Equals, -1)
 		}
 		previous = vers
 	}
 }
 
-func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
+func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *tc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"3.6.4", "3.6.5"})
+	c.Assert(versions, tc.DeepEquals, []string{"3.6.4", "3.6.5"})
 }
 
-func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
+func (s *upgradeSuite) TestUpgradeOperationsVersions(c *tc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string(nil))
+	c.Assert(versions, tc.DeepEquals, []string(nil))
 }
 
-func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
+func extractUpgradeVersions(c *tc.C, ops []upgrades.Operation) []string {
 	var versions []string
 	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
-		c.Check(vers.Tag, gc.Equals, "")
+		c.Check(vers.Tag, tc.Equals, "")
 		versions = append(versions, vers.String())
 	}
 	return versions

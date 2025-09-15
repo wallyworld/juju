@@ -4,10 +4,11 @@
 package spaces_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/mgo/v3/txn"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 )
@@ -16,9 +17,11 @@ type SpaceRemoveSuite struct {
 	space *spaces.MockRemoveSpace
 }
 
-var _ = gc.Suite(&SpaceRemoveSuite{})
+func TestSpaceRemoveSuite(t *tctesting.T) {
+	tc.Run(t, &SpaceRemoveSuite{})
+}
 
-func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
+func (s *SpaceRemoveSuite) TestSuccess(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -37,11 +40,11 @@ func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 
 	ops, err := op.Build(0)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ops, tc.HasLen, 2)
 }
 
-func (s *SpaceRemoveSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *SpaceRemoveSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.space = spaces.NewMockRemoveSpace(ctrl)

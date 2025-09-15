@@ -4,10 +4,11 @@
 package upgradeseries_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
@@ -15,9 +16,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type upgradeSeriesSuite struct {
@@ -36,9 +37,11 @@ type upgradeSeriesSuite struct {
 	unitTag    names.UnitTag
 }
 
-var _ = gc.Suite(&upgradeSeriesSuite{})
+func TestUpgradeSeriesSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSeriesSuite{})
+}
 
-func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
+func (s *upgradeSeriesSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.machineTag = names.NewMachineTag("0")
@@ -57,19 +60,19 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestMachineStatus(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
 	results, err := s.api.MachineStatus(s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{{Status: model.UpgradeSeriesPrepareCompleted}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetMachineStatus(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
@@ -80,13 +83,13 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	}
 
 	results, err := s.api.SetMachineStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
+func (s *upgradeSeriesSuite) TestCurrentSeries(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
@@ -94,13 +97,13 @@ func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 	api := &upgradeseries.APIv3{s.api}
 
 	results, err := api.CurrentSeries(s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "xenial"}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
@@ -108,25 +111,25 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 	api := &upgradeseries.APIv3{s.api}
 
 	results, err := api.TargetSeries(s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "bionic"}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
+func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().StartUpgradeSeriesUnitCompletion(gomock.Any()).Return(nil)
 
 	results, err := s.api.StartUnitCompletion(s.upgradeSeriesStartUnitCompletionArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsPrepared(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
@@ -135,13 +138,13 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	}, nil)
 
 	results, err := s.api.UnitsPrepared(s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsCompleted(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	s.machine.EXPECT().UpgradeSeriesUnitStatuses().Return(map[string]state.UpgradeSeriesUnitStatus{
@@ -150,13 +153,13 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 	}, nil)
 
 	results, err := s.api.UnitsCompleted(s.entityArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
@@ -170,13 +173,13 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	exp := s.machine.EXPECT()
@@ -189,13 +192,13 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 	}
 
 	results, err := s.api.FinishUpgradeSeries(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetStatus(c *tc.C) {
 	defer s.arrangeTest(c).Finish()
 
 	msg := "series upgrade: " + string(model.UpgradeSeriesPrepareStarted)
@@ -215,13 +218,13 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
+func (s *upgradeSeriesSuite) arrangeTest(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	resources := common.NewResources()
@@ -234,7 +237,7 @@ func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }

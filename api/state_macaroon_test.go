@@ -6,10 +6,10 @@ package api_test
 import (
 	"net/http"
 	"net/url"
+	tctesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/core/permission"
 )
 
-var _ = gc.Suite(&macaroonLoginSuite{})
+func TestMacaroonLoginSuite(t *tctesting.T) {
+	tc.Run(t, &macaroonLoginSuite{})
+}
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
@@ -27,10 +29,10 @@ type macaroonLoginSuite struct {
 
 const testUserName = "testuser@somewhere"
 
-func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+func (s *macaroonLoginSuite) SetUpTest(c *tc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 	mac, err := apitesting.NewMacaroon("test")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.macSlice = []macaroon.Slice{{mac}}
 	s.AddModelUser(c, testUserName)
 	s.AddControllerUser(c, testUserName, permission.LoginAccess)
@@ -40,23 +42,23 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.client = s.OpenAPI(c, info, nil)
 }
 
-func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
+func (s *macaroonLoginSuite) TearDownTest(c *tc.C) {
 	s.client.Close()
 	s.MacaroonSuite.TearDownTest(c)
 }
 
-func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
+func (s *macaroonLoginSuite) TestSuccessfulLogin(c *tc.C) {
 	s.DischargerLogin = func() string { return testUserName }
 	err := s.client.Login(nil, "", "", s.macSlice)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
+func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *tc.C) {
 	err := s.client.Login(nil, "", "", s.macSlice)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 }
 
-func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStream(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
@@ -67,30 +69,30 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	}
 	// First log into the regular API.
 	err := s.client.Login(nil, "", "", s.macSlice)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dischargeCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dischargeCount, tc.Equals, 1)
 
 	// Then check that ConnectStream works OK and that it doesn't need
 	// to discharge again.
 	conn, err := s.client.ConnectStream("/path", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 	connectURL, err := url.Parse(catcher.Location())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(connectURL.Path, gc.Equals, "/model/"+s.Model.ModelTag().Id()+"/path")
-	c.Assert(dischargeCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(connectURL.Path, tc.Equals, "/model/"+s.Model.ModelTag().Id()+"/path")
+	c.Assert(dischargeCount, tc.Equals, 1)
 }
 
-func (s *macaroonLoginSuite) TestConnectStreamWithoutLogin(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStreamWithoutLogin(c *tc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	conn, err := s.client.ConnectStream("/path", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
-	c.Assert(conn, gc.Equals, nil)
+	c.Assert(err, tc.ErrorMatches, `cannot use ConnectStream without logging in`)
+	c.Assert(conn, tc.Equals, nil)
 }
 
-func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *tc.C) {
 	// This is really a test for ConnectStream, but to test ConnectStream's
 	// discharge failing logic, we need an actual endpoint to test against,
 	// and the debug-log endpoint makes a convenient example.
@@ -115,8 +117,8 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	dischargeError = true
 	logArgs := url.Values{"noTail": []string{"true"}}
 	conn, err := client.ConnectStream("/log", logArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.NotNil)
 	conn.Close()
 
 	// Then delete all the cookies by deleting the cookie jar
@@ -124,11 +126,11 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	jar.Clear()
 
 	conn, err = client.ConnectStream("/log", logArgs)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(conn, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(conn, tc.IsNil)
 }
 
-func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
+func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *tc.C) {
 	// If the connection was created with already-discharged macaroons
 	// (rather than acquiring them through the discharge dance), they
 	// wouldn't get attached to the websocket request.
@@ -137,7 +139,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
 
 	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
 		return testUserName
@@ -148,8 +150,8 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	client := s.OpenAPI(c, info, nil)
 
 	dischargedMacaroons, err := api.ExtractMacaroons(client)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(dischargedMacaroons), gc.Equals, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(len(dischargedMacaroons), tc.Equals, 1)
 
 	// Mirror the situation in migration logtransfer - the macaroon is
 	// now stored in the auth service (so no further discharge is
@@ -166,20 +168,20 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 
 	client2 := s.OpenAPI(c, info2, nil)
 	conn, err := client2.ConnectStream("/path", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	defer conn.Close()
 
 	headers := catcher.Headers()
-	c.Assert(headers.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
-	c.Assert(headers.Get("Cookie"), jc.HasPrefix, "macaroon-")
+	c.Assert(headers.Get(httpbakery.BakeryProtocolHeader), tc.Equals, "3")
+	c.Assert(headers.Get("Cookie"), tc.HasPrefix, "macaroon-")
 	assertHeaderMatchesMacaroon(c, headers, dischargedMacaroons[0])
 }
 
-func assertHeaderMatchesMacaroon(c *gc.C, header http.Header, macaroon macaroon.Slice) {
+func assertHeaderMatchesMacaroon(c *tc.C, header http.Header, macaroon macaroon.Slice) {
 	req := http.Request{Header: header}
 	actualCookie := req.Cookies()[0]
 	expectedCookie, err := httpbakery.NewCookie(nil, macaroon)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualCookie.Name, gc.Equals, expectedCookie.Name)
-	c.Assert(actualCookie.Value, gc.Equals, expectedCookie.Value)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(actualCookie.Name, tc.Equals, expectedCookie.Name)
+	c.Assert(actualCookie.Value, tc.Equals, expectedCookie.Value)
 }

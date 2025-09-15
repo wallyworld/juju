@@ -4,20 +4,23 @@
 package base
 
 import (
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BasesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&BasesSuite{})
+func TestBasesSuite(t *tctesting.T) {
+	tc.Run(t, &BasesSuite{})
+}
 
-func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
+func (s *BasesSuite) TestWorkloadBases(c *tc.C) {
 	tests := []struct {
 		name          string
 		requestedBase Base
@@ -56,10 +59,10 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 
 		result, err := WorkloadBases(time.Now(), test.requestedBase, test.imageStream)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.expectedBase)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.expectedBase)
 	}
 }

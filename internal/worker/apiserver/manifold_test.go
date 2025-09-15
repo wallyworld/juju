@@ -5,20 +5,19 @@ package apiserver_test
 
 import (
 	"net/http"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -32,16 +31,17 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	manifold dependency.Manifold
 
@@ -64,12 +64,14 @@ type ManifoldSuite struct {
 	dbGetter             stubDBGetter
 	jwtParser            *jwtparser.Parser
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -78,7 +80,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	controller, err := cache.NewController(cache.ControllerConfig{
 		Changes: make(chan interface{}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controller = controller
 	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
@@ -166,17 +168,17 @@ var expectedInputs = []string{
 	"syslog", "charmhub-http-client", "db-accessor", "jwt-parser",
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 
 		// The state tracker must have either no calls, or a Use and a Done.
 		if len(s.state.Calls()) > 0 {
@@ -186,40 +188,40 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, apiserver.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
 
-	c.Assert(config.GetAuditConfig, gc.NotNil)
-	c.Assert(config.GetAuditConfig(), gc.DeepEquals, s.auditConfig.config)
+	c.Assert(config.GetAuditConfig, tc.NotNil)
+	c.Assert(config.GetAuditConfig(), tc.DeepEquals, s.auditConfig.config)
 	config.GetAuditConfig = nil
 
-	c.Assert(config.UpgradeComplete, gc.NotNil)
+	c.Assert(config.UpgradeComplete, tc.NotNil)
 	config.UpgradeComplete()
 	config.UpgradeComplete = nil
 	s.upgradeGate.CheckCallNames(c, "IsUnlocked")
 
-	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
+	c.Assert(config.RegisterIntrospectionHTTPHandlers, tc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
 
-	c.Assert(config.Presence, gc.NotNil)
+	c.Assert(config.Presence, tc.NotNil)
 	config.Presence = nil
 
 	// NewServer is hard-coded by the manifold to an internal shim.
-	c.Assert(config.NewServer, gc.NotNil)
+	c.Assert(config.NewServer, tc.NotNil)
 	config.NewServer = nil
 
 	// EmbeddedCommand is hard-coded by the manifold to an internal shim.
-	c.Assert(config.EmbeddedCommand, gc.NotNil)
+	c.Assert(config.EmbeddedCommand, tc.NotNil)
 	config.EmbeddedCommand = nil
 
-	c.Assert(config, jc.DeepEquals, apiserver.Config{
+	c.Assert(config, tc.DeepEquals, apiserver.Config{
 		AgentConfig:                &s.agent.conf,
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      s.clock,
@@ -237,7 +239,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -247,14 +249,14 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	s.state.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }
 
-func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *gc.C) {
+func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *tc.C) {
 	waitFinished := make(chan struct{})
 	w := s.startWorkerClean(c)
 	go func() {
@@ -318,7 +320,7 @@ func (c *mockAgentConfig) Value(key string) string {
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool state.StatePool
 }
 
@@ -338,7 +340,7 @@ func (s *stubStateTracker) Report() map[string]interface{} {
 }
 
 type stubPrometheusRegisterer struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (s *stubPrometheusRegisterer) MustRegister(...prometheus.Collector) {
@@ -356,7 +358,7 @@ func (s *stubPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 }
 
 type stubGateWaiter struct {
-	testing.Stub
+	testhelpers.Stub
 	gate.Waiter
 }
 
@@ -366,7 +368,7 @@ func (w *stubGateWaiter) IsUnlocked() bool {
 }
 
 type stubAuditConfig struct {
-	testing.Stub
+	testhelpers.Stub
 	config auditlog.Config
 }
 

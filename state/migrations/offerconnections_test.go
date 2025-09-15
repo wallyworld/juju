@@ -4,18 +4,21 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type OfferConnectionsExportSuite struct{}
 
-var _ = gc.Suite(&OfferConnectionsExportSuite{})
+func TestOfferConnectionsExportSuite(t *tctesting.T) {
+	tc.Run(t, &OfferConnectionsExportSuite{})
+}
 
-func (s *OfferConnectionsExportSuite) TestExportOfferConnection(c *gc.C) {
+func (s *OfferConnectionsExportSuite) TestExportOfferConnection(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -45,10 +48,10 @@ func (s *OfferConnectionsExportSuite) TestExportOfferConnection(c *gc.C) {
 
 	migration := ExportOfferConnections{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *OfferConnectionsExportSuite) TestExportOfferConnectionFailsGettingEntities(c *gc.C) {
+func (s *OfferConnectionsExportSuite) TestExportOfferConnectionFailsGettingEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -63,7 +66,7 @@ func (s *OfferConnectionsExportSuite) TestExportOfferConnectionFailsGettingEntit
 
 	migration := ExportOfferConnections{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *OfferConnectionsExportSuite) migrationOfferConnection(ctrl *gomock.Controller, fn func(expect *MockMigrationOfferConnectionMockRecorder)) *MockMigrationOfferConnection {

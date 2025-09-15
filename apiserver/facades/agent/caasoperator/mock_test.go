@@ -8,7 +8,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,14 +19,15 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	common.APIAddressAccessor
 	entities map[string]state.Entity
 	app      mockApplication
@@ -116,7 +116,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 	containers []state.CloudContainer
 }
 
@@ -149,7 +149,7 @@ func (st *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, 
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	name         string
 	life         state.Life
 	charm        mockCharm
@@ -207,7 +207,7 @@ func (a *mockApplication) SetAgentVersion(vers version.Binary) error {
 }
 
 type mockUnit struct {
-	testing.Stub
+	testhelpers.Stub
 	life state.Life
 }
 
@@ -248,7 +248,7 @@ func (ch *mockCharm) Meta() *charm.Meta {
 }
 
 type mockBroker struct {
-	testing.Stub
+	testhelpers.Stub
 	watcher corewatcher.StringsWatcher
 }
 

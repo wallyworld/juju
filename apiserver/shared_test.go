@@ -4,20 +4,21 @@
 package apiserver
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/modelcache"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type sharedServerContextSuite struct {
@@ -35,22 +35,24 @@ type sharedServerContextSuite struct {
 	config sharedServerConfig
 }
 
-var _ = gc.Suite(&sharedServerContextSuite{})
+func TestSharedServerContextSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &sharedServerContextSuite{})
+}
 
-func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
+func (s *sharedServerContextSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
 	s.hub = pubsub.NewStructuredHub(nil)
@@ -63,14 +65,14 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
-	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, modelCache) })
+	c.Assert(err, tc.ErrorIsNil)
 	var controller *cache.Controller
 	err = modelcache.ExtractCacheController(modelCache, &controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
@@ -85,75 +87,75 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoStatePool(c *tc.C) {
 	s.config.statePool = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoController(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoController(c *tc.C) {
 	s.config.controller = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil controller not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil controller not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *tc.C) {
 	s.config.multiwatcherFactory = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil multiwatcherFactory not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil multiwatcherFactory not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoHub(c *tc.C) {
 	s.config.centralHub = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil centralHub not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil centralHub not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoPresence(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoPresence(c *tc.C) {
 	s.config.presence = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil presence not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil presence not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *tc.C) {
 	s.config.leaseManager = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil leaseManager not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *tc.C) {
 	s.config.controllerConfig = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil controllerConfig not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil controllerConfig not valid")
 }
 
-func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
+func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *tc.C) {
 	s.config.statePool = nil
 	ctx, err := newSharedServerContext(s.config)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
-	c.Check(ctx, gc.IsNil)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "nil statePool not valid")
+	c.Check(ctx, tc.IsNil)
 }
 
-func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
+func (s *sharedServerContextSuite) TestValidConfig(c *tc.C) {
 	ctx, err := newSharedServerContext(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
-	c.Assert(ctx.features, gc.HasLen, 0)
+	c.Assert(ctx.features, tc.HasLen, 0)
 	ctx.Close()
 }
 
-func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
+func (s *sharedServerContextSuite) newContext(c *tc.C) *sharedServerContext {
 	ctx, err := newSharedServerContext(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { ctx.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { ctx.Close() })
 	return ctx
 }
 
@@ -168,7 +170,7 @@ func (s *stubHub) Publish(topic string, data interface{}) (func(), error) {
 	return func() {}, nil
 }
 
-func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
+func (s *sharedServerContextSuite) TestControllerConfigChanged(c *tc.C) {
 	stub := &stubHub{StructuredHub: s.hub}
 	s.config.centralHub = stub
 	ctx := s.newContext(c)
@@ -180,7 +182,7 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	}
 
 	done, err := s.hub.Publish(controller.ConfigChanged, msg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-pubsub.Wait(done):
@@ -188,10 +190,10 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 		c.Fatalf("handler didn't")
 	}
 
-	c.Check(ctx.featureEnabled("foo"), jc.IsTrue)
-	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
-	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
-	c.Check(stub.published, gc.HasLen, 0)
+	c.Check(ctx.featureEnabled("foo"), tc.IsTrue)
+	c.Check(ctx.featureEnabled("bar"), tc.IsTrue)
+	c.Check(ctx.featureEnabled("baz"), tc.IsFalse)
+	c.Check(stub.published, tc.HasLen, 0)
 }
 
 type noopRegisterer struct {

@@ -5,8 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -14,7 +13,7 @@ func newMacaroon(id string) (*macaroon.Macaroon, error) {
 	return macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
 }
 
-func assertMacaroonsEqual(c *gc.C, ms1, ms2 []macaroon.Slice) error {
+func assertMacaroonsEqual(c *tc.C, ms1, ms2 []macaroon.Slice) error {
 	if len(ms1) != len(ms2) {
 		return errors.Errorf("length mismatch, %d vs %d", len(ms1), len(ms2))
 	}
@@ -32,8 +31,8 @@ func assertMacaroonsEqual(c *gc.C, ms1, ms2 []macaroon.Slice) error {
 	return nil
 }
 
-func assertMacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
-	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
-	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
-	c.Assert(m1.Location(), jc.DeepEquals, m2.Location())
+func assertMacaroonEquals(c *tc.C, m1, m2 *macaroon.Macaroon) {
+	c.Assert(m1.Id(), tc.DeepEquals, m2.Id())
+	c.Assert(m1.Signature(), tc.DeepEquals, m2.Signature())
+	c.Assert(m1.Location(), tc.DeepEquals, m2.Location())
 }

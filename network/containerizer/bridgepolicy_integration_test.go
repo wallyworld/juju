@@ -6,15 +6,16 @@ package containerizer_test
 import (
 	"fmt"
 	"strconv"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
@@ -29,62 +30,64 @@ type bridgePolicyStateSuite struct {
 	containerMachine containerizer.Container
 }
 
-var _ = gc.Suite(&bridgePolicyStateSuite{})
+func TestBridgePolicyStateSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &bridgePolicyStateSuite{})
+}
 
-func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
+func (s *bridgePolicyStateSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	var err error
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.machine = containerizer.NewMachine(m)
 }
 
-func (s *bridgePolicyStateSuite) addContainerMachine(c *gc.C) {
+func (s *bridgePolicyStateSuite) addContainerMachine(c *tc.C) {
 	// Add a container machine with s.machine as its host.
 	containerTemplate := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.containerMachine = containerizer.NewMachine(container)
 }
 
-func (s *bridgePolicyStateSuite) assertNoDevicesOnMachine(c *gc.C, machine containerizer.Container) {
+func (s *bridgePolicyStateSuite) assertNoDevicesOnMachine(c *tc.C, machine containerizer.Container) {
 	s.assertAllLinkLayerDevicesOnMachineMatchCount(c, machine, 0)
 }
 
 func (s *bridgePolicyStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(
-	c *gc.C, machine containerizer.Container, expectedCount int,
+	c *tc.C, machine containerizer.Container, expectedCount int,
 ) {
 	results, err := machine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.HasLen, expectedCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.HasLen, expectedCount)
 }
 
-func (s *bridgePolicyStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
+func (s *bridgePolicyStateSuite) createSpaceAndSubnet(c *tc.C, spaceName, CIDR string) {
 	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:    CIDR,
 		SpaceID: space.Id(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // setupTwoSpaces creates a 'somespace' and a 'dmz' space, each with a single
 // registered subnet. 10.0.0.0/24 for 'somespace', and '10.10.0.0/24' for 'dmz'
-func (s *bridgePolicyStateSuite) setupTwoSpaces(c *gc.C) {
+func (s *bridgePolicyStateSuite) setupTwoSpaces(c *tc.C) {
 	s.createSpaceAndSubnet(c, "somespace", "10.0.0.0/24")
 	s.createSpaceAndSubnet(c, "dmz", "10.10.0.0/24")
 }
 
-func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine containerizer.Machine, deviceName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createNICWithIP(c *tc.C, machine containerizer.Machine, deviceName, cidrAddress string) {
 	s.createNICWithIPAndPortType(c, machine, deviceName, cidrAddress, corenetwork.NonVirtualPort)
 }
 
-func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *gc.C, machine containerizer.Machine, deviceName, cidrAddress string, portType corenetwork.VirtualPortType) {
+func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *tc.C, machine containerizer.Machine, deviceName, cidrAddress string, portType corenetwork.VirtualPortType) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:            deviceName,
@@ -94,7 +97,7 @@ func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *gc.C, machine con
 			VirtualPortType: portType,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   deviceName,
@@ -102,10 +105,10 @@ func (s *bridgePolicyStateSuite) createNICWithIPAndPortType(c *gc.C, machine con
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine containerizer.Machine, bridgeName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createBridgeWithIP(c *tc.C, machine containerizer.Machine, bridgeName, cidrAddress string) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       bridgeName,
@@ -114,7 +117,7 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine containeriz
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   bridgeName,
@@ -122,12 +125,12 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(c *gc.C, machine containeriz
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
 // machine, and assigns the requested CIDRAddress to the bridge.
-func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(c *gc.C, machine containerizer.Machine, deviceName, bridgeName, cidrAddress string) {
+func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(c *tc.C, machine containerizer.Machine, deviceName, bridgeName, cidrAddress string) {
 	s.createBridgeWithIP(c, machine, bridgeName, cidrAddress)
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
@@ -137,16 +140,16 @@ func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(c *gc.C, machine conta
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *bridgePolicyStateSuite) setupMachineInTwoSpaces(c *gc.C) {
+func (s *bridgePolicyStateSuite) setupMachineInTwoSpaces(c *tc.C) {
 	s.setupTwoSpaces(c)
 	s.createNICAndBridgeWithIP(c, s.machine, "ens33", "br-ens33", "10.0.0.20/24")
 	s.createNICAndBridgeWithIP(c, s.machine, "ens0p10", "br-ens0p10", "10.10.0.20/24")
 }
 
-func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerizer.Machine) {
+func (s *bridgePolicyStateSuite) createLoopbackNIC(c *tc.C, machine containerizer.Machine) {
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lo",
@@ -155,7 +158,7 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "lo",
@@ -163,11 +166,11 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // createAllDefaultDevices creates the loopback, lxcbr0, lxdbr0, and virbr0 devices
-func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine containerizer.Machine) {
+func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *tc.C, machine containerizer.Machine) {
 	// loopback
 	s.createLoopbackNIC(c, machine)
 	// container.DefaultLxdBridge
@@ -176,7 +179,7 @@ func (s *bridgePolicyStateSuite) createAllDefaultDevices(c *gc.C, machine contai
 	s.createBridgeWithIP(c, machine, "virbr0", "192.168.124.1/24")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithProviderNetworkingAndOvsBridge(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithProviderNetworkingAndOvsBridge(c *tc.C) {
 	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
 	// OVS bridges appear as regular nics; however, juju detects them by
 	// ovs-vsctl and sets their virtual port type to corenetwork.OvsPort
@@ -189,15 +192,15 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithProvid
 	// When using "provider" as the container networking method, the bridge
 	// policy code will treat ovs devices as bridges.
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].ParentInterfaceName, gc.Equals, "ovsbr0", gc.Commentf("expected container device parent to be the OVS bridge"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].ParentInterfaceName, tc.Equals, "ovsbr0", tc.Commentf("expected container device parent to be the OVS bridge"))
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithLocalNetworkingAndOvsBridge(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithLocalNetworkingAndOvsBridge(c *tc.C) {
 	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
 	// OVS bridges appear as regular nics; however, juju detects them by
 	// ovs-vsctl and sets their virtual port type to corenetwork.OvsPort
@@ -210,15 +213,15 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesWithLocalN
 	// When using "local" as the container networking method, the bridge
 	// policy code will treat ovs devices as regular NICs.
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].ParentInterfaceName, gc.Equals, "lxdbr0", gc.Commentf("expected container device parent to be the default lxd bridge as the container networking method is 'local'"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].ParentInterfaceName, tc.Equals, "lxdbr0", tc.Commentf("expected container device parent to be the default lxd bridge as the container networking method is 'local'"))
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyPaired(c *tc.C) {
 	// The device names chosen and the order are very explicit. We
 	// need to ensure that we have a list that does not sort well
 	// alphabetically. This is because SetParentLinkLayerDevices()
@@ -259,7 +262,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	// Put each of those bridges into a different subnet that is part
 	// of the same space.
 	space, err := s.State.AddSpace("somespace", "somespace", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	devAddresses := make([]state.LinkLayerDeviceAddress, len(devicesArgs))
 	for i, devArg := range devicesArgs {
@@ -269,7 +272,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 			CIDR:    subnetCIDR,
 			SpaceID: space.Id(),
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		devAddresses[i] = state.LinkLayerDeviceAddress{
 			DeviceName:   devArg.Name,
 			CIDRAddress:  fmt.Sprintf("10.%d.0.10/24", subnet),
@@ -288,60 +291,60 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	}
 
 	err = s.machine.SetLinkLayerDevices(devicesArgs[:]...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(devAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, len(devicesArgs))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, len(devicesArgs))
 	for i, dev := range info {
-		c.Check(dev.InterfaceName, gc.Equals, "eth"+strconv.Itoa(i))
-		c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-		c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-		c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-		c.Check(dev.Disabled, jc.IsFalse)
-		c.Check(dev.NoAutoStart, jc.IsFalse)
-		c.Check(dev.ParentInterfaceName, gc.Equals, expectedParents[i])
+		c.Check(dev.InterfaceName, tc.Equals, "eth"+strconv.Itoa(i))
+		c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+		c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+		c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+		c.Check(dev.Disabled, tc.IsFalse)
+		c.Check(dev.NoAutoStart, tc.IsFalse)
+		c.Check(dev.ParentInterfaceName, tc.Equals, expectedParents[i])
 	}
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesConstraintsBindOnlyOne(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesConstraintsBindOnlyOne(c *tc.C) {
 	s.setupMachineInTwoSpaces(c)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(dev.Disabled, jc.IsFalse)
-	c.Check(dev.NoAutoStart, jc.IsFalse)
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.Disabled, tc.IsFalse)
+	c.Check(dev.NoAutoStart, tc.IsFalse)
 	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space somespace
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens0p10")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens0p10")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// Is put into the 'somespace' space
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
@@ -349,7 +352,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpa
 	// still in a single space. Adding a container to a machine that is in a
 	// single space puts that container into the same space.
 	err := s.machine.RemoveAllAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName: "br-eth0",
@@ -358,27 +361,27 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpa
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(dev.Disabled, jc.IsFalse)
-	c.Check(dev.NoAutoStart, jc.IsFalse)
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-eth0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.Disabled, tc.IsFalse)
+	c.Check(dev.NoAutoStart, tc.IsFalse)
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-eth0")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesDefaultSpace(c *tc.C) {
 	// TODO(jam): 2016-12-28 Eventually we probably want to have a
 	// model-config level default-space, but for now, 'default' should not be
 	// special.
@@ -391,13 +394,13 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesDefaultSpa
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
+	c.Assert(err, tc.ErrorMatches, "no obvious space for container.*")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoValidSpace(c *tc.C) {
 	// The host machine will be in 2 spaces, but neither one is 'somespace',
 	// thus we are unable to find a valid space to put the container in.
 	s.setupTwoSpaces(c)
@@ -410,13 +413,13 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoValidSpa
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
+	c.Assert(err, tc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMismatchConstraints(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMismatchConstraints(c *tc.C) {
 	// Machine is in 'somespace' but container wants to be in 'dmz'
 	s.setupTwoSpaces(c)
 	// Is put into the 'somespace' space
@@ -426,17 +429,17 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMismatchCo
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMissingBridge(c *tc.C) {
 	// Machine is in 'somespace' and 'dmz' but doesn't have a bridge for 'dmz'
 	s.setupTwoSpaces(c)
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
@@ -446,17 +449,17 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMissingBri
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoConstraints(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoDefaultNoConstraints(c *tc.C) {
 	// The host machine will be in 2 spaces, but neither one is 'somespace',
 	// thus we are unable to find a valid space to put the container in.
 	s.setupTwoSpaces(c)
@@ -469,13 +472,13 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoDefaultN
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
+	c.Assert(err, tc.ErrorMatches, `no obvious space for container "0/lxd/0", host machine has spaces: .*`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoDevicesOneBridged(c *tc.C) {
 	// The host machine has 2 devices in one space, but only one is bridged.
 	// We'll only use the one that is bridged, and not complain about the other.
 	s.setupTwoSpaces(c)
@@ -486,27 +489,27 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoDevices
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.InterfaceType, gc.Equals, corenetwork.EthernetDevice)
-	c.Check(dev.MTU, gc.Equals, 0) // inherited from the parent device.
-	c.Check(dev.MACAddress, gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(dev.Disabled, jc.IsFalse)
-	c.Check(dev.NoAutoStart, jc.IsFalse)
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(dev.MTU, tc.Equals, 0) // inherited from the parent device.
+	c.Check(dev.MACAddress, tc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+	c.Check(dev.Disabled, tc.IsFalse)
+	c.Check(dev.NoAutoStart, tc.IsFalse)
 	// br-eth1 is a valid bridge in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-eth1")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-eth1")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameSpace(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridgedSameSpace(c *tc.C) {
 	// The host machine has 2 devices and both are bridged into the desired space
 	// We'll use both
 	s.setupTwoSpaces(c)
@@ -517,26 +520,26 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridged
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 2)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens33")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens33")
 	dev = info[1]
-	c.Check(dev.InterfaceName, gc.Equals, "eth1")
+	c.Check(dev.InterfaceName, tc.Equals, "eth1")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens44")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens44")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotInSpaces(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridgesNotInSpaces(c *tc.C) {
 	// The host machine has 2 network devices and 2 bridges, but none of them
 	// are in a known space. The container also has no requested space.
 	// In that case, we will use all of the unknown bridges for container
@@ -549,22 +552,22 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoBridges
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 2)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens3")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens3")
 	dev = info[1]
-	c.Check(dev.InterfaceName, gc.Equals, "eth1")
+	c.Check(dev.InterfaceName, tc.Equals, "eth1")
 	// br-ens33 and br-ens44 are both bridges in the 'somespace' space
-	c.Check(dev.ParentInterfaceName, gc.Equals, "br-ens4")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "br-ens4")
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c *tc.C) {
 	// The host machine has 1 network device and only local bridges, but none of them
 	// are in a known space. The container also has no requested space.
 	s.setupTwoSpaces(c)
@@ -574,14 +577,14 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "alpha" for container "0/lxd/0"`)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `unable to find host bridge for space(s) "alpha" for container "0/lxd/0"`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c *tc.C) {
 	// The host machine has 1 network device and only local bridges, but none of them
 	// are in a known space. The container also has no requested space.
 	s.setupTwoSpaces(c)
@@ -591,56 +594,56 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.ParentInterfaceName, gc.Equals, "lxdbr0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "lxdbr0")
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoneMissing(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoneMissing(c *tc.C) {
 	s.setupTwoSpaces(c)
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
 	s.addContainerMachine(c)
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *tc.C) {
 	s.setupTwoSpaces(c)
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
 	s.addContainerMachine(c)
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoHostDevices(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoHostDevices(c *tc.C) {
 	s.setupTwoSpaces(c)
 	s.createSpaceAndSubnet(c, "third", "10.20.0.0/24")
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
@@ -648,18 +651,18 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoHostDevices
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"dmz", "third"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "dmz", "third"`)
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `host machine "0" has no available device in space(s) "dmz", "third"`)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// dmz
 	s.createNICAndBridgeWithIP(c, s.machine, "eth1", "br-eth1", "10.10.0.20/24")
@@ -667,18 +670,18 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneM
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 	// both somespace and dmz are needed, but somespace is missing
-	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "somespace"`)
+	c.Assert(err.Error(), tc.Equals, `host machine "0" has no available device in space(s) "somespace"`)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *tc.C) {
 	// There is a "somespace" and "dmz" space, and our machine has 2 network
 	// interfaces, but is not part of any known space. In this circumstance,
 	// we should try to bridge all of the unknown space devices, not just one
@@ -690,23 +693,23 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *g
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}, {
 		DeviceName: "ens4",
 		BridgeName: "br-ens4",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocal(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocal(c *tc.C) {
 	// There is a "somespace" and "dmz" space, our machine has 1 network
 	// interface, but is not part of a known space. We have containerNetworkingMethod set to "local",
 	// which means we should fall back to using 'lxdbr0' instead of
@@ -717,17 +720,17 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalDefinedHostSpace(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalDefinedHostSpace(c *tc.C) {
 	// There is a "somespace" and "dmz" space, our machine has 1 network
 	// interface, but is not part of a known space. We have containerNetworkingMethod set to "local",
 	// which means we should fall back to using 'lxdbr0' instead of
@@ -738,24 +741,24 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No defined spaces for the container, host has spaces but we have
 	// ContainerNetworkingMethodLocal set so we should fall back to lxdbr0
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, tc.Equals, 0)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.HasLen, 1)
 	dev := info[0]
-	c.Check(dev.InterfaceName, gc.Equals, "eth0")
-	c.Check(dev.ParentInterfaceName, gc.Equals, "lxdbr0")
+	c.Check(dev.InterfaceName, tc.Equals, "eth0")
+	c.Check(dev.ParentInterfaceName, tc.Equals, "lxdbr0")
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalNoAddress(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalNoAddress(c *tc.C) {
 	// We should only use 'lxdbr0' instead of bridging the host device.
 	s.setupTwoSpaces(c)
 	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
@@ -767,23 +770,23 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{
 		{DeviceName: "ens3", BridgeName: "br-ens3", MACAddress: ""},
 	})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *tc.C) {
 	// If we have a host machine where we don't understand its spaces, but
 	// the container requests a specific space, we won't use the unknown
 	// ones.
@@ -795,18 +798,18 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithCo
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals,
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals,
 		`host machine "0" has no available device in space(s) "somespace"`)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *tc.C) {
 	// The host machine has 2 devices, one is in a known 'somespace' space, the other is in an unknown space.
 	// We will ignore the unknown space and just return the one in 'somespace',
 	// cause that is the only declared space on the machine.
@@ -818,19 +821,19 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownAndDef
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We don't need a container constraint, as the host machine is in a single space.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *tc.C) {
 	// With two host devices that could be bridged, we will only ask for the
 	// first one to be bridged.
 	s.setupTwoSpaces(c)
@@ -849,22 +852,22 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerOneOfTwoBridg
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Only the first device (by sort order) should be selected
-	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens2.1",
 		BridgeName: "br-ens2-1",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *tc.C) {
 	// With two host devices that could be bridged, we will only ask for the
 	// first one to be bridged.
 	s.setupTwoSpaces(c)
@@ -874,18 +877,18 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoHostDevice
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{})
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *tc.C) {
 	// TODO(jam): 2016-12-28 Eventually we probably want to have a
 	// model-config level default-space, but for now, 'somespace' should not be
 	// special.
@@ -897,15 +900,15 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoConstraints
 	s.addContainerMachine(c)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
-	c.Assert(missing, gc.IsNil)
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Assert(err, tc.ErrorMatches, "no obvious space for container.*")
+	c.Assert(missing, tc.IsNil)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// somespace
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
@@ -915,22 +918,22 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneB
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// both somespace and dmz are needed, but somespace needs to be bridged
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// somespace
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
@@ -943,15 +946,15 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpace
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz", "abba"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}, {
@@ -961,10 +964,10 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpace
 		DeviceName: "eth1",
 		BridgeName: "br-eth1",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// somespace
 	// We call it 'zbond' so it sorts late instead of first
@@ -976,7 +979,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth0",
@@ -991,7 +994,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "zbond0",
@@ -1014,28 +1017,28 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.addContainerMachine(c)
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// both somespace and dmz are needed, but somespace needs to be bridged
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "zbond0",
 		BridgeName: "br-zbond0",
 	}})
 	// We are creating a bridge on a bond, so we use a non-zero delay
-	c.Check(reconfigureDelay, gc.Equals, 13)
+	c.Check(reconfigureDelay, tc.Equals, 13)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// We create an eth0 that has an address, and then an eth0.100 which is
 	// VLAN tagged on top of that ethernet device.
@@ -1049,7 +1052,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// In dmz
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
@@ -1058,7 +1061,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We create a container in both spaces, and we should see that it wants
 	// to bridge both devices.
@@ -1066,24 +1069,24 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}, {
 		DeviceName: "eth0.100",
 		BridgeName: "br-eth0-100",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
+	c.Check(reconfigureDelay, tc.Equals, 0)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c *tc.C) {
 	s.setupTwoSpaces(c)
 	// We have eth0 and eth1 that don't have IP addresses, that are in a
 	// bond, which then has a VLAN on top of that bond. The VLAN should still
@@ -1096,7 +1099,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 			IsUp:       true,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetLinkLayerDevices(
 		[]state.LinkLayerDeviceArgs{{
 			Name:       "eth0",
@@ -1115,7 +1118,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 			IsUp:       true,
 		}}...,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "bond0",
@@ -1128,7 +1131,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 			ConfigMethod: corenetwork.ConfigStatic,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We create a container in both spaces, and we should see that it wants
 	// to bridge both devices.
@@ -1136,37 +1139,37 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace", "dmz"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(missing, tc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "bond0",
 		BridgeName: "br-bond0",
 	}, {
 		DeviceName: "bond0.100",
 		BridgeName: "br-bond0-100",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 13)
+	c.Check(reconfigureDelay, tc.Equals, 13)
 }
 
-func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMethodFAN(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMethodFAN(c *tc.C) {
 	s.setupTwoSpaces(c)
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
 	s.addContainerMachine(c)
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"somespace"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "fan"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "somespace"`)
+	c.Assert(err, tc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "somespace"`)
 }
 
 var bridgeNames = map[string]string{
@@ -1182,15 +1185,15 @@ var bridgeNames = map[string]string{
 	"enx00e07cc81e1d": "b-x00e07cc81e1d",
 }
 
-func (s *bridgePolicyStateSuite) TestBridgeNameForDevice(c *gc.C) {
+func (s *bridgePolicyStateSuite) TestBridgeNameForDevice(c *tc.C) {
 	for deviceName, bridgeName := range bridgeNames {
 		generatedBridgeName := containerizer.BridgeNameForDevice(deviceName)
-		c.Assert(generatedBridgeName, gc.Equals, bridgeName)
+		c.Assert(generatedBridgeName, tc.Equals, bridgeName)
 	}
 }
 
 type configGetter struct {
-	c *gc.C
+	c *tc.C
 
 	reconfDelay int
 	netMethod   string
@@ -1206,11 +1209,11 @@ func (g configGetter) Config() *config.Config {
 		config.ContainerNetworkingMethod:  g.netMethod,
 		config.FanConfig:                  "172.16.0.0/16=253.0.0.0/8",
 	})
-	g.c.Assert(err, jc.ErrorIsNil)
+	g.c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
-func cfg(c *gc.C, reconfDelay int, netMethod string) configGetter {
+func cfg(c *tc.C, reconfDelay int, netMethod string) configGetter {
 	return configGetter{
 		c:           c,
 		reconfDelay: reconfDelay,

@@ -4,25 +4,28 @@
 package payload_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/payload"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&formatterSuite{})
-
-type formatterSuite struct {
-	testing.IsolationSuite
+func TestFormatterSuite(t *tctesting.T) {
+	tc.Run(t, &formatterSuite{})
 }
 
-func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
+type formatterSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *formatterSuite) TestFormatPayloadOkay(c *tc.C) {
 	pl := payload.NewPayload("spam", "a-application", 1, 0)
 	pl.Labels = []string{"a-tag"}
 	formatted := payload.FormatPayload(pl)
 
-	c.Check(formatted, jc.DeepEquals, payload.FormattedPayload{
+	c.Check(formatted, tc.DeepEquals, payload.FormattedPayload{
 		Unit:    "a-application/0",
 		Machine: "1",
 		ID:      "idspam",

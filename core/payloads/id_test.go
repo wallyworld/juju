@@ -4,35 +4,39 @@
 package payloads_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&idSuite{})
+func TestIdSuite(t *tctesting.T) {
+	tc.Run(t, &idSuite{})
+}
 
 type idSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-func (s *idSuite) TestParseIDFull(c *gc.C) {
+func (s *idSuite) TestParseIDFull(c *tc.C) {
 	name, id := payloads.ParseID("a-payload/my-payload")
 
-	c.Check(name, gc.Equals, "a-payload")
-	c.Check(id, gc.Equals, "my-payload")
+	c.Check(name, tc.Equals, "a-payload")
+	c.Check(id, tc.Equals, "my-payload")
 }
 
-func (s *idSuite) TestParseIDNameOnly(c *gc.C) {
+func (s *idSuite) TestParseIDNameOnly(c *tc.C) {
 	name, id := payloads.ParseID("a-payload")
 
-	c.Check(name, gc.Equals, "a-payload")
-	c.Check(id, gc.Equals, "")
+	c.Check(name, tc.Equals, "a-payload")
+	c.Check(id, tc.Equals, "")
 }
 
-func (s *idSuite) TestParseIDExtras(c *gc.C) {
+func (s *idSuite) TestParseIDExtras(c *tc.C) {
 	name, id := payloads.ParseID("somecharm/0/a-payload/my-payload")
 
-	c.Check(name, gc.Equals, "somecharm")
-	c.Check(id, gc.Equals, "0/a-payload/my-payload")
+	c.Check(name, tc.Equals, "somecharm")
+	c.Check(id, tc.Equals, "0/a-payload/my-payload")
 }

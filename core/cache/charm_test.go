@@ -4,7 +4,9 @@
 package cache_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
@@ -14,7 +16,9 @@ type CharmSuite struct {
 	cache.EntitySuite
 }
 
-var _ = gc.Suite(&CharmSuite{})
+func TestCharmSuite(t *tctesting.T) {
+	tc.Run(t, &CharmSuite{})
+}
 
 var charmChange = cache.CharmChange{
 	ModelUUID: "model-uuid",

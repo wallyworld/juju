@@ -4,16 +4,18 @@
 package backups_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	backupsAPI "github.com/juju/juju/apiserver/facades/client/backups"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -29,9 +31,11 @@ type backupsSuite struct {
 	machineTag names.MachineTag
 }
 
-var _ = gc.Suite(&backupsSuite{})
+func TestBackupsSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &backupsSuite{})
+}
 
-func (s *backupsSuite) SetUpTest(c *gc.C) {
+func (s *backupsSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.machineTag = names.NewMachineTag("0")
@@ -40,7 +44,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.resources.RegisterNamed("machineID", common.StringResource(s.machineTag.Id()))
 
 	ssInfo, err := s.State.StateServingInfo()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentConfig := s.AgentConfigForTag(c, s.machineTag)
 	agentConfig.SetStateServingInfo(controller.StateServingInfo{
 		PrivateKey:   ssInfo.PrivateKey,
@@ -51,7 +55,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 		StatePort:    ssInfo.StatePort,
 	})
 	err = agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
@@ -62,11 +66,11 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 		machineF:         func(id string) (backupsAPI.Machine, error) { return &testMachine{}, nil },
 	}
 	s.api, err = backupsAPI.NewAPI(shim, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
 
-func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
+func (s *backupsSuite) setBackups(c *tc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
 	fake := backupstesting.FakeBackups{
 		Meta:     meta,
 		Filename: "test-filename",
@@ -85,33 +89,33 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 	return &fake
 }
 
-func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
+func (s *backupsSuite) TestNewAPIOkay(c *tc.C) {
 	_, err := backupsAPI.NewAPI(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
+func (s *backupsSuite) TestNewAPINotAuthorized(c *tc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
 	_, err := backupsAPI.NewAPI(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
-	c.Check(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+	c.Check(errors.Cause(err), tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
+func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *tc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel}, s.resources, s.authorizer)
-	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
+	c.Check(err, tc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }
 
-func (s *backupsSuite) TestBackupsCAASFails(c *gc.C) {
+func (s *backupsSuite) TestBackupsCAASFails(c *tc.C) {
 	otherState := s.Factory.MakeCAASModel(c, nil)
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	isController := true
 	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel, isController: &isController}, s.resources, s.authorizer)
-	c.Assert(err, gc.ErrorMatches, "backups on kubernetes controllers not supported")
+	c.Assert(err, tc.ErrorMatches, "backups on kubernetes controllers not supported")
 }

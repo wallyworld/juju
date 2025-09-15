@@ -5,20 +5,22 @@ package caasoperator_test
 
 import (
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasoperator"
 )
 
 type PathsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&PathsSuite{})
+func TestPathsSuite(t *tctesting.T) {
+	tc.Run(t, &PathsSuite{})
+}
 
 func relPathFunc(base string) func(parts ...string) string {
 	return func(parts ...string) string {
@@ -27,13 +29,13 @@ func relPathFunc(base string) func(parts ...string) string {
 	}
 }
 
-func (s *PathsSuite) TestPaths(c *gc.C) {
+func (s *PathsSuite) TestPaths(c *tc.C) {
 	dataDir := c.MkDir()
 	paths := caasoperator.NewPaths(dataDir, names.NewApplicationTag("foo"))
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "application-foo"))
-	c.Assert(paths, jc.DeepEquals, caasoperator.Paths{
+	c.Assert(paths, tc.DeepEquals, caasoperator.Paths{
 		ToolsDir: relData("tools"),
 		State: caasoperator.StatePaths{
 			BaseDir:         relAgent(),
@@ -46,7 +48,7 @@ func (s *PathsSuite) TestPaths(c *gc.C) {
 	})
 }
 
-func (s *PathsSuite) TestContextInterface(c *gc.C) {
+func (s *PathsSuite) TestContextInterface(c *tc.C) {
 	paths := caasoperator.Paths{
 		ToolsDir: "/path/to/tools",
 		State: caasoperator.StatePaths{
@@ -54,7 +56,7 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 			MetricsSpoolDir: "/path/to/spool/metrics",
 		},
 	}
-	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
-	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
-	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
+	c.Assert(paths.GetToolsDir(), tc.Equals, "/path/to/tools")
+	c.Assert(paths.GetCharmDir(), tc.Equals, "/path/to/charm")
+	c.Assert(paths.GetMetricsSpoolDir(), tc.Equals, "/path/to/spool/metrics")
 }

@@ -5,18 +5,18 @@ package containerizer
 
 import (
 	"strconv"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type bridgePolicySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
@@ -26,45 +26,47 @@ type bridgePolicySuite struct {
 	guest  *MockContainer
 }
 
-var _ = gc.Suite(&bridgePolicySuite{})
+func TestBridgePolicySuite(t *tctesting.T) {
+	tc.Run(t, &bridgePolicySuite{})
+}
 
-func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
+func (s *bridgePolicySuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.netBondReconfigureDelay = 13
 	s.containerNetworkingMethod = "local"
 }
 
-func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse("spaces=foo,bar,^baz"), nil)
 
 	obtained, err := s.policy().determineContainerSpaces(s.host, s.guest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := network.SpaceInfos{
 		*s.spaces.GetByName("foo"),
 		*s.spaces.GetByName("bar"),
 	}
-	c.Check(obtained, jc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *gc.C) {
+func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse(""), nil)
 
 	obtained, err := s.policy().determineContainerSpaces(s.host, s.guest)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := network.SpaceInfos{
 		*s.spaces.GetByName(network.AlphaSpaceName),
 	}
-	c.Check(obtained, jc.DeepEquals, expected)
+	c.Check(obtained, tc.DeepEquals, expected)
 }
 
-func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *bridgePolicySuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.host = NewMockContainer(ctrl)

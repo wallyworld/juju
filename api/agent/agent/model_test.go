@@ -4,8 +4,9 @@
 package agent_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/agent"
 	apitesting "github.com/juju/juju/api/testing"
@@ -17,16 +18,18 @@ type modelSuite struct {
 	*apitesting.ModelWatcherTests
 }
 
-var _ = gc.Suite(&modelSuite{})
+func TestModelSuite(t *tctesting.T) {
+	tc.Run(t, &modelSuite{})
+}
 
-func (s *modelSuite) SetUpTest(c *gc.C) {
+func (s *modelSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	stateAPI, _ := s.OpenAPIAsNewMachine(c)
 
 	agentAPI, err := agent.NewState(stateAPI)
-	c.Assert(agentAPI, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentAPI, tc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(
 		agentAPI, s.BackingState, s.Model,

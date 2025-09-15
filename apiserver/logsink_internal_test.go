@@ -5,10 +5,11 @@ package apiserver
 
 import (
 	"bytes"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
@@ -16,9 +17,11 @@ import (
 
 type loggingStrategySuite struct{}
 
-var _ = gc.Suite(&loggingStrategySuite{})
+func TestLoggingStrategySuite(t *tctesting.T) {
+	tc.Run(t, &loggingStrategySuite{})
+}
 
-func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *gc.C) {
+func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *tc.C) {
 	var logBuf bytes.Buffer
 	strategy := &agentLoggingStrategy{
 		recordLogger: failingRecordLogger{},
@@ -32,10 +35,10 @@ func (s *loggingStrategySuite) TestLoggingOfDBInsertFailures(c *gc.C) {
 	})
 
 	// The captured DB error should be surfaced from WriteLog
-	c.Assert(err, gc.ErrorMatches, ".*spawn more overlords")
+	c.Assert(err, tc.ErrorMatches, ".*spawn more overlords")
 
 	// Ensure that the DB error was also written to the sink
-	c.Assert(logBuf.String(), gc.Matches, "(?m).*spawn more overlords.*")
+	c.Assert(logBuf.String(), tc.Matches, "(?m).*spawn more overlords.*")
 }
 
 type failingRecordLogger struct{}

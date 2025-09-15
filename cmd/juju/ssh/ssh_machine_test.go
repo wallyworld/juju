@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,12 +17,12 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3/ssh"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
@@ -59,7 +60,7 @@ type argsSpec struct {
 	argsMatch string
 }
 
-func (s *argsSpec) check(c *gc.C, output string) {
+func (s *argsSpec) check(c *tc.C, output string) {
 	// The first line in the output from the fake ssh/scp is the
 	// command line. The remaining lines should contain the contents
 	// of the UserKnownHostsFile file provided (if any).
@@ -98,7 +99,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 		// Check that the provided known_hosts file contained the
 		// expected keys.
-		c.Check(actualKnownHosts, gc.Matches, s.expectedKnownHosts())
+		c.Check(actualKnownHosts, tc.Matches, s.expectedKnownHosts())
 	}
 
 	if s.argsMatch != "" {
@@ -109,7 +110,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 	// Check the command line matches what is expected.
 	pattern := "^" + strings.Join(expected, " ") + "$"
-	c.Check(actualCommandLine, gc.Matches, pattern)
+	c.Check(actualCommandLine, tc.Matches, pattern)
 }
 
 func (s *argsSpec) expectedKnownHosts() string {
@@ -127,7 +128,9 @@ type SSHMachineSuite struct {
 	noKeysMachine *state.Machine
 }
 
-var _ = gc.Suite(&SSHMachineSuite{})
+func TestSSHMachineSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &SSHMachineSuite{})
+}
 
 // Commands to patch
 var patchedCommands = []string{"ssh", "scp"}
@@ -183,7 +186,7 @@ func validAddressesWithPort(port int, acceptedAddresses ...string) *fakeHostChec
 	}
 }
 
-func (s *SSHMachineSuite) SetUpTest(c *gc.C) {
+func (s *SSHMachineSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ssh.ClearClientKeys()
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
@@ -192,18 +195,18 @@ func (s *SSHMachineSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvPathPrepend(s.binDir)
 	for _, name := range patchedCommands {
 		f, err := os.OpenFile(filepath.Join(s.binDir, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		_, err = f.Write([]byte(fakecommand))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = f.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	client, _ := ssh.NewOpenSSHClient()
 	s.PatchValue(&ssh.DefaultClient, client)
 }
 
-func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c *gc.C) {
+func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c *tc.C) {
 	target := &resolvedTarget{
 		host: "10.0.0.1",
 	}
@@ -221,12 +224,12 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 	}
 
 	err := new(sshMachine).maybePopulateTargetViaField(target, statusGetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(target.via, gc.IsNil, gc.Commentf("expected target.via not to be populated for a non-container target"))
+	c.Assert(target.via, tc.IsNil, tc.Commentf("expected target.via not to be populated for a non-container target"))
 }
 
-func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarget(c *gc.C) {
+func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarget(c *tc.C) {
 	target := &resolvedTarget{
 		host: "252.66.6.42",
 	}
@@ -252,14 +255,14 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 	}
 
 	err := new(sshMachine).maybePopulateTargetViaField(target, statusGetter)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(target.via, gc.Not(gc.IsNil), gc.Commentf("expected target.via to be populated for container target"))
-	c.Assert(target.via.user, gc.Equals, "ubuntu")
-	c.Assert(target.via.host, gc.Equals, "10.0.0.1", gc.Commentf("expected target.via.host to be set to the container's host machine address"))
+	c.Assert(target.via, tc.Not(tc.IsNil), tc.Commentf("expected target.via to be populated for container target"))
+	c.Assert(target.via.user, tc.Equals, "ubuntu")
+	c.Assert(target.via.host, tc.Equals, "10.0.0.1", tc.Commentf("expected target.via.host to be set to the container's host machine address"))
 }
 
-func (s *SSHMachineSuite) TestKeyFetchRetries(c *gc.C) {
+func (s *SSHMachineSuite) TestKeyFetchRetries(c *tc.C) {
 	s.setupModel(c)
 
 	isTerminal := func(stdin interface{}) bool {
@@ -284,8 +287,8 @@ func (s *SSHMachineSuite) TestKeyFetchRetries(c *gc.C) {
 	cmd := NewSSHCommand(validAddresses("1.public"), isTerminal, baseTestingRetryStrategy, publicKeyRetry)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "1")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, "")
 
 	select {
 	case <-done:
@@ -298,7 +301,7 @@ func (s *SSHMachineSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 	s.hostChecker = hostChecker
 }
 
-func (s *SSHMachineSuite) setupModel(c *gc.C) {
+func (s *SSHMachineSuite) setupModel(c *tc.C) {
 	// Add machine-0 with a mysql application and mysql/0 unit
 	u := s.Factory.MakeUnit(c, nil)
 
@@ -320,15 +323,15 @@ func (s *SSHMachineSuite) setupModel(c *gc.C) {
 	s.setKeys(c, m2)
 }
 
-func (s *SSHMachineSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machine {
+func (s *SSHMachineSuite) getMachineForUnit(c *tc.C, u *state.Unit) *state.Machine {
 	machineId, err := u.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return m
 }
 
-func (s *SSHMachineSuite) setAddresses(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setAddresses(c *tc.C, m *state.Machine) {
 	addrPub := network.NewSpaceAddress(
 		fmt.Sprintf("%s.public", m.Id()),
 		network.WithScope(network.ScopePublic),
@@ -338,10 +341,10 @@ func (s *SSHMachineSuite) setAddresses(c *gc.C, m *state.Machine) {
 		network.WithScope(network.ScopeCloudLocal),
 	)
 	err := m.SetProviderAddresses(addrPub, addrPriv)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *tc.C, m *state.Machine) {
 	devicesArgs := []state.LinkLayerDeviceArgs{{
 		Name: "lo",
 		Type: network.LoopbackDevice,
@@ -350,7 +353,7 @@ func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine
 		Type: network.EthernetDevice,
 	}}
 	err := m.SetLinkLayerDevices(devicesArgs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addressesArgs := []state.LinkLayerDeviceAddress{{
 		DeviceName:   "lo",
@@ -362,19 +365,19 @@ func (s *SSHMachineSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine
 		ConfigMethod: network.ConfigStatic,
 	}}
 	err = m.SetDevicesAddresses(addressesArgs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SSHMachineSuite) setAddresses6(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setAddresses6(c *tc.C, m *state.Machine) {
 	addrPub := network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopePublic))
 	addrPriv := network.NewSpaceAddress("fc00:bbb::1", network.WithScope(network.ScopeCloudLocal))
 	err := m.SetProviderAddresses(addrPub, addrPriv)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *SSHMachineSuite) setKeys(c *gc.C, m *state.Machine) {
+func (s *SSHMachineSuite) setKeys(c *tc.C, m *state.Machine) {
 	id := m.Id()
 	keys := state.SSHHostKeys{"dsa-" + id, "rsa-" + id}
 	err := s.State.SetSSHHostKeys(m.MachineTag(), keys)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

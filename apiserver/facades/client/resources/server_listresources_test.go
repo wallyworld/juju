@@ -4,23 +4,26 @@
 package resources_test
 
 import (
+	tctesting "testing"
+
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ListResourcesSuite{})
+func TestListResourcesSuite(t *tctesting.T) {
+	tc.Run(t, &ListResourcesSuite{})
+}
 
 type ListResourcesSuite struct {
 	BaseSuite
 }
 
-func (s *ListResourcesSuite) TestOkay(c *gc.C) {
+func (s *ListResourcesSuite) TestOkay(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
@@ -67,9 +70,9 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			Tag: appTag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{
 			Resources: []params.Resource{
 				apiRes1,
@@ -101,7 +104,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	})
 }
 
-func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
+func (s *ListResourcesSuite) TestEmpty(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	tag := names.NewApplicationTag("a-application")
 	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, nil)
@@ -111,14 +114,14 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 			Tag: tag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{}},
 	})
 }
 
-func (s *ListResourcesSuite) TestError(c *gc.C) {
+func (s *ListResourcesSuite) TestError(c *tc.C) {
 	defer s.setUpTest(c).Finish()
 	failure := errors.New("<failure>")
 	tag := names.NewApplicationTag("a-application")
@@ -129,9 +132,9 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 			Tag: tag.String(),
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.ResourcesResults{
+	c.Check(results, tc.DeepEquals, params.ResourcesResults{
 		Results: []params.ResourcesResult{{
 			ErrorResult: params.ErrorResult{Error: &params.Error{
 				Message: "<failure>",

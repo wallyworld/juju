@@ -4,26 +4,28 @@
 package observer_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
 type RequestObserverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RequestObserverSuite{})
+func TestRequestObserverSuite(t *tctesting.T) {
+	tc.Run(t, &RequestObserverSuite{})
+}
 
-func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *connectionHub) {
+func (*RequestObserverSuite) makeNotifier(c *tc.C) (*observer.RequestObserver, *connectionHub) {
 	hub := &connectionHub{c: c}
 	return observer.NewRequestObserver(observer.RequestObserverContext{
 		Clock:  testclock.NewClock(time.Now()),
@@ -32,16 +34,16 @@ func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *
 	}), hub
 }
 
-func (s *RequestObserverSuite) TestAgentConnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestAgentConnectionPublished(c *tc.C) {
 	notifier, hub := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(agent, model, false, "user data")
 
-	c.Assert(hub.called, gc.Equals, 1)
-	c.Assert(hub.topic, gc.Equals, apiserver.ConnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
+	c.Assert(hub.called, tc.Equals, 1)
+	c.Assert(hub.topic, tc.Equals, apiserver.ConnectTopic)
+	c.Assert(hub.details, tc.DeepEquals, apiserver.APIConnection{
 		AgentTag:     "machine-42",
 		ModelUUID:    "fake-uuid",
 		UserData:     "user data",
@@ -49,15 +51,15 @@ func (s *RequestObserverSuite) TestAgentConnectionPublished(c *gc.C) {
 	})
 }
 
-func (s *RequestObserverSuite) assertControllerAgentConnectionPublished(c *gc.C, agent names.Tag) {
+func (s *RequestObserverSuite) assertControllerAgentConnectionPublished(c *tc.C, agent names.Tag) {
 	notifier, hub := s.makeNotifier(c)
 
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(agent, model, true, "user data")
 
-	c.Assert(hub.called, gc.Equals, 1)
-	c.Assert(hub.topic, gc.Equals, apiserver.ConnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
+	c.Assert(hub.called, tc.Equals, 1)
+	c.Assert(hub.topic, tc.Equals, apiserver.ConnectTopic)
+	c.Assert(hub.details, tc.DeepEquals, apiserver.APIConnection{
 		AgentTag:        agent.String(),
 		ModelUUID:       "fake-uuid",
 		ControllerAgent: true,
@@ -66,29 +68,29 @@ func (s *RequestObserverSuite) assertControllerAgentConnectionPublished(c *gc.C,
 	})
 }
 
-func (s *RequestObserverSuite) TestControllerMachineAgentConnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestControllerMachineAgentConnectionPublished(c *tc.C) {
 	s.assertControllerAgentConnectionPublished(c, names.NewMachineTag("2"))
 }
 
-func (s *RequestObserverSuite) TestControllerUnitAgentConnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestControllerUnitAgentConnectionPublished(c *tc.C) {
 	s.assertControllerAgentConnectionPublished(c, names.NewUnitTag("mariadb/0"))
 }
 
-func (s *RequestObserverSuite) TestControllerApplicationAgentConnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestControllerApplicationAgentConnectionPublished(c *tc.C) {
 	s.assertControllerAgentConnectionPublished(c, names.NewApplicationTag("gitlab"))
 }
 
-func (s *RequestObserverSuite) TestUserConnectionsNotPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestUserConnectionsNotPublished(c *tc.C) {
 	notifier, hub := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
 	model := names.NewModelTag("fake-uuid")
 	notifier.Login(user, model, false, "user data")
 
-	c.Assert(hub.called, gc.Equals, 0)
+	c.Assert(hub.called, tc.Equals, 0)
 }
 
-func (s *RequestObserverSuite) TestAgentDisconnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestAgentDisconnectionPublished(c *tc.C) {
 	notifier, hub := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("42")
@@ -97,16 +99,16 @@ func (s *RequestObserverSuite) TestAgentDisconnectionPublished(c *gc.C) {
 	notifier.Login(agent, model, false, "user data")
 	notifier.Leave()
 
-	c.Assert(hub.called, gc.Equals, 2)
-	c.Assert(hub.topic, gc.Equals, apiserver.DisconnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
+	c.Assert(hub.called, tc.Equals, 2)
+	c.Assert(hub.topic, tc.Equals, apiserver.DisconnectTopic)
+	c.Assert(hub.details, tc.DeepEquals, apiserver.APIConnection{
 		AgentTag:     "machine-42",
 		ModelUUID:    "fake-uuid",
 		ConnectionID: 0,
 	})
 }
 
-func (s *RequestObserverSuite) TestControllerAgentDisconnectionPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestControllerAgentDisconnectionPublished(c *tc.C) {
 	notifier, hub := s.makeNotifier(c)
 
 	agent := names.NewMachineTag("2")
@@ -115,9 +117,9 @@ func (s *RequestObserverSuite) TestControllerAgentDisconnectionPublished(c *gc.C
 	notifier.Login(agent, model, true, "user data")
 	notifier.Leave()
 
-	c.Assert(hub.called, gc.Equals, 2)
-	c.Assert(hub.topic, gc.Equals, apiserver.DisconnectTopic)
-	c.Assert(hub.details, jc.DeepEquals, apiserver.APIConnection{
+	c.Assert(hub.called, tc.Equals, 2)
+	c.Assert(hub.topic, tc.Equals, apiserver.DisconnectTopic)
+	c.Assert(hub.details, tc.DeepEquals, apiserver.APIConnection{
 		AgentTag:        "machine-2",
 		ModelUUID:       "fake-uuid",
 		ControllerAgent: true,
@@ -125,7 +127,7 @@ func (s *RequestObserverSuite) TestControllerAgentDisconnectionPublished(c *gc.C
 	})
 }
 
-func (s *RequestObserverSuite) TestUserDisconnectionsNotPublished(c *gc.C) {
+func (s *RequestObserverSuite) TestUserDisconnectionsNotPublished(c *tc.C) {
 	notifier, hub := s.makeNotifier(c)
 
 	user := names.NewUserTag("bob")
@@ -134,11 +136,11 @@ func (s *RequestObserverSuite) TestUserDisconnectionsNotPublished(c *gc.C) {
 	notifier.Login(user, model, false, "user data")
 	notifier.Leave()
 
-	c.Assert(hub.called, gc.Equals, 0)
+	c.Assert(hub.called, tc.Equals, 0)
 }
 
 type connectionHub struct {
-	c       *gc.C
+	c       *tc.C
 	called  int
 	topic   string
 	details apiserver.APIConnection

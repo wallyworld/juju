@@ -4,25 +4,28 @@
 package space
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
-	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type spacesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&spacesSuite{})
+func TestSpacesSuite(t *tctesting.T) {
+	tc.Run(t, &spacesSuite{})
+}
 
-func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
+func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -41,10 +44,10 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	state.EXPECT().SaveProviderSubnets(subnets, "")
 
 	err := ReloadSpaces(context, state, environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
+func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -63,10 +66,10 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	state.EXPECT().SaveProviderSubnets(subnets, "").Return(errors.New("boom"))
 
 	err := ReloadSpaces(context, state, environ)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *spacesSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
+func (s *spacesSuite) TestReloadSpacesNotNetworkEnviron(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -75,16 +78,18 @@ func (s *spacesSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 	environ := NewMockBootstrapEnviron(ctrl)
 
 	err := ReloadSpaces(context, state, environ)
-	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
+	c.Assert(err, tc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
 
 type providerSpacesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&providerSpacesSuite{})
+func TestProviderSpacesSuite(t *tctesting.T) {
+	tc.Run(t, &providerSpacesSuite{})
+}
 
-func (s *providerSpacesSuite) TestSaveSpaces(c *gc.C) {
+func (s *providerSpacesSuite) TestSaveSpaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -103,13 +108,13 @@ func (s *providerSpacesSuite) TestSaveSpaces(c *gc.C) {
 
 	provider := NewProviderSpaces(mockState)
 	err := provider.SaveSpaces(subnets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]Space{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]Space{
 		network.Id("1"): mockSpace,
 	})
 }
 
-func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *gc.C) {
+func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -133,24 +138,24 @@ func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *gc.C) {
 
 	provider := NewProviderSpaces(mockState)
 	err := provider.SaveSpaces(subnets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]Space{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]Space{
 		network.Id("1"): mockSpace,
 		network.Id("2"): newMockSpace,
 	})
 }
 
-func (s *providerSpacesSuite) TestSaveSpacesDeltaSpaces(c *gc.C) {
+func (s *providerSpacesSuite) TestSaveSpacesDeltaSpaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
 
 	provider := NewProviderSpaces(mockState)
-	c.Assert(provider.DeltaSpaces(), gc.DeepEquals, network.MakeIDSet())
+	c.Assert(provider.DeltaSpaces(), tc.DeepEquals, network.MakeIDSet())
 }
 
-func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *gc.C) {
+func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -174,11 +179,11 @@ func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *gc.C) 
 
 	provider := NewProviderSpaces(mockState)
 	err := provider.SaveSpaces(subnets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.DeltaSpaces(), gc.DeepEquals, network.MakeIDSet(network.Id("1")))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.DeltaSpaces(), tc.DeepEquals, network.MakeIDSet(network.Id("1")))
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesWithNoDeltas(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpacesWithNoDeltas(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -186,11 +191,11 @@ func (s *providerSpacesSuite) TestDeleteSpacesWithNoDeltas(c *gc.C) {
 
 	provider := NewProviderSpaces(mockState)
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }
 
-func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpaces(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -214,11 +219,11 @@ func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
 	}
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -235,13 +240,13 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *gc.C) {
 	}
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "alpha". Space is used as the default space.`,
 	})
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -259,13 +264,13 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C
 	}
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used as the default space.`,
 	})
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -283,13 +288,13 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *
 	}
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used as a endpoint binding.`,
 	})
 }
 
-func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *gc.C) {
+func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -308,13 +313,13 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *gc.C) 
 	}
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string{
 		`Unable to delete space "1". Space is used in a constraint.`,
 	})
 }
 
-func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
+func (s *providerSpacesSuite) TestProviderSpacesRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -342,8 +347,8 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 
 	provider := NewProviderSpaces(mockState)
 	err := provider.SaveSpaces(subnets)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]Space{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider.modelSpaceMap, tc.DeepEquals, map[network.Id]Space{
 		network.Id("1"): mockSpace,
 		network.Id("2"): newMockSpace,
 	})
@@ -353,6 +358,6 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return(nil, nil)
 
 	warnings, err := provider.DeleteSpaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(warnings, gc.DeepEquals, []string(nil))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(warnings, tc.DeepEquals, []string(nil))
 }

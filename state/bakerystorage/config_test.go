@@ -5,20 +5,20 @@ package bakerystorage
 
 import (
 	"encoding/json"
+	tctesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ConfigSuite struct {
 	jujutesting.BaseSuite
-	testing.Stub
+	testhelpers.Stub
 
 	collectionGetter func(name string) (mongo.Collection, func())
 	collection       mockCollection
@@ -27,9 +27,11 @@ type ConfigSuite struct {
 	bakeryDocResult bakeryConfigDoc
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
-func (s *ConfigSuite) SetUpTest(c *gc.C) {
+func (s *ConfigSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 	s.collection = mockCollection{
@@ -54,22 +56,22 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestInitialiseBakeryConfigOp(c *gc.C) {
+func (s *ConfigSuite) TestInitialiseBakeryConfigOp(c *tc.C) {
 	bakeryConfig := NewBakeryConfig("test", s.collectionGetter)
 	op, err := bakeryConfig.InitialiseBakeryConfigOp()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.C, gc.Equals, "test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.C, tc.Equals, "test")
 
 	doc, ok := op.Insert.(*bakeryConfigDoc)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	var key bakery.KeyPair
 	err = json.Unmarshal([]byte(doc.LocalUsersKey), &key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal([]byte(doc.OffersThirdPartyKey), &key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigSuite) TestLocalUsersKey(c *gc.C) {
+func (s *ConfigSuite) TestLocalUsersKey(c *tc.C) {
 	s.bakeryDocResult = bakeryConfigDoc{
 		LocalUsersKey:              `{"public":"XXy70HKjZ6SbrW0h6zb5xkQYzUAvarTDFrl4//7wgUo=","private":"AwHI3v9AQjbAzhZx0JBjqaPYhVJ5Ksi+PWog4rNwS9Y="}`,
 		LocalUsersThirdPartyKey:    "x",
@@ -78,11 +80,11 @@ func (s *ConfigSuite) TestLocalUsersKey(c *gc.C) {
 	}
 	bakeryConfig := NewBakeryConfig("test", s.collectionGetter)
 	key, err := bakeryConfig.GetLocalUsersKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyBytes, err := json.Marshal(key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.CheckCalls(c, []testing.StubCall{
+	s.CheckCalls(c, []testhelpers.StubCall{
 		{"GetCollection", []interface{}{"test"}},
 		{"FindId", []interface{}{"bakeryConfig"}},
 		{"One", []interface{}{&bakeryConfigDoc{
@@ -95,7 +97,7 @@ func (s *ConfigSuite) TestLocalUsersKey(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestLocalUsersThirdPartyKey(c *gc.C) {
+func (s *ConfigSuite) TestLocalUsersThirdPartyKey(c *tc.C) {
 	s.bakeryDocResult = bakeryConfigDoc{
 		LocalUsersKey:              "x",
 		LocalUsersThirdPartyKey:    `{"public":"XXy70HKjZ6SbrW0h6zb5xkQYzUAvarTDFrl4//7wgUo=","private":"AwHI3v9AQjbAzhZx0JBjqaPYhVJ5Ksi+PWog4rNwS9Y="}`,
@@ -104,11 +106,11 @@ func (s *ConfigSuite) TestLocalUsersThirdPartyKey(c *gc.C) {
 	}
 	bakeryConfig := NewBakeryConfig("test", s.collectionGetter)
 	key, err := bakeryConfig.GetLocalUsersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyBytes, err := json.Marshal(key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.CheckCalls(c, []testing.StubCall{
+	s.CheckCalls(c, []testhelpers.StubCall{
 		{"GetCollection", []interface{}{"test"}},
 		{"FindId", []interface{}{"bakeryConfig"}},
 		{"One", []interface{}{&bakeryConfigDoc{
@@ -121,7 +123,7 @@ func (s *ConfigSuite) TestLocalUsersThirdPartyKey(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestExternalUsersThirdPartyKey(c *gc.C) {
+func (s *ConfigSuite) TestExternalUsersThirdPartyKey(c *tc.C) {
 	s.bakeryDocResult = bakeryConfigDoc{
 		LocalUsersKey:              "x",
 		LocalUsersThirdPartyKey:    "x",
@@ -130,11 +132,11 @@ func (s *ConfigSuite) TestExternalUsersThirdPartyKey(c *gc.C) {
 	}
 	bakeryConfig := NewBakeryConfig("test", s.collectionGetter)
 	key, err := bakeryConfig.GetExternalUsersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyBytes, err := json.Marshal(key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.CheckCalls(c, []testing.StubCall{
+	s.CheckCalls(c, []testhelpers.StubCall{
 		{"GetCollection", []interface{}{"test"}},
 		{"FindId", []interface{}{"bakeryConfig"}},
 		{"One", []interface{}{&bakeryConfigDoc{
@@ -147,7 +149,7 @@ func (s *ConfigSuite) TestExternalUsersThirdPartyKey(c *gc.C) {
 	})
 }
 
-func (s *ConfigSuite) TestOffersThirdPartyKey(c *gc.C) {
+func (s *ConfigSuite) TestOffersThirdPartyKey(c *tc.C) {
 	s.bakeryDocResult = bakeryConfigDoc{
 		LocalUsersKey:              "x",
 		LocalUsersThirdPartyKey:    "x",
@@ -156,11 +158,11 @@ func (s *ConfigSuite) TestOffersThirdPartyKey(c *gc.C) {
 	}
 	bakeryConfig := NewBakeryConfig("test", s.collectionGetter)
 	key, err := bakeryConfig.GetOffersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	keyBytes, err := json.Marshal(key)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.CheckCalls(c, []testing.StubCall{
+	s.CheckCalls(c, []testhelpers.StubCall{
 		{"GetCollection", []interface{}{"test"}},
 		{"FindId", []interface{}{"bakeryConfig"}},
 		{"One", []interface{}{&bakeryConfigDoc{

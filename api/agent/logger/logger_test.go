@@ -4,13 +4,15 @@
 package logger_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -25,37 +27,39 @@ type loggerSuite struct {
 	logger *logger.State
 }
 
-var _ = gc.Suite(&loggerSuite{})
+func TestLoggerSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &loggerSuite{})
+}
 
-func (s *loggerSuite) SetUpTest(c *gc.C) {
+func (s *loggerSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the logger facade.
 	s.logger = logger.NewState(stateAPI)
-	c.Assert(s.logger, gc.NotNil)
+	c.Assert(s.logger, tc.NotNil)
 }
 
-func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
+func (s *loggerSuite) TestLoggingConfigWrongMachine(c *tc.C) {
 	config, err := s.logger.LoggingConfig(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(config, gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(config, tc.Equals, "")
 }
 
-func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
+func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 	config, err := s.logger.LoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(config, tc.Not(tc.Equals), "")
 }
 
-func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
+func (s *loggerSuite) setLoggingConfig(c *tc.C, loggingConfig string) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
+func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	defer wc.AssertStops()
 

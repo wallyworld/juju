@@ -4,13 +4,12 @@
 package common_test
 
 import (
-	"context"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -18,17 +17,19 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type modelWatcherSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&modelWatcherSuite{})
+func TestModelWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &modelWatcherSuite{})
+}
 
 type fakeModelAccessor struct {
 	modelConfig      *config.Config
@@ -46,26 +47,26 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 	return f.modelConfig, nil
 }
 
-func (s *modelWatcherSuite) TearDownTest(c *gc.C) {
+func (s *modelWatcherSuite) TearDownTest(c *tc.C) {
 	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
+func (s *modelWatcherSuite) TestWatchSuccess(c *tc.C) {
 	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e := common.NewModelWatcher(
 		&fakeModelAccessor{},
 		resources,
 		nil,
 	)
 	result, err := e.WatchForModelConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(resources.Count(), tc.Equals, 1)
 }
 
-func (*modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
+func (*modelWatcherSuite) TestModelConfigSuccess(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
@@ -77,13 +78,13 @@ func (*modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 		authorizer,
 	)
 	result, err := e.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
-	c.Check(result.Config["secret"], gc.Equals, "pork")
-	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingModelConfig.AllAttrs())
+	c.Check(result.Config["secret"], tc.Equals, "pork")
+	c.Check(map[string]interface{}(result.Config), tc.DeepEquals, testingModelConfig.AllAttrs())
 }
 
-func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
+func (*modelWatcherSuite) TestModelConfigFetchError(c *tc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
@@ -96,13 +97,13 @@ func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 		authorizer,
 	)
 	_, err := e.ModelConfig()
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func testingEnvConfig(c *gc.C) *config.Config {
+func testingEnvConfig(c *tc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
+		modelcmd.BootstrapContext(c.Context(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -112,6 +113,6 @@ func testingEnvConfig(c *gc.C) *config.Config {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.Config()
 }

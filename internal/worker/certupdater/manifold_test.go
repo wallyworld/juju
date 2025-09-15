@@ -4,18 +4,19 @@
 package certupdater_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
@@ -33,12 +34,14 @@ type ManifoldSuite struct {
 	stateTracker   stubStateTracker
 	addressWatcher fakeAddressWatcher
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
@@ -48,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	s.context = s.newContext(nil)
@@ -76,7 +79,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 func (s *ManifoldSuite) newWorker(config certupdater.Config) worker.Worker {
 	s.stub.MethodCall(s, "NewWorker", config)
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 	return w
 }
 
@@ -90,52 +93,52 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 
 var expectedInputs = []string{"agent", "authority", "state"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewMachineAddressWatcher", "NewWorker")
 	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", s.State, "123")
 
 	args := s.stub.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, certupdater.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, certupdater.Config{})
 	config := args[0].(certupdater.Config)
 
-	c.Assert(config, jc.DeepEquals, certupdater.Config{
+	c.Assert(config, tc.DeepEquals, certupdater.Config{
 		AddressWatcher:     &s.addressWatcher,
 		Authority:          s.authority,
 		APIHostPortsGetter: s.State,
 	})
 }
 
-func (s *ManifoldSuite) TestStartErrorClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStartErrorClosesState(c *tc.C) {
 	s.stub.SetErrors(errors.New("boom"))
 
 	_, err := s.manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorMatches, "boom")
 
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.stateTracker.CheckCallNames(c, "Use")
@@ -190,7 +193,7 @@ func (c *mockAgentConfig) Value(key string) string {
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool *state.StatePool
 }
 

@@ -4,8 +4,9 @@
 package caasadmission_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	admission "k8s.io/api/admissionregistration/v1"
 
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -20,7 +21,9 @@ type dummyAdmissionCreator struct {
 	EnsureMutatingWebhookConfigurationFunc func() (func(), error)
 }
 
-var _ = gc.Suite(&AdmissionSuite{})
+func TestAdmissionSuite(t *tctesting.T) {
+	tc.Run(t, &AdmissionSuite{})
+}
 
 func (d *dummyAdmissionCreator) EnsureMutatingWebhookConfiguration() (func(), error) {
 	if d.EnsureMutatingWebhookConfigurationFunc == nil {
@@ -37,7 +40,7 @@ func strPtr(s string) *string {
 	return &s
 }
 
-func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
+func (a *AdmissionSuite) TestAdmissionCreatorObject(c *tc.C) {
 	var (
 		ensureWebhookCalled              = false
 		ensureWebhookCleanupCalled       = false
@@ -48,7 +51,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 	)
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	serviceRef := &admission.ServiceReference{
 		Namespace: namespace,
@@ -62,27 +65,27 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 		func(obj *admission.MutatingWebhookConfiguration) (func(), error) {
 			ensureWebhookCalled = true
 
-			c.Assert(obj.Namespace, gc.Equals, namespace)
-			c.Assert(len(obj.Webhooks), gc.Equals, 1)
+			c.Assert(obj.Namespace, tc.Equals, namespace)
+			c.Assert(len(obj.Webhooks), tc.Equals, 1)
 			webhook := obj.Webhooks[0]
-			c.Assert(webhook.AdmissionReviewVersions, gc.DeepEquals, []string{"v1beta1"})
-			c.Assert(webhook.SideEffects, gc.NotNil)
-			c.Assert(*webhook.SideEffects, gc.Equals, admission.SideEffectClassNone)
+			c.Assert(webhook.AdmissionReviewVersions, tc.DeepEquals, []string{"v1beta1"})
+			c.Assert(webhook.SideEffects, tc.NotNil)
+			c.Assert(*webhook.SideEffects, tc.Equals, admission.SideEffectClassNone)
 			svc := webhook.ClientConfig.Service
-			c.Assert(svc.Name, gc.Equals, svcName)
-			c.Assert(svc.Namespace, gc.Equals, namespace)
-			c.Assert(*svc.Path, gc.Equals, path)
-			c.Assert(*svc.Port, gc.Equals, port)
+			c.Assert(svc.Name, tc.Equals, svcName)
+			c.Assert(svc.Namespace, tc.Equals, namespace)
+			c.Assert(*svc.Path, tc.Equals, path)
+			c.Assert(*svc.Port, tc.Equals, port)
 
 			return func() { ensureWebhookCleanupCalled = true }, nil
 		}, serviceRef)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ensureWebhookCalled, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ensureWebhookCalled, tc.IsTrue)
 
 	cleanup()
-	c.Assert(ensureWebhookCleanupCalled, jc.IsTrue)
+	c.Assert(ensureWebhookCleanupCalled, tc.IsTrue)
 }

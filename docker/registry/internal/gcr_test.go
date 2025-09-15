@@ -8,23 +8,23 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/tools"
 )
 
 type googleContainerRegistrySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	mockRoundTripper *mocks.MockRoundTripper
 	imageRepoDetails docker.ImageRepoDetails
@@ -32,9 +32,11 @@ type googleContainerRegistrySuite struct {
 	authToken        string
 }
 
-var _ = gc.Suite(&googleContainerRegistrySuite{})
+func TestGoogleContainerRegistrySuite(t *tctesting.T) {
+	tc.Run(t, &googleContainerRegistrySuite{})
+}
 
-func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, *gomock.Controller) {
+func (s *googleContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.imageRepoDetails = docker.ImageRepoDetails{
@@ -53,9 +55,9 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/`)
+					c.Assert(req.Header, tc.DeepEquals, http.Header{})
+					c.Assert(req.Method, tc.Equals, `GET`)
+					c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusUnauthorized,
@@ -71,9 +73,9 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 			// Refresh OAuth Token
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
+					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+					c.Assert(req.Method, tc.Equals, `GET`)
+					c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusOK,
@@ -84,9 +86,9 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 			// registry.Ping()
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-					c.Assert(req.Method, gc.Equals, `GET`)
-					c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/`)
+					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+					c.Assert(req.Method, tc.Equals, `GET`)
+					c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/`)
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 				},
 			),
@@ -95,15 +97,15 @@ func (s *googleContainerRegistrySuite) getRegistry(c *gc.C) (registry.Registry, 
 	s.PatchValue(&registry.DefaultTransport, s.mockRoundTripper)
 
 	reg, err := registry.New(s.imageRepoDetails)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, ok := reg.(*internal.GoogleContainerRegistry)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = reg.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return reg, ctrl
 }
 
-func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestInvalidUserName(c *tc.C) {
 	imageRepoDetails := docker.ImageRepoDetails{
 		Repository: "gcr.io/jujuqa",
 		BasicAuthConfig: docker.BasicAuthConfig{
@@ -111,16 +113,16 @@ func (s *googleContainerRegistrySuite) TestInvalidUserName(c *gc.C) {
 		},
 	}
 	_, err := registry.New(imageRepoDetails)
-	c.Assert(err, gc.ErrorMatches, `validating the google container registry credential: google container registry username has to be "_json_key"`)
+	c.Assert(err, tc.ErrorMatches, `validating the google container registry credential: google container registry username has to be "_json_key"`)
 }
 
-func (s *googleContainerRegistrySuite) TestPingPrivateRepository(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestPingPrivateRepository(c *tc.C) {
 	s.isPrivate = true
 	_, ctrl := s.getRegistry(c)
 	ctrl.Finish()
 }
 
-func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestTags(c *tc.C) {
 	// Use v2 for private repository.
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
@@ -132,9 +134,9 @@ func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.Header, tc.DeepEquals, http.Header{})
+			c.Assert(req.Method, tc.Equals, `GET`)
+			c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -149,9 +151,9 @@ func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Assert(req.Method, tc.Equals, `GET`)
+				c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -160,9 +162,9 @@ func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Method, tc.Equals, `GET`)
+			c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -172,15 +174,15 @@ func (s *googleContainerRegistrySuite) TestTags(c *gc.C) {
 		}),
 	)
 	vers, err := reg.Tags("jujud-operator")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, tools.Versions{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, tools.Versions{
 		image.NewImageInfo(version.MustParse("2.9.10.1")),
 		image.NewImageInfo(version.MustParse("2.9.10.2")),
 		image.NewImageInfo(version.MustParse("2.9.10")),
 	})
 }
 
-func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
+func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *tc.C) {
 	s.isPrivate = true
 	reg, ctrl := s.getRegistry(c)
 	defer ctrl.Finish()
@@ -191,9 +193,9 @@ func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.Header, tc.DeepEquals, http.Header{})
+			c.Assert(req.Method, tc.Equals, `GET`)
+			c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -208,9 +210,9 @@ func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
+				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Assert(req.Method, tc.Equals, `GET`)
+				c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=gcr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -219,9 +221,9 @@ func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, gc.Equals, `GET`)
-			c.Assert(req.URL.String(), gc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Assert(req.Method, tc.Equals, `GET`)
+			c.Assert(req.URL.String(), tc.Equals, `https://gcr.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
@@ -231,5 +233,5 @@ func (s *googleContainerRegistrySuite) TestTagsErrorResponse(c *gc.C) {
 		}),
 	)
 	_, err := reg.Tags("jujud-operator")
-	c.Assert(err, gc.ErrorMatches, `Get "https://gcr.io/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
+	c.Assert(err, tc.ErrorMatches, `Get "https://gcr.io/v2/jujuqa/jujud-operator/tags/list": non-successful response status=403`)
 }

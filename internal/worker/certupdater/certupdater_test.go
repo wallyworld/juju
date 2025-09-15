@@ -5,33 +5,30 @@ package certupdater_test
 
 import (
 	"net"
-	stdtesting "testing"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type CertUpdaterSuite struct {
 	coretesting.BaseSuite
 	stateServingInfo jujucontroller.StateServingInfo
 }
 
-var _ = gc.Suite(&CertUpdaterSuite{})
+func TestCertUpdaterSuite(t *tctesting.T) {
+	tc.Run(t, &CertUpdaterSuite{})
+}
 
-func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
+func (s *CertUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stateServingInfo = jujucontroller.StateServingInfo{
@@ -94,9 +91,9 @@ func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, 
 	}}, nil
 }
 
-func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
+func (s *CertUpdaterSuite) TestStartStop(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(certupdater.Config{
@@ -107,14 +104,14 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, worker)
 
 	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
 		[]net.IP{net.ParseIP("192.168.1.1")})
 }
 
-func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
+func (s *CertUpdaterSuite) TestAddressChange(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(certupdater.Config{
@@ -128,7 +125,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 
 	workertest.CleanKill(c, worker)
 	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
 		[]net.IP{net.ParseIP("0.1.2.3")})
 }

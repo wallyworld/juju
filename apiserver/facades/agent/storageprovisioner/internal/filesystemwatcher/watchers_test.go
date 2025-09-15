@@ -5,25 +5,28 @@ package filesystemwatcher_test
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-var _ = gc.Suite(&WatchersSuite{})
+func TestWatchersSuite(t *tctesting.T) {
+	tc.Run(t, &WatchersSuite{})
+}
 
 type WatchersSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	backend  *mockBackend
 	watchers filesystemwatcher.Watchers
 }
 
-func (s *WatchersSuite) SetUpTest(c *gc.C) {
+func (s *WatchersSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.backend = &mockBackend{
 		machineFilesystemsW:           newStringsWatcher(),
@@ -49,7 +52,7 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 		},
 		volumeAttachmentRequested: make(chan names.VolumeTag, 10),
 	}
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.backend.machineFilesystemsW.Stop()
 		s.backend.machineFilesystemAttachmentsW.Stop()
 		s.backend.modelFilesystemsW.Stop()
@@ -59,7 +62,7 @@ func (s *WatchersSuite) SetUpTest(c *gc.C) {
 	s.watchers.Backend = s.backend
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *gc.C) {
+func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystems()
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
@@ -70,13 +73,13 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystemsWatcherErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchModelManagedFilesystemsWatcherErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystems()
 	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
+func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
@@ -88,7 +91,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsNothingToSend(c *gc.C) {
+func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsNothingToSend(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	defer statetesting.AssertKillAndWait(c, w)
 
@@ -101,13 +104,13 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsNothingToSend(
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsWatcherErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsWatcherErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
@@ -119,16 +122,16 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemsErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
 	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }
 
 // TestWatchMachineManagedFilesystemsVolumeAttachedFirst is the same as
 // TestWatchMachineManagedFilesystems, but the order of volume attachment
 // and model filesystem events is swapped.
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
@@ -140,7 +143,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedFirst(c 
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
@@ -157,7 +160,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachedLater(c 
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 
@@ -185,7 +188,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
@@ -197,16 +200,16 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
 	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }
 
 // TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedFirst is the same as
 // TestWatchMachineManagedFilesystemAttachments, but the order of volume attachment
 // and model filesystem attachment events is swapped.
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedFirst(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedFirst(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2", "1:3"}
@@ -218,7 +221,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedLater(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachedLater(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
@@ -235,7 +238,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachmentDead(c *gc.C) {
+func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttachmentDead(c *tc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
 	defer statetesting.AssertKillAndWait(c, w)
 
@@ -263,7 +266,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
+func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *tc.C) {
 	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemsW.C <- []string{"0", "1"}
@@ -275,13 +278,13 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
 	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }
 
-func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *tc.C) {
 	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
 	defer statetesting.AssertKillAndWait(c, w)
 	s.backend.modelFilesystemAttachmentsW.C <- []string{"mariadb/0:0", "mariadb/0:1"}
@@ -293,8 +296,8 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachmentsErrorsPropagate(c *gc.C) {
+func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachmentsErrorsPropagate(c *tc.C) {
 	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
 	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
-	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
+	c.Assert(w.Wait(), tc.ErrorMatches, "rah")
 }

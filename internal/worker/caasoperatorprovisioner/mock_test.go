@@ -9,7 +9,6 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 	"gopkg.in/tomb.v2"
 
@@ -20,14 +19,15 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mockProvisionerFacade struct {
 	mu                  sync.Mutex
-	stub                *testing.Stub
+	stub                *testhelpers.Stub
 	applicationsWatcher *mockStringsWatcher
 	apiWatcher          *mockNotifyWatcher
 	life                life.Value
@@ -35,7 +35,7 @@ type mockProvisionerFacade struct {
 	charmInfo           *charms.CharmInfo
 }
 
-func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
+func newMockProvisionerFacade(stub *testhelpers.Stub) *mockProvisionerFacade {
 	return &mockProvisionerFacade{
 		stub:                stub,
 		applicationsWatcher: newMockStringsWatcher(),
@@ -156,7 +156,7 @@ func (m *mockAgentConfig) CACert() string {
 }
 
 type mockBroker struct {
-	testing.Stub
+	testhelpers.Stub
 	caas.Broker
 
 	mu             sync.Mutex
@@ -214,7 +214,7 @@ func (m *mockBroker) Operator(appName string) (*caas.Operator, error) {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 	tomb.Tomb
 	mu         sync.Mutex
 	terminated bool

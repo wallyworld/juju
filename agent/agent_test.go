@@ -7,20 +7,20 @@ package agent_test
 import (
 	"fmt"
 	"path/filepath"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -28,13 +28,15 @@ type suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&suite{})
+func TestSuite(t *tctesting.T) {
+	tc.Run(t, &suite{})
+}
 
 var agentConfigTests = []struct {
 	about         string
 	params        agent.AgentConfigParams
 	checkErr      string
-	inspectConfig func(*gc.C, agent.Config)
+	inspectConfig func(*tc.C, agent.Config)
 }{{
 	about:    "missing data directory",
 	checkErr: "data directory not found in configuration",
@@ -187,8 +189,8 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultPaths.LogDir)
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.LogDir(), tc.Equals, agent.DefaultPaths.LogDir)
 	},
 }, {
 	about: "missing metricsSpoolDir sets default",
@@ -203,8 +205,8 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultPaths.MetricsSpoolDir)
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.MetricsSpoolDir(), tc.Equals, agent.DefaultPaths.MetricsSpoolDir)
 	},
 }, {
 	about: "setting a custom metricsSpoolDir",
@@ -222,8 +224,8 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nowhere")
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.MetricsSpoolDir(), tc.Equals, "/tmp/nowhere")
 	},
 }, {
 	about: "agentConfig must not be a User tag",
@@ -246,8 +248,8 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		APIAddresses:      []string{"localhost:1235"},
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/unit-ubuntu-1")
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), tc.Equals, "/data/dir/agents/unit-ubuntu-1")
 	},
 }, {
 	about: "agentConfig accepts an Application tag",
@@ -261,8 +263,8 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		APIAddresses:      []string{"localhost:1235"},
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/application-ubuntu")
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), tc.Equals, "/data/dir/agents/application-ubuntu")
 	},
 }, {
 	about: "agentConfig accepts an Model tag",
@@ -276,22 +278,22 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		APIAddresses:      []string{"localhost:1235"},
 	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/model-deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	inspectConfig: func(c *tc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), tc.Equals, "/data/dir/agents/model-deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	},
 }}
 
-func (*suite) TestNewAgentConfig(c *gc.C) {
+func (*suite) TestNewAgentConfig(c *tc.C) {
 	for i, test := range agentConfigTests {
 		c.Logf("%v: %s", i, test.about)
 		config, err := agent.NewAgentConfig(test.params)
 		if test.checkErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, config)
 			}
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.checkErr)
+			c.Assert(err, tc.ErrorMatches, test.checkErr)
 		}
 	}
 }
@@ -309,13 +311,13 @@ func stateServingInfo() controller.StateServingInfo {
 	}
 }
 
-func (*suite) TestNewStateMachineConfig(c *gc.C) {
+func (*suite) TestNewStateMachineConfig(c *tc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
 		servingInfo   controller.StateServingInfo
 		checkErr      string
-		inspectConfig func(*gc.C, agent.Config)
+		inspectConfig func(*tc.C, agent.Config)
 	}
 	var tests = []testStruct{{
 		about:    "missing controller cert",
@@ -364,12 +366,12 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		c.Logf("%v: %s", i, test.about)
 		cfg, err := agent.NewStateMachineConfig(test.params, test.servingInfo)
 		if test.checkErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, cfg)
 			}
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.checkErr)
+			c.Assert(err, tc.ErrorMatches, test.checkErr)
 		}
 	}
 }
@@ -391,29 +393,29 @@ var attributeParams = agent.AgentConfigParams{
 	AgentLogfileMaxBackups: 4,
 }
 
-func (*suite) TestAttributes(c *gc.C) {
+func (*suite) TestAttributes(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conf.DataDir(), tc.Equals, "/data/dir")
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
-	c.Assert(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
-	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
-	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
-	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
-	c.Assert(conf.JujuDBSnapChannel(), gc.Equals, "4.4/stable")
-	c.Assert(conf.AgentLogfileMaxSizeMB(), gc.Equals, 150)
-	c.Assert(conf.AgentLogfileMaxBackups(), gc.Equals, 4)
+	c.Assert(systemIdentityPath, tc.Equals, compareSystemIdentityPath)
+	c.Assert(conf.Tag(), tc.Equals, names.NewMachineTag("1"))
+	c.Assert(conf.Dir(), tc.Equals, "/data/dir/agents/machine-1")
+	c.Assert(conf.Nonce(), tc.Equals, "a nonce")
+	c.Assert(conf.UpgradedToVersion(), tc.DeepEquals, jujuversion.Current)
+	c.Assert(conf.JujuDBSnapChannel(), tc.Equals, "4.4/stable")
+	c.Assert(conf.AgentLogfileMaxSizeMB(), tc.Equals, 150)
+	c.Assert(conf.AgentLogfileMaxBackups(), tc.Equals, 4)
 }
 
-func (*suite) TestStateServingInfo(c *gc.C) {
+func (*suite) TestStateServingInfo(c *tc.C) {
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	gotInfo, ok := conf.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(gotInfo, tc.DeepEquals, servingInfo)
 	newInfo := controller.StateServingInfo{
 		APIPort:           147,
 		ControllerAPIPort: 148,
@@ -426,118 +428,118 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	}
 	conf.SetStateServingInfo(newInfo)
 	gotInfo, ok = conf.StateServingInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(gotInfo, jc.DeepEquals, newInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(gotInfo, tc.DeepEquals, newInfo)
 }
 
-func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
+func (*suite) TestStateServingInfoNotAvailable(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, available := conf.StateServingInfo()
-	c.Assert(available, jc.IsFalse)
+	c.Assert(available, tc.IsFalse)
 }
 
-func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
+func (s *suite) TestAPIAddressesCannotWriteBack(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	value, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value, jc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(value, tc.DeepEquals, []string{"localhost:1235"})
 	value[0] = "invalidAdr"
 	//Check out change hasn't gone back into the internals
 	newValue, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newValue, jc.DeepEquals, []string{"localhost:1235"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newValue, tc.DeepEquals, []string{"localhost:1235"})
 }
 
-func (*suite) TestWriteAndRead(c *gc.C) {
+func (*suite) TestWriteAndRead(c *tc.C) {
 	testParams := attributeParams
 	testParams.Paths.DataDir = c.MkDir()
 	testParams.Paths.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conf.Write(), gc.IsNil)
+	c.Assert(conf.Write(), tc.IsNil)
 	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reread, jc.DeepEquals, conf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reread, tc.DeepEquals, conf)
 }
 
-func (*suite) TestParseConfigData(c *gc.C) {
+func (*suite) TestParseConfigData(c *tc.C) {
 	testParams := attributeParams
 	testParams.Paths.DataDir = c.MkDir()
 	testParams.Paths.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := conf.Render()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	reread, err := agent.ParseConfigData(data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(reread, jc.DeepEquals, conf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(reread, tc.DeepEquals, conf)
 }
 
-func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
+func (*suite) TestAPIInfoMissingAddress(c *tc.C) {
 	conf := agent.EmptyConfig()
 	_, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:52", "foo.example:1235"})
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:52", "foo.example:1235"})
 }
 
-func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.C) {
+func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235"}
 	servingInfo := stateServingInfo()
 	servingInfo.ControllerAPIPort = 0
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:47", "foo.example:1235"})
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiinfo.Addrs, tc.SameContents, []string{"localhost:47", "foo.example:1235"})
 }
 
-func (*suite) TestMongoInfo(c *gc.C) {
+func (*suite) TestMongoInfo(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
-func (*suite) TestMongoInfoNoCloudLocalAvailable(c *gc.C) {
+func (*suite) TestMongoInfoNoCloudLocalAvailable(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
-func (*suite) TestPromotedMongoInfo(c *gc.C) {
+func (*suite) TestPromotedMongoInfo(c *tc.C) {
 	attrParams := attributeParams
 	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88", "3.4.2.1:1070"}
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 
 	// Promote the agent to a controller by
 	// setting state serving info. As soon
@@ -546,26 +548,26 @@ func (*suite) TestPromotedMongoInfo(c *gc.C) {
 	conf.SetStateServingInfo(stateServingInfo())
 
 	mongoInfo, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
-	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, tc.DeepEquals, []string{"localhost:69", "3.4.2.1:69"})
+	c.Check(mongoInfo.Info.DisableTLS, tc.IsFalse)
 }
 
-func (*suite) TestAPIInfoDoesNotAddLocalhostWhenNoServingInfo(c *gc.C) {
+func (*suite) TestAPIInfoDoesNotAddLocalhostWhenNoServingInfo(c *tc.C) {
 	attrParams := attributeParams
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiinfo.Addrs, tc.DeepEquals, attrParams.APIAddresses)
 }
 
-func (*suite) TestSetPassword(c *gc.C) {
+func (*suite) TestSetPassword(c *tc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
 	servingInfo.ControllerAPIPort = 1235
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
@@ -576,8 +578,8 @@ func (*suite) TestSetPassword(c *gc.C) {
 		ModelTag: attrParams.Model,
 	}
 	apiInfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -588,8 +590,8 @@ func (*suite) TestSetPassword(c *gc.C) {
 		Password: "",
 	}
 	info, ok := conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, expectStateInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(info, tc.DeepEquals, expectStateInfo)
 
 	conf.SetPassword("newpassword")
 
@@ -597,40 +599,40 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	apiInfo, ok = conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(apiInfo, tc.DeepEquals, expectAPIInfo)
 	info, ok = conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, expectStateInfo)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(info, tc.DeepEquals, expectStateInfo)
 }
 
-func (*suite) TestSetOldPassword(c *gc.C) {
+func (*suite) TestSetOldPassword(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conf.OldPassword(), gc.Equals, attributeParams.Password)
+	c.Assert(conf.OldPassword(), tc.Equals, attributeParams.Password)
 	conf.SetOldPassword("newoldpassword")
-	c.Assert(conf.OldPassword(), gc.Equals, "newoldpassword")
+	c.Assert(conf.OldPassword(), tc.Equals, "newoldpassword")
 }
 
-func (*suite) TestSetUpgradedToVersion(c *gc.C) {
+func (*suite) TestSetUpgradedToVersion(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(conf.UpgradedToVersion(), gc.Equals, jujuversion.Current)
+	c.Assert(conf.UpgradedToVersion(), tc.Equals, jujuversion.Current)
 
 	expectVers := version.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
-	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
+	c.Assert(conf.UpgradedToVersion(), tc.Equals, expectVers)
 }
 
-func (*suite) TestSetAPIHostPorts(c *gc.C) {
+func (*suite) TestSetAPIHostPorts(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addrs, err := conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addrs, tc.DeepEquals, attributeParams.APIAddresses)
 
 	// All the best candidate addresses for each server are
 	// used. Cloud-local addresses are preferred.  Otherwise, public
@@ -661,8 +663,8 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		network.SpaceAddressesWithPort(server4, 4444).HostPorts(),
 	})
 	addrs, err = conf.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.DeepEquals, []string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addrs, tc.DeepEquals, []string{
 		"0.1.0.1:1111",
 		"0.1.0.2:1111",
 		"host.com:1111",
@@ -673,55 +675,55 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	})
 }
 
-func (*suite) TestSetAPIHostPortsErrorOnEmpty(c *gc.C) {
+func (*suite) TestSetAPIHostPortsErrorOnEmpty(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = conf.SetAPIHostPorts([]network.HostPorts{})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, tc.Satisfies, errors.IsBadRequest)
 }
 
-func (*suite) TestSetCACert(c *gc.C) {
+func (*suite) TestSetCACert(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.CACert(), gc.Equals, "ca cert")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conf.CACert(), tc.Equals, "ca cert")
 
 	conf.SetCACert("new ca cert")
-	c.Assert(conf.CACert(), gc.Equals, "new ca cert")
+	c.Assert(conf.CACert(), tc.Equals, "new ca cert")
 }
 
-func (*suite) TestSetJujuDBSnapChannel(c *gc.C) {
+func (*suite) TestSetJujuDBSnapChannel(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	snapChannel := conf.JujuDBSnapChannel()
-	c.Assert(snapChannel, gc.Equals, attributeParams.JujuDBSnapChannel)
+	c.Assert(snapChannel, tc.Equals, attributeParams.JujuDBSnapChannel)
 
 	conf.SetJujuDBSnapChannel("latest/candidate")
 	snapChannel = conf.JujuDBSnapChannel()
-	c.Assert(snapChannel, gc.Equals, "latest/candidate", gc.Commentf("juju db snap channel setting not updated"))
+	c.Assert(snapChannel, tc.Equals, "latest/candidate", tc.Commentf("juju db snap channel setting not updated"))
 }
 
-func (*suite) TestSetQueryTracingEnabled(c *gc.C) {
+func (*suite) TestSetQueryTracingEnabled(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingEnabled := conf.QueryTracingEnabled()
-	c.Assert(queryTracingEnabled, gc.Equals, attributeParams.QueryTracingEnabled)
+	c.Assert(queryTracingEnabled, tc.Equals, attributeParams.QueryTracingEnabled)
 
 	conf.SetQueryTracingEnabled(true)
 	queryTracingEnabled = conf.QueryTracingEnabled()
-	c.Assert(queryTracingEnabled, gc.Equals, true, gc.Commentf("query tracing enabled setting not updated"))
+	c.Assert(queryTracingEnabled, tc.Equals, true, tc.Commentf("query tracing enabled setting not updated"))
 }
 
-func (*suite) TestSetQueryTracingThreshold(c *gc.C) {
+func (*suite) TestSetQueryTracingThreshold(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	queryTracingThreshold := conf.QueryTracingThreshold()
-	c.Assert(queryTracingThreshold, gc.Equals, attributeParams.QueryTracingThreshold)
+	c.Assert(queryTracingThreshold, tc.Equals, attributeParams.QueryTracingThreshold)
 
 	conf.SetQueryTracingThreshold(time.Second * 10)
 	queryTracingThreshold = conf.QueryTracingThreshold()
-	c.Assert(queryTracingThreshold, gc.Equals, time.Second*10, gc.Commentf("query tracing threshold setting not updated"))
+	c.Assert(queryTracingThreshold, tc.Equals, time.Second*10, tc.Commentf("query tracing threshold setting not updated"))
 }

@@ -7,8 +7,7 @@ import (
 	"bytes"
 	"text/template"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -21,15 +20,15 @@ import (
 // It returns the addresses that will be returned by the State.Addresses
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
-func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
+func AddControllerMachine(c *tc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProviderAddresses(network.NewSpaceAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
 	err = st.SetAPIHostPorts(hostPorts)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return machine
 }
@@ -68,7 +67,7 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //	    AvailabilityZone: "zone-1",
 //	    VLANTag: 42,
 //	})
-func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
+func AddSubnetsWithTemplate(c *tc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int {
 			return a + b
@@ -82,11 +81,11 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 		// *s as a template.
 		permute := func(s string) string {
 			t, err := template.New("").Funcs(funcMap).Parse(s)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			var buf bytes.Buffer
 			err = t.Execute(&buf, subnetIndex)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			return buf.String()
 		}
 
@@ -101,6 +100,6 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 		info.AvailabilityZones = zones
 
 		_, err := st.AddSubnet(info)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }

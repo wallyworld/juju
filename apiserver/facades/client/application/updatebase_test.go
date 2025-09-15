@@ -4,25 +4,28 @@
 package application
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type UpdateBaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&UpdateBaseSuite{})
+func TestUpdateBaseSuite(t *tctesting.T) {
+	tc.Run(t, &UpdateBaseSuite{})
+}
 
-func (s *UpdateBaseSuite) TestUpdateBase(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -39,19 +42,19 @@ func (s *UpdateBaseSuite) TestUpdateBase(c *gc.C) {
 
 	api := NewUpdateBaseAPI(state, validator)
 	err := api.UpdateBase("application-foo", coreBase, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UpdateBaseSuite) TestUpdateBaseNoSeries(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNoSeries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	api := NewUpdateBaseAPI(nil, nil)
 	err := api.UpdateBase("application-foo", corebase.Base{}, false)
-	c.Assert(err, gc.ErrorMatches, `base missing from args`)
+	c.Assert(err, tc.ErrorMatches, `base missing from args`)
 }
 
-func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -65,10 +68,10 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *gc.C) {
 
 	api := NewUpdateBaseAPI(state, validator)
 	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `"foo" is a subordinate application, update-series not supported`)
+	c.Assert(err, tc.ErrorMatches, `"foo" is a subordinate application, update-series not supported`)
 }
 
-func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *gc.C) {
+func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -83,16 +86,18 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *gc.C) {
 
 	api := NewUpdateBaseAPI(state, validator)
 	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
 type StateValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&StateValidatorSuite{})
+func TestStateValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &StateValidatorSuite{})
+}
 
-func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -107,10 +112,10 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 
 	validator := stateSeriesValidator{}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -125,10 +130,10 @@ func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *gc.C) {
 
 	validator := stateSeriesValidator{}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
+	c.Assert(err, tc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -144,10 +149,10 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 
 	validator := stateSeriesValidator{}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
+	c.Assert(err, tc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithForce(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithForce(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -162,16 +167,18 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithFor
 
 	validator := stateSeriesValidator{}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type CharmhubValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&CharmhubValidatorSuite{})
+func TestCharmhubValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &CharmhubValidatorSuite{})
+}
 
-func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -199,10 +206,10 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 		client: client,
 	}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -216,10 +223,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *gc.C) {
 		client: client,
 	}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
+	c.Assert(err, tc.ErrorMatches, `no revision found for application "foo"`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -245,10 +252,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 		client: client,
 	}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -276,10 +283,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 		client: client,
 	}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
+	c.Assert(err, tc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -310,5 +317,5 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 		client: client,
 	}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

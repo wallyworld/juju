@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 func Test(t *stdtesting.T) {

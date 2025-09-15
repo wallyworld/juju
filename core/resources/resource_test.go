@@ -4,24 +4,26 @@
 package resources_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ResourceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ResourceSuite{})
+func TestResourceSuite(t *tctesting.T) {
+	tc.Run(t, &ResourceSuite{})
+}
 
-func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
+func (ResourceSuite) TestValidateUploadUsed(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
@@ -32,10 +34,10 @@ func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
+func (ResourceSuite) TestValidateUploadNotUsed(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
@@ -44,10 +46,10 @@ func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
+func (ResourceSuite) TestValidateUploadPending(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
@@ -59,21 +61,21 @@ func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
+func (ResourceSuite) TestValidateZeroValue(c *tc.C) {
 	var res resources.Resource
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
+func (ResourceSuite) TestValidateBadInfo(c *tc.C) {
 	var charmRes charmresource.Resource
-	c.Assert(charmRes.Validate(), gc.NotNil)
+	c.Assert(charmRes.Validate(), tc.NotNil)
 
 	res := resources.Resource{
 		Resource: charmRes,
@@ -81,11 +83,11 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `.*bad info.*`)
 }
 
-func (ResourceSuite) TestValidateMissingID(c *gc.C) {
+func (ResourceSuite) TestValidateMissingID(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ApplicationID: "a-application",
@@ -95,10 +97,10 @@ func (ResourceSuite) TestValidateMissingID(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
+func (ResourceSuite) TestValidateMissingApplicationID(c *tc.C) {
 	res := resources.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
 		ID:        "a-application/spam",
@@ -108,11 +110,11 @@ func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*missing application ID.*`)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `.*missing application ID.*`)
 }
 
-func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
+func (ResourceSuite) TestValidateMissingUsername(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
@@ -123,10 +125,10 @@ func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
+func (ResourceSuite) TestValidateMissingTimestamp(c *tc.C) {
 	res := resources.Resource{
 		Resource:      newFullCharmResource(c, "spam"),
 		ID:            "a-application/spam",
@@ -137,11 +139,11 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `.*missing timestamp.*`)
+	c.Check(errors.Cause(err), tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `.*missing timestamp.*`)
 }
 
-func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
+func (ResourceSuite) TestRevisionStringNone(c *tc.C) {
 	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -156,12 +158,12 @@ func (ResourceSuite) TestRevisionStringNone(c *gc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	c.Check(res.RevisionString(), gc.Equals, "-")
+	c.Check(res.RevisionString(), tc.Equals, "-")
 }
 
-func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
+func (ResourceSuite) TestRevisionStringTime(c *tc.C) {
 	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -178,12 +180,12 @@ func (ResourceSuite) TestRevisionStringTime(c *gc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	c.Check(res.RevisionString(), gc.Equals, "2012-07-08 15:59:05 +0000 UTC")
+	c.Check(res.RevisionString(), tc.Equals, "2012-07-08 15:59:05 +0000 UTC")
 }
 
-func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
+func (ResourceSuite) TestRevisionStringNumber(c *tc.C) {
 	res := resources.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -201,12 +203,12 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 	}
 
 	err := res.Validate()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
-	c.Check(res.RevisionString(), gc.Equals, "7")
+	c.Check(res.RevisionString(), tc.Equals, "7")
 }
 
-func (s *ResourceSuite) TestAsMap(c *gc.C) {
+func (s *ResourceSuite) TestAsMap(c *tc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	res := []resources.Resource{
@@ -216,7 +218,7 @@ func (s *ResourceSuite) TestAsMap(c *gc.C) {
 
 	resMap := resources.AsMap(res)
 
-	c.Check(resMap, jc.DeepEquals, map[string]resources.Resource{
+	c.Check(resMap, tc.DeepEquals, map[string]resources.Resource{
 		"spam": spam,
 		"eggs": eggs,
 	})

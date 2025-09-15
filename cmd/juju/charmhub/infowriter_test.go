@@ -5,25 +5,28 @@ package charmhub
 
 import (
 	"bytes"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type printInfoSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&printInfoSuite{})
+func TestPrintInfoSuite(t *tctesting.T) {
+	tc.Run(t, &printInfoSuite{})
+}
 
-func (s *printInfoSuite) TestCharmPrintInfo(c *gc.C) {
+func (s *printInfoSuite) TestCharmPrintInfo(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -49,15 +52,15 @@ channels: |
   latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64  ubuntu@22.04
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64  coolos@3.14
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestCharmPrintInfoModeNone(c *gc.C) {
+func (s *printInfoSuite) TestCharmPrintInfoModeNone(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -83,15 +86,15 @@ channels: |
   latest/beta:       1.0.3  2019-12-16  (17)  12MB
   latest/edge:       1.0.3  2019-12-16  (18)  12MB
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestCharmPrintInfoModeArches(c *gc.C) {
+func (s *printInfoSuite) TestCharmPrintInfoModeArches(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeArches, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -118,15 +121,15 @@ channels: |
   latest/beta:       1.0.3  2019-12-16  (17)  12MB  amd64
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  amd64
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestCharmPrintInfoModeBases(c *gc.C) {
+func (s *printInfoSuite) TestCharmPrintInfoModeBases(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBases, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -152,15 +155,15 @@ channels: |
   latest/beta:       1.0.3  2019-12-16  (17)  12MB  ubuntu@22.04
   latest/edge:       1.0.3  2019-12-16  (18)  12MB  coolos@3.14
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *gc.C) {
+func (s *printInfoSuite) TestCharmPrintInfoWithConfig(c *tc.C) {
 	ir := getCharmInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, true, "never", baseModeNone, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: wordpress
@@ -196,15 +199,15 @@ config:
       description: A thing used by the charm.
       default: "\U0001F381"
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestBundleChannelClosed(c *gc.C) {
+func (s *printInfoSuite) TestBundleChannelClosed(c *tc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
@@ -218,15 +221,15 @@ channels: |
   2.8/beta:          ^
   2.8/edge:          1.0.3  2019-12-17  (60)  12MB
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *gc.C) {
+func (s *printInfoSuite) TestBundleChannelClosedWithUnicode(c *tc.C) {
 	ir := getBundleInfoClosedTrack()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "always", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
@@ -240,15 +243,15 @@ channels: |
   2.8/beta:          ↑
   2.8/edge:          1.0.3  2019-12-17  (60)  12MB
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
-func (s *printInfoSuite) TestBundlePrintInfo(c *gc.C) {
+func (s *printInfoSuite) TestBundlePrintInfo(c *tc.C) {
 	ir := getBundleInfoResponse()
 	ctx := commandContextForTest(c)
 	iw := makeInfoWriter(ctx.Stdout, ctx.Warningf, false, "never", baseModeBoth, &ir, -1)
 	err := iw.Print()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	obtained := ctx.Stdout.(*bytes.Buffer).String()
 	expected := `name: osm
@@ -263,7 +266,7 @@ channels: |
   latest/beta:       1.0.3  2019-12-16  (17)  12MB
   latest/edge:       1.0.3  2019-12-16  (18)  12MB
 `
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, tc.Equals, expected)
 }
 
 func getBundleInfoResponse() InfoResponse {

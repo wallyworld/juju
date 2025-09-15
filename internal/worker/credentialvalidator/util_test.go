@@ -7,21 +7,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // mockFacade implements credentialvalidator.Facade for use in the tests.
 type mockFacade struct {
-	*testing.Stub
+	*testhelpers.Stub
 	credential *base.StoredCredential
 	exists     bool
 
@@ -87,17 +86,17 @@ func validConfig() credentialvalidator.Config {
 
 // checkNotValid checks that the supplied credentialvalidator.Config fails to
 // Validate, and cannot be used to construct a credentialvalidator.Worker.
-func checkNotValid(c *gc.C, config credentialvalidator.Config, expect string) {
+func checkNotValid(c *tc.C, config credentialvalidator.Config, expect string) {
 	check := func(err error) {
-		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, tc.ErrorMatches, expect)
+		c.Check(err, tc.Satisfies, errors.IsNotValid)
 	}
 
 	err := config.Validate()
 	check(err)
 
 	worker, err := credentialvalidator.NewWorker(config)
-	c.Check(worker, gc.IsNil)
+	c.Check(worker, tc.IsNil)
 	check(err)
 }
 
@@ -114,10 +113,10 @@ func validManifoldConfig() credentialvalidator.ManifoldConfig {
 
 // checkManifoldNotValid checks that the supplied ManifoldConfig creates
 // a manifold that cannot be started.
-func checkManifoldNotValid(c *gc.C, config credentialvalidator.ManifoldConfig, expect string) {
+func checkManifoldNotValid(c *tc.C, config credentialvalidator.ManifoldConfig, expect string) {
 	err := config.Validate()
-	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, expect)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
 }
 
 // stubCaller is a base.APICaller that only implements ModelTag.

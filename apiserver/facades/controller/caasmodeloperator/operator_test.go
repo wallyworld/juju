@@ -4,16 +4,17 @@
 package caasmodeloperator_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	coretesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ModelOperatorSuite struct {
@@ -25,9 +26,11 @@ type ModelOperatorSuite struct {
 	state      *mockState
 }
 
-var _ = gc.Suite(&ModelOperatorSuite{})
+func TestModelOperatorSuite(t *tctesting.T) {
+	tc.Run(t, &ModelOperatorSuite{})
+}
 
-func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
+func (m *ModelOperatorSuite) SetUpTest(c *tc.C) {
 	m.BaseSuite.SetUpTest(c)
 
 	m.resources = common.NewResources()
@@ -48,38 +51,38 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
 
 	api, err := caasmodeloperator.NewAPI(m.authorizer, m.resources, m.state, m.state)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m.api = api
 }
 
-func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
+func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	info, err := m.api.ModelOperatorProvisioningInfo()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	imagePath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConf, info.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(imagePath, tc.Equals, info.ImageDetails.RegistryPath)
 
-	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
-	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
+	c.Assert(info.ImageDetails.Auth, tc.Equals, `xxxxx==`)
+	c.Assert(info.ImageDetails.Repository, tc.Equals, `test-account`)
 
 	model, err := m.state.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelConfig, err := model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	vers, ok := modelConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
-	c.Assert(vers, jc.DeepEquals, info.Version)
+	c.Assert(vers, tc.DeepEquals, info.Version)
 }
 
-func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
+func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *tc.C) {
 	controllerConfigChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan struct{}, 1)
 	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
@@ -92,8 +95,8 @@ func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
 	modelConfigChanged <- struct{}{}
 
 	results, err := m.api.WatchModelOperatorProvisioningInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Error, tc.IsNil)
 	res := m.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
+	c.Assert(res, tc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
 }

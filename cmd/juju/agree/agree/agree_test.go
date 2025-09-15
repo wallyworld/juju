@@ -6,26 +6,23 @@ package agree_test
 import (
 	"context"
 	"sync"
-	"testing"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/tc"
 	"github.com/juju/terms-client/v2/api"
 	"github.com/juju/terms-client/v2/api/wireformat"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/agree/agree"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+func TestAgreeSuite(t *tctesting.T) {
+	tc.Run(t, &agreeSuite{})
 }
-
-var _ = gc.Suite(&agreeSuite{})
 
 var testTerms = "Test Terms"
 
@@ -34,17 +31,17 @@ type agreeSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 }
 
-func (s *agreeSuite) SetUpTest(c *gc.C) {
+func (s *agreeSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.client = &mockClient{}
 
-	jujutesting.PatchValue(agree.ClientNew, func(...api.ClientOption) (api.Client, error) {
+	testhelpers.PatchValue(agree.ClientNew, func(...api.ClientOption) (api.Client, error) {
 		return s.client, nil
 	})
 }
 
-func (s *agreeSuite) TestAgreementNothingToSign(c *gc.C) {
-	jujutesting.PatchValue(agree.UserAnswer, func() (string, error) {
+func (s *agreeSuite) TestAgreementNothingToSign(c *tc.C) {
+	testhelpers.PatchValue(agree.UserAnswer, func() (string, error) {
 		return "y", nil
 	})
 
@@ -52,14 +49,14 @@ func (s *agreeSuite) TestAgreementNothingToSign(c *gc.C) {
 	s.client.setUnsignedTerms([]wireformat.GetTermsResponse{})
 
 	ctx, err := s.runCommand(c, "test-term/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `Already agreed
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, `Already agreed
 `)
 }
 
-func (s *agreeSuite) TestAgreement(c *gc.C) {
+func (s *agreeSuite) TestAgreement(c *tc.C) {
 	var answer string
-	jujutesting.PatchValue(agree.UserAnswer, func() (string, error) {
+	testhelpers.PatchValue(agree.UserAnswer, func() (string, error) {
 		return answer, nil
 	})
 
@@ -75,18 +72,18 @@ func (s *agreeSuite) TestAgreement(c *gc.C) {
 		err         string
 		stdout      string
 		answer      string
-		apiCalls    []jujutesting.StubCall
+		apiCalls    []testhelpers.StubCall
 		clientTerms []wireformat.GetTermsResponse
 	}{{
 		about:    "everything works",
 		args:     []string{"test-term/1", "--yes"},
 		stdout:   "Agreed to revision 1 of test-term for Juju users\n",
-		apiCalls: []jujutesting.StubCall{{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermName: "test-term", TermRevision: 1}}}}}},
+		apiCalls: []testhelpers.StubCall{{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermName: "test-term", TermRevision: 1}}}}}},
 	}, {
 		about:    "everything works with owner term",
 		args:     []string{"owner/test-term/1", "--yes"},
 		stdout:   "Agreed to revision 1 of owner/test-term for Juju users\n",
-		apiCalls: []jujutesting.StubCall{{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermOwner: "owner", TermName: "test-term", TermRevision: 1}}}}}},
+		apiCalls: []testhelpers.StubCall{{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{Agreements: []wireformat.SaveAgreement{{TermOwner: "owner", TermName: "test-term", TermRevision: 1}}}}}},
 	}, {
 		about: "cannot parse revision number",
 		args:  []string{"test-term/abc"},
@@ -105,7 +102,7 @@ Test Terms
 ========
 Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-term for Juju users
 `,
-		apiCalls: []jujutesting.StubCall{{
+		apiCalls: []testhelpers.StubCall{{
 			FuncName: "GetUnunsignedTerms", Args: []interface{}{
 				&wireformat.CheckAgreementsRequest{Terms: []string{"test-term/1"}},
 			},
@@ -124,7 +121,7 @@ Test Terms
 ========
 Do you agree to the displayed terms? (Y/n): You didn't agree to the presented terms.
 `,
-		apiCalls: []jujutesting.StubCall{{
+		apiCalls: []testhelpers.StubCall{{
 			FuncName: "GetUnunsignedTerms", Args: []interface{}{
 				&wireformat.CheckAgreementsRequest{Terms: []string{"test-term/1"}},
 			},
@@ -143,7 +140,7 @@ Test Terms
 ========
 Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-term for Juju users
 `,
-		apiCalls: []jujutesting.StubCall{
+		apiCalls: []testhelpers.StubCall{
 			{
 				FuncName: "GetUnunsignedTerms", Args: []interface{}{
 					&wireformat.CheckAgreementsRequest{Terms: []string{"test-term/1", "test-term/2"}},
@@ -165,7 +162,7 @@ Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-term fo
 		stdout: `Agreed to revision 1 of test-term for Juju users
 Agreed to revision 2 of test-term for Juju users
 `,
-		apiCalls: []jujutesting.StubCall{
+		apiCalls: []testhelpers.StubCall{
 			{FuncName: "SaveAgreement", Args: []interface{}{&wireformat.SaveAgreements{
 				Agreements: []wireformat.SaveAgreement{
 					{TermName: "test-term", TermRevision: 1},
@@ -187,7 +184,7 @@ Test Terms
 ========
 Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/test-term for Juju users
 `,
-		apiCalls: []jujutesting.StubCall{{
+		apiCalls: []testhelpers.StubCall{{
 			FuncName: "GetUnunsignedTerms", Args: []interface{}{
 				&wireformat.CheckAgreementsRequest{Terms: []string{"test-owner/test-term/1"}},
 			},
@@ -208,12 +205,12 @@ Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/t
 		}
 		ctx, err := s.runCommand(c, test.args...)
 		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Assert(err, tc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		if ctx != nil {
-			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, test.stdout)
+			c.Assert(cmdtesting.Stdout(ctx), tc.Equals, test.stdout)
 		}
 		if len(test.apiCalls) > 0 {
 			s.client.CheckCalls(c, test.apiCalls)
@@ -221,7 +218,7 @@ Do you agree to the displayed terms? (Y/n): Agreed to revision 1 of test-owner/t
 	}
 }
 
-func (s *agreeSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *agreeSuite) runCommand(c *tc.C, args ...string) (*cmd.Context, error) {
 	cmd := agree.NewAgreeCommand()
 	cmd.SetClientStore(newMockStore())
 	return cmdtesting.RunCommand(c, cmd, args...)
@@ -229,7 +226,7 @@ func (s *agreeSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 
 type mockClient struct {
 	api.Client
-	jujutesting.Stub
+	testhelpers.Stub
 
 	lock          sync.Mutex
 	user          string

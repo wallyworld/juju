@@ -4,11 +4,12 @@
 package upgrades_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/tc"
+	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/upgrades"
 )
 
@@ -18,9 +19,11 @@ type steps364Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps364Suite{})
+func TestSteps364Suite(t *tctesting.T) {
+	tc.Run(t, &steps364Suite{})
+}
 
-func (s *steps364Suite) TestAddsVirtualHostKeys(c *gc.C) {
+func (s *steps364Suite) TestAddsVirtualHostKeys(c *tc.C) {
 	step := findStateStep(c, v364, "add virtual host keys")
-	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+	c.Assert(step.Targets(), tc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

@@ -5,14 +5,14 @@ package base
 
 import (
 	"os"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 const distroInfoContents = `version,codename,series,created,release,eol,eol-server
@@ -22,82 +22,84 @@ const distroInfoContents = `version,codename,series,created,release,eol,eol-serv
 `
 
 type SupportedSeriesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&SupportedSeriesSuite{})
+func TestSupportedSeriesSuite(t *tctesting.T) {
+	tc.Run(t, &SupportedSeriesSuite{})
+}
 
-func (s *SupportedSeriesSuite) TestSupportedInfoForType(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForType(c *tc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
 	info, err := supportedInfoForType(tmpFile.Name(), now, Base{}, "")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
-	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
+	c.Assert(ctrlBases, tc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
 	workloadBases := info.workloadBases(false)
-	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+	c.Assert(workloadBases, tc.DeepEquals, transform.Slice([]string{
 		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingImageStream(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingImageStream(c *tc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
 	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@20.04"), "daily")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
-	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
+	c.Assert(ctrlBases, tc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
 	workloadBases := info.workloadBases(false)
-	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+	c.Assert(workloadBases, tc.DeepEquals, transform.Slice([]string{
 		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidImageStream(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidImageStream(c *tc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
 	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@20.04"), "turtle")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
-	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
+	c.Assert(ctrlBases, tc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
 	workloadBases := info.workloadBases(false)
-	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+	c.Assert(workloadBases, tc.DeepEquals, transform.Slice([]string{
 		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
 
-func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidSeries(c *tc.C) {
 	tmpFile, close := makeTempFile(c, distroInfoContents)
 	defer close()
 
 	now := time.Date(2020, 3, 16, 0, 0, 0, 0, time.UTC)
 
 	info, err := supportedInfoForType(tmpFile.Name(), now, MustParseBaseFromString("ubuntu@10.04"), "daily")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctrlBases := info.controllerBases()
-	c.Assert(ctrlBases, jc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
+	c.Assert(ctrlBases, tc.DeepEquals, transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, MustParseBaseFromString))
 
 	workloadBases := info.workloadBases(false)
-	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
+	c.Assert(workloadBases, tc.DeepEquals, transform.Slice([]string{
 		"centos@7", "centos@9", "genericlinux@genericlinux", "kubernetes@kubernetes",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
@@ -125,56 +127,56 @@ var getOSFromSeriesTests = []struct {
 },
 }
 
-func (s *SupportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestGetOSFromSeries(c *tc.C) {
 	for _, t := range getOSFromSeriesTests {
 		got, err := GetOSFromSeries(t.series)
 		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(err, tc.ErrorMatches, t.err)
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			c.Assert(got, gc.Equals, t.want)
+			c.Check(err, tc.ErrorIsNil)
+			c.Assert(got, tc.Equals, t.want)
 		}
 	}
 }
 
-func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestUnknownOSFromSeries(c *tc.C) {
 	_, err := GetOSFromSeries("Xuanhuaceratops")
-	c.Assert(err, jc.Satisfies, IsUnknownOSForSeriesError)
-	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
+	c.Assert(err, tc.Satisfies, IsUnknownOSForSeriesError)
+	c.Assert(err, tc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
-func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *gc.C) {
+func (s *SupportedSeriesSuite) TestSeriesVersionEmpty(c *tc.C) {
 	_, err := SeriesVersion("")
-	c.Assert(err, gc.ErrorMatches, `.*unknown version for series: "".*`)
+	c.Assert(err, tc.ErrorMatches, `.*unknown version for series: "".*`)
 }
 
 func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *SupportedSeriesSuite) TestGetBaseFromSeries(c *gc.C) {
+func (s *SupportedSeriesSuite) TestGetBaseFromSeries(c *tc.C) {
 	vers, err := GetBaseFromSeries("jammy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, MakeDefaultBase("ubuntu", "22.04"))
 	_, err = GetBaseFromSeries("unknown")
-	c.Assert(err, gc.ErrorMatches, `series "unknown" not valid`)
+	c.Assert(err, tc.ErrorMatches, `series "unknown" not valid`)
 	vers, err = GetBaseFromSeries("centos7")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, jc.DeepEquals, MakeDefaultBase("centos", "7"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(vers, tc.DeepEquals, MakeDefaultBase("centos", "7"))
 }
 
-func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *gc.C) {
+func (s *SupportedSeriesSuite) TestGetSeriesFromOSVersion(c *tc.C) {
 	series, err := GetSeriesFromChannel("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(series, tc.Equals, "jammy")
 	_, err = GetSeriesFromChannel("bad", "22.04")
-	c.Assert(err, gc.ErrorMatches, `os "bad" version "22.04" not found`)
+	c.Assert(err, tc.ErrorMatches, `os "bad" version "22.04" not found`)
 	series, err = GetSeriesFromChannel("centos", "7/stable")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "centos7")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(series, tc.Equals, "centos7")
 }
 
-func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
+func (s *SupportedSeriesSuite) TestUbuntuVersions(c *tc.C) {
 	ubuntuSeries := map[SeriesName]seriesVersion{
 		Precise: {
 			WorkloadType: ControllerWorkloadType,
@@ -318,48 +320,48 @@ func (s *SupportedSeriesSuite) TestUbuntuVersions(c *gc.C) {
 	}
 
 	result := ubuntuVersions(nil, nil, ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "bionic": "18.04", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "focal": "20.04", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "jammy": "22.04", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "noble": "24.04", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"artful": "17.10", "bionic": "18.04", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "focal": "20.04", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "jammy": "22.04", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "noble": "24.04", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
 
 	result = ubuntuVersions(boolPtr(true), boolPtr(true), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"focal": "20.04", "jammy": "22.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"focal": "20.04", "jammy": "22.04"})
 
 	result = ubuntuVersions(boolPtr(false), boolPtr(false), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
 
 	result = ubuntuVersions(boolPtr(true), boolPtr(false), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{})
+	c.Check(result, tc.DeepEquals, map[string]string{})
 
 	result = ubuntuVersions(boolPtr(false), boolPtr(true), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"bionic": "18.04", "noble": "24.04", "trusty": "14.04", "xenial": "16.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"bionic": "18.04", "noble": "24.04", "trusty": "14.04", "xenial": "16.04"})
 
 	result = ubuntuVersions(boolPtr(true), nil, ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"focal": "20.04", "jammy": "22.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"focal": "20.04", "jammy": "22.04"})
 
 	result = ubuntuVersions(boolPtr(false), nil, ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "bionic": "18.04", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "noble": "24.04", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"artful": "17.10", "bionic": "18.04", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "noble": "24.04", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "trusty": "14.04", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "xenial": "16.04", "yakkety": "16.10", "zesty": "17.04"})
 
 	result = ubuntuVersions(nil, boolPtr(true), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"bionic": "18.04", "focal": "20.04", "jammy": "22.04", "noble": "24.04", "trusty": "14.04", "xenial": "16.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"bionic": "18.04", "focal": "20.04", "jammy": "22.04", "noble": "24.04", "trusty": "14.04", "xenial": "16.04"})
 
 	result = ubuntuVersions(nil, boolPtr(false), ubuntuSeries)
-	c.Check(result, gc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
+	c.Check(result, tc.DeepEquals, map[string]string{"artful": "17.10", "cosmic": "18.10", "disco": "19.04", "eoan": "19.10", "groovy": "20.10", "hirsute": "21.04", "impish": "21.10", "kinetic": "22.10", "lunar": "23.04", "mantic": "23.10", "precise": "12.04", "quantal": "12.10", "raring": "13.04", "saucy": "13.10", "utopic": "14.10", "vivid": "15.04", "wily": "15.10", "yakkety": "16.10", "zesty": "17.04"})
 }
 
-func makeTempFile(c *gc.C, content string) (*os.File, func()) {
+func makeTempFile(c *tc.C, content string) (*os.File, func()) {
 	tmpfile, err := os.CreateTemp("", "distroinfo")
 	if err != nil {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	_, err = tmpfile.Write([]byte(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Reset the file for reading.
 	_, err = tmpfile.Seek(0, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return tmpfile, func() {
 		err := os.Remove(tmpfile.Name())
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }

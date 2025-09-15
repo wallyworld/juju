@@ -4,11 +4,12 @@
 package oci_test
 
 import (
-	"context"
+	tctesting "testing"
 
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -18,13 +19,15 @@ type networkingSuite struct {
 	commonSuite
 }
 
-var _ = gc.Suite(&networkingSuite{})
+func TestNetworkingSuite(t *tctesting.T) {
+	tc.Run(t, &networkingSuite{})
+}
 
-func (s *networkingSuite) SetUpTest(c *gc.C) {
+func (s *networkingSuite) SetUpTest(c *tc.C) {
 	s.commonSuite.SetUpTest(c)
 }
 
-func (s *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID string) {
+func (s *networkingSuite) setupNetworkInterfacesExpectations(c *tc.C, vnicID, vcnID string) {
 	attachResponse := []ociCore.VnicAttachment{
 		{
 			Id:                 makeStringPointer("fakeAttachmentId"),
@@ -90,15 +93,15 @@ func (s *networkingSuite) setupNetworkInterfacesExpectations(vnicID, vcnID strin
 	})
 
 	gomock.InOrder(
-		s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil),
-		s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
-		s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
-		s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil),
-		s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil),
+		s.compute.EXPECT().GetInstance(gomock.Any(), request).Return(response, nil),
+		s.compute.EXPECT().ListVnicAttachments(gomock.Any(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil),
+		s.netw.EXPECT().GetVnic(gomock.Any(), vnicRequest[0]).Return(vnicResponse[0], nil),
+		s.netw.EXPECT().ListVcns(gomock.Any(), &s.testCompartment).Return(vcnResponse, nil),
+		s.netw.EXPECT().ListSubnets(gomock.Any(), &s.testCompartment, &vcnID).Return(subnetResponse, nil),
 	)
 }
 
-func (s *networkingSuite) setupListSubnetsExpectations() {
+func (s *networkingSuite) setupListSubnetsExpectations(c *tc.C) {
 	vcnID := "fakeVcn"
 
 	vcnResponse := []ociCore.Vcn{
@@ -127,11 +130,11 @@ func (s *networkingSuite) setupListSubnetsExpectations() {
 		},
 	}
 
-	s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
-	s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
+	s.netw.EXPECT().ListVcns(gomock.Any(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().ListSubnets(gomock.Any(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
 }
 
-func (s *networkingSuite) setupSubnetsKnownInstanceExpectations() {
+func (s *networkingSuite) setupSubnetsKnownInstanceExpectations(c *tc.C) {
 	vnicID := "fakeVnicId"
 	vcnID := "fakeVcn"
 
@@ -210,77 +213,77 @@ func (s *networkingSuite) setupSubnetsKnownInstanceExpectations() {
 			LifecycleState:     ociCore.InstanceLifecycleStateRunning,
 		})
 
-	s.netw.EXPECT().ListVcns(context.Background(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
-	s.netw.EXPECT().ListSubnets(context.Background(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
-	s.compute.EXPECT().GetInstance(context.Background(), request).Return(response, nil).Times(2)
-	s.compute.EXPECT().ListVnicAttachments(context.Background(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil).Times(2)
-	s.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil).Times(2)
+	s.netw.EXPECT().ListVcns(gomock.Any(), &s.testCompartment).Return(vcnResponse, nil).Times(2)
+	s.netw.EXPECT().ListSubnets(gomock.Any(), &s.testCompartment, &vcnID).Return(subnetResponse, nil).Times(2)
+	s.compute.EXPECT().GetInstance(gomock.Any(), request).Return(response, nil).Times(2)
+	s.compute.EXPECT().ListVnicAttachments(gomock.Any(), &s.testCompartment, &s.testInstanceID).Return(attachResponse, nil).Times(2)
+	s.netw.EXPECT().GetVnic(gomock.Any(), vnicRequest[0]).Return(vnicResponse[0], nil).Times(2)
 }
 
-func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
+func (s *networkingSuite) TestNetworkInterfaces(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
 	vcnID := "fakeVcn"
 
-	s.setupNetworkInterfacesExpectations(vnicID, vcnID)
+	s.setupNetworkInterfacesExpectations(c, vnicID, vcnID)
 
 	infoList, err := s.env.NetworkInterfaces(nil, []instance.Id{instance.Id(s.testInstanceID)})
-	c.Assert(err, gc.IsNil)
-	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(err, tc.IsNil)
+	c.Assert(infoList, tc.HasLen, 1)
 	info := infoList[0]
 
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].Addresses, gc.DeepEquals, network.ProviderAddresses{
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].Addresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress(
 			"1.1.1.1", network.WithScope(network.ScopeCloudLocal), network.WithCIDR("1.0.0.0/8"),
 		).AsProviderAddress()})
-	c.Assert(info[0].ShadowAddresses, gc.DeepEquals, network.ProviderAddresses{
+	c.Assert(info[0].ShadowAddresses, tc.DeepEquals, network.ProviderAddresses{
 		network.NewMachineAddress("2.2.2.2", network.WithScope(network.ScopePublic)).AsProviderAddress()})
-	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
-	c.Assert(info[0].ProviderId, gc.Equals, network.Id(vnicID))
-	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
-	c.Assert(info[0].InterfaceType, gc.Equals, network.EthernetDevice)
-	c.Assert(info[0].ProviderSubnetId, gc.Equals, network.Id("fakeSubnetId"))
+	c.Assert(info[0].DeviceIndex, tc.Equals, 0)
+	c.Assert(info[0].ProviderId, tc.Equals, network.Id(vnicID))
+	c.Assert(info[0].MACAddress, tc.Equals, "aa:aa:aa:aa:aa:aa")
+	c.Assert(info[0].InterfaceType, tc.Equals, network.EthernetDevice)
+	c.Assert(info[0].ProviderSubnetId, tc.Equals, network.Id("fakeSubnetId"))
 }
 
-func (s *networkingSuite) TestSubnets(c *gc.C) {
+func (s *networkingSuite) TestSubnets(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupListSubnetsExpectations()
+	s.setupListSubnetsExpectations(c)
 
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
 	info, err := s.env.Subnets(nil, instance.UnknownId, lookFor)
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
+	c.Assert(err, tc.IsNil)
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].CIDR, tc.Equals, "1.0.0.0/8")
 
 	lookFor = []network.Id{"IDontExist"}
 	_, err = s.env.Subnets(nil, instance.UnknownId, lookFor)
-	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
+	c.Check(err, tc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }
 
-func (s *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
+func (s *networkingSuite) TestSubnetsKnownInstanceId(c *tc.C) {
 	ctrl := s.patchEnv(c)
 	defer ctrl.Finish()
 
-	s.setupSubnetsKnownInstanceExpectations()
+	s.setupSubnetsKnownInstanceExpectations(c)
 
 	lookFor := []network.Id{
 		network.Id("fakeSubnetId"),
 	}
 	info, err := s.env.Subnets(nil, instance.Id(s.testInstanceID), lookFor)
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
+	c.Assert(err, tc.IsNil)
+	c.Assert(info, tc.HasLen, 1)
+	c.Assert(info[0].CIDR, tc.Equals, "1.0.0.0/8")
 
 	lookFor = []network.Id{
 		network.Id("notHere"),
 	}
 	_, err = s.env.Subnets(nil, instance.Id(s.testInstanceID), lookFor)
-	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")
+	c.Check(err, tc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")
 }

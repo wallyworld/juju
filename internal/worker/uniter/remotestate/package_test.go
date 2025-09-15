@@ -4,15 +4,8 @@
 package remotestate
 
 import (
-	"testing"
-
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func SecretRotateWatcher(w *RemoteStateWatcher) worker.Worker {
 	return w.secretRotateWatcher

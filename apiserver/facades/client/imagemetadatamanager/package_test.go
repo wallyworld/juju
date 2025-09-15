@@ -4,12 +4,8 @@
 package imagemetadatamanager_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
@@ -19,13 +15,10 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type baseImageMetadataSuite struct {
 	coretesting.BaseSuite
@@ -37,12 +30,12 @@ type baseImageMetadataSuite struct {
 	state *mockState
 }
 
-func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
+func (s *baseImageMetadataSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
 }
 
-func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *baseImageMetadataSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true, AdminTag: names.NewUserTag("testuser")}
@@ -53,10 +46,10 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.api, err = imagemetadatamanager.CreateAPI(s.state, func() (environs.Environ, error) {
 		return &mockEnviron{}, nil
 	}, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseImageMetadataSuite) assertCalls(c *gc.C, expectedCalls ...string) {
+func (s *baseImageMetadataSuite) assertCalls(c *tc.C, expectedCalls ...string) {
 	s.state.Stub.CheckCallNames(c, expectedCalls...)
 }
 
@@ -71,7 +64,7 @@ const (
 
 func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 	return &mockState{
-		Stub: &gitjujutesting.Stub{},
+		Stub: &testhelpers.Stub{},
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 			return nil, nil
 		},
@@ -91,7 +84,7 @@ func (s *baseImageMetadataSuite) constructState(cfg *config.Config) *mockState {
 }
 
 type mockState struct {
-	*gitjujutesting.Stub
+	*testhelpers.Stub
 
 	findMetadata   func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error)
 	saveMetadata   func(m []cloudimagemetadata.Metadata) error
@@ -136,11 +129,11 @@ func (*mockModel) CloudRegion() string {
 	return "some-region"
 }
 
-func testConfig(c *gc.C) *config.Config {
+func testConfig(c *tc.C) *config.Config {
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type": "mock",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 

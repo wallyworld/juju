@@ -4,19 +4,23 @@
 package libvirt
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // gocheck boilerplate.
 type domainXMLInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&domainXMLInternalSuite{})
+func TestDomainXMLInternalSuite(t *tctesting.T) {
+	tc.Run(t, &domainXMLInternalSuite{})
+}
 
-func (domainXMLInternalSuite) TestDeviceID(c *gc.C) {
+func (domainXMLInternalSuite) TestDeviceID(c *tc.C) {
 	table := []struct {
 		in     int
 		want   string
@@ -34,11 +38,11 @@ func (domainXMLInternalSuite) TestDeviceID(c *gc.C) {
 		c.Logf("test %d for input %d", i+1, test.in)
 		got, err := deviceID(test.in)
 		if err != nil {
-			c.Check(err, gc.ErrorMatches, test.errMsg)
-			c.Check(got, gc.Equals, "")
+			c.Check(err, tc.ErrorMatches, test.errMsg)
+			c.Check(got, tc.Equals, "")
 			continue
 		}
-		c.Check(got, gc.Equals, test.want)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(got, tc.Equals, test.want)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }

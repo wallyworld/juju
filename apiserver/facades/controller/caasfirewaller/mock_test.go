@@ -6,18 +6,18 @@ package caasfirewaller_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	application         mockApplication
 	applicationsWatcher *statetesting.MockStringsWatcher
 	openPortsWatcher    *statetesting.MockStringsWatcher
@@ -67,7 +67,7 @@ func (st *mockState) Model() (*state.Model, error) {
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	state.Entity // Pull in Tag method (which tests don't use)
 	life         state.Life
 	exposed      bool
@@ -108,7 +108,7 @@ func (a *mockApplication) Charm() (charmscommon.Charm, bool, error) {
 }
 
 type mockCharm struct {
-	testing.Stub
+	testhelpers.Stub
 	charmscommon.Charm // Override only the methods the tests use
 	meta               *charm.Meta
 	manifest           *charm.Manifest

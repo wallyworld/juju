@@ -5,15 +5,15 @@ package openstack
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -26,38 +26,40 @@ type precheckUpgradesSuite struct {
 	client *MockAuthenticatingClient
 }
 
-var _ = gc.Suite(&precheckUpgradesSuite{})
+func TestPrecheckUpgradesSuite(t *tctesting.T) {
+	tc.Run(t, &precheckUpgradesSuite{})
+}
 
-func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperations(c *gc.C) {
+func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEndpointsHasNetwork()
 
 	env := s.newEnvironForPrecheckUpgradeTest()
 	ops := env.PrecheckUpgradeOperations()
-	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops, tc.HasLen, 1)
 
 	op := ops[0]
-	c.Assert(op.TargetVersion, gc.Equals, version.MustParse("2.8.0"))
-	c.Assert(op.Steps, gc.HasLen, 1)
+	c.Assert(op.TargetVersion, tc.Equals, version.MustParse("2.8.0"))
+	c.Assert(op.Steps, tc.HasLen, 1)
 
 	step := op.Steps[0]
-	c.Assert(step.Description(), gc.Equals, "Verify Neutron OpenStack service enabled")
-	c.Assert(step.Run(), jc.ErrorIsNil)
+	c.Assert(step.Description(), tc.Equals, "Verify Neutron OpenStack service enabled")
+	c.Assert(step.Run(), tc.ErrorIsNil)
 }
 
-func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperationsFail(c *gc.C) {
+func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperationsFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEndpointsNoNetwork()
 
 	env := s.newEnvironForPrecheckUpgradeTest()
 	ops := env.PrecheckUpgradeOperations()
-	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops, tc.HasLen, 1)
 
 	op := ops[0]
-	c.Assert(op.Steps, gc.HasLen, 1)
+	c.Assert(op.Steps, tc.HasLen, 1)
 
 	err := op.Steps[0].Run()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
 func (s *precheckUpgradesSuite) newEnvironForPrecheckUpgradeTest() *Environ {
@@ -85,7 +87,7 @@ func (s *precheckUpgradesSuite) expectEndpointsNoNetwork() {
 	exp.EndpointsForRegion(gomock.Any()).Return(endPts)
 }
 
-func (s *precheckUpgradesSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *precheckUpgradesSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = NewMockAuthenticatingClient(ctrl)
 	return ctrl
@@ -96,9 +98,11 @@ type upgraderSuite struct {
 	ctx           context.ProviderCallContext
 }
 
-var _ = gc.Suite(&upgraderSuite{})
+func TestUpgraderSuite(t *tctesting.T) {
+	tc.Run(t, &upgraderSuite{})
+}
 
-func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *upgraderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.neutronClient = NewMockNetworkingNeutron(ctrl)
 	s.ctx = mocks.NewMockProviderCallContext(ctrl)
@@ -113,29 +117,29 @@ func (s *upgraderSuite) newEnvironForUpgradeStepTest() *Environ {
 	}
 }
 
-func (s *upgraderSuite) TestUpgradeOperations(c *gc.C) {
+func (s *upgraderSuite) TestUpgradeOperations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnvironForUpgradeStepTest()
 
 	ops := env.UpgradeOperations(s.ctx, environs.UpgradeOperationsParams{ControllerUUID: "dummy-uuid"})
 
-	c.Assert(ops, gc.HasLen, 1)
-	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
-	c.Assert(ops[0].Steps, gc.HasLen, 1)
-	c.Assert(ops[0].Steps[0].Description(), gc.Equals, "Add tags to existing security groups")
+	c.Assert(ops, tc.HasLen, 1)
+	c.Assert(ops[0].TargetVersion, tc.Equals, 1)
+	c.Assert(ops[0].Steps, tc.HasLen, 1)
+	c.Assert(ops[0].Steps[0].Description(), tc.Equals, "Add tags to existing security groups")
 }
 
-func (s *upgraderSuite) TestDescription(c *gc.C) {
+func (s *upgraderSuite) TestDescription(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnvironForUpgradeStepTest()
 	tagGroupStep := tagExistingSecurityGroupsStep{env}
 
 	desc := tagGroupStep.Description()
 
-	c.Assert(desc, gc.Equals, "Add tags to existing security groups")
+	c.Assert(desc, tc.Equals, "Add tags to existing security groups")
 }
 
-func (s *upgraderSuite) TestRun(c *gc.C) {
+func (s *upgraderSuite) TestRun(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnvironForUpgradeStepTest()
 	tagGroupStep := tagExistingSecurityGroupsStep{env}
@@ -190,10 +194,10 @@ func (s *upgraderSuite) TestRun(c *gc.C) {
 
 	err := tagGroupStep.Run(s.ctx)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *upgraderSuite) TestRunSkipGroupsInDifferentModel(c *gc.C) {
+func (s *upgraderSuite) TestRunSkipGroupsInDifferentModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	env := s.newEnvironForUpgradeStepTest()
 	tagGroupStep := tagExistingSecurityGroupsStep{env}
@@ -247,5 +251,5 @@ func (s *upgraderSuite) TestRunSkipGroupsInDifferentModel(c *gc.C) {
 
 	err := tagGroupStep.Run(s.ctx)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }

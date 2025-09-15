@@ -6,14 +6,14 @@ package uniter_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type fakeStorage struct {
-	testing.Stub
+	testhelpers.Stub
 	uniter.StorageStateInterface
 	uniter.StorageFilesystemInterface
 	storageInstance        func(names.StorageTag) (state.StorageInstance, error)

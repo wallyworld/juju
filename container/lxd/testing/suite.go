@@ -6,11 +6,12 @@ package testing
 import (
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/status"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 const ETag = "eTag"
@@ -26,7 +27,7 @@ type BaseSuite struct {
 	arch string
 }
 
-func (s *BaseSuite) SetUpSuite(c *gc.C) {
+func (s *BaseSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.arch = arch.HostArch()
 }

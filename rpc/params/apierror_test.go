@@ -4,9 +4,10 @@
 package params_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -16,18 +17,20 @@ type errorSuite struct{}
 
 var _ rpc.ErrorCoder = (*params.Error)(nil)
 
-var _ = gc.Suite(&errorSuite{})
-
-func (*errorSuite) TestErrCode(c *gc.C) {
-	var err error
-	err = &params.Error{Code: params.CodeDead, Message: "brain dead test"}
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeDead)
-
-	err = errors.Trace(err)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeDead)
+func TestErrorSuite(t *tctesting.T) {
+	tc.Run(t, &errorSuite{})
 }
 
-func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
+func (*errorSuite) TestErrCode(c *tc.C) {
+	var err error
+	err = &params.Error{Code: params.CodeDead, Message: "brain dead test"}
+	c.Check(params.ErrCode(err), tc.Equals, params.CodeDead)
+
+	err = errors.Trace(err)
+	c.Check(params.ErrCode(err), tc.Equals, params.CodeDead)
+}
+
+func (*errorSuite) TestTranslateWellKnownError(c *tc.C) {
 	var tests = []struct {
 		name string
 		err  params.Error
@@ -50,7 +53,7 @@ func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 	}
 
 	for _, v := range tests {
-		c.Assert(v.test(v.err), jc.IsFalse, gc.Commentf("test %s: params error is not a juju/errors error", v.name))
-		c.Assert(v.test(params.TranslateWellKnownError(v.err)), jc.IsTrue, gc.Commentf("test %s: translated error is a juju/errors error", v.name))
+		c.Assert(v.test(v.err), tc.IsFalse, tc.Commentf("test %s: params error is not a juju/errors error", v.name))
+		c.Assert(v.test(params.TranslateWellKnownError(v.err)), tc.IsTrue, tc.Commentf("test %s: translated error is a juju/errors error", v.name))
 	}
 }

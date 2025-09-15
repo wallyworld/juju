@@ -6,15 +6,17 @@ package multiwatcher
 import (
 	"container/list"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&storeSuite{})
+func TestStoreSuite(t *tctesting.T) {
+	tc.Run(t, &storeSuite{})
+}
 
 type storeSuite struct {
 	testing.BaseSuite
@@ -225,7 +227,7 @@ var StoreChangeMethodTests = []struct {
 },
 }
 
-func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
+func (s *storeSuite) TestStoreChangeMethods(c *tc.C) {
 	for i, test := range StoreChangeMethodTests {
 		all := newStore(loggo.GetLogger("test"))
 		c.Logf("test %d. %s", i, test.about)
@@ -234,7 +236,7 @@ func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 	}
 }
 
-func (s *storeSuite) TestChangesSince(c *gc.C) {
+func (s *storeSuite) TestChangesSince(c *tc.C) {
 	a := newStore(loggo.GetLogger("test"))
 	// Add three entries.
 	var deltas []Delta
@@ -250,15 +252,15 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		c.Logf("test %d", i)
 		changes, _ := a.ChangesSince(int64(i))
-		c.Assert(len(changes), gc.Equals, len(deltas)-i)
-		c.Assert(changes, jc.DeepEquals, deltas[i:])
+		c.Assert(len(changes), tc.Equals, len(deltas)-i)
+		c.Assert(changes, tc.DeepEquals, deltas[i:])
 	}
 
 	// Check boundary cases.
 	changes, _ := a.ChangesSince(-1)
-	c.Assert(changes, jc.DeepEquals, deltas)
+	c.Assert(changes, tc.DeepEquals, deltas)
 	changes, rev := a.ChangesSince(99)
-	c.Assert(changes, gc.HasLen, 0)
+	c.Assert(changes, tc.HasLen, 0)
 
 	// Update one machine and check we see the changes.
 	m1 := &MachineInfo{
@@ -268,8 +270,8 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	}
 	a.Update(m1)
 	changes, latest := a.ChangesSince(rev)
-	c.Assert(changes, jc.DeepEquals, []Delta{{Entity: m1}})
-	c.Assert(latest, gc.Equals, a.latestRevno)
+	c.Assert(changes, tc.DeepEquals, []Delta{{Entity: m1}})
+	c.Assert(latest, tc.Equals, a.latestRevno)
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
@@ -283,14 +285,14 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	// informed of its removal (even those the removed entity
 	// is still in the list.
 	changes, _ = a.ChangesSince(0)
-	c.Assert(changes, jc.DeepEquals, []Delta{{
+	c.Assert(changes, tc.DeepEquals, []Delta{{
 		Entity: &MachineInfo{ModelUUID: "uuid", ID: "2"},
 	}, {
 		Entity: m1,
 	}})
 
 	changes, _ = a.ChangesSince(rev)
-	c.Assert(changes, jc.DeepEquals, []Delta{{
+	c.Assert(changes, tc.DeepEquals, []Delta{{
 		Entity: m1,
 	}, {
 		Removed: true,
@@ -298,22 +300,22 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	}})
 
 	changes, _ = a.ChangesSince(rev + 1)
-	c.Assert(changes, jc.DeepEquals, []Delta{{
+	c.Assert(changes, tc.DeepEquals, []Delta{{
 		Removed: true,
 		Entity:  m0,
 	}})
 }
 
-func (s *storeSuite) TestGet(c *gc.C) {
+func (s *storeSuite) TestGet(c *tc.C) {
 	a := newStore(loggo.GetLogger("test"))
 	m := &MachineInfo{ModelUUID: "uuid", ID: "0"}
 	a.Update(m)
 
-	c.Assert(a.Get(m.EntityID()), gc.DeepEquals, m)
-	c.Assert(a.Get(EntityID{"machine", "uuid", "1"}), gc.IsNil)
+	c.Assert(a.Get(m.EntityID()), tc.DeepEquals, m)
+	c.Assert(a.Get(EntityID{"machine", "uuid", "1"}), tc.IsNil)
 }
 
-func (s *storeSuite) TestDecReferenceWithZero(c *gc.C) {
+func (s *storeSuite) TestDecReferenceWithZero(c *tc.C) {
 	// If a watcher is stopped before it had looked at any items, then we shouldn't
 	// decrement its ref count when it is stopped.
 	store := newStore(loggo.GetLogger("test"))
@@ -331,7 +333,7 @@ func (s *storeSuite) TestDecReferenceWithZero(c *gc.C) {
 	}})
 }
 
-func (s *storeSuite) TestDecReferenceIfAlreadySeenRemoved(c *gc.C) {
+func (s *storeSuite) TestDecReferenceIfAlreadySeenRemoved(c *tc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
 
@@ -353,7 +355,7 @@ func (s *storeSuite) TestDecReferenceIfAlreadySeenRemoved(c *gc.C) {
 	}})
 }
 
-func (s *storeSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc.C) {
+func (s *storeSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *tc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
 	store := newStore(loggo.GetLogger("test"))
@@ -375,18 +377,18 @@ func StoreIncRef(a *store, id interface{}) {
 	entry.refCount++
 }
 
-func assertStoreContents(c *gc.C, a *store, latestRevno int64, entries []entityEntry) {
+func assertStoreContents(c *tc.C, a *store, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
-	c.Check(a.list.Len(), gc.Equals, len(entries))
+	c.Check(a.list.Len(), tc.Equals, len(entries))
 	for e := a.list.Back(); e != nil; e = e.Prev() {
 		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
 		gotElems = append(gotElems, e)
 	}
-	c.Assert(gotEntries, jc.DeepEquals, entries)
+	c.Assert(gotEntries, tc.DeepEquals, entries)
 	for i, ent := range entries {
-		c.Assert(a.entities[ent.info.EntityID()], gc.Equals, gotElems[i])
+		c.Assert(a.entities[ent.info.EntityID()], tc.Equals, gotElems[i])
 	}
-	c.Assert(a.entities, gc.HasLen, len(entries))
-	c.Assert(a.latestRevno, gc.Equals, latestRevno)
+	c.Assert(a.entities, tc.HasLen, len(entries))
+	c.Assert(a.latestRevno, tc.Equals, latestRevno)
 }

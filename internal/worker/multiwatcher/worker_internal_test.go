@@ -5,24 +5,26 @@ package multiwatcher
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/multiwatcher/testbacking"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (*workerSuite) TestHandle(c *gc.C) {
+func (*workerSuite) TestHandle(c *tc.C) {
 	sm := &Worker{
 		config: Config{
 			Clock:   clock.WallClock,
@@ -85,7 +87,7 @@ func (*workerSuite) TestHandle(c *gc.C) {
 	assertReplied(c, false, req2)
 }
 
-func (*workerSuite) TestRespondMultiple(c *gc.C) {
+func (*workerSuite) TestRespondMultiple(c *tc.C) {
 	sm := &Worker{
 		config: Config{
 			Clock:   clock.WallClock,
@@ -109,7 +111,7 @@ func (*workerSuite) TestRespondMultiple(c *gc.C) {
 	sm.handle(req0)
 	sm.respond()
 	assertReplied(c, true, req0)
-	c.Assert(req0.changes, gc.DeepEquals, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{ID: "0"}}})
+	c.Assert(req0.changes, tc.DeepEquals, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{ID: "0"}}})
 	assertWaitingRequests(c, sm, nil)
 
 	// Add another request from the same watcher and respond.
@@ -145,7 +147,7 @@ func (*workerSuite) TestRespondMultiple(c *gc.C) {
 	assertNotReplied(c, req0)
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
-	c.Assert(req2.changes, gc.DeepEquals, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{ID: "0"}}})
+	c.Assert(req2.changes, tc.DeepEquals, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{ID: "0"}}})
 	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req1},
@@ -165,8 +167,8 @@ func (*workerSuite) TestRespondMultiple(c *gc.C) {
 	assertWaitingRequests(c, sm, nil)
 
 	deltas := []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{ID: "1"}}}
-	c.Assert(req0.changes, gc.DeepEquals, deltas)
-	c.Assert(req1.changes, gc.DeepEquals, deltas)
+	c.Assert(req0.changes, tc.DeepEquals, deltas)
+	c.Assert(req1.changes, tc.DeepEquals, deltas)
 }
 
 var respondTestChanges = [...]func(store multiwatcher.Store){
@@ -194,7 +196,7 @@ var respondTestChanges = [...]func(store multiwatcher.Store){
 	},
 }
 
-func (s *workerSuite) TestRespondResults(c *gc.C) {
+func (s *workerSuite) TestRespondResults(c *tc.C) {
 	// We test the response results for a pair of watchers by
 	// interleaving notional Next requests in all possible
 	// combinations after each change in respondTestChanges and
@@ -272,8 +274,8 @@ func (s *workerSuite) TestRespondResults(c *gc.C) {
 					}
 					select {
 					case ok := <-req.reply:
-						c.Assert(ok, jc.IsTrue)
-						c.Assert(len(req.changes) > 0, jc.IsTrue)
+						c.Assert(ok, tc.IsTrue)
+						c.Assert(len(req.changes) > 0, tc.IsTrue)
 						wstates[wi].update(req.changes)
 						reqs[wi] = nil
 					default:
@@ -291,18 +293,18 @@ func (s *workerSuite) TestRespondResults(c *gc.C) {
 				}
 			}
 
-			c.Assert(sm.store.All(), jc.DeepEquals, []multiwatcher.EntityInfo{
+			c.Assert(sm.store.All(), tc.DeepEquals, []multiwatcher.EntityInfo{
 				&multiwatcher.MachineInfo{
 					ModelUUID: "uuid",
 					ID:        "2",
 				},
 			})
-			c.Assert(sm.store.Size(), gc.Equals, 1)
+			c.Assert(sm.store.Size(), tc.Equals, 1)
 		}
 	}
 }
 
-func assertNotReplied(c *gc.C, req *request) {
+func assertNotReplied(c *tc.C, req *request) {
 	select {
 	case v := <-req.reply:
 		c.Fatalf("request was unexpectedly replied to (got %v)", v)
@@ -310,25 +312,25 @@ func assertNotReplied(c *gc.C, req *request) {
 	}
 }
 
-func assertReplied(c *gc.C, val bool, req *request) {
+func assertReplied(c *tc.C, val bool, req *request) {
 	select {
 	case v := <-req.reply:
-		c.Assert(v, gc.Equals, val)
+		c.Assert(v, tc.Equals, val)
 	default:
 		c.Fatalf("request was not replied to")
 	}
 }
 
-func assertWaitingRequests(c *gc.C, worker *Worker, waiting map[*Watcher][]*request) {
-	c.Assert(worker.waiting, gc.HasLen, len(waiting))
+func assertWaitingRequests(c *tc.C, worker *Worker, waiting map[*Watcher][]*request) {
+	c.Assert(worker.waiting, tc.HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
 		for req := worker.waiting[w]; ; req = req.next {
 			if i >= len(reqs) {
-				c.Assert(req, gc.IsNil)
+				c.Assert(req, tc.IsNil)
 				break
 			}
-			c.Assert(req, gc.Equals, reqs[i])
+			c.Assert(req, tc.Equals, reqs[i])
 			assertNotReplied(c, req)
 			i++
 		}
@@ -356,10 +358,10 @@ func (s watcherState) update(changes []multiwatcher.Delta) {
 
 // check checks that the watcher state matches that
 // held in current.
-func (s watcherState) check(c *gc.C, store multiwatcher.Store) {
+func (s watcherState) check(c *tc.C, store multiwatcher.Store) {
 	currentEntities := make(watcherState)
 	for _, info := range store.All() {
 		currentEntities[info.EntityID()] = multiwatcher.Delta{Entity: info}
 	}
-	c.Assert(s, gc.DeepEquals, currentEntities)
+	c.Assert(s, tc.DeepEquals, currentEntities)
 }

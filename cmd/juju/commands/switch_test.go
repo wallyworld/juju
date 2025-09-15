@@ -6,32 +6,34 @@ package commands
 import (
 	"errors"
 	"os"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type SwitchSimpleSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	testing.Stub
+	testhelpers.Stub
 	store     *jujuclient.MemStore
 	stubStore *jujuclienttesting.StubStore
 	onRefresh func()
 }
 
-var _ = gc.Suite(&SwitchSimpleSuite{})
+func TestSwitchSimpleSuite(t *tctesting.T) {
+	tc.Run(t, &SwitchSimpleSuite{})
+}
 
-func (s *SwitchSimpleSuite) SetUpTest(c *gc.C) {
+func (s *SwitchSimpleSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 	s.store = jujuclient.NewMemStore()
@@ -47,7 +49,7 @@ func (s *SwitchSimpleSuite) refreshModels(store jujuclient.ClientStore, controll
 	return s.NextErr()
 }
 
-func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *SwitchSimpleSuite) run(c *tc.C, args ...string) (*cmd.Context, error) {
 	cmd := &switchCommand{
 		Store:         s.stubStore,
 		RefreshModels: s.refreshModels,
@@ -55,27 +57,27 @@ func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, modelcmd.WrapBase(cmd), args...)
 }
 
-func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
+func (s *SwitchSimpleSuite) TestNoArgs(c *tc.C) {
 	_, err := s.run(c)
-	c.Assert(err, gc.ErrorMatches, common.MissingModelNameError("switch").Error())
+	c.Assert(err, tc.ErrorMatches, common.MissingModelNameError("switch").Error())
 }
 
-func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *tc.C) {
 	s.addController(c, "a-controller")
 	s.store.CurrentControllerName = "a-controller"
 	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "a-controller\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "a-controller\n")
 }
 
-func (s *SwitchSimpleSuite) TestUnknownControllerNameReturnsError(c *gc.C) {
+func (s *SwitchSimpleSuite) TestUnknownControllerNameReturnsError(c *tc.C) {
 	s.addController(c, "a-controller")
 	s.store.CurrentControllerName = "a-controller"
 	_, err := s.run(c, "another-controller:modela")
-	c.Assert(err, gc.ErrorMatches, "controller another-controller not found")
+	c.Assert(err, tc.ErrorMatches, "controller another-controller not found")
 }
 
-func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
+func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *tc.C) {
 	s.addController(c, "a-controller")
 	s.store.CurrentControllerName = "a-controller"
 	s.store.Models["a-controller"] = &jujuclient.ControllerModels{
@@ -83,16 +85,16 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	ctx, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "a-controller:admin/mymodel\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "a-controller:admin/mymodel\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *tc.C) {
 	s.addController(c, "a-controller")
 	context, err := s.run(c, "a-controller")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, " -> a-controller (controller)\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, " -> a-controller (controller)\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"a-controller"}},
 		{"CurrentModel", []interface{}{"a-controller"}},
@@ -100,40 +102,40 @@ func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new (controller)\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new (controller)\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrentExplicit(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrentExplicit(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
 	context, err := s.run(c, "new:")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new (controller)\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchSameController(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	context, err := s.run(c, "same")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same (controller) (no change)\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
@@ -141,16 +143,16 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *tc.C) {
 	s.store.CurrentControllerName = "ctrl"
 	s.addController(c, "ctrl")
 	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "ctrl (controller) -> ctrl:admin/mymodel\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"ctrl"}},
 		{"CurrentModel", []interface{}{"ctrl"}},
@@ -158,10 +160,10 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 		{"AccountDetails", []interface{}{"ctrl"}},
 		{"SetCurrentModel", []interface{}{"ctrl", "admin/mymodel"}},
 	})
-	c.Assert(s.store.Models["ctrl"].CurrentModel, gc.Equals, "admin/mymodel")
+	c.Assert(s.store.Models["ctrl"].CurrentModel, tc.Equals, "admin/mymodel")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
@@ -169,9 +171,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
@@ -181,10 +183,10 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		{"SetCurrentModel", []interface{}{"new", "admin/mymodel"}},
 		{"SetCurrentController", []interface{}{"new"}},
 	})
-	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "admin/mymodel")
+	c.Assert(s.store.Models["new"].CurrentModel, tc.Equals, "admin/mymodel")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "new")
 	s.addController(c, "old")
@@ -195,13 +197,13 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *gc.C) {
 		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
 	}
 	_, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, "old")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> old (controller)\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "new:admin/mymodel -> old (controller)\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "new")
 	s.addController(c, "old")
@@ -212,13 +214,13 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *
 		Models: map[string]jujuclient.ModelDetails{"admin/somemodel": {}},
 	}
 	_, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	context, err := s.run(c, ":old")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> new:admin/old\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "new:admin/mymodel -> new:admin/old\n")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
@@ -226,9 +228,9 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 		Models: map[string]jujuclient.ModelDetails{"admin/mymodel": {}},
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
@@ -238,10 +240,10 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 		{"SetCurrentModel", []interface{}{"new", "admin/mymodel"}},
 		{"SetCurrentController", []interface{}{"new"}},
 	})
-	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "admin/mymodel")
+	c.Assert(s.store.Models["new"].CurrentModel, tc.Equals, "admin/mymodel")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *tc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
 	s.addController(c, "new")
@@ -250,9 +252,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "new:mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new:admin/mymodel\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "old (controller) -> new:admin/mymodel\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
@@ -264,7 +266,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	s.store.Models["same"] = &jujuclient.ControllerModels{
@@ -275,21 +277,21 @@ func (s *SwitchSimpleSuite) TestSwitchToModelDifferentOwner(c *gc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "bianca/mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
-	c.Assert(s.store.Models["same"].CurrentModel, gc.Equals, "bianca/mymodel")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:admin/mymodel -> same:bianca/mymodel\n")
+	c.Assert(s.store.Models["same"].CurrentModel, tc.Equals, "bianca/mymodel")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *tc.C) {
 	_, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not the name of a model or controller`)
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorMatches, `"unknown" is not the name of a model or controller`)
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"unknown"}},
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *tc.C) {
 	s.store.CurrentControllerName = "ctrl"
 	s.addController(c, "ctrl")
 	s.onRefresh = func() {
@@ -298,53 +300,53 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModels(c *g
 		}
 	}
 	ctx, err := s.run(c, "unknown")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "ctrl (controller) -> ctrl:admin/unknown\n")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "ctrl (controller) -> ctrl:admin/unknown\n")
 	s.CheckCallNames(c, "RefreshModels")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsStillUnknown(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsStillUnknown(c *tc.C) {
 	s.store.CurrentControllerName = "ctrl"
 	s.addController(c, "ctrl")
 	_, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not the name of a model or controller`)
+	c.Assert(err, tc.ErrorMatches, `"unknown" is not the name of a model or controller`)
 	s.CheckCallNames(c, "RefreshModels")
 }
 
-func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails(c *tc.C) {
 	s.store.CurrentControllerName = "ctrl"
 	s.addController(c, "ctrl")
 	s.SetErrors(errors.New("not very refreshing"))
 	_, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, "refreshing models cache: not very refreshing")
+	c.Assert(err, tc.ErrorMatches, "refreshing models cache: not very refreshing")
 	s.CheckCallNames(c, "RefreshModels")
 }
 
-func (s *SwitchSimpleSuite) TestSettingWhenModelEnvVarSet(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSettingWhenModelEnvVarSet(c *tc.C) {
 	os.Setenv("JUJU_MODEL", "using-model")
 	_, err := s.run(c, "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
 }
 
-func (s *SwitchSimpleSuite) TestSettingWhenControllerEnvVarSet(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSettingWhenControllerEnvVarSet(c *tc.C) {
 	os.Setenv("JUJU_CONTROLLER", "using-controller")
 	_, err := s.run(c, "erewhemos-2")
-	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_CONTROLLER is overriding the controller \(set to "using-controller"\)`)
+	c.Assert(err, tc.ErrorMatches, `cannot switch when JUJU_CONTROLLER is overriding the controller \(set to "using-controller"\)`)
 }
 
-func (s *SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
+func (s *SwitchSimpleSuite) TestTooManyParams(c *tc.C) {
 	_, err := s.run(c, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: ."bar".`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: ."bar".`)
 }
 
-func (s *SwitchSimpleSuite) addController(c *gc.C, name string) {
+func (s *SwitchSimpleSuite) addController(c *tc.C, name string) {
 	s.store.Controllers[name] = jujuclient.ControllerDetails{}
 	s.store.Accounts[name] = jujuclient.AccountDetails{
 		User: "admin",
 	}
 }
 
-func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	s.store.Models["same"] = &jujuclient.ControllerModels{
@@ -354,9 +356,9 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
 		CurrentModel: "admin/mymodel",
 	}
 	context, err := s.run(c, "mymodel")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same:admin/mymodel (no change)\n")
-	s.stubStore.CheckCalls(c, []testing.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), tc.Equals, "same:admin/mymodel (no change)\n")
+	s.stubStore.CheckCalls(c, []testhelpers.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
@@ -366,10 +368,10 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchCurrentModelNoLongerInStore(c *gc.C) {
+func (s *SwitchSimpleSuite) TestSwitchCurrentModelNoLongerInStore(c *tc.C) {
 	s.store.CurrentControllerName = "same"
 	s.addController(c, "same")
 	s.store.Models["same"] = &jujuclient.ControllerModels{CurrentModel: "admin/mymodel"}
 	_, err := s.run(c, "mymodel")
-	c.Assert(err, gc.ErrorMatches, `"mymodel" is not the name of a model or controller`)
+	c.Assert(err, tc.ErrorMatches, `"mymodel" is not the name of a model or controller`)
 }

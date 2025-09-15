@@ -5,10 +5,10 @@ package application_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/juju/environschema.v1"
 
 	apiapplication "github.com/juju/juju/api/client/application"
@@ -22,10 +22,11 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	provider "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type getSuite struct {
@@ -35,19 +36,21 @@ type getSuite struct {
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&getSuite{})
+func TestGetSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &getSuite{})
+}
 
-func (s *getSuite) SetUpTest(c *gc.C) {
+func (s *getSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	storageAccess, err := application.GetStorageState(s.State)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(s.State),
 		storageAccess,
@@ -66,16 +69,16 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // secret backend config getter not used in this suite.
 		state.NewSecrets(s.State),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.applicationAPI = api
 }
 
-func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *tc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
 		Charm:       "wordpress",
 		CharmConfig: map[string]interface{}{
@@ -111,7 +114,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *tc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
@@ -123,16 +126,16 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	})
 
 	schemaFields, err := caas.ConfigSchema(provider.ConfigSchema())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(provider.ConfigDefaults())
 
 	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	appConfig, err := coreconfig.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expectedAppConfig := make(map[string]interface{})
 	for name, field := range schemaFields {
@@ -166,10 +169,10 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	}
 
 	storageAccess, err := application.GetStorageState(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 	mod, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		application.GetState(st),
 		storageAccess,
@@ -188,11 +191,11 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // secret backend config getter not used in this suite.
 		state.NewSecrets(s.State),
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results, err := api.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",
 		Charm:       "dashboard4miner",
 		CharmConfig: map[string]interface{}{
@@ -214,9 +217,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestApplicationGetUnknownApplication(c *gc.C) {
+func (s *getSuite) TestApplicationGetUnknownApplication(c *tc.C) {
 	_, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "unknown"})
-	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
+	c.Assert(err, tc.ErrorMatches, `application "unknown" not found`)
 }
 
 var getTests = []struct {
@@ -409,7 +412,7 @@ var getTests = []struct {
 	},
 }}
 
-func (s *getSuite) TestApplicationGet(c *gc.C) {
+func (s *getSuite) TestApplicationGet(c *tc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
@@ -419,11 +422,11 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
 			err := app.SetConstraints(constraintsv)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		if t.config != nil {
 			err := app.UpdateCharmConfig(model.GenerationMaster, t.config)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
@@ -431,12 +434,12 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		expect.Charm = ch.Meta().Name
 		client := apiapplication.NewClient(s.APIState)
 		got, err := client.Get(model.GenerationMaster, app.Name())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*got, jc.DeepEquals, expect)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(*got, tc.DeepEquals, expect)
 	}
 }
 
-func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
+func (s *getSuite) TestGetMaxResolutionInt(c *tc.C) {
 	// See the bug http://pad.lv/1217742
 	// Get ends up pushing a map[string]interface{} which contains
 	// an int64 through a JSON Marshal & Unmarshal which ends up changing
@@ -444,18 +447,18 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	// problem.
 	const nonFloatInt = (int64(1) << 54) + 1
 	const asFloat = float64(nonFloatInt)
-	c.Assert(int64(asFloat), gc.Not(gc.Equals), nonFloatInt)
-	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
+	c.Assert(int64(asFloat), tc.Not(tc.Equals), nonFloatInt)
+	c.Assert(int64(asFloat)+1, tc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "test-application", ch)
 
 	err := app.UpdateCharmConfig(model.GenerationMaster, map[string]interface{}{"skill-level": nonFloatInt})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
 	got, err := client.Get(model.GenerationMaster, app.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CharmConfig["skill-level"], tc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",
 		"source":      "user",
 		"type":        "int",

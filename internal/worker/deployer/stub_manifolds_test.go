@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
-	"github.com/juju/juju/testing"
 )
 
 func (s *unitWorkersStub) Manifolds(config deployer.UnitManifoldsConfig) dependency.Manifolds {
@@ -54,7 +54,7 @@ type unitWorkersStub struct {
 	workerError error
 }
 
-func (s *unitWorkersStub) waitForStart(c *gc.C, unitName string) {
+func (s *unitWorkersStub) waitForStart(c *tc.C, unitName string) {
 	for {
 		select {
 		case unit := <-s.started:

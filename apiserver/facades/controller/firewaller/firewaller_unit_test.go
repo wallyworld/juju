@@ -4,10 +4,11 @@
 package firewaller_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
@@ -18,12 +19,14 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&RemoteFirewallerSuite{})
+func TestRemoteFirewallerSuite(t *tctesting.T) {
+	tc.Run(t, &RemoteFirewallerSuite{})
+}
 
 type RemoteFirewallerSuite struct {
 	coretesting.BaseSuite
@@ -35,11 +38,11 @@ type RemoteFirewallerSuite struct {
 	api        *firewaller.FirewallerAPI
 }
 
-func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
+func (s *RemoteFirewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -47,18 +50,18 @@ func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *RemoteFirewallerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *RemoteFirewallerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 	return ctrl
 }
 
-func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	db2Relation := newMockRelation(123)
@@ -71,22 +74,22 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 		}}},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Changes, jc.SameContents, []string{"1.2.3.4/32"})
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Changes, tc.SameContents, []string{"1.2.3.4/32"})
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].StringsWatcherId, tc.Equals, "1")
 
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+	c.Assert(resource, tc.NotNil)
+	c.Assert(resource, tc.Implements, new(state.StringsWatcher))
 }
 
-func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	mac, err := apitesting.NewMacaroon("apimac")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)
 
@@ -96,13 +99,13 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 		}}},
 	)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.DeepEquals, mac)
 }
 
-func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
+func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	db2Relation := newMockRelation(123)
@@ -116,13 +119,15 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 			Status: "suspended",
 			Info:   "a message",
 		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(db2Relation.status, tc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
 
-var _ = gc.Suite(&FirewallerSuite{})
+func TestFirewallerSuite(t *tctesting.T) {
+	tc.Run(t, &FirewallerSuite{})
+}
 
 type FirewallerSuite struct {
 	coretesting.BaseSuite
@@ -135,11 +140,11 @@ type FirewallerSuite struct {
 	api *firewaller.FirewallerAPI
 }
 
-func (s *FirewallerSuite) SetUpTest(c *gc.C) {
+func (s *FirewallerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -147,18 +152,18 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *FirewallerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *FirewallerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	api, err := firewaller.NewStateFirewallerAPI(s.st, s.resources, s.authorizer, &mockCloudSpecAPI{}, s.cc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 	return ctrl
 }
 
-func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
+func (s *FirewallerSuite) TestModelFirewallRules(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
@@ -170,14 +175,14 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 
 	rules, err := s.api.ModelFirewallRules()
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 	}}})
 }
 
-func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
+func (s *FirewallerSuite) TestModelFirewallRulesController(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
@@ -194,8 +199,8 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 
 	rules, err := s.api.ModelFirewallRules()
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rules, tc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("22")),
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 	}, {
@@ -207,7 +212,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	}}})
 }
 
-func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
+func (s *FirewallerSuite) TestWatchModelFirewallRules(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -223,16 +228,16 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	result, err := s.api.WatchModelFirewallRules()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "1")
 
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
-	c.Assert(resource, gc.Implements, new(state.NotifyWatcher))
+	c.Assert(resource, tc.NotNil)
+	c.Assert(resource, tc.Implements, new(state.NotifyWatcher))
 }
 
-func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
+func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	// Set up our mocks
@@ -287,11 +292,11 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 		},
 	}
 	res, err := s.api.OpenedMachinePortRanges(req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
 
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].UnitPortRanges, gc.DeepEquals, map[string][]params.OpenUnitPortRanges{
+	c.Assert(res.Results[0].Error, tc.IsNil)
+	c.Assert(res.Results[0].UnitPortRanges, tc.DeepEquals, map[string][]params.OpenUnitPortRanges{
 		"unit-wordpress-0": {
 			{
 				Endpoint:    "",
@@ -313,7 +318,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 	})
 }
 
-func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
+func (s *FirewallerSuite) TestAllSpaceInfos(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	// Set up our mocks
@@ -351,9 +356,9 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
 	}
 	res, err := s.api.SpaceInfos(req)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Hydrate a network.SpaceInfos from the response
 	gotSpaceInfos := params.ToNetworkSpaceInfos(res)
-	c.Assert(gotSpaceInfos, gc.DeepEquals, spaceInfos[0:1], gc.Commentf("expected to get back a filtered list of the space infos"))
+	c.Assert(gotSpaceInfos, tc.DeepEquals, spaceInfos[0:1], tc.Commentf("expected to get back a filtered list of the space infos"))
 }

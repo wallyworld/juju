@@ -15,13 +15,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
@@ -31,11 +31,11 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -60,7 +60,7 @@ func (s *baseToolsSuite) toolsURI(query string) string {
 	return s.toolsURL(query).String()
 }
 
-func (s *baseToolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
+func (s *baseToolsSuite) uploadRequest(c *tc.C, url, contentType string, content io.Reader) *http.Response {
 	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "POST",
 		URL:         url,
@@ -69,7 +69,7 @@ func (s *baseToolsSuite) uploadRequest(c *gc.C, url, contentType string, content
 	})
 }
 
-func (s *baseToolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
+func (s *baseToolsSuite) downloadRequest(c *tc.C, version version.Binary, uuid string) *http.Response {
 	url := s.toolsURL("")
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
@@ -79,38 +79,38 @@ func (s *baseToolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid s
 	return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 }
 
-func (s *baseToolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
+func (s *baseToolsSuite) assertUploadResponse(c *tc.C, resp *http.Response, agentTools *coretools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
-	c.Check(toolsResponse.Error, gc.IsNil)
-	c.Check(toolsResponse.ToolsList, jc.DeepEquals, coretools.List{agentTools})
+	c.Check(toolsResponse.Error, tc.IsNil)
+	c.Check(toolsResponse.ToolsList, tc.DeepEquals, coretools.List{agentTools})
 }
 
-func (s *baseToolsSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *baseToolsSuite) assertJSONErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 	toolsResponse := s.assertResponse(c, resp, expCode)
-	c.Check(toolsResponse.ToolsList, gc.IsNil)
-	c.Check(toolsResponse.Error, gc.NotNil)
-	c.Check(toolsResponse.Error.Message, gc.Matches, expError)
+	c.Check(toolsResponse.ToolsList, tc.IsNil)
+	c.Check(toolsResponse.Error, tc.NotNil)
+	c.Check(toolsResponse.Error.Message, tc.Matches, expError)
 }
 
-func (s *baseToolsSuite) assertPlainErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *baseToolsSuite) assertPlainErrorResponse(c *tc.C, resp *http.Response, expCode int, expError string) {
 	body := apitesting.AssertResponse(c, resp, expCode, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Matches, expError+"\n")
+	c.Assert(string(body), tc.Matches, expError+"\n")
 }
 
-func (s *baseToolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
+func (s *baseToolsSuite) assertResponse(c *tc.C, resp *http.Response, expStatus int) params.ToolsResult {
 	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("Body: %s", body))
 	return toolsResponse
 }
 
-func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
+func (s *baseToolsSuite) storeFakeTools(c *tc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
 	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer storage.Close()
 	err = storage.Add(strings.NewReader(content), metadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &coretools.Tools{
 		Version: version.MustParseBinary(metadata.Version),
 		Size:    metadata.Size,
@@ -118,37 +118,37 @@ func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string
 	}
 }
 
-func (s *baseToolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
+func (s *baseToolsSuite) getToolsFromStorage(c *tc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
 	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer storage.Close()
 	metadata, r, err := storage.Open(vers)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	data, err := io.ReadAll(r)
 	r.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return metadata, data
 }
 
-func (s *baseToolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []binarystorage.Metadata {
+func (s *baseToolsSuite) getToolsMetadataFromStorage(c *tc.C, st *state.State) []binarystorage.Metadata {
 	storage, err := st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer storage.Close()
 	metadata, err := storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return metadata
 }
 
-func (s *baseToolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
+func (s *baseToolsSuite) testDownload(c *tc.C, tools *coretools.Tools, uuid string) []byte {
 	resp := s.downloadRequest(c, tools.Version, uuid)
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, int(tools.Size))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(data, tc.HasLen, int(tools.Size))
 
 	hash := sha256.New()
 	hash.Write(data)
-	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), tc.Equals, tools.SHA256)
 	return data
 }
 
@@ -156,9 +156,11 @@ type toolsSuite struct {
 	baseToolsSuite
 }
 
-var _ = gc.Suite(&toolsSuite{})
+func TestToolsSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &toolsSuite{})
+}
 
-func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
+func (s *toolsSuite) TestToolsUploadedSecurely(c *tc.C) {
 	url := s.toolsURL("")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
@@ -168,26 +170,26 @@ func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	})
 }
 
-func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
+func (s *toolsSuite) TestRequiresAuth(c *tc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.toolsURI("")})
 	s.assertPlainErrorResponse(c, resp, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
-func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
+func (s *toolsSuite) TestRequiresPOST(c *tc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *toolsSuite) TestAuthRejectsNonsUser(c *gc.C) {
+func (s *toolsSuite) TestAuthRejectsNonsUser(c *tc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Tag:      machine.Tag().String(),
@@ -206,7 +208,7 @@ func (s *toolsSuite) TestAuthRejectsNonsUser(c *gc.C) {
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
-func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
+func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *tc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:     "oryx",
 		Password: "gardener",
@@ -226,18 +228,18 @@ func (s *toolsSuite) TestAuthRejectsUserWithoutPermission(c *gc.C) {
 	)
 }
 
-func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
+func (s *toolsSuite) TestUploadRequiresVersion(c *tc.C) {
 	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
-func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
+func (s *toolsSuite) TestUploadFailsWithNoTools(c *tc.C) {
 	var empty bytes.Buffer
 	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/x-tar-gz", &empty)
 	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "no agent binaries uploaded")
 }
 
-func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
+func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *tc.C) {
 	var empty bytes.Buffer
 	// Now try with the default Content-Type.
 	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-ubuntu-amd64"), "application/octet-stream", &empty)
@@ -245,18 +247,18 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
-func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, []byte) {
+func (s *toolsSuite) setupToolsForUpload(c *tc.C) (coretools.List, version.Binary, []byte) {
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-ubuntu-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
 	toolsContent, err := os.ReadFile(filepath.Join(localStorage, toolsFile))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return expectedTools, vers, toolsContent
 }
 
-func (s *toolsSuite) TestUpload(c *gc.C) {
+func (s *toolsSuite) TestUpload(c *tc.C) {
 	// Make some fake tools.
 	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
@@ -274,12 +276,12 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 
 	// Check the contents.
 	metadata, uploadedData := s.getToolsFromStorage(c, s.State, vers)
-	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
+	c.Assert(uploadedData, tc.DeepEquals, toolsContent)
 	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
-	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
+	c.Assert(allMetadata, tc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
-func (s *toolsSuite) TestMigrateTools(c *gc.C) {
+func (s *toolsSuite) TestMigrateTools(c *tc.C) {
 	// Make some fake tools.
 	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
@@ -287,9 +289,9 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 	importedModel, err := newSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now try uploading them.
 	uri := s.URL("/migrate/tools", url.Values{"binaryVersion": {vers}})
@@ -309,12 +311,12 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 
 	// Check the contents.
 	metadata, uploadedData := s.getToolsFromStorage(c, newSt, vers)
-	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
+	c.Assert(uploadedData, tc.DeepEquals, toolsContent)
 	allMetadata := s.getToolsMetadataFromStorage(c, newSt)
-	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
+	c.Assert(allMetadata, tc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
-func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
+func (s *toolsSuite) TestMigrateToolsNotMigrating(c *tc.C) {
 	// Make some fake tools.
 	_, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
@@ -340,7 +342,7 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	)
 }
 
-func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
+func (s *toolsSuite) TestMigrateToolsUnauth(c *tc.C) {
 	// Try uploading as a non controller admin.
 	url := s.URL("/migrate/tools", nil).String()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
@@ -356,14 +358,14 @@ func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
 	)
 }
 
-func (s *toolsSuite) TestBlockUpload(c *gc.C) {
+func (s *toolsSuite) TestBlockUpload(c *tc.C) {
 	// Make some fake tools.
 	_, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 
 	// Block all changes.
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "TestUpload")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now try uploading them.
 	resp := s.uploadRequest(
@@ -372,21 +374,21 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 		bytes.NewReader(toolsContent),
 	)
 	toolsResponse := s.assertResponse(c, resp, http.StatusBadRequest)
-	c.Assert(toolsResponse.Error, jc.Satisfies, params.IsCodeOperationBlocked)
-	c.Assert(errors.Cause(toolsResponse.Error), gc.DeepEquals, &params.Error{
+	c.Assert(toolsResponse.Error, tc.Satisfies, params.IsCodeOperationBlocked)
+	c.Assert(errors.Cause(toolsResponse.Error), tc.DeepEquals, &params.Error{
 		Message: "TestUpload",
 		Code:    "operation is blocked",
 	})
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer storage.Close()
 	_, _, err = storage.Open(vers)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.IsNotFound(err), tc.IsTrue)
 }
 
-func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
+func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *tc.C) {
 	// Backwards compatibility check, that we can upload tools to
 	// https://host:port/tools
 	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
@@ -397,7 +399,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *tc.C) {
 	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
 	url := s.toolsURL("binaryVersion=" + vers.String())
@@ -407,7 +409,7 @@ func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 
@@ -421,7 +423,7 @@ func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadModelUUIDPath(c *tc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),
 		Size:    3,
@@ -430,7 +432,7 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	s.testDownload(c, tools, s.State.ModelUUID())
 }
 
-func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *tc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 
@@ -442,7 +444,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 	s.testDownload(c, tools, newSt.ModelUUID())
 }
 
-func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadTopLevelPath(c *tc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: testing.CurrentVersion().String(),
 		Size:    3,
@@ -451,7 +453,7 @@ func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	s.testDownload(c, tools, "")
 }
 
-func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
+func (s *toolsSuite) TestDownloadMissingConcurrent(c *tc.C) {
 	closer, testStorage, _ := envtesting.CreateLocalTestStorage(c)
 	defer closer.Close()
 
@@ -473,7 +475,7 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	}
 	stream := "released"
 	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, toolsBinaries...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var wg sync.WaitGroup
 	const n = 8
@@ -487,21 +489,23 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	}
 	wg.Wait()
 
-	c.Assert(resolutions, gc.Equals, len(toolsBinaries))
+	c.Assert(resolutions, tc.Equals, len(toolsBinaries))
 }
 
 type caasToolsSuite struct {
 	baseToolsSuite
 }
 
-var _ = gc.Suite(&caasToolsSuite{})
+func TestCaasToolsSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &caasToolsSuite{})
+}
 
-func (s *caasToolsSuite) SetUpTest(c *gc.C) {
+func (s *caasToolsSuite) SetUpTest(c *tc.C) {
 	s.ControllerModelType = state.ModelTypeCAAS
 	s.baseToolsSuite.SetUpTest(c)
 }
 
-func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
+func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *tc.C) {
 	closer, testStorage, _ := envtesting.CreateLocalTestStorage(c)
 	defer closer.Close()
 
@@ -528,8 +532,8 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 	tool := version.MustParseBinary("2.9.99-ubuntu-amd64")
 	stream := "released"
 	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, tool)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tools, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tools, tc.HasLen, 1)
 
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -542,5 +546,5 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 	}
 	wg.Wait()
 
-	c.Assert(resolutions, gc.Equals, n)
+	c.Assert(resolutions, tc.Equals, n)
 }

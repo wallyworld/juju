@@ -8,29 +8,32 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ShowOperationSuite struct {
 	BaseActionSuite
 }
 
-var _ = gc.Suite(&ShowOperationSuite{})
+func TestShowOperationSuite(t *tctesting.T) {
+	tc.Run(t, &ShowOperationSuite{})
+}
 
-func (s *ShowOperationSuite) SetUpTest(c *gc.C) {
+func (s *ShowOperationSuite) SetUpTest(c *tc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 }
 
-func (s *ShowOperationSuite) TestInit(c *gc.C) {
+func (s *ShowOperationSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -65,7 +68,7 @@ func (s *ShowOperationSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(cmd, args)
 			if t.expectError != "" {
-				c.Check(err, gc.ErrorMatches, t.expectError)
+				c.Check(err, tc.ErrorMatches, t.expectError)
 			}
 		}
 	}
@@ -73,7 +76,7 @@ func (s *ShowOperationSuite) TestInit(c *gc.C) {
 
 const operationId = "666"
 
-func (s *ShowOperationSuite) TestRun(c *gc.C) {
+func (s *ShowOperationSuite) TestRun(c *tc.C) {
 	tests := []struct {
 		should            string
 		withClientWait    string
@@ -317,7 +320,7 @@ timing:
 	}
 }
 
-func (s *ShowOperationSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
+func (s *ShowOperationSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, format, wait, query, modelFlag string,
 	watch bool,
 ) {
@@ -350,10 +353,10 @@ func (s *ShowOperationSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	wg.Wait()
 
 	if expectedErr != "" {
-		c.Check(err, gc.ErrorMatches, expectedErr)
+		c.Check(err, tc.ErrorMatches, expectedErr)
 	} else {
-		c.Assert(err, gc.IsNil)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expectedOutput)
+		c.Assert(err, tc.IsNil)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expectedOutput)
 	}
 }
 

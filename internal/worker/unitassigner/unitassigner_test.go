@@ -5,18 +5,20 @@ package unitassigner
 
 import (
 	"errors"
+	tctesting "testing"
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(testsuite{})
+func TestSuite(t *tctesting.T) {
+	tc.Run(t, &testsuite{})
+}
 
 type testsuite struct{}
 
@@ -24,49 +26,49 @@ func newHandler(api UnitAssigner) unitAssignerHandler {
 	return unitAssignerHandler{api: api, logger: loggo.GetLogger("test")}
 }
 
-func (testsuite) TestSetup(c *gc.C) {
+func (testsuite) TestSetup(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(f)
 	_, err := ua.SetUp()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.calledWatch, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.calledWatch, tc.IsTrue)
 
 	f.err = errors.New("boo")
 	_, err = ua.SetUp()
-	c.Assert(err, gc.Equals, f.err)
+	c.Assert(err, tc.Equals, f.err)
 }
 
-func (testsuite) TestHandle(c *gc.C) {
+func (testsuite) TestHandle(c *tc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),
 	})
 
 	f.err = errors.New("boo")
 	err = ua.Handle(nil, ids)
-	c.Assert(err, gc.Equals, f.err)
+	c.Assert(err, tc.Equals, f.err)
 }
 
-func (testsuite) TestHandleError(c *gc.C) {
+func (testsuite) TestHandleError(c *tc.C) {
 	e := errors.New("some error")
 	f := &fakeAPI{assignErrs: []error{e}}
 	ua := newHandler(f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(f.assignTags, tc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
 		names.NewUnitTag("bar/0"),
 	})
-	c.Assert(f.status.Entities, gc.NotNil)
+	c.Assert(f.status.Entities, tc.NotNil)
 	entities := f.status.Entities
-	c.Assert(entities, gc.HasLen, 1)
-	c.Assert(entities[0], gc.DeepEquals, params.EntityStatusArgs{
+	c.Assert(entities, tc.HasLen, 1)
+	c.Assert(entities[0], tc.DeepEquals, params.EntityStatusArgs{
 		Tag:    "unit-foo-0",
 		Status: status.Error.String(),
 		Info:   e.Error(),

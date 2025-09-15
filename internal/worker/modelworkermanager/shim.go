@@ -14,7 +14,7 @@ import (
 // StatePoolController implements Controller in terms of a *state.StatePool.
 type StatePoolController struct {
 	*state.StatePool
-	SysLogger corelogger.Logger
+	SysLogger corelogger.LogWriter
 }
 
 // Model is part of the Controller interface.
@@ -65,10 +65,10 @@ func (g StatePoolController) getLoggers(loggingOutputs []string, st state.ModelS
 	}
 
 	return corelogger.MakeLoggers(loggingOutputs, corelogger.LoggersConfig{
-		SysLogger: func() corelogger.Logger {
+		SysLogger: func() corelogger.LogWriter {
 			return g.SysLogger
 		},
-		DBLogger: func() corelogger.Logger {
+		DBLogger: func() corelogger.LogWriter {
 			return state.NewDbLogger(st)
 		},
 	})

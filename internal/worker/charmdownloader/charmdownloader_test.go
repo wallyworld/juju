@@ -4,10 +4,11 @@
 package charmdownloader
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/charmdownloader/mocks"
@@ -19,9 +20,11 @@ type charmDownloaderSuite struct {
 	watcher *mocks.MockStringsWatcher
 }
 
-var _ = gc.Suite(&charmDownloaderSuite{})
+func TestCharmDownloaderSuite(t *tctesting.T) {
+	tc.Run(t, &charmDownloaderSuite{})
+}
 
-func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
+func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	changeCh := make(chan []string, 1)
@@ -44,14 +47,14 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 		Logger:             s.logger,
 		CharmDownloaderAPI: s.api,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for the worker to process the changes and exit when it detects
 	// that changeCh has been closed.
 	_ = worker.Wait()
 }
 
-func (s *charmDownloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *charmDownloaderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.logger = mocks.NewMockLogger(ctrl)
 	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()

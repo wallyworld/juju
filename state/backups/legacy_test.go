@@ -14,11 +14,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	backupsTesting "github.com/juju/juju/state/backups/testing"
-	"github.com/juju/juju/testing"
 )
 
 type LegacySuite struct {
@@ -40,7 +39,7 @@ var expectedContents = map[string]string{
 	"TarFile2":                              "TarFile2",
 }
 
-func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) {
+func (s *LegacySuite) createTestFiles(c *tc.C) (string, []string, []tarContent) {
 	var expected []tarContent
 	var tempFiles []string
 
@@ -53,14 +52,14 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 
 		if body == "" {
 			err := os.MkdirAll(filename, os.FileMode(0755))
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
 			if !top {
 				err := os.MkdirAll(filepath.Dir(filename), os.FileMode(0755))
-				c.Check(err, jc.ErrorIsNil)
+				c.Check(err, tc.ErrorIsNil)
 			}
 			file, err := os.Create(filename)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			file.WriteString(body)
 			file.Close()
 		}
@@ -75,7 +74,7 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 	return rootDir, tempFiles, expected
 }
 
-func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
+func readTarFile(c *tc.C, tarFile io.Reader) map[string]string {
 	tr := tar.NewReader(tarFile)
 	contents := make(map[string]string)
 
@@ -86,9 +85,9 @@ func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
 			// end of tar archive
 			break
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		buf, err := io.ReadAll(tr)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		contents[hdr.Name] = string(buf)
 	}
 
@@ -96,7 +95,7 @@ func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
 }
 
 func (s *LegacySuite) checkTarContents(
-	c *gc.C, tarFile io.Reader, allExpected []tarContent,
+	c *tc.C, tarFile io.Reader, allExpected []tarContent,
 ) {
 	contents := readTarFile(c, tarFile)
 
@@ -114,7 +113,7 @@ func (s *LegacySuite) checkTarContents(
 
 		if expected.Body != "" {
 			c.Log("Also checking the file contents")
-			c.Check(body, gc.Equals, expected.Body)
+			c.Check(body, tc.Equals, expected.Body)
 		}
 
 		if expected.Nested != nil {
@@ -140,19 +139,19 @@ func (s *LegacySuite) checkTarContents(
 	}
 }
 
-func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
+func (s *LegacySuite) checkChecksum(c *tc.C, file *os.File, checksum string) {
 	fileShaSum := backupsTesting.SHA1SumFile(c, file)
-	c.Check(fileShaSum, gc.Equals, checksum)
+	c.Check(fileShaSum, tc.Equals, checksum)
 	resetFile(c, file)
 }
 
-func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size int64) {
+func (s *LegacySuite) checkSize(c *tc.C, file *os.File, size int64) {
 	stat, err := file.Stat()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stat.Size(), gc.Equals, size)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stat.Size(), tc.Equals, size)
 }
 
-func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) {
+func (s *LegacySuite) checkArchive(c *tc.C, file *os.File, bundle []tarContent) {
 	expected := []tarContent{
 		{"juju-backup", "", nil},
 		{"juju-backup/dump", "", nil},
@@ -161,15 +160,15 @@ func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) 
 	}
 
 	tarFile, err := gzip.NewReader(file)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkTarContents(c, tarFile, expected)
 	resetFile(c, file)
 }
 
-func resetFile(c *gc.C, reader io.Reader) {
+func resetFile(c *tc.C, reader io.Reader) {
 	file, ok := reader.(*os.File)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	_, err := file.Seek(0, os.SEEK_SET)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

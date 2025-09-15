@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/worker/caasprober"
@@ -19,7 +19,9 @@ import (
 
 type ControllerSuite struct{}
 
-var _ = gc.Suite(&ControllerSuite{})
+func TestControllerSuite(t *tctesting.T) {
+	tc.Run(t, &ControllerSuite{})
+}
 
 type dummyMux struct {
 	AddHandlerFunc    func(string, string, http.Handler) error
@@ -39,7 +41,7 @@ func (d *dummyMux) RemoveHandler(i, j string) {
 	}
 }
 
-func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
+func (s *ControllerSuite) TestControllerMuxRegistration(c *tc.C) {
 	var (
 		livenessRegistered    = false
 		livenessDeRegistered  = false
@@ -53,18 +55,18 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
 	waitGroup.Add(3)
 	mux := dummyMux{
 		AddHandlerFunc: func(m, p string, _ http.Handler) error {
-			c.Check(m, gc.Equals, http.MethodGet)
+			c.Check(m, tc.Equals, http.MethodGet)
 			switch p {
 			case k8sconstants.AgentHTTPPathLiveness:
-				c.Check(livenessRegistered, jc.IsFalse)
+				c.Check(livenessRegistered, tc.IsFalse)
 				livenessRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathReadiness:
-				c.Check(readinessRegistered, jc.IsFalse)
+				c.Check(readinessRegistered, tc.IsFalse)
 				readinessRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathStartup:
-				c.Check(startupRegistered, jc.IsFalse)
+				c.Check(startupRegistered, tc.IsFalse)
 				startupRegistered = true
 				waitGroup.Done()
 			default:
@@ -73,18 +75,18 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
 			return nil
 		},
 		RemoveHandlerFunc: func(m, p string) {
-			c.Check(m, gc.Equals, http.MethodGet)
+			c.Check(m, tc.Equals, http.MethodGet)
 			switch p {
 			case k8sconstants.AgentHTTPPathLiveness:
-				c.Check(livenessDeRegistered, jc.IsFalse)
+				c.Check(livenessDeRegistered, tc.IsFalse)
 				livenessDeRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathReadiness:
-				c.Check(readinessDeRegistered, jc.IsFalse)
+				c.Check(readinessDeRegistered, tc.IsFalse)
 				readinessDeRegistered = true
 				waitGroup.Done()
 			case k8sconstants.AgentHTTPPathStartup:
-				c.Check(startupDeRegistered, jc.IsFalse)
+				c.Check(startupDeRegistered, tc.IsFalse)
 				startupDeRegistered = true
 				waitGroup.Done()
 			default:
@@ -102,7 +104,7 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
 	startupAgg.AddProber("test", probe.NotImplemented)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	waitGroup.Add(3)
@@ -110,17 +112,17 @@ func (s *ControllerSuite) TestControllerMuxRegistration(c *gc.C) {
 
 	waitGroup.Wait()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(livenessRegistered, jc.IsTrue)
-	c.Assert(livenessDeRegistered, jc.IsTrue)
-	c.Assert(readinessRegistered, jc.IsTrue)
-	c.Assert(readinessDeRegistered, jc.IsTrue)
-	c.Assert(startupRegistered, jc.IsTrue)
-	c.Assert(startupDeRegistered, jc.IsTrue)
+	c.Assert(livenessRegistered, tc.IsTrue)
+	c.Assert(livenessDeRegistered, tc.IsTrue)
+	c.Assert(readinessRegistered, tc.IsTrue)
+	c.Assert(readinessDeRegistered, tc.IsTrue)
+	c.Assert(startupRegistered, tc.IsTrue)
+	c.Assert(startupDeRegistered, tc.IsTrue)
 }
 
-func (s *ControllerSuite) TestControllerProbeNotImplemented(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbeNotImplemented(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(3)
 
@@ -129,8 +131,8 @@ func (s *ControllerSuite) TestControllerProbeNotImplemented(c *gc.C) {
 			req := httptest.NewRequest(m, p+"?detailed=true", nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusNotImplemented)
-			c.Check(recorder.Body.String(), gc.Matches,
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusNotImplemented)
+			c.Check(recorder.Body.String(), tc.Matches,
 				`(?m)Not Implemented: probe (liveness|readiness|startup)\n- test-ni: probe not implemented`)
 			waitGroup.Done()
 			return nil
@@ -147,15 +149,15 @@ func (s *ControllerSuite) TestControllerProbeNotImplemented(c *gc.C) {
 	startupAgg.AddProber("test-ni", probe.NotImplemented)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbeError(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	// We should trigger the handler 3 times, one for each probe type
 	waitGroup.Add(3)
@@ -165,8 +167,8 @@ func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
 			req := httptest.NewRequest(m, p, nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusInternalServerError)
-			c.Check(recorder.Body.String(), gc.Matches, `(?m)Internal Server Error: probe (liveness|readiness|startup)\n`)
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusInternalServerError)
+			c.Check(recorder.Body.String(), tc.Matches, `(?m)Internal Server Error: probe (liveness|readiness|startup)\n`)
 			waitGroup.Done()
 			return nil
 		},
@@ -185,15 +187,15 @@ func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeErr)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbeFail(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbeFail(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(3)
 
@@ -202,8 +204,8 @@ func (s *ControllerSuite) TestControllerProbeFail(c *gc.C) {
 			req := httptest.NewRequest(m, p, nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusTeapot)
-			c.Check(recorder.Body.String(), gc.Matches, `(?m)I'm a teapot: probe (liveness|readiness|startup)\n`)
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusTeapot)
+			c.Check(recorder.Body.String(), tc.Matches, `(?m)I'm a teapot: probe (liveness|readiness|startup)\n`)
 			waitGroup.Done()
 			return nil
 		},
@@ -222,15 +224,15 @@ func (s *ControllerSuite) TestControllerProbeFail(c *gc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeFail)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbePass(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbePass(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(3)
 
@@ -239,7 +241,7 @@ func (s *ControllerSuite) TestControllerProbePass(c *gc.C) {
 			req := httptest.NewRequest(m, p, nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusOK)
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusOK)
 			waitGroup.Done()
 			return nil
 		},
@@ -255,15 +257,15 @@ func (s *ControllerSuite) TestControllerProbePass(c *gc.C) {
 	startupAgg.AddProber("test", probe.Success)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbePassDetailed(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbePassDetailed(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(3)
 
@@ -272,8 +274,8 @@ func (s *ControllerSuite) TestControllerProbePassDetailed(c *gc.C) {
 			req := httptest.NewRequest(m, p+"?detailed=true", nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusOK)
-			c.Check(recorder.Body.String(), gc.Matches, `(?m)OK: probe (liveness|readiness|startup)\n\+ test`)
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusOK)
+			c.Check(recorder.Body.String(), tc.Matches, `(?m)OK: probe (liveness|readiness|startup)\n\+ test`)
 			waitGroup.Done()
 			return nil
 		},
@@ -289,15 +291,15 @@ func (s *ControllerSuite) TestControllerProbePassDetailed(c *gc.C) {
 	startupAgg.AddProber("test", probe.Success)
 
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbeErrorDetailed(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbeErrorDetailed(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	// We should trigger the handler 3 times, one for each probe type
 	waitGroup.Add(3)
@@ -307,8 +309,8 @@ func (s *ControllerSuite) TestControllerProbeErrorDetailed(c *gc.C) {
 			req := httptest.NewRequest(m, p+"?detailed=true", nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusInternalServerError)
-			c.Check(recorder.Body.String(), gc.Matches,
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusInternalServerError)
+			c.Check(recorder.Body.String(), tc.Matches,
 				`(?m)Internal Server Error: probe (liveness|readiness|startup)\n\- test: test error`)
 			waitGroup.Done()
 			return nil
@@ -328,15 +330,15 @@ func (s *ControllerSuite) TestControllerProbeErrorDetailed(c *gc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeErr)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ControllerSuite) TestControllerProbeFailDetailed(c *gc.C) {
+func (s *ControllerSuite) TestControllerProbeFailDetailed(c *tc.C) {
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(3)
 
@@ -345,8 +347,8 @@ func (s *ControllerSuite) TestControllerProbeFailDetailed(c *gc.C) {
 			req := httptest.NewRequest(m, p+"?detailed=true", nil)
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
-			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusTeapot)
-			c.Check(recorder.Body.String(), gc.Matches,
+			c.Check(recorder.Result().StatusCode, tc.Equals, http.StatusTeapot)
+			c.Check(recorder.Body.String(), tc.Matches,
 				`(?m)I'm a teapot: probe (liveness|readiness|startup)\n\- test`)
 			waitGroup.Done()
 			return nil
@@ -366,10 +368,10 @@ func (s *ControllerSuite) TestControllerProbeFailDetailed(c *gc.C) {
 	startupAgg, _ := probes.ProbeAggregate(probe.ProbeStartup)
 	startupAgg.AddProber("test", probeFail)
 	controller, err := caasprober.NewController(probes, &mux)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	waitGroup.Wait()
 	controller.Kill()
 	err = controller.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

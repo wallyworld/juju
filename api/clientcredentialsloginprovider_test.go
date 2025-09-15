@@ -5,27 +5,29 @@ package api_test
 
 import (
 	"encoding/json"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type clientCredentialsLoginProviderSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&clientCredentialsLoginProviderSuite{})
+func TestClientCredentialsLoginProviderSuite(t *tctesting.T) {
+	tc.Run(t, &clientCredentialsLoginProviderSuite{})
+}
 
-func (s *clientCredentialsLoginProviderSuite) TestClientCredentialsLogin(c *gc.C) {
+func (s *clientCredentialsLoginProviderSuite) TestClientCredentialsLogin(c *tc.C) {
 	info := s.APIInfo(c)
 
 	clientID := "test-client-id"
@@ -76,9 +78,9 @@ func (s *clientCredentialsLoginProviderSuite) TestClientCredentialsLogin(c *gc.C
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // A separate suite for tests that don't need to communicate with a Juju controller.
@@ -86,14 +88,16 @@ type clientCredentialsLoginProviderBasicSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&clientCredentialsLoginProviderBasicSuite{})
+func TestClientCredentialsLoginProviderBasicSuite(t *tctesting.T) {
+	tc.Run(t, &clientCredentialsLoginProviderBasicSuite{})
+}
 
-func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *gc.C) {
+func (s *clientCredentialsLoginProviderBasicSuite) TestClientCredentialsAuthHeader(c *tc.C) {
 	clientID := "test-client-id"
 	clientSecret := "test-client-secret"
 	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
 	expectedHeader := jujuhttp.BasicAuthHeader(clientID, clientSecret)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, jc.DeepEquals, expectedHeader)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expectedHeader)
 }

@@ -4,19 +4,23 @@
 package lxdprofile_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type LXDProfileStatusSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&LXDProfileStatusSuite{})
+func TestLXDProfileStatusSuite(t *tctesting.T) {
+	tc.Run(t, &LXDProfileStatusSuite{})
+}
 
-func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *gc.C) {
+func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *tc.C) {
 	testCases := []struct {
 		input  string
 		output bool
@@ -46,13 +50,13 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusFinished(c *gc.C) {
 			output: false,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.UpgradeStatusFinished(tc.input), gc.Equals, tc.output)
+	for k, t := range testCases {
+		c.Logf("running test %d with input %q", k, t.input)
+		c.Assert(lxdprofile.UpgradeStatusFinished(t.input), tc.Equals, t.output)
 	}
 }
 
-func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *gc.C) {
+func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *tc.C) {
 	testCases := []struct {
 		input  string
 		output bool
@@ -82,8 +86,8 @@ func (*LXDProfileStatusSuite) TestUpgradeStatusTerminal(c *gc.C) {
 			output: true,
 		},
 	}
-	for k, tc := range testCases {
-		c.Logf("running test %d with input %q", k, tc.input)
-		c.Assert(lxdprofile.UpgradeStatusTerminal(tc.input), gc.Equals, tc.output)
+	for k, t := range testCases {
+		c.Logf("running test %d with input %q", k, t.input)
+		c.Assert(lxdprofile.UpgradeStatusTerminal(t.input), tc.Equals, t.output)
 	}
 }

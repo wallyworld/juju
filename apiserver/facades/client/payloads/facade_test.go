@@ -4,32 +4,35 @@
 package payloads_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	api "github.com/juju/juju/api/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&Suite{})
+func TestSuite(t *tctesting.T) {
+	tc.Run(t, &Suite{})
+}
 
 type Suite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub  *testing.Stub
+	stub  *testhelpers.Stub
 	state *stubState
 }
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.state = &stubState{stub: s.stub}
 }
 
@@ -65,7 +68,7 @@ func (Suite) newPayload(name string) (corepayloads.FullPayloadInfo, params.Paylo
 	return pl, apiPayload
 }
 
-func (s *Suite) TestListNoPatterns(c *gc.C) {
+func (s *Suite) TestListNoPatterns(c *tc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
@@ -75,9 +78,9 @@ func (s *Suite) TestListNoPatterns(c *gc.C) {
 		Patterns: []string{},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+	c.Check(results, tc.DeepEquals, params.PayloadListResults{
 		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
@@ -85,7 +88,7 @@ func (s *Suite) TestListNoPatterns(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestListAllMatch(c *gc.C) {
+func (s *Suite) TestListAllMatch(c *tc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
@@ -97,9 +100,9 @@ func (s *Suite) TestListAllMatch(c *gc.C) {
 		},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+	c.Check(results, tc.DeepEquals, params.PayloadListResults{
 		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
@@ -107,7 +110,7 @@ func (s *Suite) TestListAllMatch(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestListNoMatch(c *gc.C) {
+func (s *Suite) TestListNoMatch(c *tc.C) {
 	payloadA, _ := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
@@ -119,23 +122,23 @@ func (s *Suite) TestListNoMatch(c *gc.C) {
 		},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *Suite) TestListNoPayloads(c *gc.C) {
+func (s *Suite) TestListNoPayloads(c *tc.C) {
 	facade := payloads.NewAPI(s.state)
 	args := params.PayloadListArgs{
 		Patterns: []string{},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *Suite) TestListMultiMatch(c *gc.C) {
+func (s *Suite) TestListMultiMatch(c *tc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, apiPayloadB := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
@@ -148,9 +151,9 @@ func (s *Suite) TestListMultiMatch(c *gc.C) {
 		},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+	c.Check(results, tc.DeepEquals, params.PayloadListResults{
 		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadB,
@@ -158,7 +161,7 @@ func (s *Suite) TestListMultiMatch(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestListPartialMatch(c *gc.C) {
+func (s *Suite) TestListPartialMatch(c *tc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	s.state.payloads = append(s.state.payloads, payloadA, payloadB)
@@ -170,16 +173,16 @@ func (s *Suite) TestListPartialMatch(c *gc.C) {
 		},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+	c.Check(results, tc.DeepEquals, params.PayloadListResults{
 		Results: []params.Payload{
 			apiPayloadA,
 		},
 	})
 }
 
-func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
+func (s *Suite) TestListPartialMultiMatch(c *tc.C) {
 	payloadA, apiPayloadA := s.newPayload("spam")
 	payloadB, _ := s.newPayload("eggs")
 	payloadC, apiPayloadC := s.newPayload("ham")
@@ -193,9 +196,9 @@ func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
 		},
 	}
 	results, err := facade.List(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, params.PayloadListResults{
+	c.Check(results, tc.DeepEquals, params.PayloadListResults{
 		Results: []params.Payload{
 			apiPayloadA,
 			apiPayloadC,
@@ -203,7 +206,7 @@ func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestListAllFilters(c *gc.C) {
+func (s *Suite) TestListAllFilters(c *tc.C) {
 	pl := corepayloads.FullPayloadInfo{
 		Payload: corepayloads.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -239,9 +242,9 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 			},
 		}
 		results, err := facade.List(args)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
-		c.Check(results, jc.DeepEquals, params.PayloadListResults{
+		c.Check(results, tc.DeepEquals, params.PayloadListResults{
 			Results: []params.Payload{
 				apiPayload,
 			},
@@ -250,7 +253,7 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 }
 
 type stubState struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	payloads []corepayloads.FullPayloadInfo
 }

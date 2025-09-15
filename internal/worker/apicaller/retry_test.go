@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -11,11 +12,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
 
@@ -32,10 +32,12 @@ import (
 // seems best to at least decompose the testing. Which is more detailed
 // than it was before, anyway.
 type RetryStrategySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RetryStrategySuite{})
+func TestRetryStrategySuite(t *tctesting.T) {
+	tc.Run(t, &RetryStrategySuite{})
+}
 
 var testEntity = names.NewMachineTag("42")
 
@@ -45,8 +47,8 @@ var strategy = retry.CallArgs{
 	Attempts: 3,
 }
 
-func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned, // initial attempt, outside strategy
 		errNotProvisioned, // first strategy attempt
@@ -56,12 +58,12 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
-	c.Check(conn, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(conn, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
-	stub := &testing.Stub{}
+func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *tc.C) {
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotAuthorized,  // initial attempt, outside strategy
 		errNotProvisioned, // fallback attempt, outside strategy
@@ -72,24 +74,24 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(conn, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(conn, tc.NotNil)
 }
 
-func (s *RetryStrategySuite) TestOnlyConnectEventualError(c *gc.C) {
+func (s *RetryStrategySuite) TestOnlyConnectEventualError(c *tc.C) {
 	conn, err := checkWaitProvisionedError(c, apicaller.OnlyConnect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splat pow")
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splat pow")
 }
 
-func (s *RetryStrategySuite) TestScaryConnectEventualError(c *gc.C) {
+func (s *RetryStrategySuite) TestScaryConnectEventualError(c *tc.C) {
 	conn, err := checkWaitProvisionedError(c, apicaller.ScaryConnect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "splat pow")
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splat pow")
 }
 
-func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
-	stub := &testing.Stub{}
+func checkWaitProvisionedError(c *tc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned,       // initial attempt, outside strategy
 		errNotProvisioned,       // first strategy attempt
@@ -103,20 +105,20 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 	return conn, err
 }
 
-func (s *RetryStrategySuite) TestOnlyConnectNeverProvisioned(c *gc.C) {
+func (s *RetryStrategySuite) TestOnlyConnectNeverProvisioned(c *tc.C) {
 	conn, err := checkWaitNeverProvisioned(c, apicaller.OnlyConnect)
-	c.Check(conn, gc.IsNil)
-	c.Check(errors.Cause(err), gc.DeepEquals, errNotProvisioned)
+	c.Check(conn, tc.IsNil)
+	c.Check(errors.Cause(err), tc.DeepEquals, errNotProvisioned)
 }
 
-func (s *RetryStrategySuite) TestScaryConnectNeverProvisioned(c *gc.C) {
+func (s *RetryStrategySuite) TestScaryConnectNeverProvisioned(c *tc.C) {
 	conn, err := checkWaitNeverProvisioned(c, apicaller.ScaryConnect)
-	c.Check(conn, gc.IsNil)
-	c.Check(err, gc.Equals, apicaller.ErrConnectImpossible)
+	c.Check(conn, tc.IsNil)
+	c.Check(err, tc.Equals, apicaller.ErrConnectImpossible)
 }
 
-func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
-	stub := &testing.Stub{}
+func checkWaitNeverProvisioned(c *tc.C, connect apicaller.ConnectFunc) (api.Connection, error) {
+	stub := &testhelpers.Stub{}
 	stub.SetErrors(
 		errNotProvisioned, // initial attempt, outside strategy
 		errNotProvisioned, // first strategy attempt

@@ -4,11 +4,12 @@
 package cache
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/settings"
 )
@@ -24,15 +25,17 @@ type charmConfigWatcherSuite struct {
 	EntitySuite
 }
 
-var _ = gc.Suite(&charmConfigWatcherSuite{})
+func TestCharmConfigWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &charmConfigWatcherSuite{})
+}
 
-func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *tc.C) {
 	// After initializing we expect not miss
-	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(0))
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), tc.Equals, float64(0))
 
 	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
 	// After initializing the first watcher we expect one change and one miss
-	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), tc.Equals, float64(1))
 
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
@@ -49,13 +52,13 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
 	s.assertOneChange(c, w, map[string]interface{}{"password": "new-pass"}, defaultCharmURL)
 
 	// After the branchChange we expect another change and hence inc again.
-	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(2))
-	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheHit), gc.Equals, float64(0))
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), tc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheHit), tc.Equals, float64(0))
 
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *tc.C) {
 	// This will initialise the watcher without branch info.
 	w := s.newWatcher(c, "redis/9", defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
@@ -74,7 +77,7 @@ func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *gc.
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *tc.C) {
 	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
@@ -91,7 +94,7 @@ func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *gc.C)
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestTrackingBranchMasterChangedNotified(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestTrackingBranchMasterChangedNotified(c *tc.C) {
 	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
@@ -103,7 +106,7 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchMasterChangedNotified(c *gc.
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedNotNotified(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedNotNotified(c *tc.C) {
 	w := s.newWatcher(c, "redis/0", defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
@@ -113,14 +116,14 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedNotNotified(c *gc.C
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestNotTrackedBranchSeesMasterConfig(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestNotTrackedBranchSeesMasterConfig(c *tc.C) {
 	// Watcher is for a unit not tracking the branch.
 	w := s.newWatcher(c, "redis/9", defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestSameUnitDifferentCharmURLYieldsDifferentHash(c *gc.C) {
+func (s *charmConfigWatcherSuite) TestSameUnitDifferentCharmURLYieldsDifferentHash(c *tc.C) {
 	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 	h1 := w.Watcher.(*CharmConfigWatcher).configHash
@@ -131,12 +134,12 @@ func (s *charmConfigWatcherSuite) TestSameUnitDifferentCharmURLYieldsDifferentHa
 	h2 := w.Watcher.(*CharmConfigWatcher).configHash
 	w.AssertStops()
 
-	c.Check(h1, gc.Not(gc.Equals), h2)
+	c.Check(h1, tc.Not(tc.Equals), h2)
 }
 
-func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string, charmURL string) StringsWatcherC {
+func (s *charmConfigWatcherSuite) newWatcher(c *tc.C, unitName string, charmURL string) StringsWatcherC {
 	appName, err := names.UnitApplication(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The topics can be arbitrary here;
 	// these tests are isolated from actual cache behaviour.
@@ -153,7 +156,7 @@ func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string, charmURL 
 	}
 
 	w, err := newCharmConfigWatcher(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wrap the watcher and ensure we get the default notification.
 	wc := NewStringsWatcherC(c, w)
@@ -186,10 +189,10 @@ func (s *charmConfigWatcherSuite) newStubModel() *stubCharmConfigModel {
 // assertWatcherConfig unwraps the charm config watcher and ensures that its
 // configuration hash matches that of the input configuration map.
 func (s *charmConfigWatcherSuite) assertOneChange(
-	c *gc.C, wc StringsWatcherC, cfg map[string]interface{}, extra ...string,
+	c *tc.C, wc StringsWatcherC, cfg map[string]interface{}, extra ...string,
 ) {
 	h, err := hashSettings(cfg, extra...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange([]string{h})
 }
 

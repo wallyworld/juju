@@ -6,12 +6,12 @@ package model_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // ModelConfig related fake environment for testing.
@@ -21,7 +21,7 @@ type fakeEnvSuite struct {
 	fake *fakeEnvAPI
 }
 
-func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
+func (s *fakeEnvSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeEnvAPI{
 		values: map[string]interface{}{
@@ -92,7 +92,7 @@ type fakeModelDefaultEnvSuite struct {
 	fakeCloudAPI    *fakeCloudAPI
 }
 
-func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
+func (s *fakeModelDefaultEnvSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fakeAPIRoot = &fakeAPIConnection{}
 	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{

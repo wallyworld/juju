@@ -4,7 +4,9 @@
 package uniter
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 )
@@ -12,11 +14,13 @@ import (
 type networkInfoSuite struct {
 }
 
-var _ = gc.Suite(&networkInfoSuite{})
+func TestNetworkInfoSuite(t *tctesting.T) {
+	tc.Run(t, &networkInfoSuite{})
+}
 
 // TestUniqueNetworkInfoResults ensures that
 // we don't get a regression for LP1864072.
-func (s *networkInfoSuite) TestUniqueNetworkInfoResults(c *gc.C) {
+func (s *networkInfoSuite) TestUniqueNetworkInfoResults(c *tc.C) {
 	resWithDups := params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"ep0": {
@@ -135,5 +139,5 @@ func (s *networkInfoSuite) TestUniqueNetworkInfoResults(c *gc.C) {
 	}
 
 	filteredRes := uniqueNetworkInfoResults(resWithDups)
-	c.Assert(filteredRes, gc.DeepEquals, expRes)
+	c.Assert(filteredRes, tc.DeepEquals, expRes)
 }

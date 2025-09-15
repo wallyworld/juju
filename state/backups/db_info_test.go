@@ -4,19 +4,22 @@
 package backups_test
 
 import (
+	tctesting "testing"
+
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&dbInfoSuite{})
+func TestDbInfoSuite(t *tctesting.T) {
+	tc.Run(t, &dbInfoSuite{})
+}
 
 type dbInfoSuite struct {
 	testing.BaseSuite
@@ -54,7 +57,7 @@ func (f *fakeDatabase) Run(cmd interface{}, result interface{}) error {
 	return nil
 }
 
-func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
+func (s *dbInfoSuite) TestNewDBInfoOkay(c *tc.C) {
 	session := fakeSession{
 		dbNames: []string{"juju"},
 		db: &fakeDatabase{
@@ -62,7 +65,7 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		}}
 
 	tag, err := names.ParseTag("machine-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mgoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
@@ -71,15 +74,15 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		Password: "eggs",
 	}
 	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
-	c.Check(dbInfo.Username, gc.Equals, "machine-0")
-	c.Check(dbInfo.Password, gc.Equals, "eggs")
-	c.Check(dbInfo.ApproxSizeMB, gc.Equals, 666)
+	c.Check(dbInfo.Address, tc.Equals, "localhost:8080")
+	c.Check(dbInfo.Username, tc.Equals, "machine-0")
+	c.Check(dbInfo.Password, tc.Equals, "eggs")
+	c.Check(dbInfo.ApproxSizeMB, tc.Equals, 666)
 }
 
-func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
+func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *tc.C) {
 	session := fakeSession{}
 
 	mgoInfo := &mongo.MongoInfo{
@@ -89,9 +92,9 @@ func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
 		Password: "eggs",
 	}
 	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(dbInfo.Username, gc.Equals, "")
-	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
-	c.Check(dbInfo.Password, gc.Equals, "eggs")
+	c.Check(dbInfo.Username, tc.Equals, "")
+	c.Check(dbInfo.Address, tc.Equals, "localhost:8080")
+	c.Check(dbInfo.Password, tc.Equals, "eggs")
 }

@@ -4,10 +4,11 @@
 package all_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/secrets/provider/juju"
@@ -16,19 +17,21 @@ import (
 )
 
 type allSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&allSuite{})
+func TestAllSuite(t *tctesting.T) {
+	tc.Run(t, &allSuite{})
+}
 
-func (s *allSuite) TestInit(c *gc.C) {
+func (s *allSuite) TestInit(c *tc.C) {
 	for _, name := range []string{
 		juju.BackendType,
 		kubernetes.BackendType,
 		vault.BackendType,
 	} {
 		p, err := provider.Provider(name)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(p.Type(), gc.Equals, name)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(p.Type(), tc.Equals, name)
 	}
 }

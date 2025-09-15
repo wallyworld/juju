@@ -4,26 +4,27 @@
 package instancemutater_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mutaterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	tag    names.MachineTag
 	instId string
@@ -35,15 +36,17 @@ type mutaterSuite struct {
 	mutaterMachine *instancemutater.MutaterMachine
 }
 
-var _ = gc.Suite(&mutaterSuite{})
+func TestMutaterSuite(t *tctesting.T) {
+	tc.Run(t, &mutaterSuite{})
+}
 
-func (s *mutaterSuite) SetUpTest(c *gc.C) {
+func (s *mutaterSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("2")
 	s.instId = "juju-23413-2"
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
+func (s *mutaterSuite) TestProcessMachineProfileChanges(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	startingProfiles := []string{"default", "juju-testme-deadbe"}
@@ -58,10 +61,10 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
 
 	info := s.info(startingProfiles, 1, true)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
+func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	startingProfiles := []string{"default", "juju-testme"}
@@ -70,10 +73,10 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
 
 	info := s.info(startingProfiles, 1, false)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
+func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	startingProfiles := []string{"default", "juju-testme-deadbe"}
@@ -86,65 +89,65 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
 
 	info := s.info(startingProfiles, 1, true)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, gc.ErrorMatches, "fail me")
+	c.Assert(err, tc.ErrorMatches, "fail me")
 }
 
-func (s *mutaterSuite) TestProcessMachineProfileChangesNilInfo(c *gc.C) {
+func (s *mutaterSuite) TestProcessMachineProfileChangesNilInfo(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, &apiinstancemutater.UnitProfileInfo{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *mutaterSuite) TestGatherProfileDataReplace(c *gc.C) {
+func (s *mutaterSuite) TestGatherProfileDataReplace(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 1, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: nil},
 		{Name: "juju-testme-deadbe-lxd-profile-1", Profile: &testProfile},
 	})
 }
 
-func (s *mutaterSuite) TestGatherProfileDataRemove(c *gc.C) {
+func (s *mutaterSuite) TestGatherProfileDataRemove(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 0, false),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: nil},
 	})
 }
 
-func (s *mutaterSuite) TestGatherProfileDataAdd(c *gc.C) {
+func (s *mutaterSuite) TestGatherProfileDataAdd(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-deadbe-testme"}, 1, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-deadbe-lxd-profile-1", Profile: &testProfile},
 	})
 }
 
-func (s *mutaterSuite) TestGatherProfileDataNoChange(c *gc.C) {
+func (s *mutaterSuite) TestGatherProfileDataNoChange(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	post, err := instancemutater.GatherProfileData(
 		s.mutaterMachine,
 		s.info([]string{"default", "juju-testme-deadbe", "juju-testme-deadbe-lxd-profile-0"}, 0, true),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(post, gc.DeepEquals, []lxdprofile.ProfilePost{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(post, tc.DeepEquals, []lxdprofile.ProfilePost{
 		{Name: "juju-testme-deadbe-lxd-profile-0", Profile: &testProfile},
 	})
 }
@@ -175,78 +178,78 @@ func (s *mutaterSuite) info(profiles []string, rev int, add bool) *apiinstancemu
 	return info
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesTrue(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	profiles := []string{"default", "juju-testme", "juju-testme-lxd-profile-0"}
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, profiles)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesFalseLength(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseLength(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	profiles := []string{"default", "juju-testme", "juju-testme-lxd-profile-0"}
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, append(profiles, "juju-testme-next-1"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContents(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContents(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	profiles := []string{"default", "juju-testme", "juju-testme-lxd-profile-0"}
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme", "juju-testme-lxd-profile-1"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingExpectedProfiles(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingExpectedProfiles(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	profiles := []string{"default", "juju-testme", "juju-testme-lxd-profile-0"}
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingProviderProfiles(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingProviderProfiles(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	profiles := []string{"default", "juju-testme"}
 	s.expectLXDProfileNames(profiles, nil)
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme", "juju-testme-lxd-profile-0"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, jc.DeepEquals, profiles)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.DeepEquals, profiles)
 }
 
-func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *gc.C) {
+func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	s.expectLXDProfileNames([]string{}, errors.NotFoundf("instId"))
 
 	ok, obtained, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default"})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(obtained, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(ok, tc.IsFalse)
+	c.Assert(obtained, tc.IsNil)
 }
 
-func (s *mutaterSuite) setUpMocks(c *gc.C) *gomock.Controller {
+func (s *mutaterSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	logger := loggo.GetLogger("mutaterSuite")

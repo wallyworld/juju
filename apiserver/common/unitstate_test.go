@@ -4,19 +4,20 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type unitStateSuite struct {
@@ -30,13 +31,15 @@ type unitStateSuite struct {
 	mockOp      *mocks.MockModelOperation
 }
 
-var _ = gc.Suite(&unitStateSuite{})
+func TestUnitStateSuite(t *tctesting.T) {
+	tc.Run(t, &unitStateSuite{})
+}
 
-func (s *unitStateSuite) SetUpTest(c *gc.C) {
+func (s *unitStateSuite) SetUpTest(c *tc.C) {
 	s.unitTag1 = names.NewUnitTag("wordpress/0")
 }
 
-func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
+func (s *unitStateSuite) assertBackendApi(c *tc.C) *gomock.Controller {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
@@ -120,7 +123,7 @@ func (s *unitStateSuite) expectApplyOperation() {
 	exp.ApplyOperation(s.mockOp).Return(nil)
 }
 
-func (s *unitStateSuite) TestState(c *gc.C) {
+func (s *unitStateSuite) TestState(c *tc.C) {
 	defer s.assertBackendApi(c).Finish()
 	s.expectUnit()
 	expCharmState, expUniterState, expRelationState, expStorageState, expSecretState := s.expectState()
@@ -134,8 +137,8 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 		},
 	}
 	result, err := s.api.State(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.UnitStateResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{
@@ -152,7 +155,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 	})
 }
 
-func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
+func (s *unitStateSuite) TestSetStateUniterState(c *tc.C) {
 	defer s.assertBackendApi(c).Finish()
 	s.expectUnit()
 	expUniterState := s.expectSetStateOperation()
@@ -168,8 +171,8 @@ func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 	}
 
 	result, err := s.api.SetState(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{Error: nil},

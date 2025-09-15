@@ -4,31 +4,34 @@
 package apiserver
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/mocks"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type allWatcherSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&allWatcherSuite{})
+func TestAllWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &allWatcherSuite{})
+}
 
-func (s *allWatcherSuite) TestTranslateApplicationWithStatus(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateApplicationWithStatus(c *tc.C) {
 	s.assertTranslateApplicationWithStatus(c, newAllWatcherDeltaTranslater())
 }
 
-func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaTranslater) {
+func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *tc.C, t DeltaTranslater) {
 	input := &multiwatcher.ApplicationInfo{
 		ModelUUID: testing.ModelTag.Id(),
 		Name:      "test-app",
@@ -39,7 +42,7 @@ func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaT
 		},
 	}
 	output := t.TranslateApplication(input)
-	c.Assert(output, jc.DeepEquals, &params.ApplicationInfo{
+	c.Assert(output, tc.DeepEquals, &params.ApplicationInfo{
 		ModelUUID: input.ModelUUID,
 		Name:      input.Name,
 		CharmURL:  input.CharmURL,
@@ -50,7 +53,7 @@ func (s *allWatcherSuite) assertTranslateApplicationWithStatus(c *gc.C, t DeltaT
 	})
 }
 
-func (s *allWatcherSuite) TestTranslateAction(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateAction(c *tc.C) {
 	t := newAllWatcherDeltaTranslater()
 	input := &multiwatcher.ActionInfo{
 		ModelUUID:  testing.ModelTag.Id(),
@@ -59,7 +62,7 @@ func (s *allWatcherSuite) TestTranslateAction(c *gc.C) {
 		Results:    map[string]interface{}{"done": true},
 	}
 	output := t.TranslateAction(input)
-	c.Assert(output, jc.DeepEquals, &params.ActionInfo{
+	c.Assert(output, tc.DeepEquals, &params.ActionInfo{
 		ModelUUID: input.ModelUUID,
 		Id:        input.ID,
 		Receiver:  input.Receiver,
@@ -76,7 +79,7 @@ func newDelta(info multiwatcher.EntityInfo) multiwatcher.Delta {
 	return multiwatcher.Delta{Entity: info}
 }
 
-func (s *allWatcherSuite) TestTranslate(c *gc.C) {
+func (s *allWatcherSuite) TestTranslate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -114,18 +117,18 @@ func (s *allWatcherSuite) TestTranslate(c *gc.C) {
 	_ = translate(dt, deltas)
 }
 
-func (s *allWatcherSuite) TestTranslateModelEmpty(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateModelEmpty(c *tc.C) {
 	translator := newAllWatcherDeltaTranslater()
 	entityInfo := translator.TranslateModel(&multiwatcher.ModelInfo{
 		Config: map[string]any{},
 	})
-	c.Assert(entityInfo, gc.NotNil)
+	c.Assert(entityInfo, tc.NotNil)
 
 	modelUpdate := entityInfo.(*params.ModelUpdate)
-	c.Assert(modelUpdate, gc.NotNil)
+	c.Assert(modelUpdate, tc.NotNil)
 }
 
-func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
+func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *tc.C) {
 	current := coretesting.CurrentVersion()
 	configAttrs := map[string]any{
 		"name":                 "some-name",
@@ -138,9 +141,9 @@ func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
 	entityInfo := translator.TranslateModel(&multiwatcher.ModelInfo{
 		Config: configAttrs,
 	})
-	c.Assert(entityInfo, gc.NotNil)
+	c.Assert(entityInfo, tc.NotNil)
 
 	modelUpdate := entityInfo.(*params.ModelUpdate)
-	c.Assert(modelUpdate, gc.NotNil)
-	c.Assert(modelUpdate.Version, gc.Equals, current.Number.String())
+	c.Assert(modelUpdate, tc.NotNil)
+	c.Assert(modelUpdate.Version, tc.Equals, current.Number.String())
 }

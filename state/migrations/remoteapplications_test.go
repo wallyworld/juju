@@ -4,19 +4,22 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type RemoteApplicationsExportSuite struct{}
 
-var _ = gc.Suite(&RemoteApplicationsExportSuite{})
+func TestRemoteApplicationsExportSuite(t *tctesting.T) {
+	tc.Run(t, &RemoteApplicationsExportSuite{})
+}
 
-func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
+func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -116,10 +119,10 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 
 	migration := ExportRemoteApplications{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithSourceFailure(c *gc.C) {
+func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithSourceFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -130,10 +133,10 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithSourceFai
 
 	migration := ExportRemoteApplications{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
-func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpointsFailure(c *gc.C) {
+func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpointsFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -182,10 +185,10 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpoints
 
 	migration := ExportRemoteApplications{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
-func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArgsFailure(c *gc.C) {
+func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArgsFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -230,7 +233,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 
 	migration := ExportRemoteApplications{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *RemoteApplicationsExportSuite) migrationRemoteApplication(

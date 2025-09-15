@@ -4,14 +4,13 @@
 package application_test
 
 import (
-	jtesting "github.com/juju/testing"
-
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
 type mockStoragePoolManager struct {
-	jtesting.Stub
+	testhelpers.Stub
 	poolmanager.PoolManager
 	storageType storage.ProviderType
 }
@@ -25,6 +24,6 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 }
 
 type mockStorageRegistry struct {
-	jtesting.Stub
+	testhelpers.Stub
 	storage.ProviderRegistry
 }

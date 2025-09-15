@@ -4,17 +4,21 @@
 package cloudimagemetadata
 
 import (
-	"github.com/juju/collections/set"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/collections/set"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 )
 
 type cloudImageMetadataSuite struct{}
 
-var _ = gc.Suite(&cloudImageMetadataSuite{})
+func TestCloudImageMetadataSuite(t *tctesting.T) {
+	tc.Run(t, &cloudImageMetadataSuite{})
+}
 
-func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *tc.C) {
 	ignored := set.NewStrings("Id")
 	migrated := set.NewStrings(
 		"Stream",
@@ -36,6 +40,6 @@ func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 	removed := fields.Difference(expected)
 	// If this test fails, it means that extra fields have been added to the
 	// doc without thinking about the migration implications.
-	c.Check(unknown, gc.HasLen, 0)
-	c.Assert(removed, gc.HasLen, 0)
+	c.Check(unknown, tc.HasLen, 0)
+	c.Assert(removed, tc.HasLen, 0)
 }

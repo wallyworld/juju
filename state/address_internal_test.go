@@ -4,19 +4,23 @@
 package state
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testing"
 )
 
 type GetOpsForHostPortsSuite struct {
 	internalStateSuite
 }
 
-var _ = gc.Suite(&GetOpsForHostPortsSuite{})
+func TestGetOpsForHostPortsSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &GetOpsForHostPortsSuite{})
+}
 
-func (s *GetOpsForHostPortsSuite) TestGetOpsForHostPortsChangeWithSpaces(c *gc.C) {
+func (s *GetOpsForHostPortsSuite) TestGetOpsForHostPortsChangeWithSpaces(c *tc.C) {
 	addresses := map[string]network.SpaceHostPorts{
 		"0": {
 			{
@@ -99,26 +103,28 @@ func (s *GetOpsForHostPortsSuite) TestGetOpsForHostPortsChangeWithSpaces(c *gc.C
 	defer closer()
 
 	ops, err := s.state.getOpsForHostPortsChange(controllers, apiHostPortsKey, addressSlice())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(ops), jc.GreaterThan, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(ops), tc.GreaterThan, 0)
 	// Run the ops.
 	err = s.state.db().RunTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Now iterate over the map a few times to get different ordering, and assert the
 	// ops to update the host ports is empty.
 	for i := 0; i < 5; i++ {
 		ops, err := s.state.getOpsForHostPortsChange(controllers, apiHostPortsKey, addressSlice())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ops, gc.HasLen, 0)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(ops, tc.HasLen, 0)
 	}
 }
 
 type AddressEqualitySuite struct{}
 
-var _ = gc.Suite(&AddressEqualitySuite{})
+func TestAddressEqualitySuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &AddressEqualitySuite{})
+}
 
-func (*AddressEqualitySuite) TestHostPortsEqual(c *gc.C) {
+func (*AddressEqualitySuite) TestHostPortsEqual(c *tc.C) {
 	first := []network.SpaceHostPorts{
 		{
 			{
@@ -247,10 +253,10 @@ func (*AddressEqualitySuite) TestHostPortsEqual(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(hostsPortsEqual(first, second), jc.IsTrue)
+	c.Assert(hostsPortsEqual(first, second), tc.IsTrue)
 }
 
-func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
+func (s *AddressEqualitySuite) TestAddressConversion(c *tc.C) {
 	machineAddress := network.SpaceAddress{
 		MachineAddress: network.MachineAddress{
 			Value: "foo",
@@ -260,7 +266,7 @@ func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
 		},
 	}
 	stateAddress := fromNetworkAddress(machineAddress, "machine")
-	c.Assert(machineAddress, jc.DeepEquals, stateAddress.networkAddress())
+	c.Assert(machineAddress, tc.DeepEquals, stateAddress.networkAddress())
 
 	providerAddress := network.SpaceAddress{
 		MachineAddress: network.MachineAddress{
@@ -272,5 +278,5 @@ func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
 		SpaceID: "666",
 	}
 	stateAddress = fromNetworkAddress(providerAddress, "provider")
-	c.Assert(providerAddress, jc.DeepEquals, stateAddress.networkAddress())
+	c.Assert(providerAddress, tc.DeepEquals, stateAddress.networkAddress())
 }

@@ -5,27 +5,30 @@ package stateenvirons_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type environSuite struct {
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&environSuite{})
+func TestEnvironSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &environSuite{})
+}
 
-func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
+func (s *environSuite) TestGetNewEnvironFunc(c *tc.C) {
 	var calls int
 	var callArgs environs.OpenParams
 	newEnviron := func(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
@@ -34,21 +37,21 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 		return nil, nil
 	}
 	_, err := stateenvirons.GetNewEnvironFunc(newEnviron)(s.Model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(calls, tc.Equals, 1)
 
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(callArgs.Config, tc.DeepEquals, cfg)
 }
 
-func (s *environSuite) TestCloudSpec(c *gc.C) {
+func (s *environSuite) TestCloudSpec(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 	emptyCredential := cloud.NewEmptyCredential()
 	tag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/empty-credential")
 	err := s.State.UpdateCloudCredential(tag, emptyCredential)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:            "foo",
@@ -59,12 +62,12 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	defer st.Close()
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	emptyCredential.Label = "empty-credential"
 	cloudSpec, err := stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloudSpec, tc.DeepEquals, environscloudspec.CloudSpec{
 		Type:              "dummy",
 		Name:              "dummy",
 		Region:            "dummy-region",
@@ -76,12 +79,12 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
+func (s *environSuite) TestCloudSpecForModel(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 	emptyCredential := cloud.NewEmptyCredential()
 	tag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/empty-credential")
 	err := s.State.UpdateCloudCredential(tag, emptyCredential)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:            "foo",
@@ -92,12 +95,12 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 	defer st.Close()
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	emptyCredential.Label = "empty-credential"
 	cloudSpec, err := stateenvirons.CloudSpecForModel(m)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloudSpec, tc.DeepEquals, environscloudspec.CloudSpec{
 		Type:              "dummy",
 		Name:              "dummy",
 		Region:            "dummy-region",
@@ -109,7 +112,7 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
+func (s *environSuite) TestGetNewCAASBrokerFunc(c *tc.C) {
 	var calls int
 	var callArgs environs.OpenParams
 	newBroker := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
@@ -118,12 +121,12 @@ func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 		return nil, nil
 	}
 	_, err := stateenvirons.GetNewCAASBrokerFunc(newBroker)(s.Model)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(calls, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(calls, tc.Equals, 1)
 
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(callArgs.Config, tc.DeepEquals, cfg)
 }
 
 type fakeBroker struct {
@@ -134,18 +137,18 @@ func (*fakeBroker) APIVersion() (string, error) {
 	return "6.66", nil
 }
 
-func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
+func (s *environSuite) TestCloudAPIVersion(c *tc.C) {
 	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
 	defer st.Close()
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewNamedCredential("dummy-credential", "userpass", nil, false)
 	newBrokerFunc := func(_ context.Context, args environs.OpenParams) (caas.Broker, error) {
-		c.Assert(args.Cloud, jc.DeepEquals, environscloudspec.CloudSpec{
+		c.Assert(args.Cloud, tc.DeepEquals, environscloudspec.CloudSpec{
 			Name:       "caascloud",
 			Type:       "kubernetes",
 			Credential: &cred,
@@ -155,8 +158,8 @@ func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
 
 	envConfigGetter := stateenvirons.EnvironConfigGetter{Model: m, NewContainerBroker: newBrokerFunc}
 	cloudSpec, err := envConfigGetter.CloudSpec()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiVersion, err := envConfigGetter.CloudAPIVersion(cloudSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiVersion, gc.Equals, "6.66")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiVersion, tc.Equals, "6.66")
 }

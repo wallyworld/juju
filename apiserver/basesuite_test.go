@@ -4,21 +4,22 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/modelcache"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -34,21 +35,21 @@ type baseSuite struct {
 	cfg apiserver.ServerConfig
 }
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
@@ -60,24 +61,24 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, modelCache) })
 
 	select {
 	case <-initialized.Unlocked():
-	case <-time.After(testing.LongWait):
-		c.Fatalf("model cache not initialized after %s", testing.LongWait)
+	case <-time.After(testhelpers.LongWait):
+		c.Fatalf("model cache not initialized after %s", testhelpers.LongWait)
 	}
 	err = modelcache.ExtractCacheController(modelCache, &s.controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.cfg = testserver.DefaultServerConfig(c, s.Clock)
 	s.cfg.Controller = s.controller
 }
 
-func (s *baseSuite) newServer(c *gc.C) *testserver.Server {
+func (s *baseSuite) newServer(c *tc.C) *testserver.Server {
 	server := testserver.NewServerWithConfig(c, s.StatePool, s.cfg)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, server.APIServer)
 		server.HTTPServer.Close()
 	})
@@ -85,15 +86,15 @@ func (s *baseSuite) newServer(c *gc.C) *testserver.Server {
 	return server
 }
 
-func (s *baseSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
+func (s *baseSuite) openAPIWithoutLogin(c *tc.C, info0 *api.Info) api.Connection {
 	info := *info0
 	info.Tag = nil
 	info.Password = ""
 	info.SkipLogin = true
 	info.Macaroons = nil
 	st, err := api.Open(&info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = st.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { _ = st.Close() })
 	return st
 }
 
@@ -102,9 +103,11 @@ type derivedSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&derivedSuite{})
+func TestDerivedSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &derivedSuite{})
+}
 
-func (s *derivedSuite) TestNewServer(c *gc.C) {
+func (s *derivedSuite) TestNewServer(c *tc.C) {
 	_ = s.newServer(c)
 }
 

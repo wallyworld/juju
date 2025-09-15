@@ -4,32 +4,35 @@
 package upgradeseries_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/upgradeseries"
 	"github.com/juju/juju/api/base/mocks"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type upgradeSeriesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	tag                                  names.Tag
 	args                                 params.Entities
 	upgradeSeriesStartUnitCompletionArgs params.UpgradeSeriesStartUnitCompletionParam
 }
 
-var _ = gc.Suite(&upgradeSeriesSuite{})
+func TestUpgradeSeriesSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSeriesSuite{})
+}
 
-func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
+func (s *upgradeSeriesSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("0")
 	s.args = params.Entities{Entities: []params.Entity{{Tag: s.tag.String()}}}
 	s.upgradeSeriesStartUnitCompletionArgs = params.UpgradeSeriesStartUnitCompletionParam{
@@ -38,7 +41,7 @@ func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
-func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestMachineStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -53,11 +56,11 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
-	c.Assert(err, gc.IsNil)
-	c.Check(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
+	c.Assert(err, tc.IsNil)
+	c.Check(status, tc.Equals, model.UpgradeSeriesPrepareStarted)
 }
 
-func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
+func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -75,12 +78,12 @@ func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
-	c.Assert(err, gc.ErrorMatches, "did not find")
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
-	c.Check(string(status), gc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, "did not find")
+	c.Check(errors.IsNotFound(err), tc.IsTrue)
+	c.Check(string(status), tc.Equals, "")
 }
 
-func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetMachineStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -96,10 +99,10 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsPrepared(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -118,13 +121,13 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	units, err := api.UnitsPrepared()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	expected := []names.UnitTag{r0, r1}
-	c.Check(units, jc.SameContents, expected)
+	c.Check(units, tc.SameContents, expected)
 }
 
-func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUnitsCompleted(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -145,13 +148,13 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	units, err := api.UnitsCompleted()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	expected := []names.UnitTag{p0, p1, p2}
-	c.Check(units, jc.SameContents, expected)
+	c.Check(units, tc.SameContents, expected)
 }
 
-func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
+func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -162,10 +165,10 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.StartUnitCompletion("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
+func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -181,10 +184,10 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.FinishUpgradeSeries(corebase.MustParseBaseFromString("ubuntu@16.04"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -204,5 +207,5 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }

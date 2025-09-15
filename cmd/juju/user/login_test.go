@@ -5,27 +5,27 @@ package user_test
 
 import (
 	"bytes"
-	context "context"
+	"context"
 	"io"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type LoginCommandSuite struct {
@@ -37,9 +37,11 @@ type LoginCommandSuite struct {
 	apiConnectionParams juju.NewAPIConnectionParams
 }
 
-var _ = gc.Suite(&LoginCommandSuite{})
+func TestLoginCommandSuite(t *tctesting.T) {
+	tc.Run(t, &LoginCommandSuite{})
+}
 
-func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
+func (s *LoginCommandSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.apiConnection = &loginMockAPI{
 		controllerTag:    names.NewControllerTag(mockControllerUUID),
@@ -63,7 +65,7 @@ func (s *LoginCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.LoginClientStore, s.store)
 }
 
-func (s *LoginCommandSuite) TestInitError(c *gc.C) {
+func (s *LoginCommandSuite) TestInitError(c *tc.C) {
 	for i, test := range []struct {
 		args   []string
 		stderr string
@@ -76,51 +78,51 @@ func (s *LoginCommandSuite) TestInitError(c *gc.C) {
 	}} {
 		c.Logf("test %d", i)
 		stdout, stderr, code := runLogin(c, "", test.args...)
-		c.Check(stdout, gc.Equals, "")
-		c.Check(stderr, gc.Matches, test.stderr)
-		c.Assert(code, gc.Equals, 2)
+		c.Check(stdout, tc.Equals, "")
+		c.Check(stderr, tc.Matches, test.stderr)
+		c.Assert(code, tc.Equals, 2)
 	}
 }
 
-func (s *LoginCommandSuite) TestLogin(c *gc.C) {
+func (s *LoginCommandSuite) TestLogin(c *tc.C) {
 	// When we run login with a current controller,
 	// it will just verify that we can log in, leave
 	// every unchanged and print nothing.
 	stdout, stderr, code := runLogin(c, "")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
 	s.assertStorePassword(c, "current-user", "old-password", "superuser")
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User:     "current-user",
 		Password: "old-password",
 	})
 }
 
-func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginNewUser(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "", "-u", "new-user")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `
 Welcome, new-user. You are now logged into "testing".
 
 There are no models available(.|\n)*`[1:])
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 	s.assertStorePassword(c, "new-user", "", "superuser")
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{
 		User: "new-user",
 	})
 }
 
-func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginAlreadyLoggedInSameUser(c *tc.C) {
 	stdout, stderr, code := runLogin(c, "", "-u", "current-user")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
+	c.Assert(code, tc.Equals, 0)
 }
 
-func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *tc.C) {
 	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
 			Name:  "foo",
@@ -130,17 +132,17 @@ func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `Welcome, user@external. You are now logged into "testing".
+	c.Assert(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `Welcome, user@external. You are now logged into "testing".
 
 Current model set to "bob/foo".
 `)
 }
 
-func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *tc.C) {
 	s.PatchValue(user.ListModels, func(c api.Connection, userName string) ([]apibase.UserModel, error) {
 		return []apibase.UserModel{{
 			Name:  "foo",
@@ -155,11 +157,11 @@ func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `Welcome, user@external. You are now logged into "testing".
+	c.Assert(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `Welcome, user@external. You are now logged into "testing".
 
 There are 2 models available. Use "juju switch" to select
 one of them:
@@ -168,46 +170,46 @@ one of them:
 `)
 }
 
-func (s *LoginCommandSuite) TestLoginWithNonExistentController(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithNonExistentController(c *tc.C) {
 	stdout, stderr, code := runLogin(c, "", "-c", "something")
-	c.Assert(code, gc.Equals, 1)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `ERROR controller "something" does not exist\n`)
+	c.Assert(code, tc.Equals, 1)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `ERROR controller "something" does not exist\n`)
 }
 
-func (s *LoginCommandSuite) TestLoginWithNoCurrentController(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithNoCurrentController(c *tc.C) {
 	s.store.CurrentControllerName = ""
 	stdout, stderr, code := runLogin(c, "")
-	c.Assert(code, gc.Equals, 1)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `ERROR no current controller\n`)
+	c.Assert(code, tc.Equals, 1)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `ERROR no current controller\n`)
 }
 
-func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginAlreadyLoggedInDifferentUser(c *tc.C) {
 	stdout, stderr, code := runLogin(c, "", "-u", "other-user")
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Equals, `
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Equals, `
 ERROR cannot log into controller "testing": already logged in as current-user.
 
 Run "juju logout" first before attempting to log in as a different user.
 `[1:])
-	c.Assert(code, gc.Equals, 1)
+	c.Assert(code, tc.Equals, 1)
 }
 
-func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *tc.C) {
 	call := 0
 	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
 		call++
 		switch call {
 		case 1:
 			// First time: try to log in with existing details.
-			c.Check(p.AccountDetails.User, gc.Equals, "current-user")
-			c.Check(p.AccountDetails.Password, gc.Equals, "old-password")
+			c.Check(p.AccountDetails.User, tc.Equals, "current-user")
+			c.Check(p.AccountDetails.Password, tc.Equals, "old-password")
 			return nil, errors.Unauthorizedf("cannot login with that silly old password")
 		case 2:
 			// Second time: try external-user auth.
-			c.Check(p.AccountDetails.User, gc.Equals, "")
-			c.Check(p.AccountDetails.Password, gc.Equals, "")
+			c.Check(p.AccountDetails.User, tc.Equals, "")
+			c.Check(p.AccountDetails.Password, tc.Equals, "")
 			return nil, params.Error{
 				Code:    params.CodeNoCreds,
 				Message: params.CodeNoCreds,
@@ -215,8 +217,8 @@ func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
 		case 3:
 			// Third time: empty password: (the real
 			// NewAPIConnection would prompt for it)
-			c.Check(p.AccountDetails.User, gc.Equals, "other-user")
-			c.Check(p.AccountDetails.Password, gc.Equals, "")
+			c.Check(p.AccountDetails.User, tc.Equals, "other-user")
+			c.Check(p.AccountDetails.Password, tc.Equals, "")
 			return s.apiConnection, nil
 		default:
 			c.Errorf("NewAPIConnection called too many times")
@@ -224,52 +226,52 @@ func (s *LoginCommandSuite) TestLoginWithExistingInvalidPassword(c *gc.C) {
 		}
 	}
 	stdout, stderr, code := runLogin(c, "other-user\n")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `Enter username: 
+	c.Check(code, tc.Equals, 0)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `Enter username: 
 Welcome, other-user. (.|\n)+`)
 }
 
-func (s *LoginCommandSuite) TestLoginWithMacaroons(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithMacaroons(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	stdout, stderr, code := runLogin(c, "")
-	c.Check(stderr, gc.Matches, `
+	c.Check(stderr, tc.Matches, `
 Welcome, user@external. You are now logged into "testing".
 
 There are no models available(.|\n)*`[1:])
-	c.Check(stdout, gc.Equals, ``)
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.apiConnectionParams.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{})
+	c.Check(stdout, tc.Equals, ``)
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(s.apiConnectionParams.AccountDetails, tc.DeepEquals, &jujuclient.AccountDetails{})
 }
 
-func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *tc.C) {
 	err := s.store.RemoveAccount("testing")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	*user.NewAPIConnection = func(p juju.NewAPIConnectionParams) (api.Connection, error) {
-		if !c.Check(p.AccountDetails, gc.NotNil) {
+		if !c.Check(p.AccountDetails, tc.NotNil) {
 			return nil, errors.New("no account details")
 		}
 		if p.AccountDetails.User == "" && p.AccountDetails.Password == "" {
 			return nil, &params.Error{Code: params.CodeNoCreds, Message: "barf"}
 		}
-		c.Check(p.AccountDetails.User, gc.Equals, "new-user")
+		c.Check(p.AccountDetails.User, tc.Equals, "new-user")
 		return s.apiConnection, nil
 	}
 	stdout, stderr, code := runLogin(c, "new-user\n")
-	c.Check(stdout, gc.Equals, ``)
-	c.Check(stderr, gc.Matches, `
+	c.Check(stdout, tc.Equals, ``)
+	c.Check(stderr, tc.Matches, `
 Enter username: 
 Welcome, new-user. You are now logged into "testing".
 
 There are no models available(.|\n)*`[1:])
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 }
 
-func (s *LoginCommandSuite) TestLoginWithCAVerification(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithCAVerification(c *tc.C) {
 	caCert := testing.CACertX509
 	fingerprint, _, err := pki.Fingerprint([]byte(testing.CACert))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	specs := []struct {
 		descr     string
@@ -382,21 +384,21 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 		}
 
 		stdout, stderr, code := runLogin(c, spec.input, append([]string{spec.host, "-c", "foo", "-u", "new-user"}, spec.extraArgs...)...)
-		c.Check(stdout, gc.Equals, ``)
-		c.Check(stderr, gc.Equals, spec.expRegex[1:])
-		c.Assert(code, gc.Equals, spec.expCode)
+		c.Check(stdout, tc.Equals, ``)
+		c.Check(stderr, tc.Equals, spec.expRegex[1:])
+		c.Assert(code, tc.Equals, spec.expCode)
 
 		// For successful login make sure that the controller CA cert
 		// gets persisted in the controller store
 		if code == 0 {
 			ctrl, err := s.store.ControllerByName("foo")
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(ctrl.CACert, gc.Equals, testing.CACert)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(ctrl.CACert, tc.Equals, testing.CACert)
 		}
 	}
 }
 
-func (s *LoginCommandSuite) TestLoginUsingKnownControllerEndpoint(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginUsingKnownControllerEndpoint(c *tc.C) {
 	var (
 		existingName string
 		details      jujuclient.ControllerDetails
@@ -445,13 +447,13 @@ To login as user "current-user" run 'juju login -u current-user -c ` + existingN
 	for specIndex, spec := range specs {
 		c.Logf("test %d: %s (juju login %s)", specIndex, spec.descr, spec.cmd)
 		stdout, stderr, code := runLogin(c, "", spec.cmd...)
-		c.Check(stdout, gc.Equals, ``)
-		c.Check(stderr, gc.Equals, spec.expErr[1:])
-		c.Assert(code, gc.Equals, 1)
+		c.Check(stdout, tc.Equals, ``)
+		c.Check(stderr, tc.Equals, spec.expErr[1:])
+		c.Assert(code, tc.Equals, 1)
 	}
 }
 
-func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *tc.C) {
 	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"1.1.1.1:12345"},
 		CACert:         testing.CACert,
@@ -460,14 +462,14 @@ func (s *LoginCommandSuite) TestLoginErrorSpecifyingUsernameWithOIDC(c *gc.C) {
 	}
 	s.store.CurrentControllerName = "oidc-controller"
 	stdout, stderr, code := runLogin(c, "", "-u", "some-user")
-	c.Assert(code, gc.Equals, 1)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Matches, `ERROR cannot specify a username during login to a controller with OIDC, remove the username and try again\n`)
+	c.Assert(code, tc.Equals, 1)
+	c.Check(stdout, tc.Equals, "")
+	c.Check(stderr, tc.Matches, `ERROR cannot specify a username during login to a controller with OIDC, remove the username and try again\n`)
 }
 
 // TestLoginWithOIDCWithNoAccountverifies that login to a controller (with OIDC) known
 // to the client store is successful, e.g. when running `juju logout` then `juju login`.
-func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *tc.C) {
 	s.store.Controllers["oidc-controller"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"1.1.1.1:12345"},
 		CACert:         testing.CACert,
@@ -478,8 +480,8 @@ func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
 	var checkPatchFuncCalled bool
 	s.PatchValue(user.NewAPIConnection, func(p juju.NewAPIConnectionParams) (api.Connection, error) {
 		sessionTokenLogin := api.NewSessionTokenLoginProvider("", nil, nil)
-		c.Check(p.DialOpts.LoginProvider, gc.FitsTypeOf, sessionTokenLogin)
-		c.Check(p.AccountDetails, gc.NotNil)
+		c.Check(p.DialOpts.LoginProvider, tc.FitsTypeOf, sessionTokenLogin)
+		c.Check(p.AccountDetails, tc.NotNil)
 		if p.AccountDetails != nil {
 			p.AccountDetails.SessionToken = "new-token"
 		}
@@ -487,17 +489,17 @@ func (s *LoginCommandSuite) TestLoginWithOIDCWithNoAccount(c *gc.C) {
 		return s.apiConnection, nil
 	})
 	_, _, code := runLogin(c, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(checkPatchFuncCalled, gc.Equals, true)
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(checkPatchFuncCalled, tc.Equals, true)
 
 	account := s.store.Accounts["oidc-controller"]
-	c.Assert(account.SessionToken, gc.Equals, "new-token")
-	c.Assert(account.User, gc.Equals, "user@external")
+	c.Assert(account.SessionToken, tc.Equals, "new-token")
+	c.Assert(account.User, tc.Equals, "user@external")
 }
 
 // TestLoginToPublicControllerWithOIDC verifies that login to a controller (with OIDC)
 // that we have never seen before is successful and correctly updates the client store.
-func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *gc.C) {
+func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	sessionLoginFactory := NewMockSessionLoginFactory(ctrl)
@@ -506,8 +508,8 @@ func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *gc.C) {
 	var checkPatchFuncCalled bool
 	*user.APIOpen = func(cmd *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkPatchFuncCalled = true
-		_, err := opts.LoginProvider.Login(context.Background(), nil)
-		c.Check(err, jc.ErrorIsNil)
+		_, err := opts.LoginProvider.Login(c.Context(), nil)
+		c.Check(err, tc.ErrorIsNil)
 		return s.apiConnection, nil
 	}
 
@@ -523,25 +525,25 @@ func (s *LoginCommandSuite) TestLoginToPublicControllerWithOIDC(c *gc.C) {
 		}).Return(nil, nil)
 
 	_, _, code := runLoginWithFakeSessionLoginProvider(c, sessionLoginFactory, "mycontroller.com", "-c", "oidc-controller")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(checkPatchFuncCalled, gc.Equals, true)
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(checkPatchFuncCalled, tc.Equals, true)
 
 	acc := s.store.Accounts["oidc-controller"]
-	c.Assert(acc.SessionToken, gc.Equals, "session-token")
-	c.Assert(acc.User, gc.Equals, "user@external")
+	c.Assert(acc.SessionToken, tc.Equals, "session-token")
+	c.Assert(acc.User, tc.Equals, "user@external")
 }
 
-func runLoginWithFakeSessionLoginProvider(c *gc.C, factory modelcmd.SessionLoginFactory, args ...string) (stdout, stderr string, errCode int) {
+func runLoginWithFakeSessionLoginProvider(c *tc.C, factory modelcmd.SessionLoginFactory, args ...string) (stdout, stderr string, errCode int) {
 	loginCmd := user.NewLoginCommandWithSessionLoginFactory(factory)
 	return run(c, "", loginCmd, args...)
 }
 
-func runLogin(c *gc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
+func runLogin(c *tc.C, stdin string, args ...string) (stdout, stderr string, errCode int) {
 	loginCmd := user.NewLoginCommand()
 	return run(c, stdin, loginCmd, args...)
 }
 
-func run(c *gc.C, stdin string, command cmd.Command, args ...string) (stdout, stderr string, errCode int) {
+func run(c *tc.C, stdin string, command cmd.Command, args ...string) (stdout, stderr string, errCode int) {
 	c.Logf("in LoginControllerSuite.run")
 	var stdoutBuf, stderrBuf bytes.Buffer
 	ctxt := &cmd.Context{

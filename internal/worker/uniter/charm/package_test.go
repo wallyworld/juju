@@ -3,17 +3,4 @@
 
 package charm_test
 
-import (
-	stdtesting "testing"
-
-	coretesting "github.com/juju/juju/testing"
-)
-
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/internal/worker/uniter/charm BundleReader,BundleInfo,Bundle
-
-func TestPackage(t *stdtesting.T) {
-	// TODO(fwereade) 2014-03-21 not-worth-a-bug-number
-	// rewrite BundlesDir tests to use the mocks below and not require an API
-	// server and associated gubbins.
-	coretesting.MgoTestPackage(t)
-}

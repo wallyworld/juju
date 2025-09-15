@@ -1,0 +1,10 @@
+# Replace gc with tc
+@@
+var gc, x identifier
+@@
+-import gc "gopkg.in/check.v1"
++import "github.com/juju/tc"
+tctesting "testing"
+
+-gc.x
++tc.x

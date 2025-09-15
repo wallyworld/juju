@@ -12,20 +12,20 @@ const (
 
 // LoggerCloser is a Logger that can be closed.
 type LoggerCloser interface {
-	Logger
+	LogWriter
 	io.Closer
 }
 
 // LoggersConfig defines a set of loggers that can be used to construct the
 // final loggers.
 type LoggersConfig struct {
-	SysLogger func() Logger
-	DBLogger  func() Logger
+	SysLogger func() LogWriter
+	DBLogger  func() LogWriter
 }
 
 // MakeLoggers creates loggers from a given LoggersConfig.
 func MakeLoggers(outputs []string, config LoggersConfig) LoggerCloser {
-	results := make(map[string]Logger)
+	results := make(map[string]LogWriter)
 loop:
 	for _, output := range outputs {
 		switch output {
@@ -39,7 +39,7 @@ loop:
 			results[DatabaseName] = config.DBLogger()
 		}
 	}
-	resultSlice := make([]Logger, 0, len(results))
+	resultSlice := make([]LogWriter, 0, len(results))
 	for _, output := range results {
 		resultSlice = append(resultSlice, output)
 	}

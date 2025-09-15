@@ -4,96 +4,100 @@
 package state
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&sequenceMinSuite{})
-
-type sequenceMinSuite struct {
-	testing.IsolationSuite
+func TestSequenceMinSuite(t *tctesting.T) {
+	tc.Run(t, &sequenceMinSuite{})
 }
 
-func (s *sequenceMinSuite) TestNew(c *gc.C) {
+type sequenceMinSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *sequenceMinSuite) TestNew(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults:   []interface{}{0},
 		createResults: []interface{}{true},
 	}
 
 	value, err := updateSeqWithMin(updater, 42)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(value, gc.Equals, 42)
-	updater.stub.CheckCalls(c, []testing.StubCall{
+	c.Check(value, tc.Equals, 42)
+	updater.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"read", nil},
 		{"create", []interface{}{43}},
 	})
 }
 
-func (s *sequenceMinSuite) TestReadError(c *gc.C) {
+func (s *sequenceMinSuite) TestReadError(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults: []interface{}{errors.New("boom")},
 	}
 	value, err := updateSeqWithMin(updater, 42)
-	c.Check(value, gc.Equals, -1)
-	c.Check(err, gc.ErrorMatches, "could not read sequence: boom")
+	c.Check(value, tc.Equals, -1)
+	c.Check(err, tc.ErrorMatches, "could not read sequence: boom")
 }
 
-func (s *sequenceMinSuite) TestCreateError(c *gc.C) {
+func (s *sequenceMinSuite) TestCreateError(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults:   []interface{}{0},
 		createResults: []interface{}{errors.New("boom")},
 	}
 	value, err := updateSeqWithMin(updater, 42)
-	c.Check(value, gc.Equals, -1)
-	c.Check(err, gc.ErrorMatches, "could not create sequence: boom")
+	c.Check(value, tc.Equals, -1)
+	c.Check(err, tc.ErrorMatches, "could not create sequence: boom")
 }
 
-func (s *sequenceMinSuite) TestIncrement(c *gc.C) {
+func (s *sequenceMinSuite) TestIncrement(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults: []interface{}{3},
 		setResults:  []interface{}{true},
 	}
 
 	value, err := updateSeqWithMin(updater, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(value, gc.Equals, 3)
-	updater.stub.CheckCalls(c, []testing.StubCall{
+	c.Check(value, tc.Equals, 3)
+	updater.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"read", nil},
 		{"set", []interface{}{3, 4}},
 	})
 }
 
-func (s *sequenceMinSuite) TestSetError(c *gc.C) {
+func (s *sequenceMinSuite) TestSetError(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults: []interface{}{3},
 		setResults:  []interface{}{errors.New("boom")},
 	}
 	value, err := updateSeqWithMin(updater, 1)
-	c.Check(value, gc.Equals, -1)
-	c.Check(err, gc.ErrorMatches, "could not set sequence: boom")
+	c.Check(value, tc.Equals, -1)
+	c.Check(err, tc.ErrorMatches, "could not set sequence: boom")
 }
 
-func (s *sequenceMinSuite) TestJumpDueToMin(c *gc.C) {
+func (s *sequenceMinSuite) TestJumpDueToMin(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults: []interface{}{3},
 		setResults:  []interface{}{true},
 	}
 
 	value, err := updateSeqWithMin(updater, 99)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(value, gc.Equals, 99)
-	updater.stub.CheckCalls(c, []testing.StubCall{
+	c.Check(value, tc.Equals, 99)
+	updater.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"read", nil},
 		{"set", []interface{}{3, 100}},
 	})
 }
 
-func (s *sequenceMinSuite) TestCreateContention(c *gc.C) {
+func (s *sequenceMinSuite) TestCreateContention(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults:   []interface{}{0, 3},
 		createResults: []interface{}{false},
@@ -101,10 +105,10 @@ func (s *sequenceMinSuite) TestCreateContention(c *gc.C) {
 	}
 
 	value, err := updateSeqWithMin(updater, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(value, gc.Equals, 3)
-	updater.stub.CheckCalls(c, []testing.StubCall{
+	c.Check(value, tc.Equals, 3)
+	updater.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"read", nil},
 		{"create", []interface{}{3}},
 		{"read", nil},
@@ -112,17 +116,17 @@ func (s *sequenceMinSuite) TestCreateContention(c *gc.C) {
 	})
 }
 
-func (s *sequenceMinSuite) TestSetContention(c *gc.C) {
+func (s *sequenceMinSuite) TestSetContention(c *tc.C) {
 	updater := &fakeSequenceUpdater{
 		readResults: []interface{}{3, 5},
 		setResults:  []interface{}{false, true},
 	}
 
 	value, err := updateSeqWithMin(updater, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(value, gc.Equals, 5)
-	updater.stub.CheckCalls(c, []testing.StubCall{
+	c.Check(value, tc.Equals, 5)
+	updater.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"read", nil},
 		{"set", []interface{}{3, 4}},
 		{"read", nil},
@@ -130,7 +134,7 @@ func (s *sequenceMinSuite) TestSetContention(c *gc.C) {
 	})
 }
 
-func (s *sequenceMinSuite) TestTooMuchContention(c *gc.C) {
+func (s *sequenceMinSuite) TestTooMuchContention(c *tc.C) {
 	updater := new(fakeSequenceUpdater)
 	for i := 0; i < maxSeqRetries; i++ {
 		updater.readResults = append(updater.readResults, i+3)
@@ -138,12 +142,12 @@ func (s *sequenceMinSuite) TestTooMuchContention(c *gc.C) {
 	}
 
 	value, err := updateSeqWithMin(updater, 1)
-	c.Check(value, gc.Equals, -1)
-	c.Check(err, gc.ErrorMatches, "too much contention while updating sequence")
+	c.Check(value, tc.Equals, -1)
+	c.Check(err, tc.ErrorMatches, "too much contention while updating sequence")
 }
 
 type fakeSequenceUpdater struct {
-	stub          testing.Stub
+	stub          testhelpers.Stub
 	readResults   []interface{}
 	createResults []interface{}
 	setResults    []interface{}

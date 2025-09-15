@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -24,10 +23,10 @@ import (
 	"k8s.io/utils/pointer"
 
 	k8swatchertest "github.com/juju/juju/internal/provider/kubernetes/watcher/test"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -282,14 +281,14 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
@@ -297,7 +296,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *
 	}
 }
 
-func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -487,21 +486,21 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 		close(done)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(c.Context(), 500*time.Millisecond)
 	defer cancel()
 	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
 	err := s.clock.WaitAdvance(500*time.Millisecond, testing.ShortWait, 6)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-done:
-		c.Assert(<-errCh, gc.ErrorMatches, `context deadline exceeded`)
+		c.Assert(<-errCh, tc.ErrorMatches, `context deadline exceeded`)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for DeleteClusterScopeResourcesModelTeardown return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -536,21 +535,21 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteNamespaceModelTeardown(ctx, &wg, errCh)
 
 	select {
 	case <-done:
 		for _, watcher := range s.watchers {
-			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deleteNamespaceModelTeardown return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -585,16 +584,16 @@ func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *gc.C) {
 		close(done)
 	}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
 	go s.broker.DeleteNamespaceModelTeardown(ctx, &wg, errCh)
 
 	select {
 	case <-done:
 		err := <-errCh
-		c.Assert(err, gc.ErrorMatches, `getting namespace "test": error bla`)
+		c.Assert(err, tc.ErrorMatches, `getting namespace "test": error bla`)
 		for _, watcher := range s.watchers {
-			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+			c.Assert(workertest.CheckKilled(c, watcher), tc.ErrorIsNil)
 		}
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deleteNamespaceModelTeardown return")

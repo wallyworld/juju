@@ -4,22 +4,25 @@
 package networkingcommon
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type TypesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&TypesSuite{})
+func TestTypesSuite(t *tctesting.T) {
+	tc.Run(t, &TypesSuite{})
+}
 
-func (s *TypesSuite) SetUpTest(c *gc.C) {
+func (s *TypesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
@@ -386,15 +389,15 @@ var expectedLinkLayerDeviceAddressesWithFinalNetworkConfig = []state.LinkLayerDe
 	Origin:       network.OriginMachine,
 }}
 
-func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *gc.C) {
+func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *tc.C) {
 	interfaces := params.InterfaceInfoFromNetworkConfig(observedNetworkConfigs)
 	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(interfaces)
 
-	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
-	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAddressesWithFinalNetworkConfig)
+	c.Check(devicesArgs, tc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
+	c.Check(devicesAddrs, tc.DeepEquals, expectedLinkLayerDeviceAddressesWithFinalNetworkConfig)
 }
 
-func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
+func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *tc.C) {
 	cfg := []params.NetworkConfig{
 		{DeviceIndex: 1, MACAddress: "", CIDR: "127.0.0.0/8", MTU: 65536, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "lo", ParentInterfaceName: "", InterfaceType: "loopback", Disabled: false, NoAutoStart: false, ConfigType: "loopback", Address: "127.0.0.1", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
 		{DeviceIndex: 1, MACAddress: "", CIDR: "::1/128", MTU: 65536, ProviderId: "", ProviderNetworkId: "", ProviderSubnetId: "", ProviderSpaceId: "", ProviderAddressId: "", ProviderVLANId: "", VLANTag: 0, InterfaceName: "lo", ParentInterfaceName: "", InterfaceType: "loopback", Disabled: false, NoAutoStart: false, ConfigType: "loopback", Address: "::1", Addresses: []params.Address(nil), ShadowAddresses: []params.Address(nil), DNSServers: []string(nil), DNSSearchDomains: []string(nil), GatewayAddress: "", Routes: []params.NetworkRoute(nil), IsDefaultGateway: false, NetworkOrigin: "machine"},
@@ -435,10 +438,10 @@ func (s *TypesSuite) TestAddressMatchingFromObservedConfig(c *gc.C) {
 
 	interfaces := params.InterfaceInfoFromNetworkConfig(cfg)
 	breno38 := interfaces.GetByName("br-eno3-8")
-	c.Check(breno38, gc.HasLen, 2)
+	c.Check(breno38, tc.HasLen, 2)
 
 	stateAddr := networkAddressStateArgsForDevice(interfaces, "br-eno3-8")
-	c.Check(stateAddr, gc.DeepEquals, []state.LinkLayerDeviceAddress{{
+	c.Check(stateAddr, tc.DeepEquals, []state.LinkLayerDeviceAddress{{
 		DeviceName:       "br-eno3-8",
 		ConfigMethod:     "static",
 		CIDRAddress:      "10.1.16.3/23",

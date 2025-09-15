@@ -4,26 +4,29 @@
 package vault_test
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/secrets/provider"
 	_ "github.com/juju/juju/secrets/provider/all"
 	jujuvault "github.com/juju/juju/secrets/provider/vault"
 )
 
 type configSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &configSuite{})
+}
 
-func (s *configSuite) TestValidateConfig(c *gc.C) {
+func (s *configSuite) TestValidateConfig(c *tc.C) {
 	p, err := provider.Provider(jujuvault.BackendType)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	configValidator, ok := p.(provider.ProviderConfig)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	for _, t := range []struct {
 		cfg    map[string]interface{}
 		oldCfg map[string]interface{}
@@ -43,6 +46,6 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 		err: `vault config missing client certificate not valid`,
 	}} {
 		err = configValidator.ValidateConfig(t.oldCfg, t.cfg, nil)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Assert(err, tc.ErrorMatches, t.err)
 	}
 }

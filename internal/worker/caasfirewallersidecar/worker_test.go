@@ -4,22 +4,23 @@
 package caasfirewallersidecar_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar"
 	"github.com/juju/juju/internal/worker/caasfirewallersidecar/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
@@ -36,15 +37,17 @@ type workerSuite struct {
 	appsWatcher watcher.StringsWatcher
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
 }
 
-func (s *workerSuite) TearDownTest(c *gc.C) {
+func (s *workerSuite) TearDownTest(c *tc.C) {
 	s.applicationChanges = nil
 
 	s.firewallerAPI = nil
@@ -55,7 +58,7 @@ func (s *workerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
+func (s *workerSuite) initConfig(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.appsWatcher = watchertest.NewMockStringsWatcher(s.applicationChanges)
@@ -76,7 +79,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	_ = s.initConfig(c)
 
 	s.testValidateConfig(c, func(config *caasfirewallersidecar.Config) {
@@ -104,13 +107,13 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing Logger not valid`)
 }
 
-func (s *workerSuite) testValidateConfig(c *gc.C, f func(*caasfirewallersidecar.Config), expect string) {
+func (s *workerSuite) testValidateConfig(c *tc.C, f func(*caasfirewallersidecar.Config), expect string) {
 	config := s.config
 	f(&config)
-	c.Check(config.Validate(), gc.ErrorMatches, expect)
+	c.Check(config.Validate(), tc.ErrorMatches, expect)
 }
 
-func (s *workerSuite) TestStartStop(c *gc.C) {
+func (s *workerSuite) TestStartStop(c *tc.C) {
 	ctrl := s.initConfig(c)
 	defer ctrl.Finish()
 
@@ -168,12 +171,12 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 	app2Worker.EXPECT().Wait().Return(nil)
 
 	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, workerCreator)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
+func (s *workerSuite) TestV1CharmSkipsProcessing(c *tc.C) {
 	ctrl := s.initConfig(c)
 	defer ctrl.Finish()
 
@@ -188,12 +191,12 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
 
 	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	ctrl := s.initConfig(c)
 	defer ctrl.Finish()
 
@@ -204,7 +207,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(nil, errors.NotFoundf("app1"))
 
 	w, err := caasfirewallersidecar.NewWorkerForTest(s.config, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }

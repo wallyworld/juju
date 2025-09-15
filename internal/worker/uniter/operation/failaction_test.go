@@ -4,37 +4,40 @@
 package operation_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 )
 
 type FailActionSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&FailActionSuite{})
+func TestFailActionSuite(t *tctesting.T) {
+	tc.Run(t, &FailActionSuite{})
+}
 
-func (s *FailActionSuite) TestPrepare(c *gc.C) {
+func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(nil, nil)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, jc.DeepEquals, &operation.State{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
 	})
 }
 
-func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
+func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -63,20 +66,20 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
 		factory := newOpFactory(nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
-		c.Assert(midState, gc.NotNil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(midState, tc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Execute(*midState)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
-		c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, "action terminated")
-		c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
+		c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, "action terminated")
+		c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
 	}
 }
 
-func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
+func (s *FailActionSuite) TestExecuteFail(c *tc.C) {
 	st := operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Done,
@@ -85,16 +88,16 @@ func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
 	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
 	factory := newOpFactory(nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	midState, err := op.Prepare(st)
-	c.Assert(midState, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, tc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = op.Execute(*midState)
-	c.Assert(err, gc.ErrorMatches, "squelch")
+	c.Assert(err, tc.ErrorMatches, "squelch")
 }
 
-func (s *FailActionSuite) TestCommit(c *gc.C) {
+func (s *FailActionSuite) TestCommit(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -141,17 +144,17 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		factory := newOpFactory(nil, nil)
 		op, err := factory.NewFailAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
 	}
 }
 
-func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
+func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *tc.C) {
 	factory := newOpFactory(nil, nil)
 	op, err := factory.NewFailAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsTrue)
 }

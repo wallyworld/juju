@@ -4,13 +4,13 @@
 package agent
 
 import (
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/dependency"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var (
@@ -216,7 +216,7 @@ var (
 
 type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
 
-func TrackModels(c *gc.C, tracker *agenttest.EngineTracker, inner ModelManifoldsFunc) ModelManifoldsFunc {
+func TrackModels(c *tc.C, tracker *agenttest.EngineTracker, inner ModelManifoldsFunc) ModelManifoldsFunc {
 	return func(config model.ManifoldsConfig) dependency.Manifolds {
 		raw := inner(config)
 		id := config.Agent.CurrentConfig().Model().Id()
@@ -229,7 +229,7 @@ func TrackModels(c *gc.C, tracker *agenttest.EngineTracker, inner ModelManifolds
 
 type MachineManifoldsFunc func(config machine.ManifoldsConfig) dependency.Manifolds
 
-func TrackMachines(c *gc.C, tracker *agenttest.EngineTracker, inner MachineManifoldsFunc) MachineManifoldsFunc {
+func TrackMachines(c *tc.C, tracker *agenttest.EngineTracker, inner MachineManifoldsFunc) MachineManifoldsFunc {
 	return func(config machine.ManifoldsConfig) dependency.Manifolds {
 		raw := inner(config)
 		id := config.Agent.CurrentConfig().Tag().String()

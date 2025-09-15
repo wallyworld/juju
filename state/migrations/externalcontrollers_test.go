@@ -4,19 +4,22 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type ExternalControllersExportSuite struct{}
 
-var _ = gc.Suite(&ExternalControllersExportSuite{})
+func TestExternalControllersExportSuite(t *tctesting.T) {
+	tc.Run(t, &ExternalControllersExportSuite{})
+}
 
-func (s *ExternalControllersExportSuite) TestExportExternalController(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalController(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -51,10 +54,10 @@ func (s *ExternalControllersExportSuite) TestExportExternalController(c *gc.C) {
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameUUID(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameUUID(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -92,10 +95,10 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExt
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -134,10 +137,10 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExt
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoControllerNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -155,10 +158,10 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoContr
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettingRemoteApplicationEntities(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettingRemoteApplicationEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -169,10 +172,10 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettin
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
-func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettingExternalControllerEntities(c *gc.C) {
+func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettingExternalControllerEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -190,7 +193,7 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerFailsGettin
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *ExternalControllersExportSuite) migrationExternalController(ctrl *gomock.Controller, fn func(expect *MockMigrationExternalControllerMockRecorder)) *MockMigrationExternalController {

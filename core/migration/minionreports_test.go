@@ -4,34 +4,37 @@
 package migration_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/migration"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type MinionReportsSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(new(MinionReportsSuite))
-
-func (s *MinionReportsSuite) TestIsZero(c *gc.C) {
-	reports := migration.MinionReports{}
-	c.Check(reports.IsZero(), jc.IsTrue)
+func TestMinionReportsSuite(t *tctesting.T) {
+	tc.Run(t, &MinionReportsSuite{})
 }
 
-func (s *MinionReportsSuite) TestIsZeroIdSet(c *gc.C) {
+func (s *MinionReportsSuite) TestIsZero(c *tc.C) {
+	reports := migration.MinionReports{}
+	c.Check(reports.IsZero(), tc.IsTrue)
+}
+
+func (s *MinionReportsSuite) TestIsZeroIdSet(c *tc.C) {
 	reports := migration.MinionReports{
 		MigrationId: "foo",
 	}
-	c.Check(reports.IsZero(), jc.IsFalse)
+	c.Check(reports.IsZero(), tc.IsFalse)
 }
 
-func (s *MinionReportsSuite) TestIsZeroPhaseSet(c *gc.C) {
+func (s *MinionReportsSuite) TestIsZeroPhaseSet(c *tc.C) {
 	reports := migration.MinionReports{
 		Phase: migration.QUIESCE,
 	}
-	c.Check(reports.IsZero(), jc.IsFalse)
+	c.Check(reports.IsZero(), tc.IsFalse)
 }

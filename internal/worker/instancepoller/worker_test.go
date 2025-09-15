@@ -5,17 +5,17 @@ package instancepoller
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
@@ -25,16 +25,22 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/instancepoller/mocks"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var (
-	_ = gc.Suite(&configSuite{})
-	_ = gc.Suite(&pollGroupEntrySuite{})
-	_ = gc.Suite(&workerSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &configSuite{})
+}
+func TestPollGroupEntrySuite(t *tctesting.T) {
+	tc.Run(t, &pollGroupEntrySuite{})
+}
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
+var (
 	testAddrs = network.ProviderAddresses{
 		network.NewMachineAddress(
 			"10.0.0.1", network.WithCIDR("10.0.0.0/24"), network.WithScope(network.ScopeCloudLocal),
@@ -65,7 +71,7 @@ var (
 
 type configSuite struct{}
 
-func (s *configSuite) TestConfigValidation(c *gc.C) {
+func (s *configSuite) TestConfigValidation(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -76,58 +82,58 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
 		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
 	}
-	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
+	c.Assert(origCfg.Validate(), tc.ErrorIsNil)
 
 	testCfg := origCfg
 	testCfg.Clock = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil clock.Clock.*")
+	c.Assert(testCfg.Validate(), tc.ErrorMatches, "nil clock.Clock.*")
 
 	testCfg = origCfg
 	testCfg.Facade = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Facade.*")
+	c.Assert(testCfg.Validate(), tc.ErrorMatches, "nil Facade.*")
 
 	testCfg = origCfg
 	testCfg.Environ = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Environ.*")
+	c.Assert(testCfg.Validate(), tc.ErrorMatches, "nil Environ.*")
 
 	testCfg = origCfg
 	testCfg.Logger = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Logger.*")
+	c.Assert(testCfg.Validate(), tc.ErrorMatches, "nil Logger.*")
 
 	testCfg = origCfg
 	testCfg.CredentialAPI = nil
-	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil CredentialAPI.*")
+	c.Assert(testCfg.Validate(), tc.ErrorMatches, "nil CredentialAPI.*")
 }
 
 type pollGroupEntrySuite struct{}
 
-func (s *pollGroupEntrySuite) TestShortPollIntervalLogic(c *gc.C) {
+func (s *pollGroupEntrySuite) TestShortPollIntervalLogic(c *tc.C) {
 	clock := testclock.NewClock(time.Now())
 	entry := new(pollGroupEntry)
 
 	// Test reset logic.
 	entry.resetShortPollInterval(clock)
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
-	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPoll))
+	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll)
+	c.Assert(entry.shortPollAt, tc.Equals, clock.Now().Add(ShortPoll))
 
 	// Ensure that bumping the short poll duration caps when we reach the
 	// LongPoll interval.
 	for i := 0; entry.shortPollInterval < LongPoll && i < 100; i++ {
 		entry.bumpShortPollInterval(clock)
 	}
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf(
+	c.Assert(entry.shortPollInterval, tc.Equals, ShortPollCap, tc.Commentf(
 		"short poll interval did not reach short poll cap interval after 100 interval bumps"))
 
 	// Check that once we reach the short poll cap interval we stay capped at it.
 	entry.bumpShortPollInterval(clock)
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf(
+	c.Assert(entry.shortPollInterval, tc.Equals, ShortPollCap, tc.Commentf(
 		"short poll should have been capped at the short poll cap interval"))
-	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPollCap))
+	c.Assert(entry.shortPollAt, tc.Equals, clock.Now().Add(ShortPollCap))
 }
 
 type workerSuite struct{}
 
-func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
+func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -144,12 +150,12 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
 }
 
-func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c *gc.C) {
+func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -171,13 +177,13 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 
 	// Queue machine.
 	err := updWorker.queueMachineForPolling(machineTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll, gc.Commentf("poll interval was not reset"))
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1, tc.Commentf("machine didn't end up in short poll group"))
+	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll, tc.Commentf("poll interval was not reset"))
 }
 
-func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
+func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -212,12 +218,12 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	machine.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, true, nil)
 
 	providerStatus, addrCount, err := updWorker.processProviderInfo(entry, instInfo, testNetIfs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(providerStatus, gc.Equals, status.Running)
-	c.Assert(addrCount, gc.Equals, len(testAddrs))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(providerStatus, tc.Equals, status.Running)
+	c.Assert(addrCount, tc.Equals, len(testAddrs))
 }
 
-func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *gc.C) {
+func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -229,18 +235,18 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
 	updWorker.appendToShortPollGroup(machineTag, machine)
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 
 	// The provider reports an instance status of "running"; the machine
 	// reports it's machine status as "started".
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
 	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
 
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
-	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 1)
 }
 
-func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
+func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -258,11 +264,11 @@ func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
 		entry, _ := updWorker.lookupPolledMachine(machineTag)
 
 		updWorker.maybeSwitchPollGroup(shortPollGroup, entry, spec, status.Pending, 0)
-		c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
+		c.Assert(entry.shortPollInterval, tc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 	}
 }
 
-func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc.C) {
+func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -278,18 +284,18 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
 	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
-	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 1)
 
 	// If we get unknown status from the provider we expect the machine to
 	// be moved back to the short poll group.
 	updWorker.maybeSwitchPollGroup(longPollGroup, entry, status.Unknown, status.Started, 1)
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
-	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
-	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 0)
+	c.Assert(entry.shortPollInterval, tc.Equals, ShortPoll)
 }
 
-func (s *workerSuite) TestSkipMachineIfShortPollTargetTimeNotElapsed(c *gc.C) {
+func (s *workerSuite) TestSkipMachineIfShortPollTargetTimeNotElapsed(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -312,10 +318,10 @@ func (s *workerSuite) TestSkipMachineIfShortPollTargetTimeNotElapsed(c *gc.C) {
 		mocked.clock.Advance(ShortPoll)
 	})
 
-	c.Assert(pollAt, gc.Equals, entry.shortPollAt, gc.Commentf("machine shouldn't have been polled"))
+	c.Assert(pollAt, tc.Equals, entry.shortPollAt, tc.Commentf("machine shouldn't have been polled"))
 }
 
-func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
+func (s *workerSuite) TestDeadMachineGetsRemoved(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -328,7 +334,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 
 	// Add machine to short poll group
 	updWorker.appendToShortPollGroup(machineTag, machine)
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 
 	// On next refresh, the machine reports as dead
 	machine.EXPECT().Refresh().Return(nil)
@@ -340,10 +346,10 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 		mocked.facadeAPI.assertEnqueueChange(c, []string{"0"})
 	})
 
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0, gc.Commentf("dead machine has not been removed"))
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0, tc.Commentf("dead machine has not been removed"))
 }
 
-func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
+func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -356,7 +362,7 @@ func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
 
 	// Add machine to short poll group
 	updWorker.appendToShortPollGroup(machineTag, machine)
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 1)
 
 	// On next refresh, the machine refresh fails with NotFoudn
 	machine.EXPECT().Refresh().Return(
@@ -369,10 +375,10 @@ func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
 		mocked.facadeAPI.assertEnqueueChange(c, []string{"0"})
 	})
 
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0, gc.Commentf("dead machine has not been removed"))
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0, tc.Commentf("dead machine has not been removed"))
 }
 
-func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
+func (s *workerSuite) TestQueuingOfManualMachines(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -402,11 +408,11 @@ func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
 	})
 
 	// None of the machines should have been added.
-	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
-	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[shortPollGroup], tc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], tc.HasLen, 0)
 }
 
-func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
+func (s *workerSuite) TestBatchPollingOfGroupMembers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -446,7 +452,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
+func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -481,7 +487,7 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *gc.C) {
+func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -512,10 +518,10 @@ func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *g
 
 	// Check that we have backed off the poll interval.
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
+	c.Assert(entry.shortPollInterval, tc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 }
 
-func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
+func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -548,7 +554,7 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestShortPollNoMachineInGroupKnownByProviderIntervalBackoff(c *gc.C) {
+func (s *workerSuite) TestShortPollNoMachineInGroupKnownByProviderIntervalBackoff(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -578,14 +584,14 @@ func (s *workerSuite) TestShortPollNoMachineInGroupKnownByProviderIntervalBackof
 
 	// Check that we have backed off the poll interval.
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
+	c.Assert(entry.shortPollInterval, tc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 }
 
-func (s *workerSuite) assertWorkerCompletesLoop(c *gc.C, w *updaterWorker, triggerFn func()) {
+func (s *workerSuite) assertWorkerCompletesLoop(c *tc.C, w *updaterWorker, triggerFn func()) {
 	s.assertWorkerCompletesLoops(c, w, 1, triggerFn)
 }
 
-func (s *workerSuite) assertWorkerCompletesLoops(c *gc.C, w *updaterWorker, numLoops int, triggerFn func()) {
+func (s *workerSuite) assertWorkerCompletesLoops(c *tc.C, w *updaterWorker, numLoops int, triggerFn func()) {
 	ch := make(chan struct{})
 	defer func() { w.loopCompletedHook = nil }()
 
@@ -607,7 +613,7 @@ type workerMocks struct {
 	environ   *mocks.MockEnviron
 }
 
-func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Worker, workerMocks) {
+func (s *workerSuite) startWorker(c *tc.C, ctrl *gomock.Controller) (worker.Worker, workerMocks) {
 	workerMainLoopEnteredCh := make(chan struct{}, 1)
 	mocked := workerMocks{
 		clock:     testclock.NewClock(time.Now()),
@@ -622,7 +628,7 @@ func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Work
 		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
 		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Wait for worker to reach main loop before we allow tests to
 	// manipulate the clock.
@@ -664,7 +670,7 @@ func newMockFacadeAPI(ctrl *gomock.Controller, workerGotWatcherCh chan<- struct{
 	return api
 }
 
-func (api *mockFacadeAPI) assertEnqueueChange(c *gc.C, values []string) {
+func (api *mockFacadeAPI) assertEnqueueChange(c *tc.C, values []string) {
 	select {
 	case api.watcherChangeCh <- values:
 	case <-time.After(coretesting.ShortWait):

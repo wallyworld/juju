@@ -4,6 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -12,10 +13,9 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
@@ -26,14 +26,16 @@ import (
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&CAASApplicationProvisionerSuite{})
+func TestCAASApplicationProvisionerSuite(t *tctesting.T) {
+	tc.Run(t, &CAASApplicationProvisionerSuite{})
+}
 
 type CAASApplicationProvisionerSuite struct {
 	coretesting.BaseSuite
@@ -49,12 +51,12 @@ type CAASApplicationProvisionerSuite struct {
 	broker             *mocks.MockBroker
 }
 
-func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	ctrl := gomock.NewController(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -78,20 +80,20 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, s.broker)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestPermission(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, s.broker)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -105,10 +107,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		},
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, tc.Ignore)
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
 			ImageRepo:    params.DockerImageInfo{RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666"},
@@ -126,7 +128,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *tc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -147,10 +149,10 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *g
 		},
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	mc := jc.NewMultiChecker()
-	mc.AddExpr(`_.Results[0].CACert`, jc.Ignore)
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Results[0].CACert`, tc.Ignore)
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
 			ImageRepo:    params.DockerImageInfo{RegistryPath: "ghcr.io/juju/jujud-operator:2.6-beta3.666"},
@@ -168,7 +170,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoAttachStorage(c *g
 	})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *tc.C) {
 	s.st.app = &mockApplication{
 		life:         state.Alive,
 		charmPending: true,
@@ -178,11 +180,11 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 		},
 	}
 	result, err := s.api.ProvisioningInfo(params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
 }
 
-func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *tc.C) {
 	appChanged := make(chan struct{}, 1)
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan struct{}, 1)
@@ -209,14 +211,14 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	res := s.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
+	c.Assert(res, tc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
 }
 
-func (s *CAASApplicationProvisionerSuite) TestWatchStorageConstraints(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestWatchStorageConstraints(c *tc.C) {
 	storageConstraintsChanged := make(chan struct{}, 1)
 	s.st.app = &mockApplication{
 		charm: &mockCharm{
@@ -234,15 +236,15 @@ func (s *CAASApplicationProvisionerSuite) TestWatchStorageConstraints(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	res := s.resources.Get("1")
-	c.Assert(res, gc.FitsTypeOf, (*statetesting.MockNotifyWatcher)(nil))
+	c.Assert(res, tc.FitsTypeOf, (*statetesting.MockNotifyWatcher)(nil))
 }
 
-func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *tc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -256,14 +258,14 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 			Status: "started",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 
 	s.st.app.CheckCallNames(c, "SetOperatorStatus")
-	c.Assert(s.st.app.Calls()[0].Args[0], gc.DeepEquals, status.StatusInfo{Status: "started"})
+	c.Assert(s.st.app.Calls()[0].Args[0], tc.DeepEquals, status.StatusInfo{Status: "started"})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestUnits(c *tc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -296,9 +298,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 			Tag: "application-gitlab",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Units, gc.DeepEquals, []params.CAASUnitInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Units, tc.DeepEquals, []params.CAASUnitInfo{
 		{
 			Tag: "unit-gitlab-0",
 			UnitStatus: &params.UnitStatus{
@@ -323,7 +325,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 	})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *tc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -356,9 +358,9 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 			Tag: "application-gitlab",
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Result, gc.DeepEquals, &params.CAASApplicationOCIResources{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.DeepEquals, &params.CAASApplicationOCIResources{
 		Images: map[string]params.DockerImageInfo{
 			"gitlab-image": {
 				RegistryPath: "gitlab:latest",
@@ -369,7 +371,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *tc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -462,8 +464,8 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	}
 
 	results, err := s.api.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
 			Units: []params.ApplicationUnitInfo{
 				{ProviderId: "gitlab-0", UnitTag: "unit-gitlab-0"},
@@ -556,7 +558,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 	s.st.model.CheckCall(c, 0, "Containers", []string{"gitlab-0", "gitlab-1"})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStorage(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStorage(c *tc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -622,8 +624,8 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 		},
 	}
 	results, err := s.api.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0], tc.DeepEquals, params.UpdateApplicationUnitResult{
 		Info: &params.UpdateApplicationUnitsInfo{
 			Units: []params.ApplicationUnitInfo{
 				{ProviderId: "gitlab-0", UnitTag: "unit-gitlab-0"},
@@ -658,7 +660,7 @@ func strPtr(s string) *string {
 	return &s
 }
 
-func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *tc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -673,12 +675,12 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C
 		}},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.IsNil)
 	s.st.app.CheckCallNames(c, "ClearResources")
 }
 
-func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *tc.C) {
 	unitsChanges := make(chan []string, 1)
 	s.st.app = &mockApplication{
 		life: state.Alive,
@@ -697,24 +699,24 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 		},
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
-	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[0].StringsWatcherId, tc.Equals, "1")
+	c.Assert(results.Results[0].Changes, tc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
 	res := s.resources.Get("1")
-	c.Assert(res, gc.Equals, s.st.app.unitsWatcher)
+	c.Assert(res, tc.Equals, s.st.app.unitsWatcher)
 }
 
-func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *tc.C) {
 	s.st.app = &mockApplication{
 		life:              state.Alive,
 		provisioningState: nil,
 	}
 
 	result, err := s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ProvisioningState, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, tc.IsNil)
 
 	setResult, err := s.api.SetProvisioningState(params.CAASApplicationProvisioningStateArg{
 		Application: params.Entity{Tag: "application-gitlab"},
@@ -723,12 +725,12 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 			ScaleTarget: 10,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setResult.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(setResult.Error, tc.IsNil)
 
 	result, err = s.api.ProvisioningState(params.Entity{Tag: "application-gitlab"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ProvisioningState, jc.DeepEquals, &params.CAASApplicationProvisioningState{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.ProvisioningState, tc.DeepEquals, &params.CAASApplicationProvisioningState{
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
@@ -736,22 +738,22 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 	s.st.app.Stub.CheckCallNames(c, "ProvisioningState", "SetProvisioningState", "ProvisioningState")
 }
 
-func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *tc.C) {
 	result, err := s.api.ProvisionerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.ProvisionerConfig, gc.NotNil)
-	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.ProvisionerConfig, tc.NotNil)
+	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.HasLen, 0)
 
 	s.st.isController = true
 	result, err = s.api.ProvisionerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.ProvisionerConfig, gc.NotNil)
-	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, gc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.ProvisionerConfig, tc.NotNil)
+	c.Assert(result.ProvisionerConfig.UnmanagedApplications.Entities, tc.DeepEquals, []params.Entity{{Tag: "application-controller"}})
 }
 
-func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *tc.C) {
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -792,24 +794,24 @@ func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfo(c *gc.C
 	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
 		Tag: "application-gitlab",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Filesystems, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Filesystems, tc.HasLen, 1)
 
 	fs := result.Filesystems[0]
-	c.Assert(fs.StorageName, gc.Equals, "data")
-	c.Assert(fs.Provider, gc.Equals, "kubernetes")
-	c.Assert(fs.Size, gc.Equals, uint64(1024))
+	c.Assert(fs.StorageName, tc.Equals, "data")
+	c.Assert(fs.Provider, tc.Equals, "kubernetes")
+	c.Assert(fs.Size, tc.Equals, uint64(1024))
 
-	c.Assert(result.FilesystemUnitAttachments, gc.HasLen, 1)
-	c.Assert(result.FilesystemUnitAttachments["data"], gc.HasLen, 2)
-	c.Assert(result.FilesystemUnitAttachments["data"][0].UnitTag, gc.Equals, "unit-gitlab-0")
-	c.Assert(result.FilesystemUnitAttachments["data"][0].VolumeId, gc.Equals, "pvc-data-0")
-	c.Assert(result.FilesystemUnitAttachments["data"][1].UnitTag, gc.Equals, "unit-gitlab-1")
-	c.Assert(result.FilesystemUnitAttachments["data"][1].VolumeId, gc.Equals, "pvc-data-1")
+	c.Assert(result.FilesystemUnitAttachments, tc.HasLen, 1)
+	c.Assert(result.FilesystemUnitAttachments["data"], tc.HasLen, 2)
+	c.Assert(result.FilesystemUnitAttachments["data"][0].UnitTag, tc.Equals, "unit-gitlab-0")
+	c.Assert(result.FilesystemUnitAttachments["data"][0].VolumeId, tc.Equals, "pvc-data-0")
+	c.Assert(result.FilesystemUnitAttachments["data"][1].UnitTag, tc.Equals, "unit-gitlab-1")
+	c.Assert(result.FilesystemUnitAttachments["data"][1].VolumeId, tc.Equals, "pvc-data-1")
 }
 
-func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c *tc.C) {
 	s.st.app = &mockApplication{
 		tag:                 names.NewApplicationTag("gitlab"),
 		life:                state.Alive,
@@ -821,17 +823,17 @@ func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoEmpty(c 
 	result, err := s.api.FilesystemProvisioningInfo(params.Entity{
 		Tag: "application-gitlab",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Filesystems, gc.HasLen, 0)
-	c.Assert(result.FilesystemUnitAttachments, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Filesystems, tc.HasLen, 0)
+	c.Assert(result.FilesystemUnitAttachments, tc.IsNil)
 }
 
-func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoAppNotFound(c *gc.C) {
+func (s *CAASApplicationProvisionerSuite) TestFilesystemProvisioningInfoAppNotFound(c *tc.C) {
 	s.st.SetErrors(errors.NotFoundf("application"))
 
 	_, err := s.api.FilesystemProvisioningInfo(params.Entity{
 		Tag: "application-foo",
 	})
-	c.Assert(err, gc.ErrorMatches, "app foo not found")
+	c.Assert(err, tc.ErrorMatches, "app foo not found")
 }

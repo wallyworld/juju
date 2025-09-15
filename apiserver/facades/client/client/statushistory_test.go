@@ -4,20 +4,22 @@
 package client
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&statusHistoryTestSuite{})
+func TestStatusHistoryTestSuite(t *tctesting.T) {
+	tc.Run(t, &statusHistoryTestSuite{})
+}
 
 type statusHistoryTestSuite struct {
 	testing.BaseSuite
@@ -25,7 +27,7 @@ type statusHistoryTestSuite struct {
 	api *Client
 }
 
-func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
+func (s *statusHistoryTestSuite) SetUpTest(c *tc.C) {
 	s.st = &mockState{}
 	tag := names.NewUserTag("admin")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
@@ -58,32 +60,32 @@ func reverseStatusInfo(si []status.StatusInfo) []status.StatusInfo {
 	return result
 }
 
-func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []status.StatusInfo) {
-	c.Assert(len(obtained), gc.Equals, len(expected))
+func checkStatusInfo(c *tc.C, obtained []params.DetailedStatus, expected []status.StatusInfo) {
+	c.Assert(len(obtained), tc.Equals, len(expected))
 	lastTimestamp := int64(0)
 	for i, obtainedInfo := range obtained {
 		c.Logf("Checking status %q with info %q", obtainedInfo.Status, obtainedInfo.Info)
 		thisTimeStamp := obtainedInfo.Since.Unix()
-		c.Assert(thisTimeStamp >= lastTimestamp, jc.IsTrue)
+		c.Assert(thisTimeStamp >= lastTimestamp, tc.IsTrue)
 		lastTimestamp = thisTimeStamp
 		obtainedInfo.Since = nil
-		c.Assert(obtainedInfo.Status, gc.Equals, expected[i].Status.String())
-		c.Assert(obtainedInfo.Info, gc.Equals, expected[i].Message)
+		c.Assert(obtainedInfo.Status, tc.Equals, expected[i].Status.String())
+		c.Assert(obtainedInfo.Info, tc.Equals, expected[i].Message)
 	}
 }
 
-func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
+func (s *statusHistoryTestSuite) TestSizeRequired(c *tc.C) {
 	r := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 0},
 		}}})
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: missing filter parameters not valid")
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, tc.Equals, "cannot validate status history filter: missing filter parameters not valid")
 }
 
-func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
+func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *tc.C) {
 	now := time.Now()
 	r := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
@@ -91,8 +93,8 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 1, Date: &now},
 		}}})
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Date together not valid")
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, tc.Equals, "cannot validate status history filter: Size and Date together not valid")
 
 	yesterday := time.Hour * 24
 	r = s.api.StatusHistory(params.StatusHistoryRequests{
@@ -101,8 +103,8 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 1, Delta: &yesterday},
 		}}})
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Delta together not valid")
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, tc.Equals, "cannot validate status history filter: Size and Delta together not valid")
 
 	r = s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
@@ -110,11 +112,11 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Date: &now, Delta: &yesterday},
 		}}})
-	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Date and Delta together not valid")
+	c.Assert(r.Results, tc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, tc.Equals, "cannot validate status history filter: Date and Delta together not valid")
 }
 
-func (s *statusHistoryTestSuite) TestStatusHistoryApplication(c *gc.C) {
+func (s *statusHistoryTestSuite) TestStatusHistoryApplication(c *tc.C) {
 	s.st.appHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Maintenance,
@@ -131,12 +133,12 @@ func (s *statusHistoryTestSuite) TestStatusHistoryApplication(c *gc.C) {
 			Kind:   status.KindApplication.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
-	c.Assert(h.Results, gc.HasLen, 1)
-	c.Assert(h.Results[0].Error, gc.IsNil)
+	c.Assert(h.Results, tc.HasLen, 1)
+	c.Assert(h.Results[0].Error, tc.IsNil)
 	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.appHistory))
 }
 
-func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
+func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *tc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Maintenance,
@@ -158,12 +160,12 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 			Kind:   status.KindWorkload.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
-	c.Assert(h.Results, gc.HasLen, 1)
-	c.Assert(h.Results[0].Error, gc.IsNil)
+	c.Assert(h.Results, tc.HasLen, 1)
+	c.Assert(h.Results[0].Error, tc.IsNil)
 	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.unitHistory))
 }
 
-func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
+func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *tc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Maintenance,
@@ -188,12 +190,12 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 			Kind:   status.KindUnitAgent.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
-	c.Assert(h.Results, gc.HasLen, 1)
-	c.Assert(h.Results[0].Error, gc.IsNil)
+	c.Assert(h.Results, tc.HasLen, 1)
+	c.Assert(h.Results[0].Error, tc.IsNil)
 	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.agentHistory))
 }
 
-func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
+func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *tc.C) {
 	s.st.unitHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Maintenance,
@@ -222,8 +224,8 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 3},
 		}}})
-	c.Assert(h.Results, gc.HasLen, 1)
-	c.Assert(h.Results[0].Error, gc.IsNil)
+	c.Assert(h.Results, tc.HasLen, 1)
+	c.Assert(h.Results[0].Error, tc.IsNil)
 	expected := []status.StatusInfo{
 		s.st.agentHistory[1],
 		s.st.unitHistory[0],
@@ -232,7 +234,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 	checkStatusInfo(c, h.Results[0].History.Statuses, expected)
 }
 
-func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
+func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *tc.C) {
 	s.st.modelHistory = statusInfoWithDates([]status.StatusInfo{
 		{
 			Status:  status.Active,
@@ -249,8 +251,8 @@ func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
 			Kind:   status.KindModel.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
-	c.Assert(h.Results, gc.HasLen, 1)
-	c.Assert(h.Results[0].Error, gc.IsNil)
+	c.Assert(h.Results, tc.HasLen, 1)
+	c.Assert(h.Results[0].Error, tc.IsNil)
 	checkStatusInfo(c, h.Results[0].History.Statuses, reverseStatusInfo(s.st.modelHistory))
 }
 

@@ -6,7 +6,7 @@ package storage_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // TestPackage integrates the tests into gotest.

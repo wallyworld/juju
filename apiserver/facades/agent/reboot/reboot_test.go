@@ -5,14 +5,16 @@
 package reboot_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -38,9 +40,11 @@ type rebootSuite struct {
 	nestedContainer *machines
 }
 
-var _ = gc.Suite(&rebootSuite{})
+func TestRebootSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &rebootSuite{})
+}
 
-func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
+func (s *rebootSuite) setUpMachine(c *tc.C, machine *state.Machine) *machines {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as a machine agent.
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -54,19 +58,19 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 		Resources_: resources,
 		Auth_:      authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: machine.Tag().String()},
 	}}
 
 	resultMachine, err := rebootAPI.WatchForRebootEvent()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(resultMachine.NotifyWatcherId, gc.Not(gc.Equals), "")
-	c.Check(resultMachine.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resultMachine.NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Check(resultMachine.Error, tc.IsNil)
 
 	resourceMachine := resources.Get(resultMachine.NotifyWatcherId)
-	c.Check(resourceMachine, gc.NotNil)
+	c.Check(resourceMachine, tc.NotNil)
 
 	w := resourceMachine.(state.NotifyWatcher)
 	wc := statetesting.NewNotifyWatcherC(c, w)
@@ -83,7 +87,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	}
 }
 
-func (s *rebootSuite) SetUpTest(c *gc.C) {
+func (s *rebootSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 
@@ -93,20 +97,20 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	}
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	nestedContainer, err := s.State.AddMachineInsideMachine(template, container.Id(), instance.KVM)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine = s.setUpMachine(c, machine)
 	s.container = s.setUpMachine(c, container)
 	s.nestedContainer = s.setUpMachine(c, nestedContainer)
 }
 
-func (s *rebootSuite) TearDownTest(c *gc.C) {
+func (s *rebootSuite) TearDownTest(c *tc.C) {
 	if s.machine.resources != nil {
 		s.machine.resources.StopAll()
 	}
@@ -133,17 +137,17 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *rebootSuite) TestWatchForRebootEvent(c *gc.C) {
+func (s *rebootSuite) TestWatchForRebootEvent(c *tc.C) {
 	err := s.machine.machine.SetRebootFlag(true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine.wc.AssertOneChange()
 }
 
-func (s *rebootSuite) TestRequestReboot(c *gc.C) {
+func (s *rebootSuite) TestRequestReboot(c *tc.C) {
 	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -151,17 +155,17 @@ func (s *rebootSuite) TestRequestReboot(c *gc.C) {
 	s.machine.wc.AssertOneChange()
 
 	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 }
 
-func (s *rebootSuite) TestClearReboot(c *gc.C) {
+func (s *rebootSuite) TestClearReboot(c *tc.C) {
 	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -170,36 +174,36 @@ func (s *rebootSuite) TestClearReboot(c *gc.C) {
 	s.machine.wc.AssertOneChange()
 
 	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = s.machine.rebootAPI.ClearReboot(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
 	})
 
 	res, err = s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 }
 
-func (s *rebootSuite) TestRebootRequestFromMachine(c *gc.C) {
+func (s *rebootSuite) TestRebootRequestFromMachine(c *tc.C) {
 	// Request reboot on the root machine: all machines should see it
 	// machine should reboot
 	// container should shutdown
 	// nested container should shutdown
 	errResult, err := s.machine.rebootAPI.RequestReboot(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -209,29 +213,29 @@ func (s *rebootSuite) TestRebootRequestFromMachine(c *gc.C) {
 	s.nestedContainer.wc.AssertOneChange()
 
 	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
 	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
 	errResult, err = s.machine.rebootAPI.ClearReboot(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -242,14 +246,14 @@ func (s *rebootSuite) TestRebootRequestFromMachine(c *gc.C) {
 	s.nestedContainer.wc.AssertOneChange()
 }
 
-func (s *rebootSuite) TestRebootRequestFromContainer(c *gc.C) {
+func (s *rebootSuite) TestRebootRequestFromContainer(c *tc.C) {
 	// Request reboot on the container: container and nested container should see it
 	// machine should do nothing
 	// container should reboot
 	// nested container should shutdown
 	errResult, err := s.container.rebootAPI.RequestReboot(s.container.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -259,29 +263,29 @@ func (s *rebootSuite) TestRebootRequestFromContainer(c *gc.C) {
 	s.nestedContainer.wc.AssertOneChange()
 
 	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
 	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldShutdown},
 		}})
 
 	errResult, err = s.container.rebootAPI.ClearReboot(s.container.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},
@@ -292,14 +296,14 @@ func (s *rebootSuite) TestRebootRequestFromContainer(c *gc.C) {
 	s.nestedContainer.wc.AssertOneChange()
 }
 
-func (s *rebootSuite) TestRebootRequestFromNestedContainer(c *gc.C) {
+func (s *rebootSuite) TestRebootRequestFromNestedContainer(c *tc.C) {
 	// Request reboot on the container: container and nested container should see it
 	// machine should do nothing
 	// container should do nothing
 	// nested container should reboot
 	errResult, err := s.nestedContainer.rebootAPI.RequestReboot(s.nestedContainer.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		}})
@@ -309,29 +313,29 @@ func (s *rebootSuite) TestRebootRequestFromNestedContainer(c *gc.C) {
 	s.nestedContainer.wc.AssertOneChange()
 
 	res, err := s.machine.rebootAPI.GetRebootAction(s.machine.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
 	res, err = s.container.rebootAPI.GetRebootAction(s.container.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldDoNothing},
 		}})
 
 	res, err = s.nestedContainer.rebootAPI.GetRebootAction(s.nestedContainer.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.RebootActionResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.DeepEquals, params.RebootActionResults{
 		Results: []params.RebootActionResult{
 			{Result: params.ShouldReboot},
 		}})
 
 	errResult, err = s.nestedContainer.rebootAPI.ClearReboot(s.nestedContainer.args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errResult, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 		},

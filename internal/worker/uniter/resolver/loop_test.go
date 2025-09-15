@@ -5,22 +5,22 @@ package resolver_test
 
 import (
 	"errors"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex/v2"
-	envtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LoopSuite struct {
@@ -36,9 +36,11 @@ type LoopSuite struct {
 	onIdle    func() error
 }
 
-var _ = gc.Suite(&LoopSuite{})
+func TestLoopSuite(t *tctesting.T) {
+	tc.Run(t, &LoopSuite{})
+}
 
-func (s *LoopSuite) SetUpTest(c *gc.C) {
+func (s *LoopSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resolver = resolver.ResolverFunc(func(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 		return nil, resolver.ErrNoOperation
@@ -70,13 +72,13 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 	return localState, err
 }
 
-func (s *LoopSuite) TestAbort(c *gc.C) {
+func (s *LoopSuite) TestAbort(c *tc.C) {
 	close(s.abort)
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
 }
 
-func (s *LoopSuite) TestOnIdle(c *gc.C) {
+func (s *LoopSuite) TestOnIdle(c *tc.C) {
 	onIdleCh := make(chan interface{}, 1)
 	s.onIdle = func() error {
 		onIdleCh <- nil
@@ -95,7 +97,7 @@ func (s *LoopSuite) TestOnIdle(c *gc.C) {
 	close(s.abort)
 
 	err := waitChannel(c, done, "waiting for loop to exit")
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
 
 	select {
 	case <-onIdleCh:
@@ -104,16 +106,16 @@ func (s *LoopSuite) TestOnIdle(c *gc.C) {
 	}
 }
 
-func (s *LoopSuite) TestOnIdleError(c *gc.C) {
+func (s *LoopSuite) TestOnIdleError(c *tc.C) {
 	s.onIdle = func() error {
 		return errors.New("onIdle failed")
 	}
 	close(s.abort)
 	_, err := s.loop()
-	c.Assert(err, gc.ErrorMatches, "onIdle failed")
+	c.Assert(err, tc.ErrorMatches, "onIdle failed")
 }
 
-func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
+func (s *LoopSuite) TestErrWaitingNoOnIdle(c *tc.C) {
 	var onIdleCalled bool
 	s.onIdle = func() error {
 		onIdleCalled = true
@@ -128,11 +130,11 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
 	})
 	close(s.abort)
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
-	c.Assert(onIdleCalled, jc.IsFalse)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
+	c.Assert(onIdleCalled, tc.IsFalse)
 }
 
-func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
+func (s *LoopSuite) TestInitialFinalLocalState(c *tc.C) {
 	var local resolver.LocalState
 	s.resolver = resolver.ResolverFunc(func(
 		l resolver.LocalState,
@@ -145,14 +147,14 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 
 	close(s.abort)
 	lastLocal, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
-	c.Assert(local, jc.DeepEquals, resolver.LocalState{
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
+	c.Assert(local, tc.DeepEquals, resolver.LocalState{
 		CharmURL: s.charmURL,
 	})
-	c.Assert(lastLocal, jc.DeepEquals, local)
+	c.Assert(lastLocal, tc.DeepEquals, local)
 }
 
-func (s *LoopSuite) TestLoop(c *gc.C) {
+func (s *LoopSuite) TestLoop(c *tc.C) {
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
@@ -181,17 +183,17 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 	})
 
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
-	c.Assert(resolverCalls, gc.Equals, 3)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
+	c.Assert(resolverCalls, tc.Equals, 3)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State")
 
 	runArgs := s.executor.Calls()[3].Args
-	c.Assert(runArgs, gc.HasLen, 2)
-	c.Assert(runArgs[0], gc.DeepEquals, theOp)
-	c.Assert(runArgs[1], gc.NotNil)
+	c.Assert(runArgs, tc.HasLen, 2)
+	c.Assert(runArgs[0], tc.DeepEquals, theOp)
+	c.Assert(runArgs[1], tc.NotNil)
 }
 
-func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
+func (s *LoopSuite) TestLoopWithChange(c *tc.C) {
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
@@ -231,7 +233,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 			// wait for changes to propagate
 			select {
 			case _, ok := <-rs:
-				c.Assert(ok, jc.IsTrue)
+				c.Assert(ok, tc.IsTrue)
 				remoteStateSnapshotCount++
 			case <-time.After(testing.ShortWait):
 				c.Fatalf("timed out waiting for remote state snapshot")
@@ -242,25 +244,25 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 	}
 
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
-	c.Assert(resolverCalls, gc.Equals, 4)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
+	c.Assert(resolverCalls, tc.Equals, 4)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State", "State")
 
-	c.Assert(remoteStateSnapshotCount, gc.Equals, 5)
+	c.Assert(remoteStateSnapshotCount, tc.Equals, 5)
 	select {
 	case _, ok := <-remoteStateSnapshotChan:
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		c.Fatalf("remote state snapshot channel fired more than once")
 	default:
 	}
 
 	runArgs := s.executor.Calls()[3].Args
-	c.Assert(runArgs, gc.HasLen, 2)
-	c.Assert(runArgs[0], gc.DeepEquals, theOp)
-	c.Assert(runArgs[1], gc.NotNil)
+	c.Assert(runArgs, tc.HasLen, 2)
+	c.Assert(runArgs[0], tc.DeepEquals, theOp)
+	c.Assert(runArgs[1], tc.NotNil)
 }
 
-func (s *LoopSuite) TestRunFails(c *gc.C) {
+func (s *LoopSuite) TestRunFails(c *tc.C) {
 	s.executor.SetErrors(errors.New("run fails"))
 	s.resolver = resolver.ResolverFunc(func(
 		_ resolver.LocalState,
@@ -270,10 +272,10 @@ func (s *LoopSuite) TestRunFails(c *gc.C) {
 		return mockOp{}, nil
 	})
 	_, err := s.loop()
-	c.Assert(err, gc.ErrorMatches, "run fails")
+	c.Assert(err, tc.ErrorMatches, "run fails")
 }
 
-func (s *LoopSuite) TestNextOpFails(c *gc.C) {
+func (s *LoopSuite) TestNextOpFails(c *tc.C) {
 	s.resolver = resolver.ResolverFunc(func(
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
@@ -282,13 +284,13 @@ func (s *LoopSuite) TestNextOpFails(c *gc.C) {
 		return nil, errors.New("NextOp fails")
 	})
 	_, err := s.loop()
-	c.Assert(err, gc.ErrorMatches, "NextOp fails")
+	c.Assert(err, tc.ErrorMatches, "NextOp fails")
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -299,10 +301,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeUpgradeCharmHook(c *gc.C) {
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -318,10 +320,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeSameURL(c *gc.C) {
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Kind: operation.Continue,
 		},
@@ -336,10 +338,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeNotInstalled(c *gc.C) {
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Started:   true,
@@ -357,7 +359,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 	s.testCheckCharmUpgradeDoesNothing(c)
 }
 
-func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
+func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *tc.C) {
 	s.resolver = resolver.ResolverFunc(func(
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
@@ -367,17 +369,17 @@ func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
 	})
 	close(s.abort)
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
-	c.Assert(s.executor.Calls(), gc.HasLen, 3)
+	c.Assert(s.executor.Calls(), tc.HasLen, 3)
 	s.executor.CheckCallNames(c, "State", "State", "State")
 }
 
-func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgrade(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -392,10 +394,10 @@ func (s *LoopSuite) TestCheckCharmUpgrade(c *gc.C) {
 	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Kind:      operation.Continue,
@@ -410,10 +412,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeMissingCharmDir(c *gc.C) {
 	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
 }
 
-func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: false,
 			Kind:      operation.RunHook,
@@ -430,10 +432,10 @@ func (s *LoopSuite) TestCheckCharmInstallMissingCharmDirInstallHookFail(c *gc.C)
 	s.testCheckCharmUpgradeCallsRun(c, "Install")
 }
 
-func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
+func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Installed: true,
 			Started:   true,
@@ -451,10 +453,10 @@ func (s *LoopSuite) TestCheckCharmUpgradeLXDProfile(c *gc.C) {
 	s.testCheckCharmUpgradeCallsRun(c, "Upgrade")
 }
 
-func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
+func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *tc.C, op string) {
 	s.opFactory = &mockOpFactory{
 		Factory: nil,
-		Stub:    envtesting.Stub{},
+		Stub:    testhelpers.Stub{},
 		op:      mockOp{},
 	}
 	s.resolver = resolver.ResolverFunc(func(
@@ -466,20 +468,20 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 	})
 	close(s.abort)
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
+	c.Assert(err, tc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
-	c.Assert(s.executor.Calls(), gc.HasLen, 4)
+	c.Assert(s.executor.Calls(), tc.HasLen, 4)
 	s.executor.CheckCallNames(c, "State", "State", "Run", "State")
 
-	c.Assert(s.opFactory.Calls(), gc.HasLen, 1)
+	c.Assert(s.opFactory.Calls(), tc.HasLen, 1)
 	s.opFactory.CheckCallNames(c, "New"+op)
 }
 
-func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
+func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *tc.C) {
 	s.executor = &mockOpExecutor{
 		Executor: nil,
-		Stub:     envtesting.Stub{},
+		Stub:     testhelpers.Stub{},
 		st: operation.State{
 			Started: true,
 			Kind:    operation.Continue,
@@ -498,10 +500,10 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
 	})
 
 	_, err := s.loop()
-	c.Assert(err, gc.Equals, resolver.ErrRestart)
+	c.Assert(err, tc.Equals, resolver.ErrRestart)
 }
 
-func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
+func waitChannel(c *tc.C, ch <-chan interface{}, activity string) interface{} {
 	select {
 	case v := <-ch:
 		return v

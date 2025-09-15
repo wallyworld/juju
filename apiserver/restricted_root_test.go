@@ -4,13 +4,14 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
 )
 
 type restrictedRootSuite struct {
@@ -18,9 +19,11 @@ type restrictedRootSuite struct {
 	root rpc.Root
 }
 
-var _ = gc.Suite(&restrictedRootSuite{})
+func TestRestrictedRootSuite(t *tctesting.T) {
+	tc.Run(t, &restrictedRootSuite{})
+}
 
-func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
+func (r *restrictedRootSuite) SetUpTest(c *tc.C) {
 	r.BaseSuite.SetUpTest(c)
 	r.root = apiserver.TestingRestrictedRoot(func(facade, method string) error {
 		if facade == "Client" && method == "FullStatus" {
@@ -30,32 +33,32 @@ func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (r *restrictedRootSuite) TestAllowedMethod(c *gc.C) {
+func (r *restrictedRootSuite) TestAllowedMethod(c *tc.C) {
 	caller, err := r.root.FindMethod("Client", 6, "WatchAll")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(caller, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(caller, tc.NotNil)
 }
 
-func (r *restrictedRootSuite) TestDisallowedMethod(c *gc.C) {
+func (r *restrictedRootSuite) TestDisallowedMethod(c *tc.C) {
 	caller, err := r.root.FindMethod("Client", 6, "FullStatus")
-	c.Assert(err, gc.ErrorMatches, "blam")
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "blam")
+	c.Assert(caller, tc.IsNil)
 }
 
-func (r *restrictedRootSuite) TestMethodNonExistentVersion(c *gc.C) {
+func (r *restrictedRootSuite) TestMethodNonExistentVersion(c *tc.C) {
 	caller, err := r.root.FindMethod("Client", 99999999, "WatchAll")
-	c.Assert(err, gc.ErrorMatches, `unknown version .+`)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `unknown version .+`)
+	c.Assert(caller, tc.IsNil)
 }
 
-func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
+func (r *restrictedRootSuite) TestNonExistentFacade(c *tc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
-	c.Assert(err, gc.ErrorMatches, `unknown object type "SomeFacade"`)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `unknown object type "SomeFacade"`)
+	c.Assert(caller, tc.IsNil)
 }
 
-func (r *restrictedRootSuite) TestNonExistentMethod(c *gc.C) {
+func (r *restrictedRootSuite) TestNonExistentMethod(c *tc.C) {
 	caller, err := r.root.FindMethod("Client", 6, "Bar")
-	c.Assert(err, gc.ErrorMatches, `no such request.+`)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `no such request.+`)
+	c.Assert(caller, tc.IsNil)
 }

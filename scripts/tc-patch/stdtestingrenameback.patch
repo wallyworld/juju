@@ -1,0 +1,7 @@
+@@
+var stdtesting, X identifier
+@@
+-import stdtesting "testing"
++import "testing"
+-stdtesting.X
++testing.X

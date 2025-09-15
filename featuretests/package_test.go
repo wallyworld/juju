@@ -6,23 +6,23 @@ package featuretests
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func init() {
 	// Initialize all suites here.
-	gc.Suite(&apiLoggerSuite{})
-	gc.Suite(&dblogSuite{})
-	gc.Suite(&dumpLogsCommandSuite{})
-	gc.Suite(&undertakerSuite{})
-	gc.Suite(&debugLogDbSuite1{})
-	gc.Suite(&debugLogDbSuite2{})
-	gc.Suite(&toolsDownloadSuite{})
-	gc.Suite(&toolsWithMacaroonsSuite{})
-	gc.Suite(&CredentialManagerSuite{})
-	gc.Suite(&ControllerSuite{})
+	tc.Suite(&apiLoggerSuite{})
+	tc.Suite(&dblogSuite{})
+	tc.Suite(&dumpLogsCommandSuite{})
+	tc.Suite(&undertakerSuite{})
+	tc.Suite(&debugLogDbSuite1{})
+	tc.Suite(&debugLogDbSuite2{})
+	tc.Suite(&toolsDownloadSuite{})
+	tc.Suite(&toolsWithMacaroonsSuite{})
+	tc.Suite(&CredentialManagerSuite{})
+	tc.Suite(&ControllerSuite{})
 }
 
 func TestPackage(t *testing.T) {

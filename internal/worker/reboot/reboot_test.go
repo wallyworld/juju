@@ -5,17 +5,18 @@ package reboot_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apireboot "github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/reboot"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -35,9 +36,11 @@ type rebootSuite struct {
 	clock clock.Clock
 }
 
-var _ = gc.Suite(&rebootSuite{})
+func TestRebootSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &rebootSuite{})
+}
 
-func (s *rebootSuite) SetUpTest(c *gc.C) {
+func (s *rebootSuite) SetUpTest(c *tc.C) {
 	var err error
 	template := state.MachineTemplate{
 		Base: state.DefaultLTSBase(),
@@ -47,58 +50,58 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	s.rebootState, err = apireboot.NewFromConnection(s.stateAPI)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.rebootState, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.rebootState, tc.NotNil)
 
 	//Add container
 	s.ct, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.KVM)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.ct.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.ct.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Open api as container
 	ctState := s.OpenAPIAsMachine(c, s.ct.Tag(), password, "fake_nonce")
 	s.ctRebootState, err = apireboot.NewFromConnection(ctState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.ctRebootState, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.ctRebootState, tc.NotNil)
 
 	s.clock = &fakeClock{delay: time.Millisecond}
 }
 
-func (s *rebootSuite) TearDownTest(c *gc.C) {
+func (s *rebootSuite) TearDownTest(c *tc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *rebootSuite) TestStartStop(c *gc.C) {
+func (s *rebootSuite) TestStartStop(c *tc.C) {
 	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
+	c.Assert(worker.Wait(), tc.IsNil)
 }
 
-func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
+func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *tc.C) {
 	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrRebootMachine)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(wrk.Wait(), tc.Equals, worker.ErrRebootMachine)
 	// The flag is cleared.
 	rFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rFlag, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rFlag, tc.IsFalse)
 
 }
 
-func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
+func (s *rebootSuite) TestContainerCatchesParentFlag(c *tc.C) {
 	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), &fakemachinelock{}, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(wrk.Wait(), tc.Equals, worker.ErrShutdownMachine)
 }
 
 type fakeClock struct {

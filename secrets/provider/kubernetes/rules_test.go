@@ -4,22 +4,27 @@
 package kubernetes
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	rbacv1 "k8s.io/api/rbac/v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type rulesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&rulesSuite{})
+func TestRulesSuite(t *tctesting.T) {
+	tc.Run(t, &rulesSuite{})
+}
 
-func (s *rulesSuite) TestRulesForSecretAccessNew(c *gc.C) {
+func (s *rulesSuite) TestRulesForSecretAccessNew(c *tc.C) {
 	owned := []string{"owned-secret-1"}
 	read := []string{"read-secret-1"}
 	newPolicies := rulesForSecretAccess("test", false, nil, owned, read, nil)
-	c.Assert(newPolicies, gc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(newPolicies, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
 			APIGroups: []string{"*"},
@@ -46,11 +51,11 @@ func (s *rulesSuite) TestRulesForSecretAccessNew(c *gc.C) {
 	})
 }
 
-func (s *rulesSuite) TestRulesForSecretAccessControllerModelNew(c *gc.C) {
+func (s *rulesSuite) TestRulesForSecretAccessControllerModelNew(c *tc.C) {
 	owned := []string{"owned-secret-1"}
 	read := []string{"read-secret-1"}
 	newPolicies := rulesForSecretAccess("test", true, nil, owned, read, nil)
-	c.Assert(newPolicies, gc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(newPolicies, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
 			APIGroups: []string{"*"},
@@ -76,7 +81,7 @@ func (s *rulesSuite) TestRulesForSecretAccessControllerModelNew(c *gc.C) {
 	})
 }
 
-func (s *rulesSuite) TestRulesForSecretAccessUpdate(c *gc.C) {
+func (s *rulesSuite) TestRulesForSecretAccessUpdate(c *tc.C) {
 	existing := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
@@ -120,7 +125,7 @@ func (s *rulesSuite) TestRulesForSecretAccessUpdate(c *gc.C) {
 	removed := []string{"removed-owned-secret", "removed-read-secret"}
 
 	newPolicies := rulesForSecretAccess("test", false, existing, owned, read, removed)
-	c.Assert(newPolicies, gc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(newPolicies, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
 			APIGroups: []string{"*"},
@@ -159,7 +164,7 @@ func (s *rulesSuite) TestRulesForSecretAccessUpdate(c *gc.C) {
 	})
 }
 
-func (s *rulesSuite) TestRulesForSecretAccessControllerModelUpdate(c *gc.C) {
+func (s *rulesSuite) TestRulesForSecretAccessControllerModelUpdate(c *tc.C) {
 	existing := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
@@ -202,7 +207,7 @@ func (s *rulesSuite) TestRulesForSecretAccessControllerModelUpdate(c *gc.C) {
 	removed := []string{"removed-owned-secret", "removed-read-secret"}
 
 	newPolicies := rulesForSecretAccess("test", true, existing, owned, read, removed)
-	c.Assert(newPolicies, gc.DeepEquals, []rbacv1.PolicyRule{
+	c.Assert(newPolicies, tc.DeepEquals, []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"create", "patch"},
 			APIGroups: []string{"*"},

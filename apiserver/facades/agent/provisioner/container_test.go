@@ -4,8 +4,9 @@
 package provisioner_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
@@ -19,25 +20,27 @@ type containerProvisionerSuite struct {
 	provisionerSuite
 }
 
-var _ = gc.Suite(&containerProvisionerSuite{})
+func TestContainerProvisionerSuite(t *tctesting.T) {
+	tc.Run(t, &containerProvisionerSuite{})
+}
 
-func (s *containerProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *containerProvisionerSuite) SetUpTest(c *tc.C) {
 	// We have a Controller machine, and 5 other machines to provision in
 	s.setUpTest(c, true)
 }
 
-func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *state.Machine {
+func addContainerToMachine(c *tc.C, st *state.State, machine *state.Machine) *state.Machine {
 	// Add a container machine with machine as its host.
 	containerTemplate := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := st.AddMachineInsideMachine(containerTemplate, machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return container
 }
 
-func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(c *gc.C) {
+func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(c *tc.C) {
 	// Login as a machine agent for machine 1, which has a container put on it
 	addContainerToMachine(c, s.State, s.machines[1])
 	addContainerToMachine(c, s.State, s.machines[1])
@@ -52,8 +55,8 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{
@@ -69,17 +72,17 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		}}}
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.PrepareContainerInterfaceInfo(args)
-	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
+	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errors := make([]*params.Error, 0)
-	c.Check(results.Results, gc.HasLen, 4)
+	c.Check(results.Results, tc.HasLen, 4)
 	for _, configResult := range results.Results {
 		errors = append(errors, configResult.Error)
 	}
-	c.Check(errors, gc.DeepEquals, []*params.Error{
+	c.Check(errors, tc.DeepEquals, []*params.Error{
 		nil,                              // can touch 1/lxd/0
 		nil,                              // can touch 1/lxd/1
 		apiservertesting.ErrUnauthorized, // not 2/lxd/0
@@ -90,7 +93,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 // TODO(jam): Add a test for requesting PrepareContainerInterfaceInfo with a
 // machine that is not yet provisioned.
 
-func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc.C) {
+func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *tc.C) {
 	// Login as a machine agent for machine 1, which has a container put on it
 	addContainerToMachine(c, s.State, s.machines[1])
 	addContainerToMachine(c, s.State, s.machines[1])
@@ -105,8 +108,8 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(aProvisioner, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(aProvisioner, tc.NotNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{{
@@ -122,17 +125,17 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		}}}
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.HostChangesForContainers(args)
-	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
+	c.Assert(err, tc.ErrorMatches, "dummy provider network config not supported")
 	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	errors := make([]*params.Error, 0)
-	c.Check(results.Results, gc.HasLen, 4)
+	c.Check(results.Results, tc.HasLen, 4)
 	for _, configResult := range results.Results {
 		errors = append(errors, configResult.Error)
 	}
-	c.Check(errors, gc.DeepEquals, []*params.Error{
+	c.Check(errors, tc.DeepEquals, []*params.Error{
 		nil,                              // can touch 1/lxd/0
 		nil,                              // can touch 1/lxd/1
 		apiservertesting.ErrUnauthorized, // not 2/lxd/0

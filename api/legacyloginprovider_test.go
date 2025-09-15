@@ -6,30 +6,32 @@ package api_test
 import (
 	"fmt"
 	"net/http"
+	tctesting "testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type legacyLoginProviderSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&legacyLoginProviderSuite{})
+func TestLegacyLoginProviderSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &legacyLoginProviderSuite{})
+}
 
 // TestLegacyProviderLogin verifies that the legacy login provider
 // works for login and returns the password as the token.
-func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
+func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *tc.C) {
 	info := s.APIInfo(c)
 
 	username := names.NewUserTag("admin")
@@ -43,12 +45,12 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer apiState.Close()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
+func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *tc.C) {
 	info := s.APIInfo(c)
 	password := jujutesting.AdminSecret
 
@@ -60,7 +62,7 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
 	}, api.DialOpts{
 		LoginProvider: lp,
 	})
-	c.Assert(err, gc.ErrorMatches, `failed to authenticate request: unauthorized \(unauthorized access\)`)
+	c.Assert(err, tc.ErrorMatches, `failed to authenticate request: unauthorized \(unauthorized access\)`)
 }
 
 // A separate suite for tests that don't need to connect to a controller.
@@ -68,9 +70,11 @@ type legacyLoginProviderBasicSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&legacyLoginProviderBasicSuite{})
+func TestLegacyLoginProviderBasicSuite(t *tctesting.T) {
+	tc.Run(t, &legacyLoginProviderBasicSuite{})
+}
 
-func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *tc.C) {
 	userTag := names.NewUserTag("bob")
 	password := "test-password"
 	nonce := "test-nonce"
@@ -86,11 +90,11 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, header)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, header)
 }
 
-func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c *gc.C) {
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c *tc.C) {
 	password := "test-password"
 	nonce := "test-nonce"
 	header := http.Header{}
@@ -105,6 +109,6 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c
 		nil,
 	)
 	got, err := lp.AuthHeader()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, header)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, header)
 }

@@ -3,16 +3,6 @@
 
 package reboot
 
-import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-)
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 // NewRebootForTest returns a Reboot object to be used for testing.
 func NewRebootForTest(acfg AgentConfig, reboot RebootWaiter) *Reboot {
 	return &Reboot{acfg: acfg, reboot: reboot}

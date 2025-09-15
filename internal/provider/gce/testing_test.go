@@ -8,11 +8,9 @@ import (
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -27,7 +25,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/gce/internal/google"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -98,7 +97,7 @@ func MakeTestCredential() cloud.Credential {
 var InvalidCredentialError = &url.Error{"Get", "testbad.com", errors.New("400 Bad Request")}
 
 type BaseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	ControllerUUID string
 	ModelUUID      string
@@ -114,7 +113,7 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ instances.Instance = (*environInstance)(nil)
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.ControllerUUID = testing.FakeControllerConfig().ControllerUUID()
@@ -145,14 +144,14 @@ func (s *BaseSuite) SetVpcID(env *environ, vpcID *string) {
 	env.ecfg.attrs[vpcIDKey] = *vpcID
 }
 
-func (s *BaseSuite) SetupEnv(c *gc.C, gce *MockComputeService) *environ {
+func (s *BaseSuite) SetupEnv(c *tc.C, gce *MockComputeService) *environ {
 	cfg := s.NewConfig(c, nil)
 	ecfg, err := newConfig(cfg, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.ModelUUID = cfg.UUID()
 
 	ns, err := instance.NewNamespace(cfg.UUID())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	env := &environ{
 		name:      "google",
 		namespace: ns,
@@ -165,17 +164,17 @@ func (s *BaseSuite) SetupEnv(c *gc.C, gce *MockComputeService) *environ {
 	return env
 }
 
-func (s *BaseSuite) SetupMocks(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) SetupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.MockService = NewMockComputeService(ctrl)
-	s.AddCleanup(func(_ *gc.C) {
+	s.AddCleanup(func(_ *tc.C) {
 		s.MockService = nil
 		s.InvalidatedCredentials = false
 	})
 	return ctrl
 }
 
-func (s *BaseSuite) initInst(c *gc.C) {
+func (s *BaseSuite) initInst(c *tc.C) {
 	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 		URL:     "https://example.org",
@@ -186,10 +185,10 @@ func (s *BaseSuite) initInst(c *gc.C) {
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons,
 		jujuversion.DefaultSupportedLTSBase(), "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(tools)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	instanceConfig.Tags = map[string]string{
 		tags.JujuIsController: "true",
@@ -203,13 +202,13 @@ func (s *BaseSuite) initInst(c *gc.C) {
 	}
 }
 
-func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+func (s *BaseSuite) NewConfig(c *tc.C, updates testing.Attrs) *config.Config {
 	var err error
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
@@ -233,9 +232,9 @@ func (s *BaseSuite) NewEnvironInstance(env *environ, id string) *environInstance
 	return newInstance(base, env)
 }
 
-func (s *BaseSuite) GoogleInstance(c *gc.C, inst instances.Instance) *computepb.Instance {
+func (s *BaseSuite) GoogleInstance(c *tc.C, inst instances.Instance) *computepb.Instance {
 	envInst, ok := inst.(*environInstance)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return envInst.base
 }
 

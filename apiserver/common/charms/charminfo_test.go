@@ -4,11 +4,13 @@
 package charms_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/charms"
@@ -21,9 +23,11 @@ import (
 
 type charmInfoSuite struct{}
 
-var _ = gc.Suite(&charmInfoSuite{})
+func TestCharmInfoSuite(t *tctesting.T) {
+	tc.Run(t, &charmInfoSuite{})
+}
 
-func (s *charmInfoSuite) TestBasic(c *gc.C) {
+func (s *charmInfoSuite) TestBasic(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -48,15 +52,15 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(st, authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	charmInfo, err := api.CharmInfo(params.CharmURL{URL: "foo-1"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
-	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
-	c.Check(charmInfo.Meta.Name, gc.Equals, "foo")
+	c.Check(charmInfo.URL, tc.Equals, "ch:foo-1")
+	c.Check(charmInfo.Meta.Name, tc.Equals, "foo")
 }
 
-func (s *charmInfoSuite) TestPermissionDenied(c *gc.C) {
+func (s *charmInfoSuite) TestPermissionDenied(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -74,7 +78,7 @@ func (s *charmInfoSuite) TestPermissionDenied(c *gc.C) {
 
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(st, authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	_, err = api.CharmInfo(params.CharmURL{URL: "foo"})
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

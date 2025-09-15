@@ -9,11 +9,10 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
 )
@@ -21,7 +20,7 @@ import (
 // The metrics hook into the ControllerSuite as it has
 // the base methods we need to enable this cleanly.
 
-func (s *ControllerSuite) TestCollect(c *gc.C) {
+func (s *ControllerSuite) TestCollect(c *tc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	controller, events := s.New(c)
 
@@ -55,14 +54,14 @@ juju_cache_units{agent_status="active",base="ubuntu@18.04",life="alive",workload
 		"juju_cache_machines",
 		"juju_cache_applications",
 		"juju_cache_units")
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)
 	}
 
 	workertest.CleanKill(c, controller)
 }
 
-func (s *ControllerSuite) TestCollectIsolation(c *gc.C) {
+func (s *ControllerSuite) TestCollectIsolation(c *tc.C) {
 	controller, events := s.New(c)
 
 	// Populate the cache with 10 models so the collect takes
@@ -93,7 +92,7 @@ juju_cache_models{life="alive",status="active"} 10
 				err := testutil.CollectAndCompare(
 					collector, expectedBuff,
 					"juju_cache_models")
-				if !c.Check(err, jc.ErrorIsNil) {
+				if !c.Check(err, tc.ErrorIsNil) {
 					c.Logf("%d,%d:\nerror:\n%v", loop, i, err)
 				}
 			}

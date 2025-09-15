@@ -7,10 +7,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
+	tctesting "testing"
 
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 	"github.com/juju/juju/pki"
@@ -22,17 +22,19 @@ type ServerSuite struct {
 	client    *http.Client
 }
 
-var _ = gc.Suite(&ServerSuite{})
+func TestServerSuite(t *tctesting.T) {
+	tc.Run(t, &ServerSuite{})
+}
 
-func (s *ServerSuite) SetUpSuite(c *gc.C) {
+func (s *ServerSuite) SetUpSuite(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	_, err = s.authority.LeafRequestForGroup(pki.DefaultLeafGroup).
 		AddDNSNames("localhost").
 		Commit()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	certPool := x509.NewCertPool()
 	certPool.AddCert(s.authority.Certificate())
@@ -47,30 +49,30 @@ func (s *ServerSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *ServerSuite) TestNoRouteHTTPServer(c *gc.C) {
+func (s *ServerSuite) TestNoRouteHTTPServer(c *tc.C) {
 	server, err := muxhttpserver.NewServer(
 		s.authority, loggo.Logger{}, muxhttpserver.Config{
 			Address: "localhost",
 			Port:    "0",
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := s.client.Get("https://localhost:" + server.Port())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	server.Kill()
 	err = server.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ServerSuite) TestRouteHandlerCalled(c *gc.C) {
+func (s *ServerSuite) TestRouteHandlerCalled(c *tc.C) {
 	server, err := muxhttpserver.NewServer(
 		s.authority, loggo.Logger{}, muxhttpserver.Config{
 			Address: "localhost",
 			Port:    "0",
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handlerCalled := false
 	server.Mux.AddHandler(http.MethodGet, "/test",
@@ -79,11 +81,11 @@ func (s *ServerSuite) TestRouteHandlerCalled(c *gc.C) {
 		}))
 
 	resp, err := s.client.Get("https://localhost:" + server.Port() + "/test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Assert(handlerCalled, gc.Equals, true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+	c.Assert(handlerCalled, tc.Equals, true)
 
 	server.Kill()
 	err = server.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

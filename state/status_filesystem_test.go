@@ -4,12 +4,13 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type FilesystemStatusSuite struct {
@@ -18,9 +19,11 @@ type FilesystemStatusSuite struct {
 	filesystem state.Filesystem
 }
 
-var _ = gc.Suite(&FilesystemStatusSuite{})
+func TestFilesystemStatusSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &FilesystemStatusSuite{})
+}
 
-func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
+func (s *FilesystemStatusSuite) SetUpTest(c *tc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -32,33 +35,33 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	filesystemAttachments, err := s.storageBackend.MachineFilesystemAttachments(machine.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystemAttachments, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(filesystemAttachments, tc.HasLen, 1)
 
 	filesystem, err := s.storageBackend.Filesystem(filesystemAttachments[0].Filesystem())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.machine = machine
 	s.filesystem = filesystem
 }
 
-func (s *FilesystemStatusSuite) TestInitialStatus(c *gc.C) {
+func (s *FilesystemStatusSuite) TestInitialStatus(c *tc.C) {
 	s.checkInitialStatus(c)
 }
 
-func (s *FilesystemStatusSuite) checkInitialStatus(c *gc.C) {
+func (s *FilesystemStatusSuite) checkInitialStatus(c *tc.C) {
 	statusInfo, err := s.filesystem.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Pending)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Pending)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
+func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
@@ -66,12 +69,12 @@ func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
+func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
@@ -79,12 +82,12 @@ func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
+	c.Assert(err, tc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
+func (s *FilesystemStatusSuite) TestSetOverwritesData(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
@@ -95,16 +98,16 @@ func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
 		Since: &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusAlive(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusAlive(c *tc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
+func (s *FilesystemStatusSuite) checkGetSetStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
@@ -117,41 +120,41 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 		Since: &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statusInfo, err := filesystem.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Attaching)
-	c.Check(statusInfo.Message, gc.Equals, "blah")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Attaching)
+	c.Check(statusInfo.Message, tc.Equals, "blah")
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
 			"pew.pew": "zap",
 		},
 	})
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusDying(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusDying(c *tc.C) {
 	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *tc.C) {
 	err := s.storageBackend.DestroyFilesystem(s.filesystem.FilesystemTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.storageBackend.DetachFilesystem(s.machine.MachineTag(), s.filesystem.FilesystemTag())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.storageBackend.RemoveFilesystemAttachment(s.machine.MachineTag(), s.filesystem.FilesystemTag(), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	filesystem, err := s.storageBackend.Filesystem(s.filesystem.FilesystemTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystem.Life(), gc.Equals, state.Dead)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(filesystem.Life(), tc.Equals, state.Dead)
 
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
@@ -159,7 +162,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *tc.C) {
 	s.obliterateFilesystem(c, s.filesystem.FilesystemTag())
 
 	now := testing.ZeroTime()
@@ -169,14 +172,14 @@ func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: filesystem not found`)
+	c.Check(err, tc.ErrorMatches, `cannot set status: filesystem not found`)
 
 	statusInfo, err := s.filesystem.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: filesystem not found`)
-	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
+	c.Check(err, tc.ErrorMatches, `cannot get status: filesystem not found`)
+	c.Check(statusInfo, tc.DeepEquals, status.StatusInfo{})
 }
 
-func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
+func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -184,14 +187,14 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.filesystem.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
+func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *tc.C) {
 	err := s.storageBackend.SetFilesystemInfo(s.filesystem.FilesystemTag(), state.FilesystemInfo{
 		FilesystemId: "fs-id",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -199,5 +202,5 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.filesystem.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "pending"`)
 }

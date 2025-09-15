@@ -5,12 +5,11 @@ package equinix
 
 import (
 	"net/http"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/packethost/packngo"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -18,17 +17,20 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/equinix/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type networkSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	provider environs.EnvironProvider
 	spec     environscloudspec.CloudSpec
 }
 
-var _ = gc.Suite(&networkSuite{})
+func TestNetworkSuite(t *tctesting.T) {
+	tc.Run(t, &networkSuite{})
+}
 
-func (s *networkSuite) SetUpTest(c *gc.C) {
+func (s *networkSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.provider = NewProvider()
 	s.spec = environscloudspec.CloudSpec{
@@ -40,7 +42,7 @@ func (s *networkSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *networkSuite) TestListIPsByProjectIDAndRegion(c *gc.C) {
+func (s *networkSuite) TestListIPsByProjectIDAndRegion(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	projectIP := mocks.NewMockProjectIPService(cntrl)
 	projectIP.EXPECT().List(gomock.Eq("12345c2a-6789-4d4f-a3c4-7367d6b7cca8"), &packngo.ListOptions{
@@ -103,15 +105,15 @@ func (s *networkSuite) TestListIPsByProjectIDAndRegion(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	netEnviron, _ := env.(*environ)
 	ips, err := netEnviron.listIPsByProjectIDAndRegion("12345c2a-6789-4d4f-a3c4-7367d6b7cca8", netEnviron.cloud.Region)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(ips), jc.DeepEquals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(ips), tc.DeepEquals, 1)
 }
 
-func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
+func (s *networkSuite) TestNetworkInterfaces(c *tc.C) {
 	cntrl := gomock.NewController(c)
 	defer cntrl.Finish()
 	device := mocks.NewMockDeviceService(cntrl)
@@ -306,11 +308,11 @@ func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 	netEnviron, ok := env.(environs.NetworkingEnviron)
-	c.Assert(ok, jc.IsTrue, gc.Commentf("expected environ to implement environs.Networking"))
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected environ to implement environs.Networking"))
 	ii, err := netEnviron.NetworkInterfaces(&context.CloudCallContext{}, []instance.Id{"100"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(ii[0]), jc.DeepEquals, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(ii[0]), tc.DeepEquals, 3)
 }

@@ -4,21 +4,24 @@
 package model_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ModelSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ModelSuite{})
+func TestModelSuite(t *tctesting.T) {
+	tc.Run(t, &ModelSuite{})
+}
 
-func (*ModelSuite) TestValidateBranchName(c *gc.C) {
+func (*ModelSuite) TestValidateBranchName(c *tc.C) {
 	for _, t := range []struct {
 		branchName string
 		valid      bool
@@ -29,9 +32,9 @@ func (*ModelSuite) TestValidateBranchName(c *gc.C) {
 	} {
 		err := model.ValidateBranchName(t.branchName)
 		if t.valid {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(err, tc.Satisfies, errors.IsNotValid)
 		}
 	}
 }

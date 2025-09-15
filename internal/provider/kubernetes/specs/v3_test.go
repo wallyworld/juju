@@ -7,9 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -24,20 +24,22 @@ import (
 
 	"github.com/juju/juju/caas/specs"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type v3SpecsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&v3SpecsSuite{})
+func TestV3SpecsSuite(t *tctesting.T) {
+	tc.Run(t, &v3SpecsSuite{})
+}
 
 var version3Header = `
 version: 3
 `[1:]
 
-func (s *v3SpecsSuite) TestParse(c *gc.C) {
+func (s *v3SpecsSuite) TestParse(c *tc.C) {
 
 	specStrBase := version3Header + `
 containers:
@@ -881,7 +883,7 @@ echo "do some stuff here for gitlab-init container"
 		}
 		webhookRuleWithOperations1.Rule = webhookRule1
 		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
 		webhook1 := admissionregistrationv1beta1.MutatingWebhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
@@ -1231,11 +1233,11 @@ password: shhhh`[1:],
 	}
 
 	spec, err := k8sspecs.ParsePodSpec(specStrBase)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(spec, tc.DeepEquals, getExpectedPodSpecBase())
 }
 
-func (s *v3SpecsSuite) TestValidateServices(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateServices(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1257,20 +1259,20 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `name is missing`)
+	c.Assert(err, tc.ErrorMatches, `name is missing`)
 }
 
-func (s *v3SpecsSuite) TestValidateMissingContainers(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingContainers(c *tc.C) {
 
 	specStr := version3Header + `
 containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
+	c.Assert(err, tc.ErrorMatches, "require at least one container spec")
 }
 
-func (s *v3SpecsSuite) TestValidateMissingName(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingName(c *tc.C) {
 
 	specStr := version3Header + `
 containers:
@@ -1278,10 +1280,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec name is missing")
+	c.Assert(err, tc.ErrorMatches, "spec name is missing")
 }
 
-func (s *v3SpecsSuite) TestValidateMissingImage(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingImage(c *tc.C) {
 
 	specStr := version3Header + `
 containers:
@@ -1289,10 +1291,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
+	c.Assert(err, tc.ErrorMatches, "spec image details is missing")
 }
 
-func (s *v3SpecsSuite) TestValidateFileSetPath(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateFileSetPath(c *tc.C) {
 
 	specStr := version3Header + `
 containers:
@@ -1308,10 +1310,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
+	c.Assert(err, tc.ErrorMatches, `file set name is missing`)
 }
 
-func (s *v3SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingMountPath(c *tc.C) {
 
 	specStr := version3Header + `
 containers:
@@ -1328,10 +1330,10 @@ containers:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
+	c.Assert(err, tc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-func (s *v3SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1344,10 +1346,10 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `invalid primary service account: roles is required`)
+	c.Assert(err, tc.ErrorMatches, `invalid primary service account: roles is required`)
 }
 
-func (s *v3SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateCustomResourceDefinitions(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1390,7 +1392,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
+	c.Assert(err, tc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 
 	specStr = version3Header + `
 containers:
@@ -1438,10 +1440,10 @@ kubernetesResources:
 `[1:]
 
 	_, err = k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
+	c.Assert(err, tc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
-func (s *v3SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMutatingWebhookConfigurations(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1455,10 +1457,10 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
 }
 
-func (s *v3SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateValidatingWebhookConfigurations(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1472,10 +1474,10 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
+	c.Assert(err, tc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
 }
 
-func (s *v3SpecsSuite) TestValidateIngressResources(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateIngressResources(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -1500,7 +1502,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `name is missing`)
+	c.Assert(err, tc.ErrorMatches, `name is missing`)
 
 	specStr = version3Header + `
 containers:
@@ -1527,10 +1529,10 @@ kubernetesResources:
 `[1:]
 
 	_, err = k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
+	c.Assert(err, tc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
-func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
+func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *tc.C) {
 	primeSA := specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 			AutomountServiceAccountToken: pointer.BoolPtr(true),
@@ -1549,15 +1551,15 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(primeSA.Validate(), jc.ErrorIsNil)
+	c.Assert(primeSA.Validate(), tc.ErrorIsNil)
 	primeSA.SetName("test-app-rbac")
-	c.Assert(primeSA.Validate(), jc.ErrorIsNil)
-	c.Assert(primeSA.GetName(), gc.DeepEquals, "test-app-rbac")
+	c.Assert(primeSA.Validate(), tc.ErrorIsNil)
+	c.Assert(primeSA.GetName(), tc.DeepEquals, "test-app-rbac")
 
 	sa, err := k8sspecs.PrimeServiceAccountToK8sRBACResources(primeSA)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Validate(), jc.ErrorIsNil)
-	c.Assert(sa, gc.DeepEquals, &k8sspecs.K8sRBACResources{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sa.Validate(), tc.ErrorIsNil)
+	c.Assert(sa, tc.DeepEquals, &k8sspecs.K8sRBACResources{
 		ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
 			{
 				Name: "test-app-rbac",
@@ -1582,7 +1584,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
 	})
 }
 
-func (s *v3SpecsSuite) TestPrimeServiceAccountValidate(c *gc.C) {
+func (s *v3SpecsSuite) TestPrimeServiceAccountValidate(c *tc.C) {
 	primeSA := specs.PrimeServiceAccountSpecV3{
 		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 			AutomountServiceAccountToken: pointer.BoolPtr(true),
@@ -1612,7 +1614,7 @@ func (s *v3SpecsSuite) TestPrimeServiceAccountValidate(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(primeSA.Validate(), gc.ErrorMatches, "invalid primary service account: either all or none of the roles should have a name set")
+	c.Assert(primeSA.Validate(), tc.ErrorMatches, "invalid primary service account: either all or none of the roles should have a name set")
 }
 
 type tcK8sRBACResources struct {
@@ -1620,8 +1622,8 @@ type tcK8sRBACResources struct {
 	ErrStr string
 }
 
-func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
-	for i, tc := range []tcK8sRBACResources{
+func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *tc.C) {
+	for i, testcase := range []tcK8sRBACResources{
 		{
 			Spec: k8sspecs.K8sRBACResources{
 				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
@@ -1740,11 +1742,11 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 		},
 	} {
 		c.Logf("checking K8sRBACResources Validate %d", i)
-		c.Check(tc.Spec.Validate(), gc.ErrorMatches, tc.ErrStr)
+		c.Check(testcase.Spec.Validate(), tc.ErrorMatches, testcase.ErrStr)
 	}
 }
 
-func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
+func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *tc.C) {
 	namespace := "test"
 	appName := "app-name"
 	annotations := map[string]string{
@@ -1898,7 +1900,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(rbacResource.Validate(), jc.ErrorIsNil)
+	c.Assert(rbacResource.Validate(), tc.ErrorIsNil)
 	serviceAccounts, roles, clusterroles, roleBindings, clusterRoleBindings := rbacResource.ToK8s(
 		getSAMeta,
 		getRoleMeta,
@@ -1906,7 +1908,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		getBindingMeta,
 		getClusterBindingMeta,
 	)
-	c.Assert(serviceAccounts, gc.DeepEquals, []core.ServiceAccount{
+	c.Assert(serviceAccounts, tc.DeepEquals, []core.ServiceAccount{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "sa1",
@@ -1925,7 +1927,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(roles, gc.DeepEquals, []rbacv1.Role{
+	c.Assert(roles, tc.DeepEquals, []rbacv1.Role{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "role1",
@@ -1972,7 +1974,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(clusterroles, gc.DeepEquals, []rbacv1.ClusterRole{
+	c.Assert(clusterroles, tc.DeepEquals, []rbacv1.ClusterRole{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "test-cluster-role2",
@@ -2034,7 +2036,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(roleBindings, gc.DeepEquals, []rbacv1.RoleBinding{
+	c.Assert(roleBindings, tc.DeepEquals, []rbacv1.RoleBinding{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "sa1-role1",
@@ -2093,7 +2095,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(clusterRoleBindings, gc.DeepEquals, []rbacv1.ClusterRoleBinding{
+	c.Assert(clusterRoleBindings, tc.DeepEquals, []rbacv1.ClusterRoleBinding{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "sa1-test-cluster-role2",
@@ -2173,7 +2175,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 	})
 }
 
-func (s *v3SpecsSuite) TestUnknownFieldError(c *gc.C) {
+func (s *v3SpecsSuite) TestUnknownFieldError(c *tc.C) {
 	specStr := version3Header + `
 containers:
   - name: gitlab-helper
@@ -2185,5 +2187,5 @@ bar: a-bad-guy
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
+	c.Assert(err, tc.ErrorMatches, `json: unknown field "bar"`)
 }

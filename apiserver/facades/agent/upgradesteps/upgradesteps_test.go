@@ -4,12 +4,13 @@
 package upgradesteps_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
@@ -17,9 +18,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type upgradeStepsSuite struct {
@@ -40,15 +41,17 @@ type machineUpgradeStepsSuite struct {
 	machine *mocks.MockMachine
 }
 
-var _ = gc.Suite(&machineUpgradeStepsSuite{})
+func TestMachineUpgradeStepsSuite(t *tctesting.T) {
+	tc.Run(t, &machineUpgradeStepsSuite{})
+}
 
-func (s *machineUpgradeStepsSuite) SetUpTest(c *gc.C) {
+func (s *machineUpgradeStepsSuite) SetUpTest(c *tc.C) {
 	s.tag = names.NewMachineTag("0/kvm/0")
 	s.arg = params.Entity{Tag: s.tag.String()}
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *gc.C) {
+func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectContainerType(instance.KVM)
@@ -58,11 +61,11 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *
 	s.setupFacadeAPI(c)
 
 	result, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
 }
 
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetError(c *gc.C) {
+func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectContainerType(instance.KVM)
@@ -72,8 +75,8 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetE
 	s.setupFacadeAPI(c)
 
 	result, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Message: "testing not found",
 			Code:    "not found",
@@ -81,7 +84,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetE
 	})
 }
 
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMIdle(c *gc.C) {
+func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMIdle(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectContainerType(instance.KVM)
@@ -90,10 +93,10 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMI
 	s.setupFacadeAPI(c)
 
 	_, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleLXD(c *gc.C) {
+func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleLXD(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectContainerType(instance.LXD)
@@ -101,7 +104,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleLXD(
 	s.setupFacadeAPI(c)
 
 	_, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type unitUpgradeStepsSuite struct {
@@ -112,15 +115,17 @@ type unitUpgradeStepsSuite struct {
 	unit2 *mocks.MockUnit
 }
 
-var _ = gc.Suite(&unitUpgradeStepsSuite{})
+func TestUnitUpgradeStepsSuite(t *tctesting.T) {
+	tc.Run(t, &unitUpgradeStepsSuite{})
+}
 
-func (s *unitUpgradeStepsSuite) SetUpTest(c *gc.C) {
+func (s *unitUpgradeStepsSuite) SetUpTest(c *tc.C) {
 	s.tag1 = names.NewUnitTag("ubuntu/0")
 	s.tag2 = names.NewUnitTag("ubuntu/1")
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *unitUpgradeStepsSuite) TestWriteAgentState(c *gc.C) {
+func (s *unitUpgradeStepsSuite) TestWriteAgentState(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectSetAndApplyStateOperation(nil, nil)
@@ -136,11 +141,11 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 	}
 
 	results, err := s.api.WriteAgentState(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
 }
 
-func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
+func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectSetAndApplyStateOperation(nil, errors.NotFoundf("testing"))
@@ -156,8 +161,8 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 	}
 
 	results, err := s.api.WriteAgentState(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
 		{},
 		{
 			Error: &params.Error{
@@ -167,7 +172,7 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 		}}})
 }
 
-func (s *upgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *upgradeStepsSuite) setup(c *tc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctlr)
@@ -184,13 +189,13 @@ func (s *upgradeStepsSuite) expectAuthCalls() {
 	aExp.AuthController().Return(true).AnyTimes()
 }
 
-func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
+func (s *upgradeStepsSuite) setupFacadeAPI(c *tc.C) {
 	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.api = api
 }
 
-func (s *machineUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *machineUpgradeStepsSuite) setup(c *tc.C) *gomock.Controller {
 	ctlr := s.upgradeStepsSuite.setup(c)
 	s.machine = mocks.NewMockMachine(ctlr)
 
@@ -233,7 +238,7 @@ func (s *machineUpgradeStepsSuite) expectSetModificationStatus(err error) {
 	}).Return(err)
 }
 
-func (s *unitUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
+func (s *unitUpgradeStepsSuite) setup(c *tc.C) *gomock.Controller {
 	ctlr := s.upgradeStepsSuite.setup(c)
 	s.unit1 = mocks.NewMockUnit(ctlr)
 	s.unit2 = mocks.NewMockUnit(ctlr)

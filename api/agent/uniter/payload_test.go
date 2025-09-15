@@ -4,34 +4,37 @@
 package uniter_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type clientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub    *testing.Stub
+	stub    *testhelpers.Stub
 	facade  *stubFacade
 	payload params.Payload
 }
 
-var _ = gc.Suite(&clientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	tc.Run(t, &clientSuite{})
+}
 
-func (s *clientSuite) SetUpTest(c *gc.C) {
+func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.facade.methods = &unitMethods{}
 	s.payload = params.Payload{
@@ -43,15 +46,15 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 
 }
 
-func (s *clientSuite) TestTrack(c *gc.C) {
+func (s *clientSuite) TestTrack(c *tc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	numStubCalls := 0
 	s.facade.FacadeCallFn = func(name string, args, response interface{}) error {
 		numStubCalls++
-		c.Check(name, gc.Equals, "Track")
+		c.Check(name, tc.Equals, "Track")
 
 		typedResponse, ok := response.(*params.PayloadResults)
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, tc.Equals, true)
 		typedResponse.Results = []params.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
@@ -66,12 +69,12 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 
 	pl, err := api.API2Payload(s.payload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := pclient.Track(pl.Payload)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Check(numStubCalls, tc.Equals, 1)
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
@@ -79,7 +82,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 	}})
 }
 
-func (s *clientSuite) TestList(c *gc.C) {
+func (s *clientSuite) TestList(c *tc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
 		&params.PayloadResults{
@@ -108,17 +111,17 @@ func (s *clientSuite) TestList(c *gc.C) {
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 
 	results, err := pclient.List("idfoo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	expected, err := api.API2Payload(s.payload)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  &expected,
 		NotFound: false,
 		Error:    nil,
 	}})
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "LookUp",
 		Args: []interface{}{
 			&params.LookUpPayloadArgs{
@@ -142,7 +145,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 	}})
 }
 
-func (s *clientSuite) TestLookUpOkay(c *gc.C) {
+func (s *clientSuite) TestLookUpOkay(c *tc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	response := &params.PayloadResults{
 		Results: []params.PayloadResult{{
@@ -158,15 +161,15 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "LookUp",
 		Args: []interface{}{
 			&params.LookUpPayloadArgs{
@@ -180,7 +183,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	}})
 }
 
-func (s *clientSuite) TestLookUpMulti(c *gc.C) {
+func (s *clientSuite) TestLookUpMulti(c *tc.C) {
 	id1 := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	id2 := "ce5bc2a7-65d8-4800-8199-a7c3356ab311"
 	response := &params.PayloadResults{
@@ -211,12 +214,12 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, gc.HasLen, 3)
-	c.Assert(results[1].Error, gc.NotNil)
+	c.Assert(results, tc.HasLen, 3)
+	c.Assert(results[1].Error, tc.NotNil)
 	results[1].Error = nil
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id1,
 		Payload:  nil,
 		NotFound: false,
@@ -232,7 +235,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 		NotFound: false,
 		Error:    nil,
 	}})
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "LookUp",
 		Args: []interface{}{
 			&params.LookUpPayloadArgs{
@@ -252,7 +255,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	}})
 }
 
-func (s *clientSuite) TestSetStatus(c *gc.C) {
+func (s *clientSuite) TestSetStatus(c *tc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
 		&params.PayloadResults{
@@ -280,15 +283,15 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.SetStatus(payloads.StateRunning, "idfoo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "LookUp",
 		Args: []interface{}{
 			&params.LookUpPayloadArgs{
@@ -315,7 +318,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	}})
 }
 
-func (s *clientSuite) TestUntrack(c *gc.C) {
+func (s *clientSuite) TestUntrack(c *tc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	responses := []interface{}{
 		&params.PayloadResults{
@@ -343,15 +346,15 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 	results, err := pclient.Untrack("idfoo/bar")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []payloads.Result{{
+	c.Check(results, tc.DeepEquals, []payloads.Result{{
 		ID:       id,
 		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "LookUp",
 		Args: []interface{}{
 			&params.LookUpPayloadArgs{
@@ -381,7 +384,7 @@ type apiMethods interface {
 
 type stubFacade struct {
 	base.APICaller
-	stub      *testing.Stub
+	stub      *testhelpers.Stub
 	responses []interface{}
 	methods   apiMethods
 

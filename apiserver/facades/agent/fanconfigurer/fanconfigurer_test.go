@@ -4,13 +4,12 @@
 package fanconfigurer_test
 
 import (
-	"context"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
@@ -19,17 +18,19 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type fanconfigurerSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&fanconfigurerSuite{})
+func TestFanconfigurerSuite(t *tctesting.T) {
+	tc.Run(t, &fanconfigurerSuite{})
+}
 
 type fakeModelAccessor struct {
 	modelConfig      *config.Config
@@ -47,50 +48,50 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 	return f.modelConfig, nil
 }
 
-func (s *fanconfigurerSuite) TearDownTest(c *gc.C) {
+func (s *fanconfigurerSuite) TearDownTest(c *tc.C) {
 	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
+func (s *fanconfigurerSuite) TestWatchSuccess(c *tc.C) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{},
 		resources,
 		authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := e.WatchForFanConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(resources.Count(), tc.Equals, 1)
 }
 
-func (s *fanconfigurerSuite) TestWatchAuthFailed(c *gc.C) {
+func (s *fanconfigurerSuite) TestWatchAuthFailed(c *tc.C) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("vito"),
 	}
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	_, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{},
 		resources,
 		authorizer,
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
+func (s *fanconfigurerSuite) TestFanConfigSuccess(c *tc.C) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	testingEnvConfig := testingEnvConfig(c)
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{
@@ -99,23 +100,23 @@ func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
 		resources,
 		authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := e.FanConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Fans, gc.HasLen, 2)
-	c.Check(result.Fans[0].Underlay, gc.Equals, "10.100.0.0/16")
-	c.Check(result.Fans[0].Overlay, gc.Equals, "251.0.0.0/8")
-	c.Check(result.Fans[1].Underlay, gc.Equals, "192.168.0.0/16")
-	c.Check(result.Fans[1].Overlay, gc.Equals, "252.0.0.0/8")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Fans, tc.HasLen, 2)
+	c.Check(result.Fans[0].Underlay, tc.Equals, "10.100.0.0/16")
+	c.Check(result.Fans[0].Overlay, tc.Equals, "251.0.0.0/8")
+	c.Check(result.Fans[1].Underlay, tc.Equals, "192.168.0.0/16")
+	c.Check(result.Fans[1].Overlay, tc.Equals, "252.0.0.0/8")
 }
 
-func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
+func (s *fanconfigurerSuite) TestFanConfigFetchError(c *tc.C) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { resources.StopAll() })
 	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{
 			modelConfigError: fmt.Errorf("pow"),
@@ -123,15 +124,15 @@ func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
 		nil,
 		authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = e.FanConfig()
-	c.Assert(err, gc.ErrorMatches, "pow")
+	c.Assert(err, tc.ErrorMatches, "pow")
 }
 
-func testingEnvConfig(c *gc.C) *config.Config {
+func testingEnvConfig(c *tc.C) *config.Config {
 	env, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(context.Background(), cmdtesting.Context(c)),
+		modelcmd.BootstrapContext(c.Context(), cmdtesting.Context(c)),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -141,6 +142,6 @@ func testingEnvConfig(c *gc.C) *config.Config {
 			AdminSecret:      "admin-secret",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env.Config()
 }

@@ -4,16 +4,8 @@
 package sshclient
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/api/base"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func NewFacadeFromCaller(caller base.FacadeCaller) *Facade {
 	return &Facade{

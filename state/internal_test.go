@@ -5,28 +5,30 @@ package state
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&internalStateSuite{})
+func TestInternalStateSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &internalStateSuite{})
+}
 
 // internalStateSuite manages a *State instance for tests in the state
 // package (i.e. internal tests) that need it. It is similar to
@@ -41,17 +43,17 @@ type internalStateSuite struct {
 	modelCount int
 }
 
-func (s *internalStateSuite) SetUpSuite(c *gc.C) {
+func (s *internalStateSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *internalStateSuite) TearDownSuite(c *gc.C) {
+func (s *internalStateSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *internalStateSuite) SetUpTest(c *gc.C) {
+func (s *internalStateSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
@@ -90,23 +92,23 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			return internalStatePolicy{}
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.controller = ctlr
 	s.pool = ctlr.StatePool()
 	s.state, err = ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) {
 		// Controller closes pool, pool closes all states.
 		s.controller.Close()
 	})
 }
 
-func (s *internalStateSuite) TearDownTest(c *gc.C) {
+func (s *internalStateSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *internalStateSuite) newState(c *gc.C) *State {
+func (s *internalStateSuite) newState(c *tc.C) *State {
 	s.modelCount++
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
@@ -123,12 +125,12 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 			provider.CommonStorageProviders(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { st.Close() })
 	return st
 }
 
-func (s *internalStateSuite) newCAASState(c *gc.C) *State {
+func (s *internalStateSuite) newCAASState(c *tc.C) *State {
 	s.modelCount++
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
@@ -145,8 +147,8 @@ func (s *internalStateSuite) newCAASState(c *gc.C) *State {
 			provider.CommonStorageProviders(),
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { st.Close() })
 	return st
 }
 

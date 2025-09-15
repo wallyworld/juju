@@ -6,8 +6,7 @@ package testing
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -25,7 +24,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -70,27 +69,27 @@ func WaitInstanceAddresses(
 // controller instance with a plausible but invalid configuration, and
 // checks that it succeeds.
 func AssertStartControllerInstance(
-	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
+	c *tc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
 	err := FillInStartInstanceParams(env, machineId, true, &params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := env.StartInstance(ctx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return result.Instance, result.Hardware
 }
 
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(
-	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
+	c *tc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstance(env, ctx, controllerUUID, machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
 
@@ -108,13 +107,13 @@ func StartInstance(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func AssertStartInstanceWithConstraints(
-	c *gc.C, env environs.Environ, ctx context.ProviderCallContext,
+	c *tc.C, env environs.Environ, ctx context.ProviderCallContext,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instances.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, cons)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return inst, hc
 }
 

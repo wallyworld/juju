@@ -4,22 +4,25 @@
 package resources_test
 
 import (
+	tctesting "testing"
+
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type ServiceResourcesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ServiceResourcesSuite{})
+func TestServiceResourcesSuite(t *tctesting.T) {
+	tc.Run(t, &ServiceResourcesSuite{})
+}
 
-func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *gc.C) {
+func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *tc.C) {
 	csRes := newStoreResource(c, "spam", "a-application", 2)
 	res := csRes // a copy
 	res.Origin = charmresource.OriginUpload
@@ -33,12 +36,12 @@ func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *gc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, gc.HasLen, 0)
+	c.Check(updates, tc.HasLen, 0)
 }
 
-func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *gc.C) {
+func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *tc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
@@ -55,12 +58,12 @@ func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *gc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
+	c.Check(updates, tc.DeepEquals, []charmresource.Resource{expected})
 }
 
-func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
+func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *tc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
@@ -77,12 +80,12 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, jc.DeepEquals, []charmresource.Resource{expected})
+	c.Check(updates, tc.DeepEquals, []charmresource.Resource{expected})
 }
 
-func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
+func (s *ServiceResourcesSuite) TestUpdatesNone(c *tc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	sr := resources.ApplicationResources{
@@ -97,18 +100,18 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	}
 
 	updates, err := sr.Updates()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(updates, gc.HasLen, 0)
+	c.Check(updates, tc.HasLen, 0)
 }
 
-func newStoreResource(c *gc.C, name, applicationID string, revision int) resources.Resource {
+func newStoreResource(c *tc.C, name, applicationID string, revision int) resources.Resource {
 	content := name
 	opened := resourcetesting.NewResource(c, nil, name, applicationID, content)
 	res := opened.Resource
 	res.Origin = charmresource.OriginStore
 	res.Revision = revision
 	err := res.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return res
 }

@@ -6,10 +6,10 @@ package bundle_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
@@ -24,7 +24,7 @@ func (c *mockCharm) Config() *charm.Config {
 }
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	bundle.Backend
 	model  description.Model
 	charm  *mockCharm
@@ -72,7 +72,7 @@ func (m *mockState) Space(_ string) (*state.Space, error) {
 
 func newMockState() *mockState {
 	st := &mockState{
-		Stub: testing.Stub{},
+		Stub: testhelpers.Stub{},
 	}
 	st.Spaces = make(map[string]string)
 	return st

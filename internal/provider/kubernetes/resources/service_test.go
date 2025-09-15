@@ -5,11 +5,11 @@ package resources_test
 
 import (
 	"context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,15 +26,17 @@ type serviceSuite struct {
 	serviceClient v1.ServiceInterface
 }
 
-var _ = gc.Suite(&serviceSuite{})
+func TestServiceSuite(t *tctesting.T) {
+	tc.Run(t, &serviceSuite{})
+}
 
-func (s *serviceSuite) SetUpTest(c *gc.C) {
+func (s *serviceSuite) SetUpTest(c *tc.C) {
 	s.resourceSuite.SetUpTest(c)
 	s.namespace = "ns1"
 	s.serviceClient = s.client.CoreV1().Services(s.namespace)
 }
 
-func (s *serviceSuite) TestApply(c *gc.C) {
+func (s *serviceSuite) TestApply(c *tc.C) {
 	ds := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -43,24 +45,24 @@ func (s *serviceSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	dsResource := resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
 	result, err := s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	ds.SetAnnotations(map[string]string{"a": "b"})
 	dsResource = resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", ds)
-	c.Assert(dsResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(dsResource.Apply(context.TODO()), tc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `ds1`)
-	c.Assert(result.GetNamespace(), gc.Equals, `test`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `ds1`)
+	c.Assert(result.GetNamespace(), tc.Equals, `test`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *serviceSuite) TestGet(c *gc.C) {
+func (s *serviceSuite) TestGet(c *tc.C) {
 	template := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -70,18 +72,18 @@ func (s *serviceSuite) TestGet(c *gc.C) {
 	ds1 := template
 	ds1.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), &ds1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dsResource := resources.NewService(s.client.CoreV1().Services(ds1.Namespace), "test", "ds1", &template)
-	c.Assert(len(dsResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(dsResource.GetAnnotations()), tc.Equals, 0)
 	err = dsResource.Get(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dsResource.GetName(), gc.Equals, `ds1`)
-	c.Assert(dsResource.GetNamespace(), gc.Equals, `test`)
-	c.Assert(dsResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(dsResource.GetName(), tc.Equals, `ds1`)
+	c.Assert(dsResource.GetNamespace(), tc.Equals, `test`)
+	c.Assert(dsResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *serviceSuite) TestDelete(c *gc.C) {
+func (s *serviceSuite) TestDelete(c *tc.C) {
 	ds := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ds1",
@@ -89,33 +91,33 @@ func (s *serviceSuite) TestDelete(c *gc.C) {
 		},
 	}
 	_, err := s.client.CoreV1().Services("test").Create(context.TODO(), &ds, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `ds1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `ds1`)
 
 	dsResource := resources.NewService(s.client.CoreV1().Services(ds.Namespace), "test", "ds1", &ds)
 	err = dsResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = dsResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	err = dsResource.Get(context.TODO())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.CoreV1().Services("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *serviceSuite) TestListServices(c *gc.C) {
+func (s *serviceSuite) TestListServices(c *tc.C) {
 	// Set up labels for model and app to list resource
 	controllerUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelName := "testmodel"
 
@@ -134,7 +136,7 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 		},
 	}
 	_, err = s.serviceClient.Create(context.TODO(), service1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Create service2
 	service2Name := "service2"
@@ -145,26 +147,26 @@ func (s *serviceSuite) TestListServices(c *gc.C) {
 		},
 	}
 	_, err = s.serviceClient.Create(context.TODO(), service2, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// List resources with correct labels.
-	services, err := resources.ListServices(context.Background(), s.serviceClient, s.namespace, metav1.ListOptions{
+	services, err := resources.ListServices(c.Context(), s.serviceClient, s.namespace, metav1.ListOptions{
 		LabelSelector: labelSet.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 2)
-	c.Assert(services[0].GetName(), gc.Equals, service1Name)
-	c.Assert(services[1].GetName(), gc.Equals, service2Name)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 2)
+	c.Assert(services[0].GetName(), tc.Equals, service1Name)
+	c.Assert(services[1].GetName(), tc.Equals, service2Name)
 
 	// List resources with no labels.
-	services, err = resources.ListServices(context.Background(), s.serviceClient, s.namespace, metav1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 2)
+	services, err = resources.ListServices(c.Context(), s.serviceClient, s.namespace, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 2)
 
 	// List resources with wrong labels.
-	services, err = resources.ListServices(context.Background(), s.serviceClient, s.namespace, metav1.ListOptions{
+	services, err = resources.ListServices(c.Context(), s.serviceClient, s.namespace, metav1.ListOptions{
 		LabelSelector: "foo=bar",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(services), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(services), tc.Equals, 0)
 }

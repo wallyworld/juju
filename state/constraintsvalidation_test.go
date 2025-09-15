@@ -5,14 +5,15 @@ package state_test
 
 import (
 	"regexp"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -20,9 +21,11 @@ type constraintsValidationSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&constraintsValidationSuite{})
+func TestConstraintsValidationSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &constraintsValidationSuite{})
+}
 
-func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
+func (s *constraintsValidationSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
@@ -35,7 +38,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
+func (s *constraintsValidationSuite) addOneMachine(c *tc.C, cons constraints.Value) (*state.Machine, error) {
 	return s.State.AddOneMachine(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -204,7 +207,7 @@ var setConstraintsTests = []struct {
 	effectiveMachineCons:     "mem=2G virt-type=kvm",
 }}
 
-func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
+func (s *constraintsValidationSuite) TestMachineConstraints(c *tc.C) {
 	for i, t := range setConstraintsTests {
 		c.Logf(
 			"test %d: %s\nconsToSet: %q\nconsFallback: %q\n",
@@ -212,27 +215,27 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 		)
 		// Set fallbacks as model constraints and verify them.
 		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		econs, err := s.State.ModelConstraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(econs, tc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the machine provisioning constraints.
 		m, err := s.addOneMachine(c, constraints.MustParse(t.consToSet))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		// New machine provisioning constraints get merged with the fallbacks.
 		cons, err := m.Constraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, constraints.MustParse(t.effectiveMachineCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, constraints.MustParse(t.effectiveMachineCons))
 		// Changing them should result in the same result before provisioning.
 		err = m.SetConstraints(constraints.MustParse(t.consToSet))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		cons, err = m.Constraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(cons, jc.DeepEquals, constraints.MustParse(t.effectiveMachineCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(cons, tc.DeepEquals, constraints.MustParse(t.effectiveMachineCons))
 	}
 }
 
-func (s *constraintsValidationSuite) TestApplicationConstraints(c *gc.C) {
+func (s *constraintsValidationSuite) TestApplicationConstraints(c *tc.C) {
 	charm := s.AddTestingCharm(c, "wordpress")
 	application := s.AddTestingApplication(c, "wordpress", charm)
 	for i, t := range setConstraintsTests {
@@ -242,23 +245,23 @@ func (s *constraintsValidationSuite) TestApplicationConstraints(c *gc.C) {
 		)
 		// Set fallbacks as model constraints and verify them.
 		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		econs, err := s.State.ModelConstraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(econs, tc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the application deployment constraints.
 		err = application.SetConstraints(constraints.MustParse(t.consToSet))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		u, err := application.AddUnit(state.AddUnitParams{})
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		// New unit deployment constraints get merged with the fallbacks.
 		ucons, err := u.Constraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(*ucons, jc.DeepEquals, constraints.MustParse(t.effectiveUnitCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(*ucons, tc.DeepEquals, constraints.MustParse(t.effectiveUnitCons))
 		// Application constraints remain as set.
 		scons, err := application.Constraints()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(scons, jc.DeepEquals, constraints.MustParse(t.effectiveApplicationCons))
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(scons, tc.DeepEquals, constraints.MustParse(t.effectiveApplicationCons))
 	}
 }
 
@@ -269,9 +272,11 @@ type applicationConstraintsSuite struct {
 	testCharm       *state.Charm
 }
 
-var _ = gc.Suite(&applicationConstraintsSuite{})
+func TestApplicationConstraintsSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &applicationConstraintsSuite{})
+}
 
-func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
+func (s *applicationConstraintsSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
@@ -282,7 +287,7 @@ func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 	s.testCharm = s.AddTestingCharm(c, s.applicationName)
 }
 
-func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
+func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *tc.C) {
 	cons := constraints.MustParse("virt-type=blah")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: s.applicationName,
@@ -293,10 +298,10 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		Charm:       s.testCharm,
 		Constraints: cons,
 	})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: kvm"))
+	c.Assert(errors.Cause(err), tc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: kvm"))
 }
 
-func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
+func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *tc.C) {
 	cons := constraints.MustParse("virt-type=kvm")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: s.applicationName,
@@ -307,11 +312,11 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		Charm:       s.testCharm,
 		Constraints: cons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(application, tc.NotNil)
 }
 
-func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
+func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *tc.C) {
 	posCons := constraints.MustParse("arch=amd64 spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: s.applicationName,
@@ -322,8 +327,8 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		Charm:       s.testCharm,
 		Constraints: posCons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(application, tc.NotNil)
 
 	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
 	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -335,11 +340,11 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		Charm:       s.testCharm,
 		Constraints: negCons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(negApplication, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(negApplication, tc.NotNil)
 
 	cons, err := s.State.AllConstraints()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	vals := make([]string, len(cons))
 	for i, cons := range cons {
@@ -348,20 +353,20 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	}
 	// In addition to the application constraints, there is a single empty
 	// constraints document for the model.
-	c.Check(vals, jc.SameContents, []string{posCons.String(), negCons.String(), ""})
+	c.Check(vals, tc.SameContents, []string{posCons.String(), negCons.String(), ""})
 
 	cons, err = s.State.ConstraintsBySpaceName("db")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.HasLen, 1)
-	c.Check(cons[0].Value(), jc.DeepEquals, posCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons, tc.HasLen, 1)
+	c.Check(cons[0].Value(), tc.DeepEquals, posCons)
 
 	cons, err = s.State.ConstraintsBySpaceName("db2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.HasLen, 1)
-	c.Check(cons[0].Value(), jc.DeepEquals, negCons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons, tc.HasLen, 1)
+	c.Check(cons[0].Value(), tc.DeepEquals, negCons)
 }
 
-func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C) {
+func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *tc.C) {
 	posCons := constraints.MustParse("spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: s.applicationName,
@@ -372,20 +377,20 @@ func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C)
 		Charm:       s.testCharm,
 		Constraints: posCons,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(application, tc.NotNil)
 
 	cons, err := s.State.ConstraintsBySpaceName("db")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons, tc.HasLen, 1)
 
 	ops := cons[0].ChangeSpaceNameOps("db", "external")
-	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops, tc.HasLen, 1)
 	op := ops[0]
-	c.Check(op.C, gc.Equals, "constraints")
-	c.Check(op.Assert, gc.Equals, txn.DocExists)
+	c.Check(op.C, tc.Equals, "constraints")
+	c.Check(op.Assert, tc.Equals, txn.DocExists)
 
 	bd, ok := op.Update.(bson.D)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(bd, gc.HasLen, 1)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(bd, tc.HasLen, 1)
 }

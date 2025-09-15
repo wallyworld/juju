@@ -6,10 +6,9 @@ package cache
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // Expose SetDetails for testing.
@@ -64,9 +63,9 @@ func (m *Model) UpdateBranch(details BranchChange, manager *residentManager) {
 
 // WaitForModelSummaryHandled is used in the tests to ensure that the
 // most recent summary publish events of a model have been handled.
-func WaitForModelSummaryHandled(c *gc.C, ctrl *Controller, uuid string) {
+func WaitForModelSummaryHandled(c *tc.C, ctrl *Controller, uuid string) {
 	model, err := ctrl.Model(uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-time.After(testing.LongWait):
 		c.Fatal("summary event not handled")

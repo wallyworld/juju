@@ -7,33 +7,35 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type UnitResourcesHandlerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub     *testing.Stub
+	stub     *testhelpers.Stub
 	urlStr   string
 	recorder *httptest.ResponseRecorder
 }
 
-var _ = gc.Suite(&UnitResourcesHandlerSuite{})
+func TestUnitResourcesHandlerSuite(t *tctesting.T) {
+	tc.Run(t, &UnitResourcesHandlerSuite{})
+}
 
-func (s *UnitResourcesHandlerSuite) SetUpTest(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = new(testing.Stub)
+	s.stub = new(testhelpers.Stub)
 
 	args := url.Values{}
 	args.Add(":unit", "foo/0")
@@ -48,19 +50,19 @@ func (s *UnitResourcesHandlerSuite) closer() bool {
 	return false
 }
 
-func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *tc.C) {
 	handler := &apiserver.UnitResourcesHandler{}
 
 	req, err := http.NewRequest("POST", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
-	c.Assert(s.recorder.Code, gc.Equals, http.StatusMethodNotAllowed)
+	c.Assert(s.recorder.Code, tc.Equals, http.StatusMethodNotAllowed)
 	s.stub.CheckNoCalls(c)
 }
 
-func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *tc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	handler := &apiserver.UnitResourcesHandler{
 		NewOpener: func(_ *http.Request, kinds ...string) (resources.Opener, state.PoolHelper, error) {
@@ -69,7 +71,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	}
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
@@ -80,7 +82,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	)
 }
 
-func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *tc.C) {
 	opener := &stubResourceOpener{
 		Stub: s.stub,
 	}
@@ -94,21 +96,21 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	}
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expectedBody)
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
 		{"OpenResource", []interface{}{"blob"}},
 		{"Close", nil},
 	})
 }
 
-func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
+func (s *UnitResourcesHandlerSuite) TestSuccess(c *tc.C) {
 	const body = "some data"
-	opened := resourcetesting.NewResource(c, new(testing.Stub), "blob", "app", body)
+	opened := resourcetesting.NewResource(c, new(testhelpers.Stub), "blob", "app", body)
 	opener := &stubResourceOpener{
 		Stub:               s.stub,
 		ReturnOpenResource: opened,
@@ -121,23 +123,23 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 	}
 
 	req, err := http.NewRequest("GET", s.urlStr, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	handler.ServeHTTP(s.recorder, req)
 
 	s.checkResp(c, http.StatusOK, "application/octet-stream", body)
-	s.stub.CheckCalls(c, []testing.StubCall{
+	s.stub.CheckCalls(c, []testhelpers.StubCall{
 		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
 		{"OpenResource", []interface{}{"blob"}},
 		{"Close", nil},
 	})
 }
-func (s *UnitResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
+func (s *UnitResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body string) {
 	checkHTTPResp(c, s.recorder, status, ctype, body)
 }
 
 type stubResourceOpener struct {
-	*testing.Stub
+	*testhelpers.Stub
 	ReturnOpenResource resources.Opened
 }
 

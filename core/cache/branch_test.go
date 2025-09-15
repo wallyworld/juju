@@ -4,22 +4,25 @@
 package cache_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type BranchSuite struct {
 	cache.EntitySuite
 }
 
-var _ = gc.Suite(&BranchSuite{})
+func TestBranchSuite(t *tctesting.T) {
+	tc.Run(t, &BranchSuite{})
+}
 
-func (s *BranchSuite) TestBranchSetDetailsPublishesCopy(c *gc.C) {
+func (s *BranchSuite) TestBranchSetDetailsPublishesCopy(c *tc.C) {
 	rcv := make(chan interface{}, 1)
 	unsub := s.Hub.Subscribe("branch-change", func(_ string, msg interface{}) { rcv <- msg })
 	defer unsub()
@@ -32,7 +35,7 @@ func (s *BranchSuite) TestBranchSetDetailsPublishesCopy(c *gc.C) {
 		if !ok {
 			c.Fatal("wrong type published; expected Branch.")
 		}
-		c.Check(b.Name(), gc.Equals, branchChange.Name)
+		c.Check(b.Name(), tc.Equals, branchChange.Name)
 
 	case <-time.After(testing.LongWait):
 		c.Fatal("branch change message not Received")

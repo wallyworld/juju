@@ -4,69 +4,73 @@
 package base
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type BaseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&BaseSuite{})
+func TestBaseSuite(t *tctesting.T) {
+	tc.Run(t, &BaseSuite{})
+}
 
-func (s *BaseSuite) TestParseBase(c *gc.C) {
+func (s *BaseSuite) TestParseBase(c *tc.C) {
 	base, err := ParseBase("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
 	base, err = ParseBase("ubuntu", "22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}})
 }
 
-func (s *BaseSuite) TestGetBaseFromSeries(c *gc.C) {
+func (s *BaseSuite) TestGetBaseFromSeries(c *tc.C) {
 	base, err := GetBaseFromSeries("jammy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base, jc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base, tc.DeepEquals, Base{OS: "ubuntu", Channel: Channel{Track: "22.04", Risk: "stable"}})
 }
 
-func (s *BaseSuite) TestGetSeriesFromChannel(c *gc.C) {
+func (s *BaseSuite) TestGetSeriesFromChannel(c *tc.C) {
 	series, err := GetSeriesFromChannel("ubuntu", "22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(series, tc.Equals, "jammy")
 	series, err = GetSeriesFromChannel("ubuntu", "22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(series, tc.Equals, "jammy")
 }
 
-func (s *BaseSuite) TestGetSeriesFromBase(c *gc.C) {
+func (s *BaseSuite) TestGetSeriesFromBase(c *tc.C) {
 	series, err := GetSeriesFromBase(MakeDefaultBase("ubuntu", "22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(series, gc.Equals, "jammy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(series, tc.Equals, "jammy")
 }
 
-func (s *BaseSuite) TestParseBaseFromString(c *gc.C) {
+func (s *BaseSuite) TestParseBaseFromString(c *tc.C) {
 	base, err := ParseBaseFromString("ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base.String(), gc.Equals, "ubuntu@22.04/stable")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base.String(), tc.Equals, "ubuntu@22.04/stable")
 	base, err = ParseBaseFromString("ubuntu@22.04/edge")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(base.String(), gc.Equals, "ubuntu@22.04/edge")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(base.String(), tc.Equals, "ubuntu@22.04/edge")
 	base, err = ParseBaseFromString("foo")
-	c.Assert(err, gc.ErrorMatches, `expected base string to contain os and channel separated by '@'`)
+	c.Assert(err, tc.ErrorMatches, `expected base string to contain os and channel separated by '@'`)
 }
 
-func (s *BaseSuite) TestDisplayString(c *gc.C) {
+func (s *BaseSuite) TestDisplayString(c *tc.C) {
 	b := Base{OS: "ubuntu", Channel: Channel{Track: "18.04"}}
-	c.Check(b.DisplayString(), gc.Equals, "ubuntu@18.04")
+	c.Check(b.DisplayString(), tc.Equals, "ubuntu@18.04")
 	b = Base{OS: "kubuntu", Channel: Channel{Track: "20.04", Risk: "stable"}}
-	c.Check(b.DisplayString(), gc.Equals, "kubuntu@20.04")
+	c.Check(b.DisplayString(), tc.Equals, "kubuntu@20.04")
 	b = Base{OS: "qubuntu", Channel: Channel{Track: "22.04", Risk: "edge"}}
-	c.Check(b.DisplayString(), gc.Equals, "qubuntu@22.04/edge")
+	c.Check(b.DisplayString(), tc.Equals, "qubuntu@22.04/edge")
 }
 
-func (s *BaseSuite) TestParseManifestBases(c *gc.C) {
+func (s *BaseSuite) TestParseManifestBases(c *tc.C) {
 	manifestBases := []charm.Base{{
 		Name: "ubuntu", Channel: charm.Channel{
 			Track: "18.04",
@@ -91,14 +95,14 @@ func (s *BaseSuite) TestParseManifestBases(c *gc.C) {
 		},
 	}}
 	obtained, err := ParseManifestBases(manifestBases)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 3)
 	expected := []Base{
 		{OS: "ubuntu", Channel: Channel{Track: "18.04", Risk: "stable"}},
 		{OS: "ubuntu", Channel: Channel{Track: "20.04", Risk: "edge"}},
 		{OS: "centos", Channel: Channel{Track: "9", Risk: "candidate"}},
 	}
-	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(obtained, tc.DeepEquals, expected)
 }
 
 var ubuntuLTS = []Base{
@@ -109,10 +113,10 @@ var ubuntuLTS = []Base{
 	MustParseBaseFromString("ubuntu@24.04/edge"),
 }
 
-func (s *BaseSuite) TestIsUbuntuLTSForLTSes(c *gc.C) {
+func (s *BaseSuite) TestIsUbuntuLTSForLTSes(c *tc.C) {
 	for i, lts := range ubuntuLTS {
 		c.Logf("Checking index %d base %v", i, lts)
-		c.Check(lts.IsUbuntuLTS(), jc.IsTrue)
+		c.Check(lts.IsUbuntuLTS(), tc.IsTrue)
 	}
 }
 
@@ -132,9 +136,9 @@ var nonUbuntuLTS = []Base{
 	MustParseBaseFromString("centos@20.04"),
 }
 
-func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *gc.C) {
+func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *tc.C) {
 	for i, lts := range nonUbuntuLTS {
 		c.Logf("Checking index %d base %v", i, lts)
-		c.Check(lts.IsUbuntuLTS(), jc.IsFalse)
+		c.Check(lts.IsUbuntuLTS(), tc.IsFalse)
 	}
 }

@@ -4,27 +4,24 @@
 package base_test
 
 import (
-	"testing"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package base -destination distrosource_mock_test.go github.com/juju/juju/core/base DistroSource
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 type ImportTest struct{}
 
-var _ = gc.Suite(&ImportTest{})
+func TestImportTest(t *tctesting.T) {
+	tc.Run(t, &ImportTest{})
+}
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (*ImportTest) TestImports(c *tc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/base")
-	c.Assert(found, jc.SameContents, []string{
+	c.Assert(found, tc.SameContents, []string{
 		"core/os/ostype",
 	})
 }

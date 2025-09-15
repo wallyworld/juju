@@ -5,9 +5,6 @@ package machine_test
 
 import (
 	"encoding/json"
-	"testing"
-
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgrademachine_api_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineAPI
@@ -16,10 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/modelconfig_api_mock.go github.com/juju/juju/cmd/juju/machine ModelConfigAPI
 
 // None of the tests in this package require mongo.
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func unmarshalStringAsJSON(str string) (interface{}, error) {
 	var v interface{}

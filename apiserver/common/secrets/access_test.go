@@ -5,17 +5,16 @@ package secrets_test
 
 import (
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
-func (s *secretsSuite) TestCanManageOwnerUnit(c *gc.C) {
+func (s *secretsSuite) TestCanManageOwnerUnit(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -29,11 +28,11 @@ func (s *secretsSuite) TestCanManageOwnerUnit(c *gc.C) {
 	)
 
 	t, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Check(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(t.Check(), tc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
+func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -51,10 +50,10 @@ func (s *secretsSuite) TestCanManageLeaderUnitAppSecret(c *gc.C) {
 	)
 
 	_, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCanManageAppTagLogin(c *gc.C) {
+func (s *secretsSuite) TestCanManageAppTagLogin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -68,11 +67,11 @@ func (s *secretsSuite) TestCanManageAppTagLogin(c *gc.C) {
 	)
 
 	t, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Check(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(t.Check(), tc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCanManageUserSecrets(c *gc.C) {
+func (s *secretsSuite) TestCanManageUserSecrets(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -86,6 +85,6 @@ func (s *secretsSuite) TestCanManageUserSecrets(c *gc.C) {
 	)
 
 	t, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t.Check(), jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(t.Check(), tc.ErrorIsNil)
 }

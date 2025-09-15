@@ -4,22 +4,15 @@
 package network
 
 import (
-	"testing"
-
-	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package network_test -destination discovery_mock_test.go github.com/juju/juju/core/network ConfigSource,ConfigSourceNIC,ConfigSourceAddr
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 // BaseSuite exposes base testing functionality to the network tests,
 // including patching package-private functions/variables.
 type BaseSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 // PatchGOOS allows us to simulate the running OS.

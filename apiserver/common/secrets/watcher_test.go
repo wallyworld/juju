@@ -4,27 +4,29 @@
 package secrets_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&watcherSuite{})
+func TestWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &watcherSuite{})
+}
 
-func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
+func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -60,7 +62,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 					"secret-backend": "backend-id",
 				}
 				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return cfg, nil
 			},
 		),
@@ -74,7 +76,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 					"secret-backend": "backend-id",
 				}
 				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return cfg, nil
 			},
 		),
@@ -88,7 +90,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 					"secret-backend": "backend-id",
 				}
 				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				return cfg, nil
 			},
 		),
@@ -102,7 +104,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 					"secret-backend": "a-different-backend-id",
 				}
 				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				close(done)
 				return cfg, nil
 			},
@@ -110,8 +112,8 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	)
 
 	w, err := secrets.NewSecretBackendModelConfigWatcher(model, modelConfigChangesWatcher)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, w) })
 
 	received := 0
 ensureReceived:

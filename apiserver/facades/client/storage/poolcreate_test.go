@@ -4,9 +4,10 @@
 package storage_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 	jujustorage "github.com/juju/juju/storage"
@@ -17,9 +18,11 @@ type poolCreateSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolCreateSuite{})
+func TestPoolCreateSuite(t *tctesting.T) {
+	tc.Run(t, &poolCreateSuite{})
+}
 
-func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
+func (s *poolCreateSuite) TestCreatePool(c *tc.C) {
 	const (
 		pname = "pname"
 		ptype = string(provider.LoopProviderType)
@@ -34,17 +37,17 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.CreatePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
-	c.Assert(pools[0], gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
+	c.Assert(pools[0], tc.DeepEquals, expected)
 }
 
-func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
+func (s *poolCreateSuite) TestCreatePoolError(c *tc.C) {
 	msg := "as expected"
 	s.baseStorageSuite.poolManager.createPool = func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error) {
 		return nil, errors.New(msg)
@@ -56,9 +59,9 @@ func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
 		}},
 	}
 	results, err := s.api.CreatePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.DeepEquals, &params.Error{
 		Message: "as expected",
 	})
 }

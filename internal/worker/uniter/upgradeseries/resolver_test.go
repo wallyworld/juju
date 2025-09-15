@@ -4,13 +4,15 @@
 package upgradeseries_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
@@ -20,10 +22,12 @@ import (
 )
 
 type ResolverSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ResolverSuite{})
+func TestResolverSuite(t *tctesting.T) {
+	tc.Run(t, &ResolverSuite{})
+}
 
 func (ResolverSuite) NewResolver() resolver.Resolver {
 	logger := loggo.GetLogger("test")
@@ -31,7 +35,7 @@ func (ResolverSuite) NewResolver() resolver.Resolver {
 	return upgradeseries.NewResolver(logger)
 }
 
-func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithValidationStatus(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -40,10 +44,10 @@ func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
 	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesValidate,
 	}, mockFactory)
-	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
+	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
 }
 
-func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -52,10 +56,10 @@ func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
 	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesPrepareCompleted,
 	}, mockFactory)
-	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
+	c.Assert(err, tc.Equals, resolver.ErrDoNotProceed)
 }
 
-func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -73,11 +77,11 @@ func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *gc.C) {
 	}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesPrepareStarted,
 	}, mockFactory)
-	c.Assert(err, gc.IsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(op, tc.NotNil)
 }
 
-func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -95,11 +99,11 @@ func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *gc.C) {
 	}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesCompleteStarted,
 	}, mockFactory)
-	c.Assert(err, gc.IsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(op, tc.NotNil)
 }
 
-func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -117,11 +121,11 @@ func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *gc.C) {
 	}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 	}, mockFactory)
-	c.Assert(err, gc.IsNil)
-	c.Assert(op, gc.NotNil)
+	c.Assert(err, tc.IsNil)
+	c.Assert(op, tc.NotNil)
 }
 
-func (s ResolverSuite) TestNextOpWithNoState(c *gc.C) {
+func (s ResolverSuite) TestNextOpWithNoState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -129,5 +133,5 @@ func (s ResolverSuite) TestNextOpWithNoState(c *gc.C) {
 
 	res := s.NewResolver()
 	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{}, mockFactory)
-	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	c.Assert(err, tc.Equals, resolver.ErrNoOperation)
 }

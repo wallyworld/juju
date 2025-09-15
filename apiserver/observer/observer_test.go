@@ -5,22 +5,25 @@ package observer_test
 
 import (
 	"net/http"
+	tctesting "testing"
 
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type multiplexerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&multiplexerSuite{})
+func TestMultiplexerSuite(t *tctesting.T) {
+	tc.Run(t, &multiplexerSuite{})
+}
 
-func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.C) {
+func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *tc.C) {
 	callCount := 0
 	factories := []observer.ObserverFactory{
 		func() observer.Observer { callCount++; return nil },
@@ -28,14 +31,14 @@ func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.
 	}
 
 	newMultiplexObserver := observer.ObserverFactoryMultiplexer(factories...)
-	c.Assert(callCount, gc.Equals, 0)
+	c.Assert(callCount, tc.Equals, 0)
 
 	multiplexedObserver := newMultiplexObserver()
-	c.Check(multiplexedObserver, gc.NotNil)
-	c.Check(callCount, gc.Equals, 2)
+	c.Check(multiplexedObserver, tc.NotNil)
+	c.Check(callCount, tc.Equals, 2)
 }
 
-func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestJoin_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
@@ -50,7 +53,7 @@ func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLeave_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
@@ -64,7 +67,7 @@ func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},
@@ -78,7 +81,7 @@ func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*multiplexerSuite) TestLogin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLogin_CallsAllObservers(c *tc.C) {
 	observers := []*fakeobserver.Instance{
 		{},
 		{},

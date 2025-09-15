@@ -4,28 +4,30 @@
 package actionpruner_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/actionpruner"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/pruner/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PrunerSuite struct{}
 
-var _ = gc.Suite(&PrunerSuite{})
+func TestPrunerSuite(t *tctesting.T) {
+	tc.Run(t, &PrunerSuite{})
+}
 
-func (s *PrunerSuite) TestRunStop(c *gc.C) {
+func (s *PrunerSuite) TestRunStop(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -36,7 +38,7 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 		"max-action-results-age":  "2h",
 		"max-action-results-size": "2GiB",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
@@ -56,6 +58,6 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 		Logger:        loggo.GetLogger("test"),
 	})
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, updater)
 }

@@ -12,9 +12,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/pkg/errors"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -29,13 +28,13 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
-func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig {
+func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig {
 	if testclock == nil {
 		testclock = clock.WallClock
 	}
@@ -71,7 +70,7 @@ func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
 // It returns information suitable for connecting to the state
 // without any authentication information or model tag, and the server
 // that's been started.
-func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
+func NewServer(c *tc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
 	config := DefaultServerConfig(c, nil)
 	config.Controller = controller
 	return NewServerWithConfig(c, statePool, config)
@@ -80,12 +79,12 @@ func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller
 // NewServerWithConfig is like NewServer except that the entire
 // server configuration may be specified (see DefaultServerConfig
 // for a suitable starting point).
-func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) *Server {
+func NewServerWithConfig(c *tc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) *Server {
 	// Note that we can't listen on localhost here because
 	// TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	certPool, err := api.CreateCertPool(coretesting.CACert)
 	if err != nil {
 		c.Fatal(err.Error())
@@ -105,7 +104,7 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 
 	if cfg.LocalMacaroonAuthenticator == nil {
 		authenticator, err := stateauthenticator.NewAuthenticator(statePool, cfg.Clock)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cfg.LocalMacaroonAuthenticator = authenticator
 	}
 
@@ -114,7 +113,7 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 	}
 
 	srv, err := apiserver.NewServer(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	httpServer.StartTLS()
 
 	return &Server{

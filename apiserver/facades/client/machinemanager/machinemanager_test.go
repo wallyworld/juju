@@ -8,16 +8,15 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -33,27 +32,30 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&MachineManagerSuite{})
+func TestMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &MachineManagerSuite{})
+}
 
 type MachineManagerSuite struct {
 	authorizer  *apiservertesting.FakeAuthorizer
 	callContext context.ProviderCallContext
 }
 
-func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *MachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
+func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *tc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := machinemanager.NewMachineManagerAPI(
@@ -69,10 +71,12 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		nil,
 		nil,
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-var _ = gc.Suite(&AddMachineManagerSuite{})
+func TestAddMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &AddMachineManagerSuite{})
+}
 
 type AddMachineManagerSuite struct {
 	authorizer    *apiservertesting.FakeAuthorizer
@@ -85,12 +89,12 @@ type AddMachineManagerSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *AddMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *AddMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.pool = mocks.NewMockPool(ctrl)
@@ -112,7 +116,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -150,7 +154,7 @@ func (m machineTemplateMatcher) String() string {
 	return pretty.Sprint(m.expected)
 }
 
-func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
+func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	apiParams := make([]params.AddMachineParams, 2)
@@ -197,11 +201,11 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 	}}).Return(&state.Machine{}, nil)
 
 	machines, err := s.api.AddMachines(params.AddMachines{MachineParams: apiParams})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines.Machines, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
-func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
+func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(&state.Machine{}, errors.New("boom"))
@@ -211,18 +215,20 @@ func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 			Base: &params.Base{Name: "ubuntu", Channel: "22.04"},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.AddMachinesResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.AddMachinesResults{
 		Machines: []params.AddMachinesResult{{
 			Error: &params.Error{Message: "boom", Code: ""},
 		}},
 	})
 }
 
-var _ = gc.Suite(&DestroyMachineManagerSuite{})
+func TestDestroyMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &DestroyMachineManagerSuite{})
+}
 
 type DestroyMachineManagerSuite struct {
-	testing.CleanupSuite
+	testhelpers.CleanupSuite
 	authorizer    *apiservertesting.FakeAuthorizer
 	st            *mocks.MockBackend
 	storageAccess *mocks.MockStorageInterface
@@ -230,13 +236,13 @@ type DestroyMachineManagerSuite struct {
 	api           *machinemanager.MachineManagerAPI
 }
 
-func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *DestroyMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.PatchValue(&machinemanager.ClassifyDetachedStorage, mockedClassifyDetachedStorage)
 }
 
-func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *DestroyMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -261,7 +267,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -335,7 +341,7 @@ func (s *DestroyMachineManagerSuite) expectDestroyStorage(ctrl *gomock.Controlle
 	return storageAttachment
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -352,15 +358,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedAllStorageRetrieval
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/0: kaboom\ngetting storage for unit foo/1: kaboom\ngetting storage for unit foo/2: kaboom")),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetrieval(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -377,15 +383,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeUnitStorageRetr
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom")),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -406,9 +412,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Error: apiservererrors.ServerError(errors.New("getting storage for unit foo/1: kaboom"))},
 			{Info: &params.DestroyMachineInfo{
@@ -418,7 +424,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrieva
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRetrievalManyMachines(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -443,9 +449,9 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 		MachineTags: []string{"machine-0", "machine-1"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{
 			{Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -469,7 +475,7 @@ func (s *DestroyMachineManagerSuite) TestForceDestroyMachineFailedSomeStorageRet
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -480,9 +486,9 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -502,7 +508,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineDryRun(c *gc.C) {
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -515,8 +521,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 		MachineTags: []string{"machine-0"},
 		DryRun:      true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -552,7 +558,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -568,8 +574,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 		MachineTags: []string{"machine-0"},
 		MaxWait:     &noWait,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -589,7 +595,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C)
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -604,8 +610,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 		MachineTags: []string{"machine-0"},
 		// This will use max wait of system default for delay between cleanup operations.
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -625,7 +631,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -638,15 +644,15 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 		Force:       false,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Error: apiservererrors.ServerError(stateerrors.NewHasContainersError("0", []string{"0/lxd/0"})),
 		}},
 	})
 }
 
-func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *gc.C) {
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -663,8 +669,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersWithForce(c
 		Force:       true,
 		MachineTags: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
 			Info: &params.DestroyMachineInfo{
 				MachineId: "0",
@@ -718,7 +724,9 @@ func mockedClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
+func TestProvisioningMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &ProvisioningMachineManagerSuite{})
+}
 
 type ProvisioningMachineManagerSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
@@ -731,12 +739,12 @@ type ProvisioningMachineManagerSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ProvisioningMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -765,7 +773,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -791,7 +799,7 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *
 	return storageCloser
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -817,19 +825,19 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	scriptLines := strings.Split(result.Script, "\n")
 	provisioningScriptLines := strings.Split(result.Script, "\n")
-	c.Assert(scriptLines, gc.HasLen, len(provisioningScriptLines))
+	c.Assert(scriptLines, tc.HasLen, len(provisioningScriptLines))
 	for i, line := range scriptLines {
 		if strings.Contains(line, "oldpassword") {
 			continue
 		}
-		c.Assert(line, gc.Equals, provisioningScriptLines[i])
+		c.Assert(line, tc.Equals, provisioningScriptLines[i])
 	}
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -845,10 +853,10 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) 
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, gc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
+	c.Assert(err, tc.ErrorMatches, `getting instance config: arch is not set for "machine-0"`)
 }
 
-func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCommands(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -874,26 +882,26 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get update")
-	c.Assert(result.Script, gc.Not(jc.Contains), "apt-get upgrade")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get update")
+	c.Assert(result.Script, tc.Not(tc.Contains), "apt-get upgrade")
 }
 
 type statusMatcher struct {
-	c        *gc.C
+	c        *tc.C
 	expected status.StatusInfo
 }
 
 func (m statusMatcher) Matches(x interface{}) bool {
 	obtained, ok := x.(status.StatusInfo)
-	m.c.Assert(ok, jc.IsTrue)
+	m.c.Assert(ok, tc.IsTrue)
 	if !ok {
 		return false
 	}
 
-	m.c.Assert(obtained.Since, gc.NotNil)
+	m.c.Assert(obtained.Since, tc.NotNil)
 	obtained.Since = nil
-	m.c.Assert(obtained, jc.DeepEquals, m.expected)
+	m.c.Assert(obtained, tc.DeepEquals, m.expected)
 	return true
 }
 
@@ -901,7 +909,7 @@ func (m statusMatcher) String() string {
 	return "Match the status.StatusInfo value"
 }
 
-func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -921,11 +929,11 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioning(c *gc.C) {
 	results, err := s.api.RetryProvisioning(params.RetryProvisioningArgs{
 		Machines: []string{"machine-0"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
+func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -944,8 +952,8 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	results, err := s.api.RetryProvisioning(params.RetryProvisioningArgs{
 		All: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
 type UpgradeSeriesMachineManagerSuite struct{}
@@ -980,7 +988,9 @@ func (s *UpgradeSeriesMachineManagerSuite) expectValidateApplicationOnMachine(ct
 	return app
 }
 
-var _ = gc.Suite(&UpgradeSeriesValidateMachineManagerSuite{})
+func TestUpgradeSeriesValidateMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &UpgradeSeriesValidateMachineManagerSuite{})
+}
 
 type UpgradeSeriesValidateMachineManagerSuite struct {
 	*UpgradeSeriesMachineManagerSuite
@@ -991,12 +1001,12 @@ type UpgradeSeriesValidateMachineManagerSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -1013,7 +1023,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -1032,7 +1042,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) expectValidateUnit(ctrl *gomo
 	return unit
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1056,14 +1066,14 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.UnitNames, gc.DeepEquals, []string{"foo/0", "foo/1", "foo/2"})
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.UnitNames, tc.DeepEquals, []string{"foo/0", "foo/1", "foo/2"})
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsControllerError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1076,13 +1086,13 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsCo
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"machine-0 is a controller and cannot be targeted for series upgrade")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLockedForSeriesUpgradeError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLockedForSeriesUpgradeError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1095,13 +1105,13 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateIsLo
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		`upgrade series lock found for "0"; series upgrade is in the "not started" state`)
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoChannelError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoChannelError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1114,12 +1124,12 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNoCh
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "channel missing from args")
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "channel missing from args")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotFromUbuntuError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1134,12 +1144,12 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateNotF
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"machine-0 is running centos and is not valid for Ubuntu series upgrade")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlreadyRunningSeriesError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1154,11 +1164,11 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateAlre
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine-0 is already running base ubuntu@20.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, "machine-0 is already running base ubuntu@20.04")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlderSeriesError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1173,12 +1183,12 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOlde
 	}
 
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"machine machine-0 is running ubuntu@20.04 which is a newer base than ubuntu@18.04.")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitNotIdleError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1201,12 +1211,12 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"unit unit-foo-0 is not ready to start a series upgrade; its agent status is: \"executing\" ")
 }
 
-func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *gc.C) {
+func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnitStatusError(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1229,12 +1239,14 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 		}},
 	}
 	results, err := s.api.UpgradeSeriesValidate(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches,
 		"unit unit-foo-[0-2] is not ready to start a series upgrade; its status is: \"error\" ")
 }
 
-var _ = gc.Suite(&UpgradeSeriesPrepareMachineManagerSuite{})
+func TestUpgradeSeriesPrepareMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &UpgradeSeriesPrepareMachineManagerSuite{})
+}
 
 type UpgradeSeriesPrepareMachineManagerSuite struct {
 	*UpgradeSeriesMachineManagerSuite
@@ -1245,12 +1257,12 @@ type UpgradeSeriesPrepareMachineManagerSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -1268,7 +1280,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
@@ -1307,7 +1319,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareUnit(ctrl *gomock
 	return unit
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1322,11 +1334,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 			Channel: "22.04",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().Machine("76").Return(nil, errors.NotFoundf("machine 76"))
@@ -1339,11 +1351,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 			Channel: "20.04",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "machine 76 not found")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.ErrorMatches, "machine 76 not found")
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *tc.C) {
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateChannelArg{
@@ -1352,11 +1364,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMac
 			Channel: "20.04",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.ErrorMatches, "\"unit-mysql-0\" is not a valid machine tag")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.ErrorMatches, "\"unit-mysql-0\" is not a valid machine tag")
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *tc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	mm, err := machinemanager.NewMachineManagerAPI(s.st,
 		nil,
@@ -1369,11 +1381,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.api = mm
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *tc.C) {
 	user := names.NewUserTag("fred")
 	s.setAPIUser(c, user)
 	machineTag := names.NewMachineTag("0")
@@ -1384,17 +1396,17 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 			Channel: "22.04",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *tc.C) {
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeBadRequest,
 			Message: `channel missing from args`,
@@ -1402,7 +1414,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeri
 	})
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleBase(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleBase(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1419,8 +1431,8 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 			Force:   false,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleBase,
 			Message: "base \"ubuntu@22.04\" not supported by charm \"TestCharm\", supported bases are: ubuntu@16.10, ubuntu@17.04",
@@ -1428,11 +1440,13 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	})
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *tc.C) {
 	// TODO managed upgrade series
 }
 
-var _ = gc.Suite(&UpgradeSeriesCompleteMachineManagerSuite{})
+func TestUpgradeSeriesCompleteMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &UpgradeSeriesCompleteMachineManagerSuite{})
+}
 
 type UpgradeSeriesCompleteMachineManagerSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
@@ -1442,12 +1456,12 @@ type UpgradeSeriesCompleteMachineManagerSuite struct {
 	callContext context.ProviderCallContext
 }
 
-func (s *UpgradeSeriesCompleteMachineManagerSuite) SetUpTest(c *gc.C) {
+func (s *UpgradeSeriesCompleteMachineManagerSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
-func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
+func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -1466,12 +1480,12 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		nil,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
 
-func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
+func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -1484,24 +1498,26 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) TestUpgradeSeriesComplete(c *
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&IsBaseLessThanMachineManagerSuite{})
+func TestIsBaseLessThanMachineManagerSuite(t *tctesting.T) {
+	tc.Run(t, &IsBaseLessThanMachineManagerSuite{})
+}
 
 type IsBaseLessThanMachineManagerSuite struct{}
 
 // TestIsBaseLessThan tests a validation method which is not very complicated
 // but complex enough to warrant being exported from an export test package for
 // testing.
-func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *gc.C) {
+func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *tc.C) {
 	workloadVersions, err := corebase.AllWorkloadVersions()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	vers := workloadVersions.Values()
 	s.assertSeriesLessThan(c, "ubuntu", vers)
 }
 
-func (s *IsBaseLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, os string, vs []string) {
+func (s *IsBaseLessThanMachineManagerSuite) assertSeriesLessThan(c *tc.C, os string, vs []string) {
 	// sort the values, so the lexicographical order is determined
 	sort.Slice(vs, func(i, j int) bool {
 		v1 := vs[i]
@@ -1526,12 +1542,12 @@ func (s *IsBaseLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, os str
 		// get the series for the specified version
 		os = strings.ToLower(os)
 		b1, err := corebase.ParseBase(os, vs[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		b2, err := corebase.ParseBase(os, vs[i+1])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		isLessThan, err := machinemanager.IsBaseLessThan(b1, b2)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(isLessThan, jc.IsTrue, gc.Commentf("%q < %q", b1, b2))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(isLessThan, tc.IsTrue, tc.Commentf("%q < %q", b1, b2))
 	}
 }

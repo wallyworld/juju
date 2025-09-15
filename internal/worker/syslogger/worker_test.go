@@ -8,43 +8,46 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/syslogger"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.stub.ResetCalls()
 }
 
-func (s *WorkerSuite) TestLogCreation(c *gc.C) {
+func (s *WorkerSuite) TestLogCreation(c *tc.C) {
 	_, err := syslogger.NewWorker(syslogger.WorkerConfig{
 		NewLogger: func(priority syslogger.Priority, tag string) (io.WriteCloser, error) {
 			s.stub.MethodCall(s, "NewLogger", priority, tag)
 			return nil, nil
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.stub.CheckCallNames(c, strings.Split(strings.Repeat("NewLogger,", 7), ",")[:7]...)
 	for _, call := range s.stub.Calls() {
 		arg := call.Args[0].(syslogger.Priority)
-		c.Assert(arg >= syslogger.LOG_CRIT && arg <= syslogger.LOG_DEBUG, gc.Equals, true)
+		c.Assert(arg >= syslogger.LOG_CRIT && arg <= syslogger.LOG_DEBUG, tc.Equals, true)
 	}
 }
 
-func (s *WorkerSuite) TestLog(c *gc.C) {
+func (s *WorkerSuite) TestLog(c *tc.C) {
 	now := time.Now()
 	buf := new(bytes.Buffer)
 	w, err := syslogger.NewWorker(syslogger.WorkerConfig{
@@ -52,7 +55,7 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 			return closer{buf}, nil
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
 		Time:      now,
@@ -61,13 +64,13 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 		Message:   "baz",
 		ModelUUID: coretesting.ModelTag.Id(),
 	}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	dateTime := now.In(time.UTC).Format("2006-01-02 15:04:05")
-	c.Assert(buf.String(), gc.Equals, fmt.Sprintf("%s foo bar.deadbe baz\n", dateTime))
+	c.Assert(buf.String(), tc.Equals, fmt.Sprintf("%s foo bar.deadbe baz\n", dateTime))
 }
 
-func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
+func (s *WorkerSuite) TestClosingLogBeforeWriting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -80,10 +83,10 @@ func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
 			return mockWriter, nil
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	w.Kill()
-	c.Assert(w.Wait(), gc.IsNil)
+	c.Assert(w.Wait(), tc.IsNil)
 
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
@@ -93,10 +96,10 @@ func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
 		Message:   "baz",
 		ModelUUID: coretesting.ModelTag.Id(),
 	}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
+func (s *WorkerSuite) TestClosingLogWhilstWriting(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -110,11 +113,11 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 			return mockWriter, nil
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	done := make(chan struct{})
 	go func() {
-		c.Assert(w.Wait(), gc.IsNil)
+		c.Assert(w.Wait(), tc.IsNil)
 		close(done)
 	}()
 	go func() {
@@ -131,7 +134,7 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 					Message:   "baz",
 					ModelUUID: coretesting.ModelTag.Id(),
 				}})
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, tc.IsNil)
 			}
 		}
 	}()
@@ -141,7 +144,7 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatal("failed waiting for test to complete")
 	}
 }

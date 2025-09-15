@@ -4,46 +4,48 @@
 package modelworkermanager_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&suite{})
+func TestSuite(t *tctesting.T) {
+	tc.Run(t, &suite{})
+}
 
 type suite struct {
 	authority pki.Authority
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	workerC chan *mockWorker
 }
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *suite) SetUpTest(c *tc.C) {
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 	s.IsolationSuite.SetUpTest(c)
 	s.workerC = make(chan *mockWorker, 100)
 }
 
-func (s *suite) TestStartEmpty(c *gc.C) {
+func (s *suite) TestStartEmpty(c *tc.C) {
 	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockController) {
 		w.sendModelChange()
 
@@ -51,7 +53,7 @@ func (s *suite) TestStartEmpty(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsInitialWorker(c *gc.C) {
+func (s *suite) TestStartsInitialWorker(c *tc.C) {
 	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockController) {
 		w.sendModelChange("uuid")
 
@@ -59,7 +61,7 @@ func (s *suite) TestStartsInitialWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsLaterWorker(c *gc.C) {
+func (s *suite) TestStartsLaterWorker(c *tc.C) {
 	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockController) {
 		w.sendModelChange()
 		w.sendModelChange("uuid")
@@ -68,7 +70,7 @@ func (s *suite) TestStartsLaterWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestStartsMultiple(c *gc.C) {
+func (s *suite) TestStartsMultiple(c *tc.C) {
 	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockController) {
 		w.sendModelChange("uuid1")
 		w.sendModelChange("uuid2", "uuid3")
@@ -78,7 +80,7 @@ func (s *suite) TestStartsMultiple(c *gc.C) {
 	})
 }
 
-func (s *suite) TestIgnoresRepetition(c *gc.C) {
+func (s *suite) TestIgnoresRepetition(c *tc.C) {
 	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockController) {
 		w.sendModelChange("uuid")
 		w.sendModelChange("uuid", "uuid")
@@ -88,7 +90,7 @@ func (s *suite) TestIgnoresRepetition(c *gc.C) {
 	})
 }
 
-func (s *suite) TestRestartsErrorWorker(c *gc.C) {
+func (s *suite) TestRestartsErrorWorker(c *tc.C) {
 	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockController) {
 		mw.sendModelChange("uuid")
 		workers := s.waitWorkers(c, 1)
@@ -99,7 +101,7 @@ func (s *suite) TestRestartsErrorWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
+func (s *suite) TestRestartsFinishedWorker(c *tc.C) {
 	// It must be possible to restart the workers for a model due to
 	// model migrations: a model can be migrated away from a
 	// controller and then migrated back later.
@@ -116,7 +118,7 @@ func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
 	})
 }
 
-func (s *suite) TestKillsManagers(c *gc.C) {
+func (s *suite) TestKillsManagers(c *tc.C) {
 	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockController) {
 		mw.sendModelChange("uuid1", "uuid2")
 		workers := s.waitWorkers(c, 2)
@@ -129,14 +131,14 @@ func (s *suite) TestKillsManagers(c *gc.C) {
 	})
 }
 
-func (s *suite) TestClosedChangesChannel(c *gc.C) {
+func (s *suite) TestClosedChangesChannel(c *tc.C) {
 	s.runDirtyTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockController) {
 		mw.sendModelChange("uuid1", "uuid2")
 		workers := s.waitWorkers(c, 2)
 
 		close(mw.envWatcher.changes)
 		err := workertest.CheckKilled(c, w)
-		c.Check(err, gc.ErrorMatches, "changes stopped")
+		c.Check(err, tc.ErrorMatches, "changes stopped")
 		for _, worker := range workers {
 			workertest.CheckKilled(c, worker)
 		}
@@ -144,7 +146,7 @@ func (s *suite) TestClosedChangesChannel(c *gc.C) {
 	})
 }
 
-func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
+func (s *suite) TestNoStartingWorkersForImportingModel(c *tc.C) {
 	// We shouldn't start workers while the model is importing,
 	// otherwise the migrationmaster gets very confused.
 	// https://bugs.launchpad.net/juju/+bug/1646310
@@ -156,37 +158,37 @@ func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
 	})
 }
 
-func (s *suite) TestReport(c *gc.C) {
+func (s *suite) TestReport(c *tc.C) {
 	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockController) {
 		mw.sendModelChange("uuid")
 		s.assertStarts(c, "uuid")
 
 		reporter, ok := w.(worker.Reporter)
-		c.Assert(ok, jc.IsTrue)
+		c.Assert(ok, tc.IsTrue)
 		report := reporter.Report()
-		c.Assert(report, gc.NotNil)
+		c.Assert(report, tc.NotNil)
 		// TODO: pass a clock through in the worker config so it can be passed
 		// to the worker.Runner used in the model to control time.
 		// For now, we just look at the started state.
 		workers := report["workers"].(map[string]interface{})
 		modelWorker := workers["uuid"].(map[string]interface{})
-		c.Assert(modelWorker["state"], gc.Equals, "started")
+		c.Assert(modelWorker["state"], tc.Equals, "started")
 	})
 }
 
 type testFunc func(worker.Worker, *mockModelWatcher, *mockController)
 
-type killFunc func(*gc.C, worker.Worker)
+type killFunc func(*tc.C, worker.Worker)
 
-func (s *suite) runTest(c *gc.C, test testFunc) {
+func (s *suite) runTest(c *tc.C, test testFunc) {
 	s.runKillTest(c, workertest.CleanKill, test)
 }
 
-func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
+func (s *suite) runDirtyTest(c *tc.C, test testFunc) {
 	s.runKillTest(c, workertest.DirtyKill, test)
 }
 
-func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
+func (s *suite) runKillTest(c *tc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	controller := newMockController()
 	config := modelworkermanager.Config{
@@ -201,7 +203,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 		ErrorDelay:     time.Millisecond,
 	}
 	w, err := modelworkermanager.New(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer kill(c, w)
 	test(w, watcher, controller)
 }
@@ -228,18 +230,18 @@ func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (work
 	return worker, nil
 }
 
-func (s *suite) assertStarts(c *gc.C, expect ...string) {
+func (s *suite) assertStarts(c *tc.C, expect ...string) {
 	count := len(expect)
 	actual := make([]string, count)
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.config.ModelUUID
-		c.Assert(worker.config.ModelType, gc.Equals, state.ModelTypeIAAS)
+		c.Assert(worker.config.ModelType, tc.Equals, state.ModelTypeIAAS)
 	}
-	c.Assert(actual, jc.SameContents, expect)
+	c.Assert(actual, tc.SameContents, expect)
 }
 
-func (s *suite) waitWorkers(c *gc.C, expectedCount int) []*mockWorker {
+func (s *suite) waitWorkers(c *tc.C, expectedCount int) []*mockWorker {
 	if expectedCount < 1 {
 		c.Fatal("expectedCount must be >= 1")
 	}
@@ -258,7 +260,7 @@ func (s *suite) waitWorkers(c *gc.C, expectedCount int) []*mockWorker {
 	}
 }
 
-func (s *suite) assertNoWorkers(c *gc.C) {
+func (s *suite) assertNoWorkers(c *tc.C) {
 	select {
 	case worker := <-s.workerC:
 		c.Fatalf("saw unexpected worker: %s", worker.config.ModelUUID)
@@ -310,7 +312,7 @@ func (mock *mockModelWatcher) sendModelChange(uuids ...string) {
 }
 
 type mockController struct {
-	testing.Stub
+	testhelpers.Stub
 	model mockModel
 }
 

@@ -4,14 +4,15 @@
 package tools_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -19,24 +20,26 @@ type StorageSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&StorageSuite{})
+func TestStorageSuite(t *tctesting.T) {
+	tc.Run(t, &StorageSuite{})
+}
 
-func (s *StorageSuite) TestStorageName(c *gc.C) {
+func (s *StorageSuite) TestStorageName(c *tc.C) {
 	vers := version.MustParseBinary("1.2.3-ubuntu-amd64")
 	path := envtools.StorageName(vers, "proposed")
-	c.Assert(path, gc.Equals, "tools/proposed/juju-1.2.3-ubuntu-amd64.tgz")
+	c.Assert(path, tc.Equals, "tools/proposed/juju-1.2.3-ubuntu-amd64.tgz")
 }
 
-func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
+func (s *StorageSuite) TestReadListEmpty(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = envtools.ReadList(stor, "released", 2, 0)
-	c.Assert(err, gc.Equals, envtools.ErrNoTools)
+	c.Assert(err, tc.Equals, envtools.ErrNoTools)
 }
 
-func (s *StorageSuite) TestReadList(c *gc.C) {
+func (s *StorageSuite) TestReadList(c *tc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v100 := version.MustParseBinary("1.0.0-ubuntu-amd64")
 	v101 := version.MustParseBinary("1.0.1-ubuntu-amd64")
 	v111 := version.MustParseBinary("1.1.1-ubuntu-amd64")
@@ -67,15 +70,15 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		c.Logf("test %d", i)
 		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 			// ReadList doesn't set the Size or SHA256, so blank out those attributes.
 			for _, tool := range t.list {
 				tool.Size = 0
 				tool.SHA256 = ""
 			}
-			c.Assert(list, gc.DeepEquals, t.list)
+			c.Assert(list, tc.DeepEquals, t.list)
 		} else {
-			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
+			c.Assert(err, tc.Equals, coretools.ErrNoMatches)
 		}
 	}
 }

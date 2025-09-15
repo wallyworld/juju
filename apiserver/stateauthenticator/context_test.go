@@ -5,6 +5,7 @@ package stateauthenticator_test
 
 import (
 	"context"
+	tctesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -14,12 +15,12 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
+	coretesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -35,15 +36,15 @@ type macaroonCommonSuite struct {
 	clock         *testclock.Clock
 }
 
-func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
+func (s *macaroonCommonSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
 	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 }
 
-func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
+func (s *macaroonCommonSuite) TearDownTest(c *tc.C) {
 	if s.discharger != nil {
 		s.discharger.Close()
 	}
@@ -54,9 +55,11 @@ type macaroonAuthSuite struct {
 	macaroonCommonSuite
 }
 
-var _ = gc.Suite(&macaroonAuthSuite{})
+func TestMacaroonAuthSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &macaroonAuthSuite{})
+}
 
-func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
+func (s *macaroonAuthSuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	s.ControllerConfig = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
@@ -77,7 +80,7 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 	return nil, errors.New("not called")
 }
 
-func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
+func (s *macaroonAuthSuite) TestServerBakery(c *tc.C) {
 	// TODO - remove when we use bakeryv2 everywhere
 	discharger := bakerytest.NewDischarger(nil)
 	defer discharger.Close()
@@ -91,7 +94,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	})
 
 	bsvc, err := stateauthenticator.ServerBakery(s.authenticator, &alwaysIdent{discharger.Location()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
 		checkers.NeedDeclaredCaveat(
@@ -102,25 +105,25 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 			"username",
 		),
 	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
+	mac, err := bsvc.Oven.NewMacaroon(c.Context(), bakery.LatestVersion, cav, bakery.NoOp)
+	c.Assert(err, tc.IsNil)
 
 	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	ms, err := client.DischargeAll(c.Context(), mac)
+	c.Assert(err, tc.ErrorIsNil)
 
-	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cond, jc.DeepEquals, []string{"declared username fred"})
+	_, cond, err := bsvc.Oven.VerifyMacaroon(c.Context(), ms)
+	c.Assert(err, tc.IsNil)
+	c.Assert(cond, tc.DeepEquals, []string{"declared username fred"})
 	authChecker := bsvc.Checker.Auth(ms)
-	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ai.Identity.Id(), gc.Equals, "fred")
+	ai, err := authChecker.Allow(c.Context(), identchecker.LoginOp)
+	c.Assert(err, tc.IsNil)
+	c.Assert(ai.Identity.Id(), tc.Equals, "fred")
 }
 
-func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
+func (s *macaroonAuthSuite) TestExpiredKey(c *tc.C) {
 	bsvc, err := stateauthenticator.ServerBakeryExpiresImmediately(s.authenticator, &alwaysIdent{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 
 	cav := []checkers.Caveat{
 		checkers.NeedDeclaredCaveat(
@@ -130,27 +133,29 @@ func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
 			"username",
 		),
 	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
+	mac, err := bsvc.Oven.NewMacaroon(c.Context(), bakery.LatestVersion, cav, bakery.NoOp)
+	c.Assert(err, tc.IsNil)
 
 	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
+	ms, err := client.DischargeAll(c.Context(), mac)
+	c.Assert(err, tc.ErrorIsNil)
 
-	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+	_, _, err = bsvc.Oven.VerifyMacaroon(c.Context(), ms)
+	c.Assert(err, tc.ErrorMatches, "verification failed: macaroon not found in storage")
 }
 
 type macaroonAuthWrongPublicKeySuite struct {
 	macaroonCommonSuite
 }
 
-var _ = gc.Suite(&macaroonAuthWrongPublicKeySuite{})
+func TestMacaroonAuthWrongPublicKeySuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &macaroonAuthWrongPublicKeySuite{})
+}
 
-func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
+func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *tc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	s.ControllerConfig = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
@@ -158,41 +163,43 @@ func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.macaroonCommonSuite.SetUpTest(c)
 }
 
-func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *gc.C) {
+func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *tc.C) {
 	s.discharger.Close()
 	s.StateSuite.TearDownTest(c)
 }
 
-func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	ctx := context.Background()
+func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *tc.C) {
+	ctx := c.Context()
 	client := httpbakery.NewClient()
 
 	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mac, err := bakery.NewLegacyMacaroon(m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cav := checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	}
 	anotherKey, err := bakery.GenerateKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	loc := bakery.NewThirdPartyStore()
 	loc.AddInfo(s.discharger.Location(), bakery.ThirdPartyInfo{})
 	err = mac.AddCaveat(ctx, cav, anotherKey, loc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = client.DischargeAll(ctx, mac)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
+	c.Assert(err, tc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }
 
 type macaroonNoURLSuite struct {
 	macaroonCommonSuite
 }
 
-var _ = gc.Suite(&macaroonNoURLSuite{})
+func TestMacaroonNoURLSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &macaroonNoURLSuite{})
+}
 
-func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
+func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *tc.C) {
 	// By default, when there is no identity location, no bakery is created.
 	_, err := stateauthenticator.ServerBakery(s.authenticator, nil)
-	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
+	c.Assert(err, tc.ErrorMatches, "macaroon authentication is not configured")
 }

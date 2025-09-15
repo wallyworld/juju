@@ -4,22 +4,25 @@
 package controller
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-var _ = gc.Suite(&controllerSuite{})
+func TestControllerSuite(t *tctesting.T) {
+	tc.Run(t, &controllerSuite{})
+}
 
 type controllerSuite struct{}
 
-func (s *controllerSuite) TestUserListCompatibility(c *gc.C) {
+func (s *controllerSuite) TestUserListCompatibility(c *tc.C) {
 	extProvider1 := "https://api.jujucharms.com/identity"
 	extProvider2 := "http://candid.provider/identity"
 	specs := []struct {
@@ -101,15 +104,15 @@ the current model:
 
 		err := spec.src.checkCompatibilityWith(spec.dst)
 		if spec.expErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		} else {
-			c.Assert(err, gc.Not(gc.Equals), nil)
-			c.Assert(err.Error(), gc.Equals, spec.expErr)
+			c.Assert(err, tc.Not(tc.Equals), nil)
+			c.Assert(err.Error(), tc.Equals, spec.expErr)
 		}
 	}
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
+func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
@@ -118,7 +121,7 @@ func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
 		Macaroons: []macaroon.Slice{{}},
 	}
 	apiInfo := targetToAPIInfo(&targetInfo)
-	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
 		Tag:       targetInfo.AuthTag,
@@ -127,7 +130,7 @@ func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
 	})
 }
 
-func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *gc.C) {
+func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *tc.C) {
 	targetInfo := migration.TargetInfo{
 		Addrs:     []string{"6.6.6.6"},
 		CACert:    testing.CACert,
@@ -136,7 +139,7 @@ func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *gc.C) {
 		Macaroons: []macaroon.Slice{{}},
 	}
 	apiInfo := targetToAPIInfo(&targetInfo)
-	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+	c.Assert(apiInfo, tc.DeepEquals, &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
 		Password:  targetInfo.Password,

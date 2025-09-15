@@ -4,19 +4,14 @@
 package metricobserver_test
 
 import (
-	"testing"
-
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
-
-func createMockMetrics(c *gc.C, labels interface{}) (*mocks.MockMetricsCollector, func()) {
+func createMockMetrics(c *tc.C, labels interface{}) (*mocks.MockMetricsCollector, func()) {
 	ctrl := gomock.NewController(c)
 
 	summary := mocks.NewMockSummary(ctrl)

@@ -4,18 +4,21 @@
 package ec2
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&specSuite{})
+func TestSpecSuite(t *tctesting.T) {
+	tc.Run(t, &specSuite{})
+}
 
 type specSuite struct {
 	testing.BaseSuite
@@ -217,7 +220,7 @@ var findInstanceSpecTests = []struct {
 	},
 }
 
-func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
+func (s *specSuite) TestFindInstanceSpec(c *tc.C) {
 	size := len(findInstanceSpecTests)
 	for i, test := range findInstanceSpecTests {
 		c.Logf("\ntest %d of %d: %q; %q; %q; %q; %q; %v", i+1, size,
@@ -245,29 +248,29 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
 			})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
-		c.Check(spec.Image.Id, gc.Equals, test.image)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(spec.InstanceType.Name, tc.Equals, test.itype)
+		c.Check(spec.Image.Id, tc.Equals, test.image)
 	}
 }
 
-func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
+func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *tc.C) {
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
 		Base:        version.DefaultSupportedLTSBase(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
-	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
+	c.Check(instanceConstraint.Constraints.CpuPower, tc.IsNil)
 	_, err := findInstanceSpec(
 		false, // non-controller
 		TestImageMetadata,
 		testInstanceTypes,
 		instanceConstraint,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
+	c.Check(instanceConstraint.Constraints.CpuPower, tc.IsNil)
 }
 
 var findInstanceSpecErrorTests = []struct {
@@ -293,7 +296,7 @@ var findInstanceSpecErrorTests = []struct {
 	},
 }
 
-func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
+func (s *specSuite) TestFindInstanceSpecErrors(c *tc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		// We need to filter the image metadata to the test's
@@ -312,12 +315,12 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 				Arch:        t.arch,
 				Constraints: constraints.MustParse(t.cons),
 			})
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 	}
 }
 
 func filterImageMetadata(
-	c *gc.C,
+	c *tc.C,
 	in []*imagemetadata.ImageMetadata,
 	filterVersion string, filterArch string,
 ) []*imagemetadata.ImageMetadata {
@@ -333,26 +336,26 @@ func filterImageMetadata(
 	return imageMetadata
 }
 
-func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {
-	c.Check(filterImages(nil, nil), gc.HasLen, 0)
+func (*specSuite) TestFilterImagesAcceptsNil(c *tc.C) {
+	c.Check(filterImages(nil, nil), tc.HasLen, 0)
 }
 
-func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
+func (*specSuite) TestFilterImagesReturnsSelectively(c *tc.C) {
 	good := imagemetadata.ImageMetadata{Id: "good", Storage: "ebs"}
 	bad := imagemetadata.ImageMetadata{Id: "bad", Storage: "ftp"}
 	input := []*imagemetadata.ImageMetadata{&good, &bad}
 	expectation := []*imagemetadata.ImageMetadata{&good}
 
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(input, ic), gc.DeepEquals, expectation)
+	c.Check(filterImages(input, ic), tc.DeepEquals, expectation)
 }
 
-func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
+func (*specSuite) TestFilterImagesMaintainsOrdering(c *tc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{Id: "one", Storage: "ebs"},
 		{Id: "two", Storage: "ebs"},
 		{Id: "three", Storage: "ebs"},
 	}
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
-	c.Check(filterImages(input, ic), gc.DeepEquals, input)
+	c.Check(filterImages(input, ic), tc.DeepEquals, input)
 }

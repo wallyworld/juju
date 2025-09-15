@@ -4,18 +4,22 @@
 package state
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MigrationSuite struct{}
 
-var _ = gc.Suite(&MigrationSuite{})
+func TestMigrationSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &MigrationSuite{})
+}
 
-func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
+func (s *MigrationSuite) TestKnownCollections(c *tc.C) {
 	completedCollections := set.NewStrings(
 		annotationsC,
 		blocksC,
@@ -235,10 +239,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	// Beware, if your collection is something controller-related it might
 	// not need migration (such as Users or ControllerUsers) in that
 	// case they only need to be accounted for among the ignored collections.
-	c.Assert(remainder, gc.HasLen, 0)
+	c.Assert(remainder, tc.HasLen, 0)
 }
 
-func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
+func (s *MigrationSuite) TestModelDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// UUID and Name are constructed from the model config.
 		"UUID",
@@ -270,7 +274,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestUserAccessDocFields(c *gc.C) {
+func (s *MigrationSuite) TestUserAccessDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
@@ -286,7 +290,7 @@ func (s *MigrationSuite) TestUserAccessDocFields(c *gc.C) {
 	s.AssertExportedFields(c, userAccessDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
+func (s *MigrationSuite) TestPermissionDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		"ID",
 		"ObjectGlobalKey",
@@ -296,7 +300,7 @@ func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestModelUserLastConnectionDocFields(c *gc.C) {
+func (s *MigrationSuite) TestModelUserLastConnectionDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
@@ -310,7 +314,7 @@ func (s *MigrationSuite) TestModelUserLastConnectionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, modelUserLastConnectionDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
+func (s *MigrationSuite) TestMachineDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + machine id
 		"DocID",
@@ -349,7 +353,7 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 	s.AssertExportedFields(c, machineDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
+func (s *MigrationSuite) TestInstanceDataFields(c *tc.C) {
 	ignored := set.NewStrings(
 		// KeepInstance is only set when a machine is
 		// dying/dead (to be removed).
@@ -379,7 +383,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
+func (s *MigrationSuite) TestApplicationDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + name
 		"DocID",
@@ -417,7 +421,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
+func (s *MigrationSuite) TestUnitDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -442,7 +446,7 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 	s.AssertExportedFields(c, unitDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestMachinePortRangesDocFields(c *gc.C) {
+func (s *MigrationSuite) TestMachinePortRangesDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// DocID itself isn't migrated
 		"DocID",
@@ -458,7 +462,7 @@ func (s *MigrationSuite) TestMachinePortRangesDocFields(c *gc.C) {
 	s.AssertExportedFields(c, machinePortRangesDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
+func (s *MigrationSuite) TestRelationDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// DocID itself isn't migrated
 		"DocID",
@@ -491,7 +495,7 @@ func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
 	s.AssertExportedFields(c, charm.Relation{}, charmRelationFields)
 }
 
-func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
+func (s *MigrationSuite) TestRelationScopeDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// DocID itself isn't migrated
 		"DocID",
@@ -505,7 +509,7 @@ func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
 	s.AssertExportedFields(c, relationScopeDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestAnnotatorDocFields(c *gc.C) {
+func (s *MigrationSuite) TestAnnotatorDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -517,7 +521,7 @@ func (s *MigrationSuite) TestAnnotatorDocFields(c *gc.C) {
 	s.AssertExportedFields(c, annotatorDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestBlockDocFields(c *gc.C) {
+func (s *MigrationSuite) TestBlockDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		// The doc id is a sequence value that has no meaning.
 		// It really doesn't need to be a sequence.
@@ -537,7 +541,7 @@ func (s *MigrationSuite) TestBlockDocFields(c *gc.C) {
 	s.AssertExportedFields(c, blockDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestSequenceDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSequenceDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -549,7 +553,7 @@ func (s *MigrationSuite) TestSequenceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, sequenceDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
+func (s *MigrationSuite) TestConstraintsDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -574,7 +578,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
+func (s *MigrationSuite) TestHistoricalStatusDocFields(c *tc.C) {
 	fields := set.NewStrings(
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -588,7 +592,7 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSpaceDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocId",
 		// Always alive, not explicitly exported.
@@ -603,7 +607,7 @@ func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
+func (s *MigrationSuite) TestBlockDeviceFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 		"ModelUUID",
@@ -632,7 +636,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
 }
 
-func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSubnetDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + name
 		"DocID",
@@ -659,7 +663,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+func (s *MigrationSuite) TestIPAddressDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 		"ModelUUID",
@@ -684,7 +688,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
+func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -704,7 +708,7 @@ func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSSHHostKeyDocFields(c *tc.C) {
 	ignored := set.NewStrings()
 	migrated := set.NewStrings(
 		"Keys",
@@ -712,7 +716,7 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
+func (s *MigrationSuite) TestActionDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 	)
@@ -735,7 +739,7 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestOperationDocFields(c *gc.C) {
+func (s *MigrationSuite) TestOperationDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"CompleteTaskCount",
@@ -753,7 +757,7 @@ func (s *MigrationSuite) TestOperationDocFields(c *gc.C) {
 	s.AssertExportedFields(c, operationDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
+func (s *MigrationSuite) TestVolumeDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -776,7 +780,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"Size", "Pool"))
 }
 
-func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
+func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -796,7 +800,7 @@ func (s *MigrationSuite) TestVolumeAttachmentDocFields(c *gc.C) {
 		"ReadOnly"))
 }
 
-func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
+func (s *MigrationSuite) TestFilesystemDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -820,7 +824,7 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"Size", "Pool"))
 }
 
-func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
+func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -840,7 +844,7 @@ func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
 		"Location", "ReadOnly"))
 }
 
-func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
+func (s *MigrationSuite) TestStorageInstanceDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -858,7 +862,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, storageInstanceDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestStorageAttachmentDocFields(c *gc.C) {
+func (s *MigrationSuite) TestStorageAttachmentDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -871,7 +875,7 @@ func (s *MigrationSuite) TestStorageAttachmentDocFields(c *gc.C) {
 	s.AssertExportedFields(c, storageAttachmentDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
+func (s *MigrationSuite) TestStorageConstraintsDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
 		"DocID",
@@ -882,7 +886,7 @@ func (s *MigrationSuite) TestStorageConstraintsDocFields(c *gc.C) {
 	s.AssertExportedFields(c, storageConstraintsDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
+func (s *MigrationSuite) TestPayloadDocFields(c *tc.C) {
 	definedThroughContainment := set.NewStrings(
 		"UnitID",
 		"MachineID",
@@ -897,7 +901,7 @@ func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
 	s.AssertExportedFields(c, payloadDoc{}, migrated.Union(definedThroughContainment))
 }
 
-func (s *MigrationSuite) TestEndpointBindingFields(c *gc.C) {
+func (s *MigrationSuite) TestEndpointBindingFields(c *tc.C) {
 	definedThroughContainment := set.NewStrings(
 		"DocID",
 	)
@@ -911,17 +915,17 @@ func (s *MigrationSuite) TestEndpointBindingFields(c *gc.C) {
 	s.AssertExportedFields(c, endpointBindingsDoc{}, fields)
 }
 
-func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
+func (s *MigrationSuite) AssertExportedFields(c *tc.C, doc interface{}, fields set.Strings) {
 	expected := testing.GetExportedFields(doc)
 	unknown := expected.Difference(fields)
 	removed := fields.Difference(expected)
 	// If this test fails, it means that extra fields have been added to the
 	// doc without thinking about the migration implications.
-	c.Check(unknown, gc.HasLen, 0)
-	c.Assert(removed, gc.HasLen, 0)
+	c.Check(unknown, tc.HasLen, 0)
+	c.Assert(removed, tc.HasLen, 0)
 }
 
-func (s *MigrationSuite) TestSecretMetadataDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSecretMetadataDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 
@@ -944,7 +948,7 @@ func (s *MigrationSuite) TestSecretMetadataDocFields(c *gc.C) {
 	s.AssertExportedFields(c, secretMetadataDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSecretRevisionDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 		"TxnRevno",
@@ -963,7 +967,7 @@ func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, secretRevisionDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestSecretRotationDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSecretRotationDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 		"TxnRevno",
@@ -975,7 +979,7 @@ func (s *MigrationSuite) TestSecretRotationDocFields(c *gc.C) {
 	s.AssertExportedFields(c, secretRotationDoc{}, migrated.Union(ignored))
 }
 
-func (s *MigrationSuite) TestSecretConsumerDocFields(c *gc.C) {
+func (s *MigrationSuite) TestSecretConsumerDocFields(c *tc.C) {
 	ignored := set.NewStrings(
 		"DocID",
 	)

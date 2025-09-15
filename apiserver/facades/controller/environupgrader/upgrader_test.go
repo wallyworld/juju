@@ -4,17 +4,18 @@
 package environupgrader_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -24,7 +25,7 @@ var (
 )
 
 type EnvironUpgraderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	backend      mockBackend
 	pool         mockPool
 	providers    mockProviderRegistry
@@ -33,9 +34,11 @@ type EnvironUpgraderSuite struct {
 	authorizer   apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&EnvironUpgraderSuite{})
+func TestEnvironUpgraderSuite(t *tctesting.T) {
+	tc.Run(t, &EnvironUpgraderSuite{})
+}
 
-func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
+func (s *EnvironUpgraderSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Controller: true,
@@ -62,21 +65,21 @@ func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
 	s.statusSetter = mockStatusSetter{}
 }
 
-func (s *EnvironUpgraderSuite) TestAuthController(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestAuthController(c *tc.C) {
 	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestAuthNonController(c *tc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
 	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(err, tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *tc.C) {
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(params.Entities{
 		Entities: []params.Entity{
 			{Tag: modelTag1.String()},
@@ -84,8 +87,8 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 			{Tag: "machine-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.IntResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.IntResults{
 		Results: []params.IntResult{{
 			Result: 0,
 		}, {
@@ -94,7 +97,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid model tag`},
 		}},
 	})
-	s.pool.CheckCalls(c, []testing.StubCall{
+	s.pool.CheckCalls(c, []testhelpers.StubCall{
 		{"GetModel", []interface{}{modelTag1.Id()}},
 		{"GetModel", []interface{}{modelTag2.Id()}},
 	})
@@ -102,10 +105,10 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 	s.pool.models[modelTag2.Id()].CheckCallNames(c, "EnvironVersion")
 }
 
-func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *tc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(params.Entities{
 		Entities: []params.Entity{
 			{Tag: modelTag1.String()},
@@ -113,8 +116,8 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 			{Tag: "machine-0"},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.IntResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.IntResults{
 		Results: []params.IntResult{{
 			Result: 123,
 		}, {
@@ -123,48 +126,48 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 			Error: &params.Error{Message: `"machine-0" is not a valid model tag`},
 		}},
 	})
-	s.backend.CheckCalls(c, []testing.StubCall{
+	s.backend.CheckCalls(c, []testhelpers.StubCall{
 		{"Cloud", []interface{}{"foo"}},
 		{"Cloud", []interface{}{"bar"}},
 	})
-	s.pool.CheckCalls(c, []testing.StubCall{
+	s.pool.CheckCalls(c, []testhelpers.StubCall{
 		{"GetModel", []interface{}{modelTag1.Id()}},
 		{"GetModel", []interface{}{modelTag2.Id()}},
 	})
 	s.pool.models[modelTag1.Id()].CheckCallNames(c, "CloudName")
 	s.pool.models[modelTag2.Id()].CheckCallNames(c, "CloudName")
-	s.providers.CheckCalls(c, []testing.StubCall{
+	s.providers.CheckCalls(c, []testhelpers.StubCall{
 		{"Provider", []interface{}{"foo-provider"}},
 		{"Provider", []interface{}{"bar-provider"}},
 	})
 	s.providers.providers["foo-provider"].CheckCallNames(c, "Version")
 }
 
-func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *tc.C) {
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
 			{ModelTag: modelTag1.String(), Version: 1},
 			{ModelTag: "machine-0", Version: 0},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
 			{&params.Error{Message: `"machine-0" is not a valid model tag`}},
 		},
 	})
-	s.pool.CheckCalls(c, []testing.StubCall{
+	s.pool.CheckCalls(c, []testhelpers.StubCall{
 		{"GetModel", []interface{}{modelTag1.Id()}},
 	})
-	s.pool.models[modelTag1.Id()].CheckCalls(c, []testing.StubCall{
+	s.pool.models[modelTag1.Id()].CheckCalls(c, []testhelpers.StubCall{
 		{"SetEnvironVersion", []interface{}{int(1)}},
 	})
 }
 
-func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
+func (s *EnvironUpgraderSuite) TestSetModelStatus(c *tc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "machine-0",
@@ -182,19 +185,19 @@ func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 	}
 
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := facade.SetModelStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, s.statusSetter.results)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, s.statusSetter.results)
 	s.backend.CheckNoCalls(c)
 	s.pool.models[modelTag1.Id()].CheckNoCalls(c)
-	s.statusSetter.CheckCalls(c, []testing.StubCall{
+	s.statusSetter.CheckCalls(c, []testhelpers.StubCall{
 		{"SetStatus", []interface{}{args}},
 	})
 }
 
 type mockBackend struct {
-	testing.Stub
+	testhelpers.Stub
 	clouds map[string]cloud.Cloud
 }
 
@@ -204,7 +207,7 @@ func (b *mockBackend) Cloud(name string) (cloud.Cloud, error) {
 }
 
 type mockPool struct {
-	testing.Stub
+	testhelpers.Stub
 	models map[string]*mockModel
 }
 
@@ -214,7 +217,7 @@ func (p *mockPool) GetModel(uuid string) (environupgrader.Model, func(), error) 
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 	cloud string
 	v     int
 }
@@ -237,7 +240,7 @@ func (m *mockModel) SetEnvironVersion(v int) error {
 }
 
 type mockWatcher struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
 func (m *mockWatcher) Watch(args params.Entities) (params.NotifyWatchResults, error) {
@@ -249,7 +252,7 @@ func (m *mockWatcher) Watch(args params.Entities) (params.NotifyWatchResults, er
 }
 
 type mockProviderRegistry struct {
-	testing.Stub
+	testhelpers.Stub
 	providers map[string]*mockProvider
 }
 
@@ -262,7 +265,7 @@ func (m *mockProviderRegistry) Provider(name string) (environs.EnvironProvider, 
 }
 
 type mockProvider struct {
-	testing.Stub
+	testhelpers.Stub
 	environs.EnvironProvider
 	version int
 }
@@ -274,7 +277,7 @@ func (m *mockProvider) Version() int {
 }
 
 type mockStatusSetter struct {
-	testing.Stub
+	testhelpers.Stub
 	results params.ErrorResults
 }
 

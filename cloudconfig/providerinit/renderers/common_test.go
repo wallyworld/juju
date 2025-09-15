@@ -6,29 +6,31 @@ package renderers_test
 
 import (
 	"encoding/base64"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type RenderersSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&RenderersSuite{})
+func TestRenderersSuite(t *tctesting.T) {
+	tc.Run(t, &RenderersSuite{})
+}
 
-func (s *RenderersSuite) TestToBase64(c *gc.C) {
+func (s *RenderersSuite) TestToBase64(c *tc.C) {
 	in := []byte("test")
 	expected := base64.StdEncoding.EncodeToString(in)
 	out := renderers.ToBase64(in)
-	c.Assert(string(out), gc.Equals, expected)
+	c.Assert(string(out), tc.Equals, expected)
 }
 
-func (s *RenderersSuite) TestRenderYAML(c *gc.C) {
+func (s *RenderersSuite) TestRenderYAML(c *tc.C) {
 	cloudcfg := &cloudinittest.CloudConfig{YAML: []byte("yaml")}
 	d1 := func(in []byte) []byte {
 		return []byte("1." + string(in))
@@ -37,12 +39,12 @@ func (s *RenderersSuite) TestRenderYAML(c *gc.C) {
 		return []byte("2." + string(in))
 	}
 	out, err := renderers.RenderYAML(cloudcfg, d2, d1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), jc.DeepEquals, "1.2.yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.DeepEquals, "1.2.yaml")
 	cloudcfg.CheckCallNames(c, "RenderYAML")
 }
 
-func (s *RenderersSuite) TestRenderScript(c *gc.C) {
+func (s *RenderersSuite) TestRenderScript(c *tc.C) {
 	cloudcfg := &cloudinittest.CloudConfig{Script: "script"}
 	d1 := func(in []byte) []byte {
 		return []byte("1." + string(in))
@@ -51,7 +53,7 @@ func (s *RenderersSuite) TestRenderScript(c *gc.C) {
 		return []byte("2." + string(in))
 	}
 	out, err := renderers.RenderScript(cloudcfg, d2, d1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), jc.DeepEquals, "1.2.script")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(out), tc.DeepEquals, "1.2.script")
 	cloudcfg.CheckCallNames(c, "RenderScript")
 }

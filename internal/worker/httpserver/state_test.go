@@ -4,43 +4,46 @@
 package httpserver_test
 
 import (
-	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	mgotesting "github.com/juju/mgo/v3/testing"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
 type stateFixture struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	statetesting.StateSuite
 }
 
-var _ = gc.Suite(&stateFixture{})
+func TestStateFixture(t *tctesting.T) {
+	tc.Run(t, &stateFixture{})
+}
 
-func (s *stateFixture) SetUpSuite(c *gc.C) {
+func (s *stateFixture) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *stateFixture) TearDownSuite(c *gc.C) {
+func (s *stateFixture) TearDownSuite(c *tc.C) {
 	s.StateSuite.TearDownSuite(c)
 	s.IsolationSuite.TearDownSuite(c)
 }
 
-func (s *stateFixture) SetUpTest(c *gc.C) {
+func (s *stateFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 }
 
-func (s *stateFixture) TearDownTest(c *gc.C) {
+func (s *stateFixture) TearDownTest(c *tc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.IsolationSuite.TearDownTest(c)
 }

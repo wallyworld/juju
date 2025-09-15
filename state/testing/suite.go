@@ -5,25 +5,27 @@ package testing
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	statewatcher "github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateSuite{})
+func TestStateSuite(t *tctesting.T) {
+	tc.Run(t, &StateSuite{})
+}
 
 // StateSuite provides setup and teardown for tests that require a
 // state.State.
@@ -49,17 +51,17 @@ type StateSuite struct {
 	modelWatcherMutex         *sync.Mutex
 }
 
-func (s *StateSuite) SetUpSuite(c *gc.C) {
+func (s *StateSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *StateSuite) TearDownSuite(c *gc.C) {
+func (s *StateSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StateSuite) SetUpTest(c *gc.C) {
+func (s *StateSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
@@ -87,22 +89,22 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		NewPolicy:                 s.NewPolicy,
 		Clock:                     s.Clock,
 	})
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		_ = s.Controller.Close()
 		close(s.txnSyncNotify)
 	})
 	s.StatePool = s.Controller.StatePool()
 	var err error
 	s.State, err = s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model = model
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
 
-func (s *StateSuite) TearDownTest(c *gc.C) {
+func (s *StateSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
@@ -137,13 +139,13 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 // WaitForNextSync repeatedly advances the testing clock
 // with short waits between until the txn poller doesn't find
 // any more changes.
-func (s *StateSuite) WaitForNextSync(c *gc.C) {
+func (s *StateSuite) WaitForNextSync(c *tc.C) {
 	done := make(chan struct{})
 	go func() {
 		<-s.txnSyncNotify
 		close(done)
 	}()
-	timeout := time.After(jujutesting.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	for {
 		select {
 		case <-done:
@@ -157,7 +159,7 @@ func (s *StateSuite) WaitForNextSync(c *gc.C) {
 // WaitForModelWatchersIdle firstly waits for the txn poller to process
 // all pending changes, then waits for the hub watcher on the state object
 // to have finished processing all those events.
-func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
+func (s *StateSuite) WaitForModelWatchersIdle(c *tc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
@@ -183,7 +185,7 @@ func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 		}
 	}()
 
-	timeout := time.After(jujutesting.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 	for {
 		loop := time.After(10 * time.Millisecond)
 		select {

@@ -6,7 +6,6 @@ package caasapplication_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,12 +14,13 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	_ "github.com/juju/juju/internal/provider/kubernetes"
+	"github.com/juju/juju/internal/testhelpers"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
-	testing.Stub
+	testhelpers.Stub
 	common.APIAddressAccessor
 	app              mockApplication
 	model            mockModel
@@ -90,7 +90,7 @@ func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 }
 
 type mockModel struct {
-	testing.Stub
+	testhelpers.Stub
 	containers    []state.CloudContainer
 	agentVersion  version.Number
 	controllerTag names.ControllerTag
@@ -121,7 +121,7 @@ func (st *mockModel) Tag() names.Tag {
 }
 
 type mockApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	life  state.Life
 	name  string
 	unit  *mockUnit
@@ -153,7 +153,7 @@ func (a *mockApplication) UpsertCAASUnit(args state.UpsertCAASUnitParams) (caasa
 }
 
 type mockUnit struct {
-	testing.Stub
+	testhelpers.Stub
 	life          state.Life
 	containerInfo state.CloudContainer
 	updateOp      *state.UpdateUnitOperation
@@ -197,7 +197,7 @@ func (u *mockUnit) ApplicationName() string {
 }
 
 type mockBroker struct {
-	testing.Stub
+	testhelpers.Stub
 	app *mockCAASApplication
 }
 
@@ -228,7 +228,7 @@ func (cc *mockCloudContainer) Ports() []string {
 }
 
 type mockCAASApplication struct {
-	testing.Stub
+	testhelpers.Stub
 	caas.Application
 
 	state caas.ApplicationState

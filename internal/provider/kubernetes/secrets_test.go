@@ -4,37 +4,38 @@
 package kubernetes_test
 
 import (
-	"context"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 )
 
-var _ = gc.Suite(&secretsSuite{})
+func TestSecretsSuite(t *tctesting.T) {
+	tc.Run(t, &secretsSuite{})
+}
 
 type secretsSuite struct {
 	fakeClientSuite
 }
 
-func (s *secretsSuite) TestProcessSecretData(c *gc.C) {
+func (s *secretsSuite) TestProcessSecretData(c *tc.C) {
 	o, err := provider.ProcessSecretData(
 		map[string]string{
 			"username": "YWRtaW4=",
 			"password": "MWYyZDFlMmU2N2Rm",
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(o, gc.DeepEquals, map[string][]byte{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(o, tc.DeepEquals, map[string][]byte{
 		"username": []byte("admin"),
 		"password": []byte("1f2d1e2e67df"),
 	})
 }
 
-func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
+func (s *secretsSuite) TestGetSecretToken(c *tc.C) {
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "secret-1",
@@ -47,15 +48,15 @@ func (s *secretsSuite) TestGetSecretToken(c *gc.C) {
 			core.ServiceAccountTokenKey: []byte("token"),
 		},
 	}
-	_, err := s.mockSecrets.Create(context.Background(), secret, v1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := s.mockSecrets.Create(c.Context(), secret, v1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
 
 	out, err := s.broker.GetSecretToken("secret-1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "token")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(out, tc.Equals, "token")
 
-	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Items, gc.HasLen, 1)
-	c.Assert(result.Items[0].Name, gc.Equals, "secret-1")
+	result, err := s.mockSecrets.List(c.Context(), v1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Items, tc.HasLen, 1)
+	c.Assert(result.Items[0].Name, tc.Equals, "secret-1")
 }

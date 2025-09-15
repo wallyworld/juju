@@ -4,40 +4,43 @@
 package imagecommon_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/imagecommon"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type imageMetadataSuite struct {
 	st *mockState
 }
 
-var _ = gc.Suite(&imageMetadataSuite{})
+func TestImageMetadataSuite(t *tctesting.T) {
+	tc.Run(t, &imageMetadataSuite{})
+}
 
-func (s *imageMetadataSuite) SetUpTest(c *gc.C) {
+func (s *imageMetadataSuite) SetUpTest(c *tc.C) {
 	mCfg := testConfig(c)
 	s.st = &mockState{
-		Stub:     &testing.Stub{},
+		Stub:     &testhelpers.Stub{},
 		modelCfg: mCfg,
 	}
 }
 
-func (s *imageMetadataSuite) TestSaveEmpty(c *gc.C) {
+func (s *imageMetadataSuite) TestSaveEmpty(c *tc.C) {
 	errs, err := imagecommon.Save(s.st, params.MetadataSaveParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 0)
 	s.st.CheckCallNames(c, []string{}...) // Nothing was called
 }
 
-func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *gc.C) {
+func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *tc.C) {
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
@@ -53,12 +56,12 @@ func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	)
 
 	errs, err := imagecommon.Save(s.st, ms)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(errs, gc.IsNil)
+	c.Assert(errors.Cause(err), tc.ErrorMatches, msg)
+	c.Assert(errs, tc.IsNil)
 	s.st.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *imageMetadataSuite) TestSave(c *gc.C) {
+func (s *imageMetadataSuite) TestSave(c *tc.C) {
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
@@ -78,10 +81,10 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 	)
 
 	errs, err := imagecommon.Save(s.st, ms)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 2)
-	c.Assert(errs[0].Error, gc.IsNil)
-	c.Assert(errs[1].Error, gc.ErrorMatches, msg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(errs, tc.HasLen, 2)
+	c.Assert(errs[0].Error, tc.IsNil)
+	c.Assert(errs[1].Error, tc.ErrorMatches, msg)
 
 	// TODO (anastasiamac 2016-08-24) This is a check for a band-aid solution.
 	// Once correct value is read from simplestreams, this "adjustment" needs to go.
@@ -91,12 +94,12 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 	expectedMetadata1 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
 		Metadata: []params.CloudImageMetadata{m},
 	}, nil)
-	c.Assert(expectedMetadata1[0].Priority, gc.Equals, 50)
+	c.Assert(expectedMetadata1[0].Priority, tc.Equals, 50)
 	expectedMetadata2 := imagecommon.ParseMetadataListFromParams(params.CloudImageMetadataList{
 		Metadata: []params.CloudImageMetadata{m, m},
 	}, nil)
 
-	s.st.CheckCalls(c, []testing.StubCall{
+	s.st.CheckCalls(c, []testhelpers.StubCall{
 		{"ModelConfig", nil},
 		{"SaveMetadata", []interface{}{expectedMetadata1}},
 		{"SaveMetadata", []interface{}{expectedMetadata2}},
@@ -104,7 +107,7 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 }
 
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 	modelCfg *config.Config
 }
 
@@ -118,10 +121,10 @@ func (s *mockState) ModelConfig() (*config.Config, error) {
 	return s.modelCfg, s.NextErr()
 }
 
-func testConfig(c *gc.C) *config.Config {
+func testConfig(c *tc.C) *config.Config {
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type": "mock",
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }

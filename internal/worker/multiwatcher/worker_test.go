@@ -4,11 +4,12 @@
 package multiwatcher_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/state"
@@ -21,15 +22,17 @@ type WorkerSuite struct {
 	config multiwatcher.Config
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.config = multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               s.logger,
@@ -38,30 +41,30 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+func (s *WorkerSuite) TestConfigMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Clock not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *WorkerSuite) TestConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Logger not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingBacking(c *gc.C) {
+func (s *WorkerSuite) TestConfigMissingBacking(c *tc.C) {
 	s.config.Backing = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Backing not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Backing not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
+func (s *WorkerSuite) TestConfigMissingRegisterer(c *tc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing PrometheusRegisterer not valid")
 }

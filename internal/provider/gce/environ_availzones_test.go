@@ -4,10 +4,11 @@
 package gce_test
 
 import (
+	tctesting "testing"
+
 	"cloud.google.com/go/compute/apiv1/computepb"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/provider/gce"
@@ -18,23 +19,25 @@ type environAZSuite struct {
 	gce.BaseSuite
 }
 
-var _ = gc.Suite(&environAZSuite{})
+func TestEnvironAZSuite(t *tctesting.T) {
+	tc.Run(t, &environAZSuite{})
+}
 
-func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *gc.C) {
+func (s *environAZSuite) TestAvailabilityZonesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, gce.InvalidCredentialError)
 
 	_, err := env.AvailabilityZones(s.CallCtx)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
+func (s *environAZSuite) TestAvailabilityZones(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -52,16 +55,16 @@ func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	}}, nil)
 
 	zones, err := env.AvailabilityZones(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(zones, gc.HasLen, 2)
-	c.Check(zones[0].Name(), gc.Equals, "a-zone")
-	c.Check(zones[0].Available(), jc.IsTrue)
-	c.Check(zones[1].Name(), gc.Equals, "b-zone")
-	c.Check(zones[1].Available(), jc.IsFalse)
+	c.Check(zones, tc.HasLen, 2)
+	c.Check(zones[0].Name(), tc.Equals, "a-zone")
+	c.Check(zones[0].Available(), tc.IsTrue)
+	c.Check(zones[1].Name(), tc.Equals, "b-zone")
+	c.Check(zones[1].Available(), tc.IsFalse)
 }
 
-func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
+func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -79,29 +82,29 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	id := instance.Id("inst-0")
 	ids := []instance.Id{id}
 	zones, err := env.InstanceAvailabilityZoneNames(s.CallCtx, ids)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, map[instance.Id]string{
+	c.Check(zones, tc.DeepEquals, map[instance.Id]string{
 		id: "home-zone",
 	})
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesInvalidCredentialError(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	s.MockService.EXPECT().AvailabilityZones(gomock.Any(), "us-east1").Return(nil, gce.InvalidCredentialError)
 
 	s.StartInstArgs.Placement = "zone=test-available"
 	_, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZones(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZones(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -117,11 +120,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZones(c *gc.C) {
 
 	s.StartInstArgs.Placement = "zone=test-available"
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zones, tc.DeepEquals, []string{"test-available"})
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -139,11 +142,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.DeepEquals, []string{"away-zone"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zones, tc.DeepEquals, []string{"away-zone"})
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesUnavailable(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -156,11 +159,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
 
 	s.StartInstArgs.Placement = "zone=test-unavailable"
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Check(err, gc.ErrorMatches, `.*availability zone "test-unavailable" is DOWN`)
-	c.Assert(zones, gc.HasLen, 0)
+	c.Check(err, tc.ErrorMatches, `.*availability zone "test-unavailable" is DOWN`)
+	c.Assert(zones, tc.HasLen, 0)
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesUnknown(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -173,11 +176,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 
 	s.StartInstArgs.Placement = "zone=test-unknown"
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown" not found`)
-	c.Assert(zones, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `invalid availability zone "test-unknown" not found`)
+	c.Assert(zones, tc.HasLen, 0)
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesConflictsVolume(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -188,11 +191,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "home-zone", as this will prevent attaching the requested disks in zone "away-zone"`)
-	c.Assert(zones, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, `cannot create instance in zone "home-zone", as this will prevent attaching the requested disks in zone "away-zone"`)
+	c.Assert(zones, tc.HasLen, 0)
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -210,11 +213,11 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachments(c *gc.C) {
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	zones, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zones, gc.DeepEquals, []string{"home-zone"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(zones, tc.DeepEquals, []string{"home-zone"})
 }
 
-func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachmentsDifferentZones(c *gc.C) {
+func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachmentsDifferentZones(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -226,5 +229,5 @@ func (s *environAZSuite) TestDeriveAvailabilityZonesVolumeAttachmentsDifferentZo
 		VolumeId: "away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
 	_, err := env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
-	c.Assert(err, gc.ErrorMatches, `cannot attach volumes from multiple availability zones: home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in home-zone, away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in away-zone`)
+	c.Assert(err, tc.ErrorMatches, `cannot attach volumes from multiple availability zones: home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in home-zone, away-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4 is in away-zone`)
 }

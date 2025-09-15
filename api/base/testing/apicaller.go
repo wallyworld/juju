@@ -10,13 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 // APICallerFunc is a function type that implements APICaller.
@@ -130,7 +129,7 @@ type APICall struct {
 //
 // Note that the returned value is not thread-safe - do not
 // use it if the client is making concurrent calls.
-func APICallChecker(c *gc.C, calls ...APICall) *CallChecker {
+func APICallChecker(c *tc.C, calls ...APICall) *CallChecker {
 	var checker CallChecker
 	checker.APICallerFunc = func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
 		call := checker.CallCount
@@ -143,29 +142,29 @@ func APICallChecker(c *gc.C, calls ...APICall) *CallChecker {
 	return &checker
 }
 
-func checkArgs(c *gc.C, args APICall, facade string, version int, id, method string, inArgs, outResults interface{}) error {
+func checkArgs(c *tc.C, args APICall, facade string, version int, id, method string, inArgs, outResults interface{}) error {
 	if args.Facade != "" {
-		c.Check(facade, gc.Equals, args.Facade)
+		c.Check(facade, tc.Equals, args.Facade)
 	}
 	if args.Version != 0 {
-		c.Check(version, gc.Equals, args.Version)
+		c.Check(version, tc.Equals, args.Version)
 	} else if args.VersionIsZero {
-		c.Check(version, gc.Equals, 0)
+		c.Check(version, tc.Equals, 0)
 	}
 	if args.Id != "" {
-		c.Check(id, gc.Equals, args.Id)
+		c.Check(id, tc.Equals, args.Id)
 	} else if args.IdIsEmpty {
-		c.Check(id, gc.Equals, "")
+		c.Check(id, tc.Equals, "")
 	}
 	if args.Method != "" {
-		c.Check(method, gc.Equals, args.Method)
+		c.Check(method, tc.Equals, args.Method)
 	}
 	if args.Args != nil {
-		c.Check(inArgs, jc.DeepEquals, args.Args)
+		c.Check(inArgs, tc.DeepEquals, args.Args)
 	}
 	if args.Results != nil {
-		c.Check(outResults, gc.NotNil)
-		testing.PatchValue(outResults, args.Results)
+		c.Check(outResults, tc.NotNil)
+		testhelpers.PatchValue(outResults, args.Results)
 	}
 	return args.Error
 }
@@ -182,7 +181,7 @@ func (c notifyingAPICaller) APICall(objType string, version int, id, request str
 
 // NotifyingAPICaller returns an APICaller implementation which sends a
 // message on the given channel every time it receives a call.
-func NotifyingAPICaller(c *gc.C, called chan<- struct{}, caller base.APICaller) base.APICaller {
+func NotifyingAPICaller(c *tc.C, called chan<- struct{}, caller base.APICaller) base.APICaller {
 	return notifyingAPICaller{
 		APICaller: caller,
 		called:    called,
@@ -207,7 +206,7 @@ func APICallerWithBakery(caller base.APICallCloser, discharger base.MacaroonDisc
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.
 type StubFacadeCaller struct {
 	// Stub is the raw stub used to track calls and errors.
-	Stub *testing.Stub
+	Stub *testhelpers.Stub
 	// These control the values returned by the stub's methods.
 	FacadeCallFn         func(name string, params, response interface{}) error
 	ReturnName           string

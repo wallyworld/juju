@@ -9,17 +9,16 @@ import (
 	"github.com/juju/clock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing"
 )
 
 type InitializeArgs struct {
@@ -39,7 +38,7 @@ type InitializeArgs struct {
 // configuration will be used.
 // This provides for tests still using a real clock from utils as tests are
 // migrated to use the testing clock
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.Controller {
+func Initialize(c *tc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.Controller {
 	return InitializeWithArgs(c, InitializeArgs{
 		Owner:                     owner,
 		InitialConfig:             cfg,
@@ -53,7 +52,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 // InitializeWithArgs initializes the state and returns it. If state was not
 // already initialized, and args.Config is nil, the minimal default model
 // configuration will be used.
-func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
+func InitializeWithArgs(c *tc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
@@ -62,7 +61,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	}
 
 	session, err := mgotesting.MgoServer.Dial()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
 	controllerCfg := testing.FakeControllerConfig()
@@ -128,7 +127,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		NewPolicy:           args.NewPolicy,
 		AdminPassword:       args.AdminPassword,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctlr
 }
 

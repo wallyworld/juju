@@ -4,6 +4,7 @@
 package presence_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -11,26 +12,27 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	corepresence "github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/presence"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	config presence.ManifoldConfig
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = presence.ManifoldConfig{
 		AgentName:      "agent",
@@ -47,87 +49,87 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 	return presence.Manifold(s.config)
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"agent", "central-hub"})
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "central-hub"})
 }
 
-func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidation(c *tc.C) {
 	err := s.config.Validate()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingAgentName(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingAgentName(c *tc.C) {
 	s.config.AgentName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing AgentName not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing AgentName not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingCentralHubName(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingCentralHubName(c *tc.C) {
 	s.config.CentralHubName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing CentralHubName not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing CentralHubName not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingRecorder(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingRecorder(c *tc.C) {
 	s.config.Recorder = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Recorder not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Recorder not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing Logger not valid")
 }
 
-func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *gc.C) {
+func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *tc.C) {
 	s.config.NewWorker = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing NewWorker not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing NewWorker not valid")
 }
 
-func (s *ManifoldSuite) TestConfigNewWorker(c *gc.C) {
+func (s *ManifoldSuite) TestConfigNewWorker(c *tc.C) {
 	// This test will fail at compile time if the presence.NewWorker function
 	// has a different signature to the NewWorker config attribute for ManifoldConfig.
 	s.config.NewWorker = presence.NewWorker
 }
 
-func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
+func (s *ManifoldSuite) TestManifoldCallsValidate(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{})
 	s.config.Recorder = nil
 	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `missing Recorder not valid`)
+	c.Check(worker, tc.IsNil)
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, `missing Recorder not valid`)
 }
 
-func (s *ManifoldSuite) TestAgentMissing(c *gc.C) {
+func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestCentralHubMissing(c *gc.C) {
+func (s *ManifoldSuite) TestCentralHubMissing(c *tc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent":       &fakeAgent{tag: names.NewMachineTag("42")},
 		"central-hub": dependency.ErrMissing,
 	})
 
 	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
+func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	hub := pubsub.NewStructuredHub(nil)
 	var config presence.WorkerConfig
 	s.config.NewWorker = func(c presence.WorkerConfig) (worker.Worker, error) {
@@ -141,12 +143,12 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	})
 
 	worker, err := s.manifold().Start(context)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker, tc.NotNil)
 
-	c.Check(config.Origin, gc.Equals, "machine-42")
-	c.Check(config.Hub, gc.Equals, hub)
-	c.Check(config.Recorder, gc.Equals, s.config.Recorder)
+	c.Check(config.Origin, tc.Equals, "machine-42")
+	c.Check(config.Hub, tc.Equals, hub)
+	c.Check(config.Recorder, tc.Equals, s.config.Recorder)
 }
 
 type fakeWorker struct {

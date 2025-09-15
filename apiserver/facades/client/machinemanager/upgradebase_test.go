@@ -4,13 +4,13 @@
 package machinemanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
@@ -19,16 +19,19 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/state"
 )
 
 type UpgradeSeriesSuiteValidate struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&UpgradeSeriesSuiteValidate{})
+func TestUpgradeSeriesSuiteValidate(t *tctesting.T) {
+	tc.Run(t, &UpgradeSeriesSuiteValidate{})
+}
 
-func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
+func (s *UpgradeSeriesSuiteValidate) TestValidate(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -64,13 +67,13 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []machinemanager.ValidationResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []machinemanager.ValidationResult{
 		{UnitNames: []string{"foo/0"}},
 	})
 }
 
-func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateBase(c *gc.C) {
+func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateBase(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -95,11 +98,11 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateBase(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result[0].Error, tc.ErrorMatches, `boom`)
 }
 
-func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
+func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -129,17 +132,19 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	result, err := api.Validate(entities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result[0].Error, tc.ErrorMatches, `boom`)
 }
 
 type UpgradeSeriesSuitePrepare struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&UpgradeSeriesSuitePrepare{})
+func TestUpgradeSeriesSuitePrepare(t *tctesting.T) {
+	tc.Run(t, &UpgradeSeriesSuitePrepare{})
+}
 
-func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
+func (s UpgradeSeriesSuitePrepare) TestPrepare(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -172,10 +177,10 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "20.04", false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
+func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -209,10 +214,10 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "20.04", false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
-func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
+func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -246,10 +251,10 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "20.04", false)
-	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
+	c.Assert(err, tc.ErrorMatches, `boom occurred while cleaning up from: bad`)
 }
 
-func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
+func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -266,16 +271,18 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
 	err := api.Prepare("machine-0", "20.04", false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
 type ValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ValidatorSuite{})
+func TestValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &ValidatorSuite{})
+}
 
-func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
+func (s ValidatorSuite) TestValidateApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -300,10 +307,10 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
 
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
+func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -319,10 +326,10 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
 
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s ValidatorSuite) TestValidateMachine(c *gc.C) {
+func (s ValidatorSuite) TestValidateMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -333,10 +340,10 @@ func (s ValidatorSuite) TestValidateMachine(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s ValidatorSuite) TestValidateMachineIsManager(c *gc.C) {
+func (s ValidatorSuite) TestValidateMachineIsManager(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -347,10 +354,10 @@ func (s ValidatorSuite) TestValidateMachineIsManager(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateMachine(machine)
-	c.Assert(err, gc.ErrorMatches, `machine-0 is a controller and cannot be targeted for series upgrade`)
+	c.Assert(err, tc.ErrorMatches, `machine-0 is a controller and cannot be targeted for series upgrade`)
 }
 
-func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
+func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -363,10 +370,10 @@ func (s ValidatorSuite) TestValidateMachineIsLockedForSeriesUpgrade(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateMachine(machine)
-	c.Assert(err, gc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "prepare running" state`)
+	c.Assert(err, tc.ErrorMatches, `upgrade series lock found for "0"; series upgrade is in the "prepare running" state`)
 }
 
-func (s ValidatorSuite) TestValidateUnits(c *gc.C) {
+func (s ValidatorSuite) TestValidateUnits(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -378,10 +385,10 @@ func (s ValidatorSuite) TestValidateUnits(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateUnits(units)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s ValidatorSuite) TestValidateUnitsNotIdle(c *gc.C) {
+func (s ValidatorSuite) TestValidateUnitsNotIdle(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -393,10 +400,10 @@ func (s ValidatorSuite) TestValidateUnitsNotIdle(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateUnits(units)
-	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its agent status is: "blocked" `)
+	c.Assert(err, tc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its agent status is: "blocked" `)
 }
 
-func (s ValidatorSuite) TestValidateUnitsInErrorState(c *gc.C) {
+func (s ValidatorSuite) TestValidateUnitsInErrorState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -409,16 +416,18 @@ func (s ValidatorSuite) TestValidateUnitsInErrorState(c *gc.C) {
 	validator := machinemanager.NewTestUpgradeSeriesValidator(nil, nil)
 
 	err := validator.ValidateUnits(units)
-	c.Assert(err, gc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its status is: "error" `)
+	c.Assert(err, tc.ErrorMatches, `unit foo/0 is not ready to start a series upgrade; its status is: "error" `)
 }
 
 type StateValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&StateValidatorSuite{})
+func TestStateValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &StateValidatorSuite{})
+}
 
-func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -433,10 +442,10 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -453,10 +462,10 @@ func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
+	c.Assert(err, tc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -474,10 +483,10 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
+	c.Assert(err, tc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -492,16 +501,18 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 type CharmhubValidatorSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&CharmhubValidatorSuite{})
+func TestCharmhubValidatorSuite(t *tctesting.T) {
+	tc.Run(t, &CharmhubValidatorSuite{})
+}
 
-func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -529,10 +540,10 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -546,10 +557,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) 
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
+	c.Assert(err, tc.ErrorMatches, `no revision found for application "foo"`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -575,10 +586,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `bad`)
+	c.Assert(err, tc.ErrorMatches, `bad`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -606,10 +617,10 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
+	c.Assert(err, tc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
-func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce(c *gc.C) {
+func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -640,5 +651,5 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

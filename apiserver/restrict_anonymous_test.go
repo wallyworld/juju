@@ -4,13 +4,14 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
 )
 
 type restrictAnonymousSuite struct {
@@ -18,26 +19,28 @@ type restrictAnonymousSuite struct {
 	root rpc.Root
 }
 
-var _ = gc.Suite(&restrictAnonymousSuite{})
+func TestRestrictAnonymousSuite(t *tctesting.T) {
+	tc.Run(t, &restrictAnonymousSuite{})
+}
 
-func (s *restrictAnonymousSuite) SetUpSuite(c *gc.C) {
+func (s *restrictAnonymousSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingAnonymousRoot()
 }
 
-func (s *restrictAnonymousSuite) TestAllowed(c *gc.C) {
+func (s *restrictAnonymousSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "CrossModelRelations", 2, "RegisterRemoteRelations")
 }
 
-func (s *restrictAnonymousSuite) TestNotAllowed(c *gc.C) {
+func (s *restrictAnonymousSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
-	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for anonymous API connections`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `facade "Client" not supported for anonymous API connections`)
+	c.Assert(errors.IsNotSupported(err), tc.IsTrue)
+	c.Assert(caller, tc.IsNil)
 }
 
-func (s *restrictAnonymousSuite) assertMethod(c *gc.C, facadeName string, version int, method string) {
+func (s *restrictAnonymousSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(caller, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(caller, tc.NotNil)
 }

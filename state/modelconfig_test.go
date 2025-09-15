@@ -5,32 +5,34 @@ package state_test
 
 import (
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 type ModelConfigSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ModelConfigSuite{})
+func TestModelConfigSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ModelConfigSuite{})
+}
 
-func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
+func (s *ModelConfigSuite) SetUpTest(c *tc.C) {
 	s.ControllerInheritedConfig = map[string]interface{}{
 		"apt-mirror": "http://cloud-mirror",
 	}
@@ -57,10 +59,10 @@ func (s *ModelConfigSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
+func (s *ModelConfigSuite) TestAdditionalValidation(c *tc.C) {
 	updateAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
 	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		c.Assert(updateAttrs, jc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
+		c.Assert(updateAttrs, tc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
 		if lc, found := updateAttrs["logging-config"]; found && lc != "" {
 			return errors.New("cannot change logging-config")
 		}
@@ -68,7 +70,7 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	}
 	removeAttrs := []string{"some-attr"}
 	configValidator2 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		c.Assert(removeAttrs, jc.DeepEquals, []string{"some-attr"})
+		c.Assert(removeAttrs, tc.DeepEquals, []string{"some-attr"})
 		for _, i := range removeAttrs {
 			if i == "some-attr" {
 				return errors.New("cannot remove some-attr")
@@ -81,51 +83,51 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	}
 
 	err := s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1)
-	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
+	c.Assert(err, tc.ErrorMatches, "cannot change logging-config")
 	err = s.Model.UpdateModelConfig(nil, removeAttrs, configValidator2)
-	c.Assert(err, gc.ErrorMatches, "cannot remove some-attr")
+	c.Assert(err, tc.ErrorMatches, "cannot remove some-attr")
 	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// First error is returned.
 	err = s.Model.UpdateModelConfig(updateAttrs, nil, configValidator1, configValidator2)
-	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
+	c.Assert(err, tc.ErrorMatches, "cannot change logging-config")
 }
 
-func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
+func (s *ModelConfigSuite) TestModelConfig(c *tc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err = cfg.Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	oldCfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(oldCfg, jc.DeepEquals, cfg)
+	c.Assert(oldCfg, tc.DeepEquals, cfg)
 }
 
-func (s *ModelConfigSuite) TestAgentVersion(c *gc.C) {
+func (s *ModelConfigSuite) TestAgentVersion(c *tc.C) {
 	attrs := map[string]interface{}{
 		"agent-version": "2.2.3",
 		"arbitrary-key": "shazam!",
 	}
 	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, version.Number{Major: 2, Minor: 0, Patch: 0})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ver, tc.DeepEquals, version.Number{Major: 2, Minor: 0, Patch: 0})
 
 	err = s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ver, err = s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, version.Number{Major: 2, Minor: 2, Patch: 3})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ver, tc.DeepEquals, version.Number{Major: 2, Minor: 2, Patch: 3})
 }
 
-func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
+func (s *ModelConfigSuite) TestComposeNewModelConfig(c *tc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
@@ -139,9 +141,9 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 		attrs, &environscloudspec.CloudRegionSpec{
 			Cloud:  "dummy",
 			Region: "dummy-region"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttrdummy"] = "vulch"
@@ -150,10 +152,10 @@ func (s *ModelConfigSuite) TestComposeNewModelConfig(c *gc.C) {
 	expected["no-proxy"] = "dummy-proxy"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
-	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+	c.Assert(cfgAttrs, tc.DeepEquals, expected)
 }
 
-func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *tc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
@@ -164,9 +166,9 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	}
 	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "dummy-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["apt-mirror"] = "http://cloud-mirror"
 	expected["providerAttrdummy"] = "vulch"
@@ -175,10 +177,10 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionMisses(c *gc.C) {
 	expected["image-stream"] = "dummy-image-stream"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
-	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+	c.Assert(cfgAttrs, tc.DeepEquals, expected)
 }
 
-func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
+func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *tc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
@@ -189,25 +191,25 @@ func (s *ModelConfigSuite) TestComposeNewModelConfigRegionInherits(c *gc.C) {
 	}
 	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "nether-region"}
 	cfgAttrs, err := s.State.ComposeNewModelConfig(attrs, rspec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
 	expected["no-proxy"] = "nether-proxy"
 	expected["apt-mirror"] = "http://nether-region-mirror"
 	expected["providerAttrdummy"] = "vulch"
 	// config.New() adds logging-config so remove it.
 	expected["logging-config"] = ""
-	c.Assert(cfgAttrs, jc.DeepEquals, expected)
+	c.Assert(cfgAttrs, tc.DeepEquals, expected)
 }
 
-func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
+func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *tc.C) {
 	updateAttrs := map[string]interface{}{"api-port": 1234}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
+	c.Assert(err, tc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
 }
 
-func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
+func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *tc.C) {
 	attrs := map[string]interface{}{
 		"apt-mirror":        "http://different-mirror", // controller
 		"arbitrary-key":     "shazam!",
@@ -215,32 +217,32 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 		"whimsy-key":        "eggs", // region
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.Model.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttrdummy", "whimsy-key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
-	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
-	c.Assert(allAttrs["providerAttrdummy"], gc.Equals, "vulch")
-	c.Assert(allAttrs["whimsy-key"], gc.Equals, "whimsy-value")
+	c.Assert(allAttrs["apt-mirror"], tc.Equals, "http://cloud-mirror")
+	c.Assert(allAttrs["providerAttrdummy"], tc.Equals, "vulch")
+	c.Assert(allAttrs["whimsy-key"], tc.Equals, "whimsy-value")
 	_, ok := allAttrs["arbitrary-key"]
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
-func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
+func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *tc.C) {
 	attrs := map[string]interface{}{
 		"resource-tags": map[string]string{"a": "b", "c": "d"},
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, state.ModelGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedTags := map[string]string{"a": "b", "c": "d"}
 	coerced, err := config.CoerceForStorage(modelSettings.Map())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	tagsStr := coerced["resource-tags"].(string)
 	tagItems := strings.Split(tagsStr, " ")
 	tagsMap := make(map[string]string)
@@ -248,43 +250,45 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 		parts := strings.Split(kv, "=")
 		tagsMap[parts[0]] = parts[1]
 	}
-	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
+	c.Assert(tagsMap, tc.DeepEquals, expectedTags)
 
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["resource-tags"], gc.DeepEquals, expectedTags)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["resource-tags"], tc.DeepEquals, expectedTags)
 }
 
-func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
+func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *tc.C) {
 	attrs := map[string]interface{}{
 		"apt-mirror":        "http://different-mirror", // controller
 		"arbitrary-key":     "shazam!",
 		"providerAttrdummy": "beef", // provider
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.Model.UpdateModelConfig(map[string]interface{}{
 		"apt-mirror":        "http://another-mirror",
 		"providerAttrdummy": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
-	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
-	c.Assert(allAttrs["providerAttrdummy"], gc.Equals, "pork")
+	c.Assert(allAttrs["apt-mirror"], tc.Equals, "http://another-mirror")
+	c.Assert(allAttrs["providerAttrdummy"], tc.Equals, "pork")
 	_, ok := allAttrs["arbitrary-key"]
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, tc.IsFalse)
 }
 
 type ModelConfigSourceSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ModelConfigSourceSuite{})
+func TestModelConfigSourceSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ModelConfigSourceSuite{})
+}
 
-func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
+func (s *ModelConfigSourceSuite) SetUpTest(c *tc.C) {
 	s.ControllerInheritedConfig = map[string]interface{}{
 		"apt-mirror": "http://cloud-mirror",
 		"http-proxy": "http://proxy",
@@ -298,45 +302,45 @@ func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	localControllerSettings.Set("apt-mirror", "http://mirror")
 	_, err = localControllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(c *tc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"apt-mirror":      "http://anothermirror",
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://anothermirror")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["apt-mirror"], tc.Equals, "http://anothermirror")
 }
 
-func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *tc.C) {
 	modelCfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], tc.Equals, "http://cloud-mirror")
 
 	// Change the local controller settings and ensure the model setting stays the same.
 	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	localControllerSettings.Set("apt-mirror", "http://anothermirror")
 	_, err = localControllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelCfg, err = s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], tc.Equals, "http://cloud-mirror")
 }
 
-func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *tc.C) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "another",
 		"uuid": uuid.String(),
@@ -350,29 +354,29 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 		CloudRegion:             "nether-region",
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer st.Close()
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelCfg, err := m.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], tc.Equals, "http://mirror")
 
 	// Change the local controller settings and ensure the model setting stays the same.
 	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	localCloudSettings.Set("apt-mirror", "http://anothermirror")
 	_, err = localCloudSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelCfg, err = m.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelCfg.AllAttrs()["apt-mirror"], tc.Equals, "http://mirror")
 }
 
-func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *config.Config, modelAttributes, controllerAttributes set.Strings) {
+func (s *ModelConfigSourceSuite) assertModelConfigValues(c *tc.C, modelCfg *config.Config, modelAttributes, controllerAttributes set.Strings) {
 	expectedValues := make(config.ConfigValues)
 	defaultAttributes := set.NewStrings()
 	for defaultAttr := range config.ConfigDefaults() {
@@ -395,31 +399,31 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 		}
 	}
 	sources, err := s.Model.ModelConfigValues()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedValues)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sources, tc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigValues(c *tc.C) {
 	modelCfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *tc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy": "http://anotherproxy",
 		"apt-mirror": "http://mirror",
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelCfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *tc.C) {
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
 		expectedValues[attr] = config.AttributeDefaultValues{
@@ -445,28 +449,28 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 	expectedValues["no-proxy"] = ds
 
 	sources, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedValues)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(sources, tc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *tc.C) {
 	// Set up values that will be removed.
 	attrs := map[string]interface{}{
 		"http-proxy":  "http://http-proxy",
 		"https-proxy": "https://https-proxy",
 	}
 	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
 		"apt-mirror":            "http://different-mirror",
 		"num-provision-workers": 66,
 	}
 	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
 		expectedValues[attr] = config.AttributeDefaultValues{
@@ -492,18 +496,18 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		Controller: 66,
 		Default:    16,
 	}
-	c.Assert(cfg, jc.DeepEquals, expectedValues)
+	c.Assert(cfg, tc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsArbitraryConfig(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsArbitraryConfig(c *tc.C) {
 	attrs := map[string]interface{}{
 		"hello": "world",
 	}
 	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
 		expectedValues[attr] = config.AttributeDefaultValues{
@@ -532,26 +536,26 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsArbitraryConfig(c 
 			Name:  "dummy-region",
 			Value: "dummy-proxy",
 		}}}
-	c.Assert(cfg, jc.DeepEquals, expectedValues)
+	c.Assert(cfg, tc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsWithValidationError(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsWithValidationError(c *tc.C) {
 	// Set up values that will be removed.
 	attrs := map[string]interface{}{
 		"http-proxy":  "http://http-proxy",
 		"https-proxy": "https://https-proxy",
 	}
 	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
 		"test-mode": "baz",
 	}
 	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
-	c.Assert(err, gc.ErrorMatches, `test-mode: expected bool, got string\("baz"\)`)
+	c.Assert(err, tc.ErrorMatches, `test-mode: expected bool, got string\("baz"\)`)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *tc.C) {
 	// The test env is setup with dummy/dummy-region having a no-proxy
 	// dummy-proxy value and nether-region with a nether-proxy value.
 	//
@@ -561,13 +565,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	}
 
 	rspec, err := environscloudspec.NewCloudRegionSpec("dummy", "dummy-region")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
 		expectedValues[attr] = config.AttributeDefaultValues{
@@ -591,15 +595,15 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 			Name:  "dummy-region",
 			Value: "changed-proxy",
 		}}}
-	c.Assert(cfg, jc.DeepEquals, expectedValues)
+	c.Assert(cfg, tc.DeepEquals, expectedValues)
 
 	// remove the dummy-region setting
 	err = s.State.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// and check again
 	cfg, err = s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedValues = make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
 		expectedValues[attr] = config.AttributeDefaultValues{
@@ -617,27 +621,27 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 			Name:  "dummy-region",
 			Value: "http://dummy-mirror",
 		}}}
-	c.Assert(cfg, jc.DeepEquals, expectedValues)
+	c.Assert(cfg, tc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion(c *tc.C) {
 	// Set up settings to create
 	attrs := map[string]interface{}{
 		"no-proxy": "changed-proxy",
 	}
 
 	rspec, err := environscloudspec.NewCloudRegionSpec("dummy", "unused-region")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// We add this to the unused-region which has not been created in mongo
 	// yet.
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Then check config.
 	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg["no-proxy"], tc.DeepEquals, config.AttributeDefaultValues{
 		Default:    "127.0.0.1,localhost,::1",
 		Controller: nil,
 		Regions: []config.RegionDefaultValue{

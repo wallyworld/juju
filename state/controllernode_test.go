@@ -4,9 +4,11 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -14,42 +16,44 @@ type ControllerNodeSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ControllerNodeSuite{})
+func TestControllerNodeSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ControllerNodeSuite{})
+}
 
-func (s *ControllerNodeSuite) TestAddControllerNode(c *gc.C) {
+func (s *ControllerNodeSuite) TestAddControllerNode(c *tc.C) {
 	node, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node.IsManager(), jc.IsTrue)
-	c.Assert(node.Tag().String(), gc.Equals, "controller-0")
-	c.Assert(node.Life(), gc.Equals, state.Alive)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node.IsManager(), tc.IsTrue)
+	c.Assert(node.Tag().String(), tc.Equals, "controller-0")
+	c.Assert(node.Life(), tc.Equals, state.Alive)
 	node0, err := s.State.ControllerNode("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node, jc.DeepEquals, node0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node, tc.DeepEquals, node0)
 
 	// Check id increments.
 	node1, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(node1.Id(), gc.Equals, "1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(node1.Id(), tc.Equals, "1")
 }
 
-func (s *ControllerNodeSuite) TestSetPassword(c *gc.C) {
+func (s *ControllerNodeSuite) TestSetPassword(c *tc.C) {
 	node, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return node, nil
 	})
 }
 
-func (s *ControllerNodeSuite) TestSetMongoPassword(c *gc.C) {
+func (s *ControllerNodeSuite) TestSetMongoPassword(c *tc.C) {
 	_, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testSetMongoPassword(c, func(st *state.State, id string) (mongoPasswordSetter, error) {
 		return st.ControllerNode("0")
 	}, s.State.ControllerTag(), s.modelTag, s.Session)
 }
 
-func (s *ControllerNodeSuite) TestAgentTools(c *gc.C) {
+func (s *ControllerNodeSuite) TestAgentTools(c *tc.C) {
 	node, err := s.State.AddControllerNode()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	testAgentTools(c, node, "controller "+node.Id())
 }

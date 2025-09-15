@@ -5,18 +5,18 @@ package status_test
 
 import (
 	"errors"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/status"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type MinimalStatusSuite struct {
@@ -26,9 +26,11 @@ type MinimalStatusSuite struct {
 	clock     *timeRecorder
 }
 
-var _ = gc.Suite(&MinimalStatusSuite{})
+func TestMinimalStatusSuite(t *tctesting.T) {
+	tc.Run(t, &MinimalStatusSuite{})
+}
 
-func (s *MinimalStatusSuite) SetUpTest(c *gc.C) {
+func (s *MinimalStatusSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.statusapi = &fakeStatusAPI{
 		result: &params.FullStatus{
@@ -42,18 +44,18 @@ func (s *MinimalStatusSuite) SetUpTest(c *gc.C) {
 	s.SetModelAndController(c, "test", "admin/test")
 }
 
-func (s *MinimalStatusSuite) runStatus(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *MinimalStatusSuite) runStatus(c *tc.C, args ...string) (*cmd.Context, error) {
 	statusCmd := status.NewTestStatusCommand(s.statusapi, s.clock)
 	return cmdtesting.RunCommand(c, statusCmd, args...)
 }
 
-func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
+func (s *MinimalStatusSuite) TestGoodCall(c *tc.C) {
 	_, err := s.runStatus(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clock.waits, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.clock.waits, tc.HasLen, 0)
 }
 
-func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
+func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *tc.C) {
 	t := time.Now()
 	s.statusapi.expectIncludeStorage = true
 	s.statusapi.result.Storage = storageDetails(t)
@@ -61,11 +63,11 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 	s.statusapi.result.Volumes = volumeDetails(t)
 
 	context, err := s.runStatus(c, "--no-color", "--storage")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.clock.waits, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.clock.waits, tc.HasLen, 0)
 
 	obtainedValid := cmdtesting.Stdout(context)
-	c.Assert(obtainedValid, gc.Equals, `
+	c.Assert(obtainedValid, tc.Equals, `
 Model  Controller  Cloud/Region  Version
 test   test        foo           
 
@@ -78,32 +80,32 @@ transcode/1   shared-fs/0   filesystem  radiance  /mnt/huang  1.0 GiB  attached
 `[1:])
 }
 
-func (s *MinimalStatusSuite) TestRetryOnError(c *gc.C) {
+func (s *MinimalStatusSuite) TestRetryOnError(c *tc.C) {
 	s.statusapi.errors = []error{
 		errors.New("boom"),
 		errors.New("splat"),
 	}
 
 	_, err := s.runStatus(c, "--no-color")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	delay := 100 * time.Millisecond
 	// Two delays of the default time.
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
-func (s *MinimalStatusSuite) TestRetryDelays(c *gc.C) {
+func (s *MinimalStatusSuite) TestRetryDelays(c *tc.C) {
 	s.statusapi.errors = []error{
 		errors.New("boom"),
 		errors.New("splat"),
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-delay", "250ms")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	delay := 250 * time.Millisecond
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
-func (s *MinimalStatusSuite) TestRetryCount(c *gc.C) {
+func (s *MinimalStatusSuite) TestRetryCount(c *tc.C) {
 	s.statusapi.errors = []error{
 		errors.New("error 1"),
 		errors.New("error 2"),
@@ -115,13 +117,13 @@ func (s *MinimalStatusSuite) TestRetryCount(c *gc.C) {
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-count", "5")
-	c.Assert(err.Error(), gc.Equals, "error 6")
+	c.Assert(err.Error(), tc.Equals, "error 6")
 	// We expect five waits of the default duration.
 	delay := 100 * time.Millisecond
-	c.Assert(s.clock.waits, jc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
+	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
 }
 
-func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
+func (s *MinimalStatusSuite) TestRetryCountOfZero(c *tc.C) {
 	s.statusapi.errors = []error{
 		errors.New("error 1"),
 		errors.New("error 2"),
@@ -129,9 +131,9 @@ func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-count", "0")
-	c.Assert(err.Error(), gc.Equals, "error 1")
+	c.Assert(err.Error(), tc.Equals, "error 1")
 	// No delays.
-	c.Assert(s.clock.waits, gc.HasLen, 0)
+	c.Assert(s.clock.waits, tc.HasLen, 0)
 }
 
 type fakeStatusAPI struct {

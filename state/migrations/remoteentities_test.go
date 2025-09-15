@@ -4,19 +4,22 @@
 package migrations
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type RemoteEntitiesExportSuite struct{}
 
-var _ = gc.Suite(&RemoteEntitiesExportSuite{})
+func TestRemoteEntitiesExportSuite(t *tctesting.T) {
+	tc.Run(t, &RemoteEntitiesExportSuite{})
+}
 
-func (s *RemoteEntitiesExportSuite) TestExportRemoteEntities(c *gc.C) {
+func (s *RemoteEntitiesExportSuite) TestExportRemoteEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -41,10 +44,10 @@ func (s *RemoteEntitiesExportSuite) TestExportRemoteEntities(c *gc.C) {
 
 	migration := ExportRemoteEntities{}
 	err := migration.Execute(source, model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *RemoteEntitiesExportSuite) TestExportRemoteEntitiesFailsGettingEntities(c *gc.C) {
+func (s *RemoteEntitiesExportSuite) TestExportRemoteEntitiesFailsGettingEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -55,7 +58,7 @@ func (s *RemoteEntitiesExportSuite) TestExportRemoteEntitiesFailsGettingEntities
 
 	migration := ExportRemoteEntities{}
 	err := migration.Execute(source, model)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *RemoteEntitiesExportSuite) remoteEntity(

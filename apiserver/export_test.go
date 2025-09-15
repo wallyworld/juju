@@ -9,9 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
@@ -75,11 +74,11 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
+func TestingAPIHandler(c *tc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
 	authenticator, err := stateauthenticator.NewAuthenticator(pool, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthcontext(pool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
 		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
@@ -88,14 +87,14 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 		tag:                 names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return h, h.Resources()
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
 // TestingAPIHandler but sets the passed entity as the apiHandler
 // entity.
-func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
+func TestingAPIHandlerWithEntity(c *tc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
 	h.authInfo.Entity = entity
 	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{st.UserPermission}
@@ -106,7 +105,7 @@ func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State
 // TestingAPIHandler but sets the passed token as the apiHandler
 // login token.
 func TestingAPIHandlerWithToken(
-	c *gc.C,
+	c *tc.C,
 	pool *state.StatePool,
 	st *state.State,
 	jwt jwt.Token,
@@ -114,7 +113,7 @@ func TestingAPIHandlerWithToken(
 ) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
 	user, err := names.ParseUserTag(jwt.Subject())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}
 	h.authInfo.Delegator = delegator
 	return h, hr
@@ -199,11 +198,11 @@ type Patcher interface {
 	PatchValue(ptr, value interface{})
 }
 
-func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
+func AssertHasPermission(c *tc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
 	err := handler.HasPermission(access, tag)
-	c.Assert(err == nil, gc.Equals, expect)
+	c.Assert(err == nil, tc.Equals, expect)
 	if expect {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 

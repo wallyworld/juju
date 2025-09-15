@@ -4,43 +4,46 @@
 package resourceshookcontext_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	api "github.com/juju/juju/api/client/resources"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&UnitFacadeSuite{})
+func TestUnitFacadeSuite(t *tctesting.T) {
+	tc.Run(t, &UnitFacadeSuite{})
+}
 
 type UnitFacadeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
-func (s *UnitFacadeSuite) SetUpTest(c *gc.C) {
+func (s *UnitFacadeSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 }
 
-func (s *UnitFacadeSuite) TestNewUnitFacade(c *gc.C) {
+func (s *UnitFacadeSuite) TestNewUnitFacade(c *tc.C) {
 	expected := &stubUnitDataStore{Stub: s.stub}
 
 	uf := resourceshookcontext.NewUnitFacade(expected)
 
 	s.stub.CheckNoCalls(c)
-	c.Check(uf.DataStore, gc.Equals, expected)
+	c.Check(uf.DataStore, tc.Equals, expected)
 }
 
-func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
+func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *tc.C) {
 	opened1 := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	res1 := opened1.Resource
 	opened2 := resourcetesting.NewResource(c, s.stub, "eggs", "a-application", "other data")
@@ -54,10 +57,10 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{"spam", "eggs"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+	c.Check(results, tc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{{
 			Resource: api.Resource2API(res1),
 		}, {
@@ -66,7 +69,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	})
 }
 
-func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
+func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *tc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = resources.ApplicationResources{
@@ -77,15 +80,15 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+	c.Check(results, tc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{},
 	})
 }
 
-func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
+func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *tc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = resources.ApplicationResources{
@@ -96,10 +99,10 @@ func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
 		ResourceNames: []string{"eggs"},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListResources")
-	c.Check(results, jc.DeepEquals, params.UnitResourcesResult{
+	c.Check(results, tc.DeepEquals, params.UnitResourcesResult{
 		Resources: []params.UnitResourceResult{{
 			ErrorResult: params.ErrorResult{
 				Error: apiservererrors.ServerError(errors.NotFoundf(`resource "eggs"`)),

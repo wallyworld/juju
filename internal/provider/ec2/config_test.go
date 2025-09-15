@@ -7,26 +7,28 @@ package ec2
 
 import (
 	stdcontext "context"
+	tctesting "testing"
 
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	jujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+func TestConfigSuite(t *tctesting.T) {
+	tc.Run(t, &ConfigSuite{})
+}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
@@ -45,7 +47,7 @@ type configTest struct {
 
 type attrs map[string]interface{}
 
-func (t configTest) check(c *gc.C) {
+func (t configTest) check(c *tc.C) {
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -63,20 +65,20 @@ func (t configTest) check(c *gc.C) {
 		"type": "ec2",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	})
 	if t.change != nil {
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		ec2env := e.(*environ)
 		old = ec2env.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(changed, old)
@@ -85,23 +87,23 @@ func (t configTest) check(c *gc.C) {
 		}
 	}
 	if t.err != "" {
-		c.Check(err, gc.ErrorMatches, t.err)
+		c.Check(err, tc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
-	c.Assert(ecfg.vpcID(), gc.Equals, t.vpcID)
-	c.Assert(ecfg.forceVPCID(), gc.Equals, t.forceVPCID)
+	c.Assert(ecfg.Name(), tc.Equals, "testmodel")
+	c.Assert(ecfg.vpcID(), tc.Equals, t.vpcID)
+	c.Assert(ecfg.forceVPCID(), tc.Equals, t.forceVPCID)
 
 	if t.firewallMode != "" {
-		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
+		c.Assert(ecfg.FirewallMode(), tc.Equals, t.firewallMode)
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, jc.IsTrue)
-		c.Check(actual, gc.Equals, expect)
+		c.Check(found, tc.IsTrue)
+		c.Check(actual, tc.Equals, expect)
 	}
 }
 
@@ -283,20 +285,20 @@ var configTests = []configTest{
 	},
 }
 
-func (s *ConfigSuite) TestConfig(c *gc.C) {
+func (s *ConfigSuite) TestConfig(c *tc.C) {
 	for i, t := range configTests {
 		c.Logf("test %d: %v", i, t.config)
 		t.check(c)
 	}
 }
 
-func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *tc.C) {
 	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
@@ -314,19 +316,19 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 			Credential: &credential,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	source, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "ebs")
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(source, tc.Equals, "ebs")
 }
 
-func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *tc.C) {
 	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
 	baseConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
@@ -344,20 +346,20 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 			Credential: &credential,
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	source, ok := cfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(source, gc.Equals, "ebs")
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(source, tc.Equals, "ebs")
 }
 
-func (*ConfigSuite) TestSchema(c *gc.C) {
+func (*ConfigSuite) TestSchema(c *tc.C) {
 	fields := providerInstance.Schema()
 	// Check that all the fields defined in environs/config
 	// are in the returned schema.
 	globalFields, err := config.Schema(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 	for name, field := range globalFields {
-		c.Check(fields[name], jc.DeepEquals, field)
+		c.Check(fields[name], tc.DeepEquals, field)
 	}
 }

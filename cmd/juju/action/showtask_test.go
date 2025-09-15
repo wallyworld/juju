@@ -10,27 +10,29 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ShowTaskSuite struct {
 	BaseActionSuite
 }
 
-var _ = gc.Suite(&ShowTaskSuite{})
+func TestShowTaskSuite(t *tctesting.T) {
+	tc.Run(t, &ShowTaskSuite{})
+}
 
-func (s *ShowTaskSuite) TestInit(c *gc.C) {
+func (s *ShowTaskSuite) TestInit(c *tc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -65,13 +67,13 @@ func (s *ShowTaskSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(cmd, args)
 			if t.expectError != "" {
-				c.Check(err, gc.ErrorMatches, t.expectError)
+				c.Check(err, tc.ErrorMatches, t.expectError)
 			}
 		}
 	}
 }
 
-func (s *ShowTaskSuite) TestRun(c *gc.C) {
+func (s *ShowTaskSuite) TestRun(c *tc.C) {
 	tests := []struct {
 		should            string
 		withClientWait    string
@@ -336,7 +338,7 @@ timing:
 	}
 }
 
-func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
+func (s *ShowTaskSuite) testRunHelper(c *tc.C, client *fakeAPIClient,
 	expectedErr, expectedOutput, format, wait, query, modelFlag string,
 	watch bool, expectedLogs []string,
 ) {
@@ -364,7 +366,7 @@ func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
 				}
 				msgData, err := json.Marshal(msg)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 				encodedLogs[n] = string(msgData)
 			}
 			client.logMessageCh <- encodedLogs
@@ -405,10 +407,10 @@ func (s *ShowTaskSuite) testRunHelper(c *gc.C, client *fakeAPIClient,
 	}
 
 	if expectedErr != "" {
-		c.Check(err, gc.ErrorMatches, expectedErr)
+		c.Check(err, tc.ErrorMatches, expectedErr)
 	} else {
-		c.Assert(err, gc.IsNil)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expectedOutput)
+		c.Assert(err, tc.IsNil)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), tc.Equals, expectedOutput)
 	}
 }
 

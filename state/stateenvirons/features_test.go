@@ -4,26 +4,29 @@
 package stateenvirons
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type featuresSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&featuresSuite{})
+func TestFeaturesSuite(t *tctesting.T) {
+	tc.Run(t, &featuresSuite{})
+}
 
-func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
+func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *tc.C) {
 	defer func(getter func(Model) (environs.Environ, error)) {
 		iaasEnvironGetter = getter
 	}(iaasEnvironGetter)
@@ -38,7 +41,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 		modelType:   state.ModelTypeIAAS,
 	}
 	fs, err := SupportedFeatures(m, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := []assumes.Feature{
 		{
@@ -48,10 +51,10 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 		},
 	}
 
-	c.Assert(fs.AsList(), gc.DeepEquals, exp)
+	c.Assert(fs.AsList(), tc.DeepEquals, exp)
 }
 
-func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) {
+func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *tc.C) {
 	defer func(getter func(Model) (environs.Environ, error)) {
 		iaasEnvironGetter = getter
 	}(iaasEnvironGetter)
@@ -65,7 +68,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) 
 		modelType:   state.ModelTypeIAAS,
 	}
 	fs, err := SupportedFeatures(m, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := []assumes.Feature{
 		{
@@ -77,10 +80,10 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) 
 		{Name: "web-scale"},
 	}
 
-	c.Assert(fs.AsList(), gc.DeepEquals, exp)
+	c.Assert(fs.AsList(), tc.DeepEquals, exp)
 }
 
-func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) {
+func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *tc.C) {
 	defer func(getter func(Model) (caas.Broker, error)) {
 		caasBrokerGetter = getter
 	}(caasBrokerGetter)
@@ -94,7 +97,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) 
 		modelType:   state.ModelTypeCAAS,
 	}
 	fs, err := SupportedFeatures(m, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	exp := []assumes.Feature{
 		{
@@ -106,7 +109,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) 
 		{Name: "k8s-api"},
 	}
 
-	c.Assert(fs.AsList(), gc.DeepEquals, exp)
+	c.Assert(fs.AsList(), tc.DeepEquals, exp)
 }
 
 type mockModel struct {

@@ -4,11 +4,12 @@
 package upgrader_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -16,11 +17,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -36,16 +37,18 @@ type unitUpgraderSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&unitUpgraderSuite{})
+func TestUnitUpgraderSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &unitUpgraderSuite{})
+}
 
-func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
+func (s *unitUpgraderSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	// Create a machine and unit to work with
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
 	hwChar := &instance.HardwareCharacteristics{
@@ -53,14 +56,14 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	}
 	instId := instance.Id("i-host-machine")
 	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Assign the unit to the machine.
 	s.rawMachine, err = s.rawUnit.AssignToCleanMachine()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The default auth is as the unit agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -71,48 +74,48 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitUpgraderSuite) TearDownTest(c *gc.C) {
+func (s *unitUpgraderSuite) TearDownTest(c *tc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
+func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *tc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.WatchAPIVersion(params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
+func (s *unitUpgraderSuite) TestWatchAPIVersion(c *tc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	results, err := s.upgrader.WatchAPIVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
-	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Check(results.Results[0].Error, tc.IsNil)
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
-	c.Check(resource, gc.NotNil)
+	c.Check(resource, tc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
 	err = s.rawMachine.SetAgentVersion(version.MustParseBinary("3.4.567.8-ubuntu-amd64"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
 
-func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("7")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
@@ -120,12 +123,12 @@ func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
-	c.Check(err, gc.NotNil)
-	c.Check(anUpgrader, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, tc.NotNil)
+	c.Check(anUpgrader, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *tc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
@@ -134,26 +137,26 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, gc.Equals, "")
-	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, tc.Equals, "")
+	c.Assert(results.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
+func (s *unitUpgraderSuite) TestToolsNothing(c *tc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.Tools(params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
@@ -161,19 +164,19 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
 	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(toolResult.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestToolsForAgent(c *tc.C) {
 	agent := params.Entity{Tag: s.rawUnit.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
@@ -181,29 +184,29 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	// having to pass it in again
 	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertTools := func() {
-		c.Check(results.Results, gc.HasLen, 1)
-		c.Assert(results.Results[0].Error, gc.IsNil)
+		c.Check(results.Results, tc.HasLen, 1)
+		c.Assert(results.Results[0].Error, tc.IsNil)
 		agentTools := results.Results[0].ToolsList[0]
-		c.Check(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
-		c.Assert(agentTools.URL, gc.NotNil)
+		c.Check(agentTools.Version.Number, tc.DeepEquals, jujuversion.Current)
+		c.Assert(agentTools.URL, tc.NotNil)
 	}
 	assertTools()
 }
 
-func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
+func (s *unitUpgraderSuite) TestSetToolsNothing(c *tc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.SetTools(params.EntitiesVersion{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
@@ -211,7 +214,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),
@@ -222,15 +225,15 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	}
 
 	results, err := anUpgrader.SetTools(args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
+func (s *unitUpgraderSuite) TestSetTools(c *tc.C) {
 	cur := testing.CurrentVersion()
 	_, err := s.rawUnit.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),
@@ -240,32 +243,32 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 		},
 	}
 	results, err := s.upgrader.SetTools(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	// Check that the new value actually got set, we must Refresh because
 	// it was set on a different Machine object
 	err = s.rawUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	realTools, err := s.rawUnit.AgentTools()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(realTools.Version.Arch, gc.Equals, cur.Arch)
-	c.Check(realTools.Version.Release, gc.Equals, cur.Release)
-	c.Check(realTools.Version.Major, gc.Equals, cur.Major)
-	c.Check(realTools.Version.Minor, gc.Equals, cur.Minor)
-	c.Check(realTools.Version.Patch, gc.Equals, cur.Patch)
-	c.Check(realTools.Version.Build, gc.Equals, cur.Build)
-	c.Check(realTools.URL, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(realTools.Version.Arch, tc.Equals, cur.Arch)
+	c.Check(realTools.Version.Release, tc.Equals, cur.Release)
+	c.Check(realTools.Version.Major, tc.Equals, cur.Major)
+	c.Check(realTools.Version.Minor, tc.Equals, cur.Minor)
+	c.Check(realTools.Version.Patch, tc.Equals, cur.Patch)
+	c.Check(realTools.Version.Build, tc.Equals, cur.Build)
+	c.Check(realTools.URL, tc.Equals, "")
 }
 
-func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
+func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *tc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.DesiredVersion(params.Entities{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 0)
 }
 
-func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *tc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
@@ -273,49 +276,49 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.DesiredVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 1)
 	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(toolResult.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *tc.C) {
 	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.rawUnit.Tag().String()},
 		{Tag: "unit-wordpress-12345"},
 	}}
 	results, err := s.upgrader.DesiredVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, jujuversion.Current)
 
-	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(results.Results[1].Version, gc.IsNil)
+	c.Assert(results.Results[1].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results[1].Version, tc.IsNil)
 
 }
 
-func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *tc.C) {
 	current := testing.CurrentVersion()
 	err := s.rawMachine.SetAgentVersion(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 	agentVersion := results.Results[0].Version
-	c.Assert(agentVersion, gc.NotNil)
-	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+	c.Assert(agentVersion, tc.NotNil)
+	c.Check(*agentVersion, tc.DeepEquals, jujuversion.Current)
 }

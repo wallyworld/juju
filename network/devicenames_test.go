@@ -4,19 +4,23 @@
 package network_test
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/network"
 )
 
 type DeviceNamesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&DeviceNamesSuite{})
+func TestDeviceNamesSuite(t *tctesting.T) {
+	tc.Run(t, &DeviceNamesSuite{})
+}
 
-func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *gc.C) {
+func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *tc.C) {
 	for i, test := range []struct {
 		message  string
 		input    []string
@@ -86,7 +90,7 @@ func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *gc.C) {
 	}} {
 		c.Logf("%v: %s", i, test.message)
 		result := network.NaturallySortDeviceNames(test.input...)
-		c.Assert(result, gc.HasLen, len(test.input))
-		c.Assert(result, gc.DeepEquals, test.expected)
+		c.Assert(result, tc.HasLen, len(test.input))
+		c.Assert(result, tc.DeepEquals, test.expected)
 	}
 }

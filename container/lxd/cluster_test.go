@@ -5,10 +5,10 @@ package lxd_test
 
 import (
 	"errors"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
@@ -18,9 +18,11 @@ type clusterSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&clusterSuite{})
+func TestClusterSuite(t *tctesting.T) {
+	tc.Run(t, &clusterSuite{})
+}
 
-func (s *imageSuite) TestUseTargetGoodNode(c *gc.C) {
+func (s *imageSuite) TestUseTargetGoodNode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -30,13 +32,13 @@ func (s *imageSuite) TestUseTargetGoodNode(c *gc.C) {
 	c1Svr.EXPECT().UseTarget("cluster-2").Return(c2Svr)
 
 	jujuSvr, err := lxd.NewServer(c1Svr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *imageSuite) TestUseTargetBadNode(c *gc.C) {
+func (s *imageSuite) TestUseTargetBadNode(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -47,8 +49,8 @@ func (s *imageSuite) TestUseTargetBadNode(c *gc.C) {
 	c2Svr.EXPECT().GetServer().Return(nil, "", errors.New("not a cluster member"))
 
 	jujuSvr, err := lxd.NewServer(c1Svr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = jujuSvr.UseTargetServer("cluster-2")
-	c.Assert(err, gc.ErrorMatches, "not a cluster member")
+	c.Assert(err, tc.ErrorMatches, "not a cluster member")
 }

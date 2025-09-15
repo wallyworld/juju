@@ -4,19 +4,22 @@
 package testing
 
 import (
+	tctesting "testing"
+
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateWithWallClockSuite{})
+func TestStateWithWallClockSuite(t *tctesting.T) {
+	tc.Run(t, &StateWithWallClockSuite{})
+}
 
 // StateWithWallClockSuite provides setup and teardown for tests that require a
 // state.State. This should be deprecated in favour of StateSuite, and tests
@@ -36,37 +39,37 @@ type StateWithWallClockSuite struct {
 	RegionConfig              cloud.RegionConfig
 }
 
-func (s *StateWithWallClockSuite) SetUpSuite(c *gc.C) {
+func (s *StateWithWallClockSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *StateWithWallClockSuite) TearDownSuite(c *gc.C) {
+func (s *StateWithWallClockSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
+func (s *StateWithWallClockSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
 	s.Controller = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.Controller.Close()
 	})
 	s.StatePool = s.Controller.StatePool()
 	var err error
 	s.State, err = s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model = model
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
 
-func (s *StateWithWallClockSuite) TearDownTest(c *gc.C) {
+func (s *StateWithWallClockSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }

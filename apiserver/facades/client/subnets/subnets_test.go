@@ -4,12 +4,13 @@
 package subnets_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -23,9 +24,9 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // SubnetSuite uses mocks for testing.
@@ -39,13 +40,15 @@ type SubnetSuite struct {
 	api *subnets.API
 }
 
-var _ = gc.Suite(&SubnetSuite{})
+func TestSubnetSuite(t *tctesting.T) {
+	tc.Run(t, &SubnetSuite{})
+}
 
-func (s *SubnetSuite) TearDownTest(c *gc.C) {
+func (s *SubnetSuite) TearDownTest(c *tc.C) {
 	s.api = nil
 }
 
-func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
+func (s *SubnetSuite) TestSubnetsByCIDR(c *tc.C) {
 	ctrl := s.setupSubnetsAPI(c)
 	defer ctrl.Finish()
 
@@ -71,17 +74,17 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 
 	arg := params.CIDRParams{CIDRS: cidrs}
 	res, err := s.api.SubnetsByCIDR(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	results := res.Results
-	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results, tc.HasLen, 3)
 
-	c.Check(results[0].Error.Message, gc.Equals, "bad-mongo")
-	c.Check(results[1].Subnets, gc.HasLen, 1)
-	c.Check(results[2].Error.Message, gc.Equals, `CIDR "not-a-cidr" not valid`)
+	c.Check(results[0].Error.Message, tc.Equals, "bad-mongo")
+	c.Check(results[1].Subnets, tc.HasLen, 1)
+	c.Check(results[2].Error.Message, tc.Equals, `CIDR "not-a-cidr" not valid`)
 }
 
-func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
+func (s *SubnetSuite) setupSubnetsAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockResource = facademocks.NewMockResources(ctrl)
 	s.mockCloudCallContext = context.NewEmptyCloudCallContext()
@@ -95,7 +98,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -138,18 +141,20 @@ func (sb *stubBackingBrokenController) ControllerConfig() (controller.Config, er
 	return controller.Config{}, errors.New("broken controller")
 }
 
-var _ = gc.Suite(&SubnetsSuite{})
+func TestSubnetsSuite(t *tctesting.T) {
+	tc.Run(t, &SubnetsSuite{})
+}
 
-func (s *SubnetsSuite) SetUpSuite(c *gc.C) {
+func (s *SubnetsSuite) SetUpSuite(c *tc.C) {
 	s.StubNetwork.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *SubnetsSuite) TearDownSuite(c *gc.C) {
+func (s *SubnetsSuite) TearDownSuite(c *tc.C) {
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *SubnetsSuite) SetUpTest(c *gc.C) {
+func (s *SubnetsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
@@ -166,11 +171,11 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		s.callContext,
 		s.resources, s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.facade, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.facade, tc.NotNil)
 }
 
-func (s *SubnetsSuite) TearDownTest(c *gc.C) {
+func (s *SubnetsSuite) TearDownTest(c *tc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
@@ -178,17 +183,17 @@ func (s *SubnetsSuite) TearDownTest(c *gc.C) {
 }
 
 // AssertAllZonesResult makes it easier to verify AllZones results.
-func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, expected network.AvailabilityZones) {
+func (s *SubnetsSuite) AssertAllZonesResult(c *tc.C, got params.ZoneResults, expected network.AvailabilityZones) {
 	results := make([]params.ZoneResult, len(expected))
 	for i, zone := range expected {
 		results[i].Name = zone.Name()
 		results[i].Available = zone.Available()
 	}
-	c.Assert(got, jc.DeepEquals, params.ZoneResults{Results: results})
+	c.Assert(got, tc.DeepEquals, params.ZoneResults{Results: results})
 }
 
 // AssertAllSpacesResult makes it easier to verify AllSpaces results.
-func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, expected []networkingcommon.BackingSpace) {
+func (s *SubnetsSuite) AssertAllSpacesResult(c *tc.C, got params.SpaceResults, expected []networkingcommon.BackingSpace) {
 	seen := set.Strings{}
 	results := []params.SpaceResult{}
 	for _, space := range expected {
@@ -200,18 +205,18 @@ func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, e
 		result.Tag = names.NewSpaceTag(space.Name()).String()
 		results = append(results, result)
 	}
-	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
+	c.Assert(got, tc.DeepEquals, params.SpaceResults{Results: results})
 }
 
-func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
+func (s *SubnetsSuite) TestNewAPIWithBacking(c *tc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(facade, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(facade, tc.NotNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 
@@ -223,29 +228,29 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		s.callContext,
 		s.resources, agentAuthorizer,
 	)
-	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
-	c.Assert(facade, gc.IsNil)
+	c.Assert(err, tc.DeepEquals, apiservererrors.ErrPerm)
+	c.Assert(facade, tc.IsNil)
 	// No calls so far.
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 }
 
-func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *tc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches, "zones not supported")
+	c.Assert(err, tc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *tc.C) {
 	results, err := s.facade.AllZones()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -253,33 +258,33 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 	)
 }
 
-func (s *SubnetsSuite) TestZonedEnvironControllerConfigFail(c *gc.C) {
+func (s *SubnetsSuite) TestZonedEnvironControllerConfigFail(c *tc.C) {
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
 		&stubBackingBrokenController{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiservertesting.BackingInstance.Zones = network.AvailabilityZones{}
 
 	// zonedEnviron is a private method, so use AllZones() as the top level method
 	// because it invokes zonedEnviron
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches, "cannot update known zones: getting controller config: broken controller")
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.ErrorMatches, "cannot update known zones: getting controller config: broken controller")
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -292,7 +297,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                             // Backing.AvailabilityZones
@@ -304,12 +309,12 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	)
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`cannot update known zones: setting not supported`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
@@ -321,7 +326,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                     // Backing.AvailabilityZones
@@ -332,12 +337,12 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	)
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`cannot update known zones: foo not valid`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
@@ -348,7 +353,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                        // Backing.AvailabilityZones
@@ -356,12 +361,12 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 	)
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`cannot update known zones: opening environment: retrieving model config: config not found`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
@@ -369,7 +374,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	apiservertesting.SharedStub.SetErrors(
 		nil,                        // Backing.AvailabilityZones
@@ -379,12 +384,12 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	)
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`cannot update known zones: opening environment: creating environ for model \"stub-zoned-environ\" \(.*\): config not valid`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
@@ -394,17 +399,17 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 	)
 }
 
-func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.C) {
+func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *tc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
 
 	results, err := s.facade.AllZones()
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`cannot update known zones: availability zones not supported`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
+	c.Assert(err, tc.Satisfies, errors.IsNotSupported)
+	c.Assert(results, tc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
 		apiservertesting.BackingCall("AvailabilityZones"),
@@ -414,7 +419,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	)
 }
 
-func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *tc.C) {
 	expected := []params.Subnet{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
@@ -435,39 +440,39 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 	// No filtering.
 	args := params.SubnetsFilters{}
 	subnets, err := s.facade.ListSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
 	subnets, err = s.facade.ListSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
 	subnets, err = s.facade.ListSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
 	subnets, err = s.facade.ListSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(subnets.Results, tc.DeepEquals, expected[:1])
 }
 
-func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *tc.C) {
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
 	_, err := s.facade.ListSubnets(args)
-	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
-func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *tc.C) {
 	boom := errors.New("no subnets for you")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSubnets(params.SubnetsFilters{})
-	c.Assert(err, gc.ErrorMatches, "no subnets for you")
+	c.Assert(err, tc.ErrorMatches, "no subnets for you")
 }

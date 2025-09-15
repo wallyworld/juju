@@ -5,49 +5,51 @@ package resource_test
 
 import (
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&CharmResourcesSuite{})
+func TestCharmResourcesSuite(t *tctesting.T) {
+	tc.Run(t, &CharmResourcesSuite{})
+}
 
 type CharmResourcesSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	client *stubCharmStore
 }
 
-func (s *CharmResourcesSuite) SetUpTest(c *gc.C) {
+func (s *CharmResourcesSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.client = &stubCharmStore{stub: s.stub}
 }
 
-func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
+func (s *CharmResourcesSuite) TestInfo(c *tc.C) {
 	var command resourcecmd.CharmResourcesCommand
 	info := command.Info()
 
 	// Verify that Info is wired up. Without verifying exact text.
-	c.Check(info.Name, gc.Equals, "charm-resources")
-	c.Check(info.Aliases, gc.Not(gc.Equals), "")
-	c.Check(info.Purpose, gc.Not(gc.Equals), "")
-	c.Check(info.Doc, gc.Not(gc.Equals), "")
-	c.Check(info.Examples, gc.Not(gc.Equals), "")
-	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
-	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
+	c.Check(info.Name, tc.Equals, "charm-resources")
+	c.Check(info.Aliases, tc.Not(tc.Equals), "")
+	c.Check(info.Purpose, tc.Not(tc.Equals), "")
+	c.Check(info.Doc, tc.Not(tc.Equals), "")
+	c.Check(info.Examples, tc.Not(tc.Equals), "")
+	c.Check(info.FlagKnownAs, tc.Not(tc.Equals), "")
+	c.Check(len(info.ShowSuperFlags), tc.GreaterThan, 2)
 }
 
-func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
+func (s *CharmResourcesSuite) TestOkay(c *tc.C) {
 	resources := newCharmResources(c,
 		"website:.tgz of your website",
 		"music:mp3 of your backing vocals",
@@ -57,14 +59,14 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 
 	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "a-charm")
-	c.Check(code, gc.Equals, 0)
+	c.Check(code, tc.Equals, 0)
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 Resource  Revision
 music     1
 website   2
 `[1:])
-	c.Check(stderr, gc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
 	s.stub.CheckCallNames(c,
 		"ListResources",
 	)
@@ -76,23 +78,23 @@ website   2
 	})
 }
 
-func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
+func (s *CharmResourcesSuite) TestNoResources(c *tc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
 	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "a-charm")
-	c.Check(code, gc.Equals, 0)
+	c.Check(code, tc.Equals, 0)
 
-	c.Check(stderr, gc.Equals, "No resources to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, tc.Equals, "No resources to display.\n")
+	c.Check(stdout, tc.Equals, "")
 	s.stub.CheckCallNames(c, "ListResources")
 }
 
-func (s *CharmResourcesSuite) TestOutputFormats(c *gc.C) {
+func (s *CharmResourcesSuite) TestOutputFormats(c *tc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resources := []charmresource.Resource{
 		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
@@ -155,18 +157,18 @@ website   1
 			"ch:a-charm",
 		}
 		code, stdout, stderr := runCmd(c, command, args...)
-		c.Check(code, gc.Equals, 0)
+		c.Check(code, tc.Equals, 0)
 
-		c.Check(stdout, gc.Equals, expected)
-		c.Check(stderr, gc.Equals, "")
+		c.Check(stdout, tc.Equals, expected)
+		c.Check(stderr, tc.Equals, "")
 	}
 }
 
-func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
+func (s *CharmResourcesSuite) TestChannelFlag(c *tc.C) {
 	fp1, err := charmresource.GenerateFingerprint(strings.NewReader("abc"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("xyz"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	resources := []charmresource.Resource{
 		charmRes(c, "website", ".tgz", ".tgz of your website", string(fp1.Bytes())),
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
@@ -179,7 +181,7 @@ func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 		"ch:a-charm",
 	)
 
-	c.Check(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "")
-	c.Check(resourcecmd.CharmResourcesCommandChannel(command), gc.Equals, "development")
+	c.Check(code, tc.Equals, 0)
+	c.Check(stderr, tc.Equals, "")
+	c.Check(resourcecmd.CharmResourcesCommandChannel(command), tc.Equals, "development")
 }

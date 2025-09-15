@@ -11,15 +11,14 @@ import (
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -27,18 +26,18 @@ type dumpLogsCommandSuite struct {
 	agenttest.AgentSuite
 }
 
-func (s *dumpLogsCommandSuite) SetUpTest(c *gc.C) {
+func (s *dumpLogsCommandSuite) SetUpTest(c *tc.C) {
 	s.AgentSuite.SetUpTest(c)
 }
 
-func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
+func (s *dumpLogsCommandSuite) TestRun(c *tc.C) {
 	// Create a controller machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	err := m.SetMongoPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.PrimeStateAgent(c, m.Tag(), password)
 
@@ -64,25 +63,25 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 				Message:  fmt.Sprintf("%d", i),
 				Labels:   []string{"http"},
 			}})
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		}
 	}
 
 	// Run the juju-dumplogs command
 	command := dumplogs.NewCommand()
 	context, err := cmdtesting.RunCommand(c, command, "--data-dir", s.DataDir())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the log file for each environment
 	expectedLog := "machine-42: 2015-11-04 03:02:01 INFO module %d http"
 	for _, st := range states {
 		logName := context.AbsPath(fmt.Sprintf("%s.log", st.ModelUUID()))
 		logFile, err := os.Open(logName)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		scanner := bufio.NewScanner(logFile)
 		for i := 0; scanner.Scan(); i++ {
-			c.Assert(scanner.Text(), gc.Equals, fmt.Sprintf(expectedLog, i))
+			c.Assert(scanner.Text(), tc.Equals, fmt.Sprintf(expectedLog, i))
 		}
-		c.Assert(scanner.Err(), jc.ErrorIsNil)
+		c.Assert(scanner.Err(), tc.ErrorIsNil)
 	}
 }

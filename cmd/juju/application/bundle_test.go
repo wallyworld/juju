@@ -8,14 +8,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -30,12 +30,12 @@ type BundleDeploySuite struct {
 	FakeStoreStateSuite
 }
 
-func (s *BundleDeploySuite) SetUpSuite(c *gc.C) {
+func (s *BundleDeploySuite) SetUpSuite(c *tc.C) {
 	s.DeploySuiteBase.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
 }
 
-func (s *BundleDeploySuite) SetUpTest(c *gc.C) {
+func (s *BundleDeploySuite) SetUpTest(c *tc.C) {
 	// Set metering URL config so the config is set during bootstrap
 	if s.ControllerConfigAttrs == nil {
 		s.ControllerConfigAttrs = make(map[string]interface{})
@@ -48,24 +48,24 @@ func (s *BundleDeploySuite) SetUpTest(c *gc.C) {
 // DeployBundleYAML uses the given bundle content to create a bundle in the
 // local repository and then deploy it. It returns the bundle deployment output
 // and error.
-func (s *BundleDeploySuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) error {
+func (s *BundleDeploySuite) DeployBundleYAML(c *tc.C, content string, extraArgs ...string) error {
 	_, _, err := s.DeployBundleYAMLWithOutput(c, content, extraArgs...)
 	return err
 }
 
-func (s *BundleDeploySuite) DeployBundleYAMLWithOutput(c *gc.C, content string, extraArgs ...string) (string, string, error) {
+func (s *BundleDeploySuite) DeployBundleYAMLWithOutput(c *tc.C, content string, extraArgs ...string) (string, string, error) {
 	bundlePath := s.makeBundleDir(c, content)
 	args := append([]string{bundlePath}, extraArgs...)
 	return s.runDeployWithOutput(c, args...)
 }
 
-func (s *BundleDeploySuite) makeBundleDir(c *gc.C, content string) string {
+func (s *BundleDeploySuite) makeBundleDir(c *tc.C, content string) string {
 	bundlePath := filepath.Join(c.MkDir(), "example")
-	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(bundlePath, 0777), tc.ErrorIsNil)
 	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return bundlePath
 }
@@ -74,17 +74,19 @@ type BundleDeployInvalidSeries struct {
 	BundleDeploySuite
 }
 
-var _ = gc.Suite(&BundleDeployInvalidSeries{})
+func TestBundleDeployInvalidSeries(t *tctesting.T) {
+	tc.Run(t, &BundleDeployInvalidSeries{})
+}
 
-func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithForce(c *tc.C) {
 	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
 }
 
-func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *tc.C) {
 	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
 }
 
-func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWithForce(c *tc.C, force bool) {
 	dir := c.MkDir()
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 
@@ -112,16 +114,16 @@ func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWith
                 num_units: 1
     `
 	err := os.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	args := []string{path}
 	if force {
 		args = append(args, "--force")
 	}
 	err = s.runDeploy(c, args...)
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable")
+	c.Assert(err, tc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable")
 }
 
-func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidJujuSeries(c *gc.C) {
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidJujuSeries(c *tc.C) {
 	dir := c.MkDir()
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 
@@ -149,10 +151,10 @@ func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidJujuSeries(c
                 num_units: 1
     `
 	err := os.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: base "ubuntu@20.04/stable" is not supported, supported bases are: .*`)
+	c.Assert(err, tc.ErrorMatches, `cannot deploy bundle: base "ubuntu@20.04/stable" is not supported, supported bases are: .*`)
 }
 
 // NOTE:
@@ -172,34 +174,36 @@ type BundleDeployCharmStoreSuite struct {
 	BundleDeploySuite
 }
 
-var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
+func TestBundleDeployCharmStoreSuite(t *tctesting.T) {
+	tc.Run(t, &BundleDeployCharmStoreSuite{})
+}
 
-func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *tc.C) {
 	c.Skip("this is a badly written e2e test that is invoking external APIs which we cannot mock")
 
 	s.BundleDeploySuite.SetUpSuite(c)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *tc.C) {
 	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", "bionic")
 	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", "bionic")
 	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
 
 	err := s.runDeploy(c, "ch:bundle/wordpress-simple", "--config", "config.yaml")
-	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
+	c.Assert(err, tc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
 	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "-n", "2")
-	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
+	c.Assert(err, tc.ErrorMatches, "options provided but not supported when deploying a bundle: -n")
 	err = s.runDeploy(c, "ch:bundle/wordpress-simple", "--series", "xenial")
-	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
+	c.Assert(err, tc.ErrorMatches, "options provided but not supported when deploying a bundle: --series")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *tc.C) {
 	s.setupCharmMaybeAdd(c, "ch:xenial/mysql-42", "mysql", "bionic", false)
 	s.setupCharmMaybeAdd(c, "ch:xenial/wordpress-47", "wordpress", "bionic", false)
 	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
 	stdOut, _, err := s.runDeployWithOutput(c, "ch:bundle/wordpress-simple", "--dry-run")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := "" +
 		"Changes to deploy bundle:\n" +
 		"- upload charm wordpress from charm-store for series xenial with architecture=amd64\n" +
@@ -212,10 +216,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 		"- set annotations for wordpress\n" +
 		"- set annotations for mysql"
 
-	c.Check(stdOut, gc.Equals, expected)
+	c.Check(stdOut, tc.Equals, expected)
 	stdOut, _, err = s.runDeployWithOutput(c, "ch:bundle/wordpress-simple", "--dry-run")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stdOut, gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stdOut, tc.Equals, expected)
 
 	s.assertCharmsUploaded(c /* none */)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{})
@@ -223,7 +227,7 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	s.assertUnitsCreated(c, map[string]string{})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *tc.C) {
 	dir := c.MkDir()
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
@@ -236,12 +240,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
                  num_units: 1
      `
 	err := os.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.runDeploy(c, path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
 	ch, err := s.State.Charm("local:xenial/dummy-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
 			charm:  "local:xenial/dummy-1",
@@ -250,7 +254,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *tc.C) {
 	data := `
         series: bionic
         applications:
@@ -265,12 +269,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy-resource")
 	c.Assert(
 		os.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 	err := s.runDeploy(c, dir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:bionic/dummy-resource-0")
 	ch, err := s.State.Charm("local:bionic/dummy-resource-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy-resource": {
 			charm:  "local:bionic/dummy-resource-0",
@@ -350,18 +354,18 @@ negative number of units specified on application "mysql"`,
 	err: `cannot deploy local charm at ".*wordpress": file does not exist`,
 }}
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *tc.C) {
 	for i, test := range deployBundleErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		err := s.DeployBundleYAML(c, test.content)
-		pass := c.Check(err, gc.ErrorMatches, "cannot deploy bundle: "+test.err)
+		pass := c.Check(err, tc.ErrorMatches, "cannot deploy bundle: "+test.err)
 		if !pass {
 			c.Logf("error: \n%s\n", errors.ErrorStack(err))
 		}
 	}
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *tc.C) {
 	c.Skip("Move me to bundle/bundlerhander_test.go and use mocks")
 	// Inject an "AllWatcher" that never delivers a result.
 	ch := make(chan struct{})
@@ -389,10 +393,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
                num_units: 1
                to: [django]
    `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
+	c.Assert(err, tc.ErrorMatches, `cannot deploy bundle: cannot retrieve placement for "wordpress" unit: cannot resolve machine: timeout while trying to get new changes from the watcher`)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c *tc.C) {
 	charmsPath := c.MkDir()
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
 	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
@@ -409,10 +413,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file" not found`)
+	c.Assert(err, tc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file" not found`)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *tc.C) {
 	charmsPath := c.MkDir()
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -422,10 +426,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
                 charm: %s
                 num_units: 1
     `, lxdProfilePath))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
 	lxdProfile, err := s.State.Charm("local:bionic/lxd-profile-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"lxd-profile": {
 			charm:  "local:bionic/lxd-profile-0",
@@ -437,7 +441,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *tc.C) {
 	charmsPath := c.MkDir()
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -447,10 +451,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
                 charm: %s
                 num_units: 1
     `, lxdProfilePath))
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+	c.Assert(err, tc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *tc.C) {
 	charmsPath := c.MkDir()
 	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
@@ -460,10 +464,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
                 charm: %s
                 num_units: 1
     `, lxdProfilePath), "--force")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *tc.C) {
 	configDir := c.MkDir()
 	configFile := filepath.Join(configDir, "config.yaml")
 	c.Assert(
@@ -474,11 +478,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
                         options:
                             blog-title: include-file://title
             `), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 	c.Assert(
 		os.WriteFile(
 			filepath.Join(configDir, "title"), []byte("magic bundle config"), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 
 	charmsPath := c.MkDir()
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
@@ -497,16 +501,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
     `, wordpressPath, mysqlPath),
 		"--overlay", configFile)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Now check the blog-title of the wordpress.	le")
 	wordpress, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	settings, err := wordpress.CharmConfig(model.GenerationMaster)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(settings["blog-title"], tc.Equals, "magic bundle config")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployLocalBundleWithRelativeCharmPaths(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployLocalBundleWithRelativeCharmPaths(c *tc.C) {
 	bundleDir := c.MkDir()
 	_ = testcharms.RepoWithSeries("bionic").ClonedDirPath(bundleDir, "dummy")
 
@@ -519,16 +523,16 @@ applications:
 `
 	c.Assert(
 		os.WriteFile(bundleFile, []byte(bundleContent), 0644),
-		jc.ErrorIsNil)
+		tc.ErrorIsNil)
 
 	err := s.runDeploy(c, bundleFile)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.State.Application("dummy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *tc.C) {
 	charmsPath := c.MkDir()
 	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
@@ -545,10 +549,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
        relations:
            - ["wordpress:db", "mysql:server"]
    `, mysqlPath))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "ch:xenial/wordpress-42")
 	mysqlch, err := s.State.Charm("local:xenial/mysql-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql": {
 			charm:  "local:xenial/mysql-1",
@@ -566,7 +570,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchConstraints(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchConstraints(c *tc.C) {
 	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
 	dch := s.setupCharm(c, "ch:bionic/dummy-0", "dummy", "bionic")
 
@@ -580,7 +584,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
                num_units: 1
                constraints: arch=amd64
    `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
@@ -599,7 +603,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *tc.C) {
 	wpch := s.setupCharm(c, "ch:xenial/wordpress-42", "wordpress", "bionic")
 	dch := s.setupCharmWithArch(c, "ch:bionic/dummy-0", "dummy", "bionic", "s390x")
 
@@ -617,7 +621,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
                num_units: 1
                constraints: arch=s390x
    `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "ch:bionic/dummy-0", "ch:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
@@ -636,27 +640,27 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *tc.C) {
 	s.setupCharm(c, "ch:xenial/wordpress", "wordpress", "bionic")
 	s.setupCharm(c, "ch:xenial/mysql", "mysql", "bionic")
 	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 
 	deploy := s.deployCommandForState()
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "ch:bundle/wordpress-simple")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	application, err := s.State.Application("wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ann, err := s.Model.Annotations(application)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ann, tc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 	application2, err := s.State.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ann2, err := s.Model.Annotations(application2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann2, jc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ann2, tc.DeepEquals, map[string]string{"bundleURL": "ch:bundle/wordpress-simple-1"})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *tc.C) {
 	s.setupCharm(c, "ch:xenial/wordpress-0", "wordpress", "bionic")
 
 	// Note that we use lxc here, to represent a 1.x bundle that specifies lxc.
@@ -681,7 +685,7 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
                 series: xenial
     `
 	_, output, err := s.DeployBundleYAMLWithOutput(c, content)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedUnits := map[string]string{
 		"wp/0":  "0/lxd/0",
 		"wp2/0": "0/lxd/1",
@@ -689,13 +693,13 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
 	idx := strings.Index(output, "Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
 	lastIdx := strings.LastIndex(output, "Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
 	// The message exists.
-	c.Assert(idx, jc.GreaterThan, -1)
+	c.Assert(idx, tc.GreaterThan, -1)
 	// No more than one instance of the message was printed.
-	c.Assert(idx, gc.Equals, lastIdx)
+	c.Assert(idx, tc.Equals, lastIdx)
 	s.assertUnitsCreated(c, expectedUnits)
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *tc.C) {
 	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
 	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
 	s.setupCharm(c, "ch:bionic/rails-0", "dummy", "bionic")
@@ -732,7 +736,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
            3:
                series: bionic
    `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertUnitsCreated(c, map[string]string{
 		"django/0":    "0",
 		"django/1":    "0/lxd/0",
@@ -784,8 +788,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
                series: bionic
    `
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, content)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stdOut, gc.Equals, ""+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stdOut, tc.Equals, ""+
 		"Executing changes:\n"+
 		"- deploy application node from charm-hub on bionic using django\n"+
 		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
@@ -793,8 +797,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 
 	// Redeploy the same bundle again and check that nothing happens.
 	stdOut, _, err = s.DeployBundleYAMLWithOutput(c, content)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stdOut, gc.Equals, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stdOut, tc.Equals, "")
 	s.assertUnitsCreated(c, map[string]string{
 		"django/0":    "0",
 		"django/1":    "0/lxd/0",
@@ -810,7 +814,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *tc.C) {
 	s.setupCharm(c, "ch:bionic/django-42", "dummy", "bionic")
 	s.setupCharm(c, "ch:bionic/mem-47", "dummy", "bionic")
 	stdOut, stdErr, err := s.DeployBundleYAMLWithOutput(c, `
@@ -833,9 +837,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
                annotations: {foo: bar}
                series: bionic
    `)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(stdOut, gc.Equals, ""+
+	c.Check(stdOut, tc.Equals, ""+
 		"Executing changes:\n"+
 		"- upload charm mem from charm-store for series bionic with architecture=amd64\n"+
 		"- upload charm django from charm-store for series bionic with architecture=amd64\n"+
@@ -847,7 +851,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 		"- set annotations for new machine 0\n"+
 		"- set annotations for django",
 	)
-	c.Check(stdErr, gc.Equals, ""+
+	c.Check(stdErr, tc.Equals, ""+
 		"Located charm \"django\" in charm-store\n"+
 		"Located charm \"mem\" in charm-store, revision 47\n"+
 		"Deploy of bundle completed.",

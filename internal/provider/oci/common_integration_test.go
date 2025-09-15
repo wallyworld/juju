@@ -4,19 +4,16 @@
 package oci_test
 
 import (
-	"context"
 	stdcontext "context"
 	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs"
@@ -25,7 +22,8 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/tools"
 )
 
@@ -268,7 +266,7 @@ func listShapesResponse() []ociCore.Shape {
 }
 
 type commonSuite struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 
 	testInstanceID  string
 	testCompartment string
@@ -289,7 +287,7 @@ type commonSuite struct {
 	ctrlTags    map[string]string
 }
 
-func (s *commonSuite) SetUpTest(c *gc.C) {
+func (s *commonSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})
 
@@ -305,8 +303,8 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 		Cloud:  s.spec,
 		Config: config,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env, tc.NotNil)
 
 	s.config = config
 	s.env = env.(*oci.Environ)
@@ -325,7 +323,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.ociInstance.FreeformTags = s.tags
 }
 
-func (e *commonSuite) setupListInstancesExpectations(instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
+func (e *commonSuite) setupListInstancesExpectations(c *tc.C, instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
 	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
 		[]ociCore.Instance{
 			{
@@ -341,7 +339,7 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 		},
 	)
 	expect := e.compute.EXPECT().ListInstances(
-		context.Background(), listInstancesRequest.CompartmentId).Return(
+		gomock.Any(), listInstancesRequest.CompartmentId).Return(
 		listInstancesResponse.Items, nil)
 	if times == 0 {
 		expect.AnyTimes()
@@ -350,7 +348,7 @@ func (e *commonSuite) setupListInstancesExpectations(instanceId string, state oc
 	}
 }
 
-func (s *commonSuite) patchEnv(c *gc.C) *gomock.Controller {
+func (s *commonSuite) patchEnv(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.compute = ocitesting.NewMockComputeClient(ctrl)
 	s.ident = ocitesting.NewMockIdentityClient(ctrl)

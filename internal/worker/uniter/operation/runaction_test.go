@@ -4,18 +4,18 @@
 package operation_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/agent/uniter"
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -26,10 +26,12 @@ import (
 )
 
 type RunActionSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&RunActionSuite{})
+func TestRunActionSuite(t *tctesting.T) {
+	tc.Run(t, &RunActionSuite{})
+}
 
 func newOpFactory(runnerFactory runner.Factory, callbacks operation.Callbacks) operation.Factory {
 	actionResult := params.ActionResult{
@@ -54,7 +56,7 @@ func newOpFactoryForAction(runnerFactory runner.Factory, callbacks operation.Cal
 	})
 }
 
-func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
+func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *tc.C) {
 	errBadAction := charmrunner.NewBadActionError("some-action-id", "splat")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
@@ -64,18 +66,18 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	}
 	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "squelch")
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
-	c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
-	c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, errBadAction.Error())
+	c.Assert(newState, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "squelch")
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
+	c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
+	c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, errBadAction.Error())
 }
 
-func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
+func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *tc.C) {
 	errBadAction := charmrunner.NewBadActionError("some-action-id", "foof")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
@@ -85,48 +87,48 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 	}
 	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
-	c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
-	c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, errBadAction.Error())
+	c.Assert(newState, tc.IsNil)
+	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
+	c.Assert(*callbacks.MockFailAction.gotActionId, tc.Equals, someActionId)
+	c.Assert(*callbacks.MockFailAction.gotMessage, tc.Equals, errBadAction.Error())
 }
 
-func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
+func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *tc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: charmrunner.ErrActionNotAvailable},
 	}
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+	c.Assert(newState, tc.IsNil)
+	c.Assert(err, tc.Equals, operation.ErrSkipExecute)
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 }
 
-func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
+func (s *RunActionSuite) TestPrepareErrorOther(c *tc.C) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errors.New("foop")},
 	}
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot create runner for action ".*": foop`)
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+	c.Assert(newState, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `cannot create runner for action ".*": foop`)
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 }
 
-func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
+func (s *RunActionSuite) TestPrepareCtxCalled(c *tc.C) {
 	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{
@@ -137,15 +139,15 @@ func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
 	}
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.NotNil)
 	ctx.CheckCall(c, 0, "Prepare")
 }
 
-func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
+func (s *RunActionSuite) TestPrepareCtxError(c *tc.C) {
 	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
 	ctx.SetErrors(errors.New("ctx prepare error"))
 	runnerFactory := &MockRunnerFactory{
@@ -157,51 +159,51 @@ func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
 	}
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.ErrorMatches, `ctx prepare error`)
-	c.Assert(newState, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `ctx prepare error`)
+	c.Assert(newState, tc.IsNil)
 	ctx.CheckCall(c, 0, "Prepare")
 }
 
-func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
+func (s *RunActionSuite) TestPrepareSuccessCleanState(c *tc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, jc.DeepEquals, &operation.State{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
 	})
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 }
 
-func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
+func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *tc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := newOpFactory(runnerFactory, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(overwriteState)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newState, jc.DeepEquals, &operation.State{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(newState, tc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
 		Step:     operation.Pending,
 		ActionId: &someActionId,
 		Started:  true,
 		Hook:     &hook.Info{Kind: hooks.Install},
 	})
-	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
-	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, tc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 }
 
-func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
+func (s *RunActionSuite) TestExecuteSuccess(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -231,21 +233,21 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		callbacks := &RunActionCallbacks{}
 		factory := newOpFactory(runnerFactory, callbacks)
 		op, err := factory.NewAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
-		c.Assert(midState, gc.NotNil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(midState, tc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Execute(*midState)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
-		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
-		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
-		c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
+		c.Assert(callbacks.executingMessage, tc.Equals, "running action some-action-name")
+		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, tc.Equals, "some-action-name")
+		c.Assert(runnerFactory.MockNewActionRunner.gotCancel, tc.NotNil)
 	}
 }
 
-func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
+func (s *RunActionSuite) TestExecuteCancel(c *tc.C) {
 	actionChan := make(chan error)
 	defer close(actionChan)
 	runnerFactory := NewRunActionWaitRunnerFactory(actionChan)
@@ -254,20 +256,20 @@ func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
 	}
 	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	midState, err := op.Prepare(operation.State{})
-	c.Assert(midState, gc.NotNil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, tc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	abortedErr := errors.Errorf("aborted")
 	wait := make(chan struct{})
 	go func() {
 		newState, err := op.Execute(*midState)
-		c.Assert(errors.Cause(err), gc.Equals, abortedErr)
-		c.Assert(newState, gc.IsNil)
-		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionName, gc.Equals, "some-action-name")
-		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionChan, gc.Equals, (<-chan error)(actionChan))
-		c.Assert(runnerFactory.MockNewActionWaitRunner.gotCancel, gc.NotNil)
+		c.Assert(errors.Cause(err), tc.Equals, abortedErr)
+		c.Assert(newState, tc.IsNil)
+		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionName, tc.Equals, "some-action-name")
+		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionChan, tc.Equals, (<-chan error)(actionChan))
+		c.Assert(runnerFactory.MockNewActionWaitRunner.gotCancel, tc.NotNil)
 		close(wait)
 	}()
 
@@ -287,24 +289,24 @@ func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
 
 	select {
 	case <-runnerFactory.gotCancel:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("waiting for cancel")
 	}
 
 	select {
 	case actionChan <- abortedErr:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("waiting for send")
 	}
 
 	select {
 	case <-wait:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testhelpers.ShortWait):
 		c.Fatalf("waiting for finish")
 	}
 }
 
-func (s *RunActionSuite) TestCommit(c *gc.C) {
+func (s *RunActionSuite) TestCommit(c *tc.C) {
 	var stateChangeTests = []struct {
 		description string
 		before      operation.State
@@ -351,28 +353,28 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		factory := newOpFactory(nil, nil)
 		op, err := factory.NewAction(someActionId)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(newState, jc.DeepEquals, &test.after)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(newState, tc.DeepEquals, &test.after)
 	}
 }
 
-func (s *RunActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
+func (s *RunActionSuite) TestNeedsGlobalMachineLock(c *tc.C) {
 	factory := newOpFactory(nil, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsTrue)
 }
 
-func (s *RunActionSuite) TestDoesNotNeedGlobalMachineLock(c *gc.C) {
+func (s *RunActionSuite) TestDoesNotNeedGlobalMachineLock(c *tc.C) {
 	parallel := true
 	actionResult := params.ActionResult{
 		Action: &params.Action{Name: "backup", Parallel: &parallel},
 	}
 	factory := newOpFactoryForAction(nil, nil, actionResult)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.NeedsGlobalMachineLock(), tc.IsFalse)
 }

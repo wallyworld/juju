@@ -5,24 +5,28 @@ package context
 
 import (
 	stdcontext "context"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type CloudCallContextSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&CloudCallContextSuite{})
+func TestCloudCallContextSuite(t *tctesting.T) {
+	tc.Run(t, &CloudCallContextSuite{})
+}
 
-func (s *CloudCallContextSuite) TestCloudCallContext(c *gc.C) {
+func (s *CloudCallContextSuite) TestCloudCallContext(c *tc.C) {
 	stdctx := stdcontext.TODO()
 	ctx := NewCloudCallContext(stdctx)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(ctx.Context, gc.Equals, stdctx)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(ctx.Context, tc.Equals, stdctx)
 
 	err := ctx.InvalidateCredential("call")
-	c.Assert(errors.Is(err, errors.NotImplemented), gc.Equals, true)
+	c.Assert(errors.Is(err, errors.NotImplemented), tc.Equals, true)
 }

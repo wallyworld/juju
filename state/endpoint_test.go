@@ -4,9 +4,10 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/state"
 )
@@ -14,7 +15,9 @@ import (
 type EndpointSuite struct {
 }
 
-var _ = gc.Suite(&EndpointSuite{})
+func TestEndpointSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &EndpointSuite{})
+}
 
 var canRelateTests = []struct {
 	role1, role2 charm.RelationRole
@@ -28,7 +31,7 @@ var canRelateTests = []struct {
 	{charm.RolePeer, charm.RolePeer, false},
 }
 
-func (s *EndpointSuite) TestCanRelate(c *gc.C) {
+func (s *EndpointSuite) TestCanRelate(c *tc.C) {
 	for i, t := range canRelateTests {
 		c.Logf("test %d", i)
 		ep1 := state.Endpoint{
@@ -50,12 +53,12 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 			},
 		}
 		if t.success {
-			c.Assert(ep1.CanRelateTo(ep2), jc.IsTrue)
-			c.Assert(ep2.CanRelateTo(ep1), jc.IsTrue)
+			c.Assert(ep1.CanRelateTo(ep2), tc.IsTrue)
+			c.Assert(ep2.CanRelateTo(ep1), tc.IsTrue)
 			ep1.Interface = "different"
 		}
-		c.Assert(ep1.CanRelateTo(ep2), jc.IsFalse)
-		c.Assert(ep2.CanRelateTo(ep1), jc.IsFalse)
+		c.Assert(ep1.CanRelateTo(ep2), tc.IsFalse)
+		c.Assert(ep2.CanRelateTo(ep1), tc.IsFalse)
 	}
 	ep1 := state.Endpoint{
 		ApplicationName: "same-application",
@@ -75,6 +78,6 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	c.Assert(ep1.CanRelateTo(ep2), jc.IsFalse)
-	c.Assert(ep2.CanRelateTo(ep1), jc.IsFalse)
+	c.Assert(ep1.CanRelateTo(ep2), tc.IsFalse)
+	c.Assert(ep2.CanRelateTo(ep1), tc.IsFalse)
 }

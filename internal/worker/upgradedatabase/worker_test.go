@@ -5,6 +5,7 @@ package upgradedatabase_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -12,15 +13,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	. "github.com/juju/juju/internal/worker/upgradedatabase/mocks"
 	"github.com/juju/juju/state"
@@ -41,14 +41,14 @@ var (
 // baseSuite is embedded in both the worker and manifold tests.
 // Tests should not go on this suite directly.
 type baseSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	logger *MockLogger
 }
 
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
 // Logs are still emitted via the test logger.
-func (s *baseSuite) ignoreLogging(c *gc.C) {
+func (s *baseSuite) ignoreLogging(c *tc.C) {
 	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
 	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args) }
 	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
@@ -59,7 +59,7 @@ func (s *baseSuite) ignoreLogging(c *gc.C) {
 	e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
 }
 
-func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
+func logIt(c *tc.C, level loggo.Level, message string, args interface{}) {
 	var nArgs []interface{}
 	var ok bool
 	if nArgs, ok = args.([]interface{}); ok {
@@ -84,77 +84,79 @@ type workerSuite struct {
 	watcher     *MockNotifyWatcher
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) TestValidateConfig(c *gc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.getConfig()
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 	cfg.Tag = names.NewControllerAgentTag("0")
-	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg.UpgradeComplete = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.Tag = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.Agent = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.OpenState = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.PerformUpgrade = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.RetryStrategy = retry.CallArgs{}
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
 	cfg.Clock = nil
-	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cfg.Validate(), tc.Satisfies, errors.IsNotValid)
 }
 
-func (s *workerSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
+func (s *workerSuite) TestNewLockSameVersionUnlocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
 	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
-	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsTrue)
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), tc.IsTrue)
 }
 
-func (s *workerSuite) TestNewLockOldVersionLocked(c *gc.C) {
+func (s *workerSuite) TestNewLockOldVersionLocked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
 	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
-	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsFalse)
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), tc.IsFalse)
 }
 
-func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
+func (s *workerSuite) TestAlreadyCompleteNoWork(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
 	s.lock.EXPECT().IsUnlocked().Return(true)
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
+func (s *workerSuite) TestAlreadyUpgradedNoWork(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -164,12 +166,12 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	s.lock.EXPECT().Unlock()
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -201,16 +203,16 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessRunning(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessRunning(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -243,16 +245,16 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccessRunning(c *gc.C) {
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectUpgradeRequired(false)
@@ -306,16 +308,16 @@ func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
 	cfg.Clock = s.clock
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.DirtyKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -343,16 +345,16 @@ func (s *workerSuite) TestNotPrimaryButPrimaryFinished(c *gc.C) {
 	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryButBecomePrimary(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryButBecomePrimary(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -389,16 +391,16 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimary(c *gc.C) {
 	cfg.Clock = s.clock
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.DirtyKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryButBecomePrimaryByError(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryButBecomePrimaryByError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -435,16 +437,16 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimaryByError(c *gc.C) {
 	cfg.Clock = s.clock
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.DirtyKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryButBecomePrimaryAfter2Checks(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryButBecomePrimaryAfter2Checks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -485,16 +487,16 @@ func (s *workerSuite) TestNotPrimaryButBecomePrimaryAfter2Checks(c *gc.C) {
 	cfg.Clock = s.clock
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-finished:
-	case <-time.After(testing.LongWait):
+	case <-time.After(testhelpers.LongWait):
 	}
 	workertest.DirtyKill(c, w)
 }
 
-func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
+func (s *workerSuite) TestUpgradedSuccessFirst(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
@@ -508,12 +510,12 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	s.lock.EXPECT().Unlock()
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
+func (s *workerSuite) TestUpgradedRetryThenSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectUpgradeRequired(true)
@@ -536,8 +538,8 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 
 	var failedOnce bool
 	cfg.PerformUpgrade = func(ver version.Number, targets []upgrades.Target, ctx func() upgrades.Context) error {
-		c.Check(ver, gc.Equals, version.Number{})
-		c.Check(targets, gc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+		c.Check(ver, tc.Equals, version.Number{})
+		c.Check(targets, tc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 
 		if !failedOnce {
 			failedOnce = true
@@ -547,12 +549,12 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 	}
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestUpgradedRetryAllFailed(c *gc.C) {
+func (s *workerSuite) TestUpgradedRetryAllFailed(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectUpgradeRequired(true)
@@ -571,13 +573,13 @@ func (s *workerSuite) TestUpgradedRetryAllFailed(c *gc.C) {
 	// Note that UpgradeComplete is not unlocked.
 
 	cfg.PerformUpgrade = func(ver version.Number, targets []upgrades.Target, ctx func() upgrades.Context) error {
-		c.Check(ver, gc.Equals, version.Number{})
-		c.Check(targets, gc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+		c.Check(ver, tc.Equals, version.Number{})
+		c.Check(targets, tc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 		return errors.New("boom")
 	}
 
 	w, err := upgradedatabase.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	workertest.DirtyKill(c, w)
 }
@@ -595,7 +597,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 	}
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.lock = NewMockLock(ctrl)

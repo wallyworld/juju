@@ -4,8 +4,7 @@
 package testing
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/rpc/params"
@@ -37,35 +36,35 @@ func NewModelWatcherTest(
 // AssertModelConfig provides a method to test the config from the
 // modelWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
-func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, modelWatcher ModelWatcher) {
+func (s *ModelWatcherTest) AssertModelConfig(c *tc.C, modelWatcher ModelWatcher) {
 	model, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	modelConfig, err := model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := modelWatcher.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	configAttributes := modelConfig.AllAttrs()
-	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(configAttributes))
+	c.Assert(result.Config, tc.DeepEquals, params.ModelConfig(configAttributes))
 }
 
-func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
+func (s *ModelWatcherTest) TestModelConfig(c *tc.C) {
 	s.AssertModelConfig(c, s.modelWatcher)
 }
 
-func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
-	c.Assert(s.res.Count(), gc.Equals, 0)
+func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *tc.C) {
+	c.Assert(s.res.Count(), tc.Equals, 0)
 
 	result, err := s.modelWatcher.WatchForModelConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",
 	})
 
 	// Verify the resources were registered and stop them when done.
-	c.Assert(s.res.Count(), gc.Equals, 1)
+	c.Assert(s.res.Count(), tc.Equals, 1)
 	resource := s.res.Get("1")
 	defer statetesting.AssertStop(c, resource)
 

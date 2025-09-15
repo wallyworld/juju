@@ -5,24 +5,24 @@ package secretspruner_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/secretspruner/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	logger loggo.Logger
 
 	facade *mocks.MockSecretsFacade
@@ -31,9 +31,11 @@ type workerSuite struct {
 	changedCh chan []string
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(string), *gomock.Controller) {
+func (s *workerSuite) getWorkerNewer(c *tc.C, calls ...*gomock.Call) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.logger = loggo.GetLogger("test")
 	s.facade = mocks.NewMockSecretsFacade(ctrl)
@@ -47,15 +49,15 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(strin
 			Logger:        s.logger,
 			SecretsFacade: s.facade,
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(w, gc.NotNil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(w, tc.NotNil)
 		workertest.CheckAlive(c, w)
-		s.AddCleanup(func(c *gc.C) {
+		s.AddCleanup(func(c *tc.C) {
 			if expectedErr == "" {
 				workertest.CleanKill(c, w)
 			} else {
 				err := workertest.CheckKilled(c, w)
-				c.Assert(err, gc.ErrorMatches, expectedErr)
+				c.Assert(err, tc.ErrorMatches, expectedErr)
 			}
 		})
 		s.waitDone(c)
@@ -63,7 +65,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(strin
 	return start, ctrl
 }
 
-func (s *workerSuite) waitDone(c *gc.C) {
+func (s *workerSuite) waitDone(c *tc.C) {
 	select {
 	case <-s.done:
 	case <-time.After(coretesting.ShortWait):
@@ -71,7 +73,7 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestPrune(c *gc.C) {
+func (s *workerSuite) TestPrune(c *tc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 

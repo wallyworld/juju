@@ -4,10 +4,10 @@
 package cleaner_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
@@ -15,9 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CleanerSuite struct {
@@ -28,15 +29,17 @@ type CleanerSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&CleanerSuite{})
+func TestCleanerSuite(t *tctesting.T) {
+	tc.Run(t, &CleanerSuite{})
+}
 
-func (s *CleanerSuite) SetUpTest(c *gc.C) {
+func (s *CleanerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Controller: true,
 	}
-	s.st = &mockState{&testing.Stub{}, false}
+	s.st = &mockState{&testhelpers.Stub{}, false}
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
@@ -44,52 +47,52 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 		Resources_: res,
 		Auth_:      s.authoriser,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.api, tc.NotNil)
 }
 
-func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
+func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *tc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
 	api, err := cleaner.NewCleanerAPI(facadetest.Context{
 		Auth_: anAuthoriser,
 	})
-	c.Assert(api, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(apiservererrors.ServerError(err), jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(api, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+	c.Assert(apiservererrors.ServerError(err), tc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsSuccess(c *tc.C) {
 	_, err := s.api.WatchCleanups()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
-func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
+func (s *CleanerSuite) TestWatchCleanupsFailure(c *tc.C) {
 	s.st.SetErrors(errors.New("boom!"))
 	s.st.watchCleanupsFails = true
 
 	result, err := s.api.WatchCleanups()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error.Error(), gc.Equals, "boom!")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error.Error(), tc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
-func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
+func (s *CleanerSuite) TestCleanupSuccess(c *tc.C) {
 	err := s.api.Cleanup()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
-func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
+func (s *CleanerSuite) TestCleanupFailure(c *tc.C) {
 	s.st.SetErrors(errors.New("Boom!"))
 	err := s.api.Cleanup()
-	c.Assert(err, gc.ErrorMatches, "Boom!")
+	c.Assert(err, tc.ErrorMatches, "Boom!")
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 	watchCleanupsFails bool
 }
 

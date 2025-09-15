@@ -4,6 +4,7 @@
 package caasfirewaller_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -11,21 +12,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	config            caasfirewaller.Config
 	applicationGetter mockApplicationGetter
@@ -39,9 +39,11 @@ type WorkerSuite struct {
 	serviceUnexposed   chan struct{}
 }
 
-var _ = gc.Suite(&WorkerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &WorkerSuite{})
+}
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
@@ -53,7 +55,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		allWatcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
 		appWatcher: watchertest.NewMockNotifyWatcher(s.appExposedChange),
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.allWatcher) })
+	s.AddCleanup(func(c *tc.C) { workertest.DirtyKill(c, s.applicationGetter.allWatcher) })
 
 	s.lifeGetter = mockLifeGetter{
 		life: life.Alive,
@@ -80,7 +82,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) sendApplicationExposedChange(c *gc.C) {
+func (s *WorkerSuite) sendApplicationExposedChange(c *tc.C) {
 	select {
 	case s.appExposedChange <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -88,7 +90,7 @@ func (s *WorkerSuite) sendApplicationExposedChange(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
+func (s *WorkerSuite) TestValidateConfig(c *tc.C) {
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.ControllerUUID = ""
 	}, `missing ControllerUUID not valid`)
@@ -118,24 +120,24 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing Logger not valid`)
 }
 
-func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasfirewaller.Config), expect string) {
+func (s *WorkerSuite) testValidateConfig(c *tc.C, f func(*caasfirewaller.Config), expect string) {
 	config := s.config
 	f(&config)
 	w, err := caasfirewaller.NewWorker(config)
 	if err == nil {
 		workertest.DirtyKill(c, w)
 	}
-	c.Check(err, gc.ErrorMatches, expect)
+	c.Check(err, tc.ErrorMatches, expect)
 }
 
-func (s *WorkerSuite) TestStartStop(c *gc.C) {
+func (s *WorkerSuite) TestStartStop(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) sendApplicationChange(c *gc.C, appName string) {
+func (s *WorkerSuite) sendApplicationChange(c *tc.C, appName string) {
 	select {
 	case s.applicationChanges <- []string{appName}:
 	case <-time.After(coretesting.LongWait):
@@ -143,9 +145,9 @@ func (s *WorkerSuite) sendApplicationChange(c *gc.C, appName string) {
 	}
 }
 
-func (s *WorkerSuite) TestExposedChange(c *gc.C) {
+func (s *WorkerSuite) TestExposedChange(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
@@ -179,9 +181,9 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 		config.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {
+func (s *WorkerSuite) TestUnexposedChange(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
@@ -210,9 +212,9 @@ func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
+func (s *WorkerSuite) TestWatchApplicationDead(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.lifeGetter.life = life.Dead
@@ -227,31 +229,31 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
+func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *tc.C) {
 	// Set up the errors before triggering any events to avoid racing
 	// with the worker loop. First time around the loop the
 	// application's alive, then it's gone.
 	s.lifeGetter.SetErrors(nil, errors.NotFoundf("application"))
 
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
 	s.sendApplicationChange(c, "gitlab")
 
 	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *tc.C) {
 	// Set up the errors before triggering any events to avoid racing
 	// with the worker loop. First time around the loop the
 	// application's alive, then it's gone.
 	s.applicationGetter.SetErrors(nil, nil, errors.NotFoundf("application"))
 
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
@@ -265,9 +267,9 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWorker(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
+func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
@@ -276,15 +278,15 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	_ = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
 	_ = workertest.CheckKilled(c, s.applicationGetter.allWatcher)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "splat")
+	c.Assert(err, tc.ErrorMatches, "splat")
 }
 
-func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
+func (s *WorkerSuite) TestV2CharmSkipProcessing(c *tc.C) {
 	s.charmGetter.charmInfo.Manifest = &charm.Manifest{Bases: []charm.Base{{}}}
 	s.charmGetter.charmInfo.Meta = &charm.Meta{}
 
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sendApplicationChange(c, "gitlab")
 	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
@@ -294,9 +296,9 @@ func (s *WorkerSuite) TestV2CharmSkipProcessing(c *gc.C) {
 	s.expectNoLifeGetterCalls(c)
 }
 
-func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
+func (s *WorkerSuite) TestCharmNotFound(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.charmGetter.charmInfo = nil
 
@@ -308,9 +310,9 @@ func (s *WorkerSuite) TestCharmNotFound(c *gc.C) {
 	s.expectNoLifeGetterCalls(c)
 }
 
-func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
+func (s *WorkerSuite) TestCharmChangesToV2(c *tc.C) {
 	w, err := caasfirewaller.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.sendApplicationChange(c, "gitlab")
@@ -323,24 +325,24 @@ func (s *WorkerSuite) TestCharmChangesToV2(c *gc.C) {
 	s.waitCharmGetterCalls(c, "ApplicationCharmInfo")
 
 	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *WorkerSuite) waitCharmGetterCalls(c *gc.C, names ...string) {
+func (s *WorkerSuite) waitCharmGetterCalls(c *tc.C, names ...string) {
 	waitStubCalls(c, &s.charmGetter, names...)
 }
 
-func (s *WorkerSuite) waitLifeGetterCalls(c *gc.C, names ...string) {
+func (s *WorkerSuite) waitLifeGetterCalls(c *tc.C, names ...string) {
 	waitStubCalls(c, &s.lifeGetter, names...)
 }
 
 type waitStub interface {
-	Calls() []testing.StubCall
-	CheckCallNames(c *gc.C, expected ...string) bool
+	Calls() []testhelpers.StubCall
+	CheckCallNames(c testhelpers.StubC, expected ...string) bool
 	ResetCalls()
 }
 
-func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
+func waitStubCalls(c *tc.C, stub waitStub, names ...string) {
 	retryCallArgs := coretesting.LongRetryStrategy
 	retryCallArgs.Func = func() error {
 		if len(stub.Calls()) >= len(names) {
@@ -349,13 +351,13 @@ func waitStubCalls(c *gc.C, stub waitStub, names ...string) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	stub.CheckCallNames(c, names...)
 	stub.ResetCalls()
 }
 
-func (s *WorkerSuite) expectNoLifeGetterCalls(c *gc.C) {
+func (s *WorkerSuite) expectNoLifeGetterCalls(c *tc.C) {
 	totalDuration := clock.WallClock.After(coretesting.ShortWait)
 	for {
 		select {

@@ -4,15 +4,15 @@
 package charmrevisionupdater_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/cloud"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -35,11 +35,13 @@ type updaterSuite struct {
 	clock clock.Clock
 }
 
-var _ = gc.Suite(&updaterSuite{})
+func TestUpdaterSuite(t *tctesting.T) {
+	tc.Run(t, &updaterSuite{})
+}
 
 type newCharmhubClientFunc = func(st charmrevisionupdater.State) (charmrevisionupdater.CharmhubRefreshClient, error)
 
-func (s *updaterSuite) SetUpTest(c *gc.C) {
+func (s *updaterSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Now())
 }
 
@@ -49,23 +51,23 @@ func (s *updaterSuite) newCharmhubClient(client charmrevisionupdater.CharmhubRef
 	}
 }
 
-func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
+func (s *updaterSuite) TestNewAuthSuccess(c *tc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{Controller: true}
 	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updater, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(updater, tc.NotNil)
 }
 
-func (s *updaterSuite) TestNewAuthFailure(c *gc.C) {
+func (s *updaterSuite) TestNewAuthFailure(c *tc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{Controller: false}
 	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
-	c.Assert(updater, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(updater, tc.IsNil)
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
+func (s *updaterSuite) TestCharmhubUpdate(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.expectCharmHubModel(c)
@@ -96,14 +98,14 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *gc.C) {
+func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	uuid := testing.ModelTag.Id()
@@ -112,7 +114,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *gc.C) {
 		"type": "type",
 		"uuid": uuid,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
 	s.model.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.model.EXPECT().Metrics().Return(state.ModelMetrics{
@@ -130,7 +132,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithMetrics(c *gc.C) {
 	s.testCharmhubUpdateMetrics(c, ctrl, matcher, true)
 }
 
-func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
+func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -139,7 +141,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
 		"uuid":                     testing.ModelTag.Id(),
 		config.DisableTelemetryKey: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil).AnyTimes()
 	s.model.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	matcher := charmhubConfigMatcher{expected: []charmhubConfigExpected{
@@ -149,7 +151,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithNoMetrics(c *gc.C) {
 	s.testCharmhubUpdateMetrics(c, ctrl, matcher, false)
 }
 
-func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controller, matcher gomock.Matcher, exist bool) {
+func (s *updaterSuite) testCharmhubUpdateMetrics(c *tc.C, ctrl *gomock.Controller, matcher gomock.Matcher, exist bool) {
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 
 	client.EXPECT().RefreshWithRequestMetrics(gomock.Any(), matcher, charmhubMetricsMatcher{c: c, exist: exist}).Return([]transport.RefreshResponse{
@@ -173,14 +175,14 @@ func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controlle
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
+func (s *updaterSuite) TestEmptyModelMetrics(c *tc.C) {
 	ctrl := s.setupMocksNoResources(c)
 	defer ctrl.Finish()
 	uuid := testing.ModelTag.Id()
@@ -194,7 +196,7 @@ func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
 		"type": "type",
 		"uuid": uuid,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil)
 	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{}, nil)
 
@@ -217,13 +219,13 @@ func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
 	client.EXPECT().RefreshWithMetricsOnly(gomock.Any(), gomock.Eq(send)).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *updaterSuite) TestEmptyModelNoMetrics(c *gc.C) {
+func (s *updaterSuite) TestEmptyModelNoMetrics(c *tc.C) {
 	ctrl := s.setupMocksNoResources(c)
 	defer ctrl.Finish()
 
@@ -233,19 +235,19 @@ func (s *updaterSuite) TestEmptyModelNoMetrics(c *gc.C) {
 		"uuid":                     testing.ModelTag.Id(),
 		config.DisableTelemetryKey: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().Config().Return(cfg, nil)
 	s.state.EXPECT().AllApplications().Return([]charmrevisionupdater.Application{}, nil)
 	client := mocks.NewMockCharmhubRefreshClient(ctrl)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
+func (s *updaterSuite) TestCharmhubUpdateWithResources(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.expectCharmHubModel(c)
@@ -298,14 +300,14 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:resourcey-1")).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
+func (s *updaterSuite) TestCharmhubNoUpdate(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.expectCharmHubModel(c)
@@ -328,14 +330,14 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	s.state.EXPECT().AddCharmPlaceholder(charm.MustParseURL("ch:postgresql-42")).Return(nil)
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
+func (s *updaterSuite) TestCharmNotInStore(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.expectCharmHubModel(c)
@@ -348,21 +350,21 @@ func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
 	}, nil).AnyTimes()
 
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(charmhubClient))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := updater.UpdateLatestRevisions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *updaterSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *updaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := s.setupMocksNoResources(c)
 	s.resources.EXPECT().SetCharmStoreResources(gomock.Any(), gomock.Len(0), s.clock.Now().UTC()).Return(nil).AnyTimes()
 
 	return ctrl
 }
 
-func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
+func (s *updaterSuite) setupMocksNoResources(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.model = mocks.NewMockModel(ctrl)
 	s.resources = statemocks.NewMockResources(ctrl)
@@ -375,7 +377,7 @@ func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
+func (s *updaterSuite) expectCharmHubModel(c *tc.C) {
 	mExp := s.model.EXPECT()
 	uuid := testing.ModelTag.Id()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -383,7 +385,7 @@ func (s *updaterSuite) expectCharmHubModel(c *gc.C) {
 		"type": "type",
 		"uuid": uuid,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mExp.Config().Return(cfg, nil).AnyTimes()
 	mExp.Metrics().Return(state.ModelMetrics{
 		UUID:           uuid,

@@ -4,23 +4,26 @@
 package specs_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
 	k8sspces "github.com/juju/juju/internal/provider/kubernetes/specs"
 	"github.com/juju/juju/internal/provider/kubernetes/specs/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type typesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&typesSuite{})
+func TestTypesSuite(t *tctesting.T) {
+	tc.Run(t, &typesSuite{})
+}
 
-func (s *typesSuite) TestParsePodSpec(c *gc.C) {
+func (s *typesSuite) TestParsePodSpec(c *tc.C) {
 
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -50,13 +53,13 @@ func (s *typesSuite) TestParsePodSpec(c *gc.C) {
 	)
 
 	out, err := k8sspces.ParsePodSpecForTest("", getParser)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(minSpecs, jc.DeepEquals, out)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(minSpecs, tc.DeepEquals, out)
 }
 
-func (s *typesSuite) TestK8sContainersValidate(c *gc.C) {
+func (s *typesSuite) TestK8sContainersValidate(c *tc.C) {
 	cs := &k8sspces.K8sContainers{}
-	c.Assert(cs.Validate(), gc.ErrorMatches, `require at least one container spec`)
+	c.Assert(cs.Validate(), tc.ErrorMatches, `require at least one container spec`)
 
 	c1 := k8sspces.K8sContainer{}
 	c1.Name = "c1"
@@ -64,5 +67,5 @@ func (s *typesSuite) TestK8sContainersValidate(c *gc.C) {
 	cs = &k8sspces.K8sContainers{
 		Containers: []k8sspces.K8sContainer{c1},
 	}
-	c.Assert(cs.Validate(), jc.ErrorIsNil)
+	c.Assert(cs.Validate(), tc.ErrorIsNil)
 }

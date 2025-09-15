@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -14,29 +15,30 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperator"
 	"github.com/juju/juju/internal/worker/caasoperator/mocks"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type UnitInitializerSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&UnitInitializerSuite{})
+func TestUnitInitializerSuite(t *tctesting.T) {
+	tc.Run(t, &UnitInitializerSuite{})
+}
 
-func (s *UnitInitializerSuite) SetUpTest(c *gc.C) {
+func (s *UnitInitializerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
+func (s *UnitInitializerSuite) TestInitialize(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -125,10 +127,10 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 
 	cancel := make(chan struct{})
 	err := caasoperator.InitializeUnit(params, cancel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
+func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -162,10 +164,10 @@ func (s *UnitInitializerSuite) TestInitializeUnitMissingProviderID(c *gc.C) {
 
 	cancel := make(chan struct{})
 	err := caasoperator.InitializeUnit(params, cancel)
-	c.Assert(err, gc.ErrorMatches, "missing ProviderID not valid")
+	c.Assert(err, tc.ErrorMatches, "missing ProviderID not valid")
 }
 
-func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
+func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -217,10 +219,10 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 
 	cancel := make(chan struct{})
 	err := caasoperator.InitializeUnit(params, cancel)
-	c.Assert(err, gc.ErrorMatches, "container not found")
+	c.Assert(err, tc.ErrorMatches, "container not found")
 }
 
-func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
+func (s *UnitInitializerSuite) TestInitializePodNotFound(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -272,10 +274,10 @@ func (s *UnitInitializerSuite) TestInitializePodNotFound(c *gc.C) {
 
 	cancel := make(chan struct{})
 	err := caasoperator.InitializeUnit(params, cancel)
-	c.Assert(err, gc.ErrorMatches, "container not found")
+	c.Assert(err, tc.ErrorMatches, "container not found")
 }
 
-func (s *UnitInitializerSuite) TestRunnerWithRetry(c *gc.C) {
+func (s *UnitInitializerSuite) TestRunnerWithRetry(c *tc.C) {
 	cancel := make(chan struct{})
 	clk := testclock.NewClock(time.Time{})
 	called := 0
@@ -294,14 +296,14 @@ func (s *UnitInitializerSuite) TestRunnerWithRetry(c *gc.C) {
 		}, loggo.GetLogger("test"), clk, cancel)
 	}()
 	err := clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = clk.WaitAdvance(2*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(called, gc.DeepEquals, 3)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(called, tc.DeepEquals, 3)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for RunnerWithRetry return")
 	}

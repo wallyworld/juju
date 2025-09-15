@@ -5,18 +5,18 @@ package spaces_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type SpaceRenameSuite struct {
@@ -29,9 +29,11 @@ type SpaceRenameSuite struct {
 	cons2    *spaces.MockConstraints
 }
 
-var _ = gc.Suite(&SpaceRenameSuite{})
+func TestSpaceRenameSuite(t *tctesting.T) {
+	tc.Run(t, &SpaceRenameSuite{})
+}
 
-func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
+func (s *SpaceRenameSuite) TestBuildSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	toName := "external"
@@ -55,11 +57,11 @@ func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
 
 	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 4)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ops, tc.HasLen, 4)
 }
 
-func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
+func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	toName := "external"
@@ -71,11 +73,11 @@ func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
 
 	op := spaces.NewRenameSpaceOp(false, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ops, tc.HasLen, 3)
 }
 
-func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
+func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	toName := "external"
@@ -88,10 +90,10 @@ func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
 
 	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
 }
 
-func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
+func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	toName := "external"
@@ -102,16 +104,16 @@ func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
 
 	op := spaces.NewRenameSpaceOp(true, s.settings, s.state, s.space, toName)
 	_, err := op.Build(0)
-	c.Assert(err, gc.ErrorMatches, bamErr.Error())
+	c.Assert(err, tc.ErrorMatches, bamErr.Error())
 }
 
-func (s *SpaceRenameSuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface{}) controller.Config {
+func (s *SpaceRenameSuite) getDefaultControllerConfig(c *tc.C, attr map[string]interface{}) controller.Config {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, attr)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return cfg
 }
 
-func (s *SpaceRenameSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *SpaceRenameSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.spaceName = "db"

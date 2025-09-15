@@ -4,16 +4,8 @@
 package instancepoller
 
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/state"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type Patcher interface {
 	PatchValue(ptr, value interface{})

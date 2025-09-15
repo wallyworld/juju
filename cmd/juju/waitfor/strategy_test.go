@@ -4,27 +4,28 @@
 package waitfor
 
 import (
-	"context"
+	tctesting "testing"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/waitfor/api"
 	"github.com/juju/juju/cmd/juju/waitfor/api/mocks"
 	"github.com/juju/juju/cmd/juju/waitfor/query"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type strategySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&strategySuite{})
+func TestStrategySuite(t *tctesting.T) {
+	tc.Run(t, &strategySuite{})
+}
 
-func (s *strategySuite) TestRun(c *gc.C) {
+func (s *strategySuite) TestRun(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -50,17 +51,17 @@ func (s *strategySuite) TestRun(c *gc.C) {
 		},
 		Timeout: time.Minute,
 	}
-	err := strategy.Run(context.Background(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(c.Context(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		executed = true
 		deltas = d
 		return true, nil
 	}, emptyNotify)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(executed, jc.IsTrue)
-	c.Assert(deltas, gc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(executed, tc.IsTrue)
+	c.Assert(deltas, tc.DeepEquals, expected)
 }
 
-func (s *strategySuite) TestRunWithCallback(c *gc.C) {
+func (s *strategySuite) TestRunWithCallback(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -88,14 +89,14 @@ func (s *strategySuite) TestRunWithCallback(c *gc.C) {
 	strategy.Subscribe(func(event EventType) {
 		eventType = event
 	})
-	err := strategy.Run(context.Background(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(c.Context(), "generic", `life=="active"`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		return true, nil
 	}, emptyNotify)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eventType, gc.Equals, WatchAllStarted)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(eventType, tc.Equals, WatchAllStarted)
 }
 
-func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
+func (s *strategySuite) TestRunWithInvalidQuery(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -106,12 +107,12 @@ func (s *strategySuite) TestRunWithInvalidQuery(c *gc.C) {
 		},
 		Timeout: time.Minute,
 	}
-	err := strategy.Run(context.Background(), "generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
+	err := strategy.Run(c.Context(), "generic", `life=="ac`, func(_ string, d []params.Delta, _ query.Query) (bool, error) {
 		c.FailNow()
 		return false, nil
 	}, emptyNotify)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `
+	c.Assert(err, tc.NotNil)
+	c.Assert(err.Error(), tc.Equals, `
 Cannot parse query: string is not correctly terminated.
 
 1 | life=="ac

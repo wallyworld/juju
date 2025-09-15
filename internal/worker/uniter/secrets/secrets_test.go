@@ -4,12 +4,13 @@
 package secrets_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -25,9 +26,11 @@ type secretsSuite struct {
 	secretsClient   *mocks.MockSecretsClient
 }
 
-var _ = gc.Suite(&secretsSuite{})
+func TestSecretsSuite(t *tctesting.T) {
+	tc.Run(t, &secretsSuite{})
+}
 
-func (s *secretsSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *secretsSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateReadWriter = operationmocks.NewMockUnitStateReadWriter(ctrl)
 	s.secretsClient = mocks.NewMockSecretsClient(ctrl)
@@ -38,13 +41,13 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *secretsSuite) yamlString(c *gc.C, st *secrets.State) string {
+func (s *secretsSuite) yamlString(c *tc.C, st *secrets.State) string {
 	data, err := yaml.Marshal(st)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return string(data)
 }
 
-func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
+func (s *secretsSuite) TestCommitSecretChanged(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
@@ -77,7 +80,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:           hooks.SecretChanged,
@@ -85,10 +88,10 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 		SecretRevision: 666,
 	}
 	err = tracker.CommitHook(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
+func (s *secretsSuite) TestCommitSecretRemove(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
@@ -119,7 +122,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info := hook.Info{
 		Kind:           hooks.SecretRemove,
@@ -127,10 +130,10 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 		SecretRevision: 666,
 	}
 	err = tracker.CommitHook(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
+func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
@@ -169,8 +172,8 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 
 	tag := names.NewUnitTag("foo/0")
 	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggo.GetLogger("test"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = tracker.SecretsRemoved([]string{"secret:666e2mr0ui3e8a215n4g"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

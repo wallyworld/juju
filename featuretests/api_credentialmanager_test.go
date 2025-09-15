@@ -4,8 +4,7 @@
 package featuretests
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/credentialmanager"
 	"github.com/juju/juju/juju/testing"
@@ -21,7 +20,7 @@ type CredentialManagerSuite struct {
 	client *credentialmanager.Client
 }
 
-func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
+func (s *CredentialManagerSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	info := s.APIInfo(c)
@@ -30,21 +29,21 @@ func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
 	s.client = credentialmanager.NewClient(userConn)
 }
 
-func (s *CredentialManagerSuite) TearDownTest(c *gc.C) {
+func (s *CredentialManagerSuite) TearDownTest(c *tc.C) {
 	s.client.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *tc.C) {
 	tag, set := s.Model.CloudCredentialTag()
-	c.Assert(set, jc.IsTrue)
+	c.Assert(set, tc.IsTrue)
 	credential, err := s.State.CloudCredential(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.IsValid(), jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential.IsValid(), tc.IsTrue)
 
-	c.Assert(s.client.InvalidateModelCredential("no reason really"), jc.ErrorIsNil)
+	c.Assert(s.client.InvalidateModelCredential("no reason really"), tc.ErrorIsNil)
 
 	credential, err = s.State.CloudCredential(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.IsValid(), jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential.IsValid(), tc.IsFalse)
 }

@@ -6,33 +6,35 @@ package listagreements_test
 import (
 	"context"
 	"errors"
+	tctesting "testing"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/tc"
 	"github.com/juju/terms-client/v2/api/wireformat"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/agree/listagreements"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&listAgreementsSuite{})
+func TestListAgreementsSuite(t *tctesting.T) {
+	tc.Run(t, &listAgreementsSuite{})
+}
 
 type listAgreementsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	client *mockClient
 }
 
-func (s *listAgreementsSuite) SetUpTest(c *gc.C) {
+func (s *listAgreementsSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.client = &mockClient{}
 
-	jujutesting.PatchValue(listagreements.NewClient, func(_ *httpbakery.Client) (listagreements.TermsServiceClient, error) {
+	testhelpers.PatchValue(listagreements.NewClient, func(_ *httpbakery.Client) (listagreements.TermsServiceClient, error) {
 		return s.client, nil
 	})
 }
@@ -67,18 +69,18 @@ owner/test-term/1	2015-12-25 00:00:00 +0000 UTC
 `
 )
 
-func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
+func (s *listAgreementsSuite) TestGetUsersAgreements(c *tc.C) {
 	ctx, err := s.runCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No agreements to display.\n")
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), tc.Equals, "No agreements to display.\n")
+	c.Assert(s.client.called, tc.IsTrue)
 
 	s.client.setError("well, this is embarrassing")
 
 	_, err = s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
+	c.Assert(s.client.called, tc.IsTrue)
 
 	agreements := []wireformat.AgreementResponse{{
 		User:      "test-user",
@@ -89,29 +91,29 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	s.client.setAgreements(agreements)
 
 	ctx, err = s.runCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsTabularOutput)
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedListAgreementsTabularOutput)
+	c.Assert(s.client.called, tc.IsTrue)
 
 	ctx, err = s.runCommand(c, "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "- user: test-user\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "- user: test-user\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
+	c.Assert(s.client.called, tc.IsTrue)
 
 	ctx, err = s.runCommand(c, "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutput)
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedListAgreementsJSONOutput)
+	c.Assert(s.client.called, tc.IsTrue)
 }
 
-func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
+func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *tc.C) {
 	s.client.setError("well, this is embarrassing")
 	_, err := s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
+	c.Assert(s.client.called, tc.IsTrue)
 
 	agreements := []wireformat.AgreementResponse{{
 		User:      "test-user",
@@ -123,25 +125,25 @@ func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	s.client.setAgreements(agreements)
 
 	ctx, err := s.runCommand(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsTabularOutputWithOwner)
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedListAgreementsTabularOutputWithOwner)
+	c.Assert(s.client.called, tc.IsTrue)
 
 	ctx, err = s.runCommand(c, "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsJSONOutputWithOwner)
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, expectedListAgreementsJSONOutputWithOwner)
+	c.Assert(s.client.called, tc.IsTrue)
 
 	ctx, err = s.runCommand(c, "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx, gc.NotNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "- user: test-user\n  owner: owner\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
-	c.Assert(s.client.called, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctx, tc.NotNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Equals, "- user: test-user\n  owner: owner\n  term: test-term\n  revision: 1\n  createdon: 2015-12-25T00:00:00Z\n")
+	c.Assert(s.client.called, tc.IsTrue)
 }
 
-func (s *listAgreementsSuite) runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *listAgreementsSuite) runCommand(c *tc.C, args ...string) (*cmd.Context, error) {
 	cmd := listagreements.NewListAgreementsCommand()
 	cmd.SetClientStore(newMockStore())
 	return cmdtesting.RunCommand(c, cmd, args...)

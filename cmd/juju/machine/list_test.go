@@ -4,22 +4,25 @@
 package machine_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type MachineListCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&MachineListCommandSuite{})
+func TestMachineListCommandSuite(t *tctesting.T) {
+	tc.Run(t, &MachineListCommandSuite{})
+}
 
 func newMachineListCommand() cmd.Command {
 	return machine.NewListCommandForTest(&fakeStatusAPI{})
@@ -130,24 +133,24 @@ func (*fakeStatusAPI) Close() error {
 	return nil
 }
 
-func (s *MachineListCommandSuite) SetUpTest(c *gc.C) {
+func (s *MachineListCommandSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
-func (s *MachineListCommandSuite) TestMachine(c *gc.C) {
+func (s *MachineListCommandSuite) TestMachine(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"Machine  State    Address   Inst id              Base          AZ         Message\n"+
 		"0        started  10.0.0.1  juju-badd06-0        ubuntu@22.04  us-east-1  \n"+
 		"1        started  10.0.0.2  juju-badd06-1        ubuntu@22.04             \n"+
 		"1/lxd/0  pending  10.0.0.3  juju-badd06-1-lxd-0  ubuntu@22.04             \n")
 }
 
-func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
+func (s *MachineListCommandSuite) TestListMachineYaml(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), tc.Equals, ""+
 		"model: dummyenv\n"+
 		"machines:\n"+
 		"  \"0\":\n"+
@@ -219,9 +222,9 @@ func (s *MachineListCommandSuite) TestListMachineYaml(c *gc.C) {
 	)
 }
 
-func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
+func (s *MachineListCommandSuite) TestListMachineJson(c *tc.C) {
 	context, err := cmdtesting.RunCommand(c, newMachineListCommand(), "--format", "json")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Make the test more readable by putting all the JSON in a expanded form.
 	// Then to test it, marshal it back into json, so that map equality ordering
 	// doesn't matter.
@@ -321,13 +324,13 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 		"	   }" +
 		"	}" +
 		" }\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	actualJSON, err := unmarshalStringAsJSON(cmdtesting.Stdout(context))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualJSON, gc.DeepEquals, expectedJSON)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(actualJSON, tc.DeepEquals, expectedJSON)
 }
 
-func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {
+func (s *MachineListCommandSuite) TestListMachineArgsError(c *tc.C) {
 	_, err := cmdtesting.RunCommand(c, newMachineListCommand(), "0")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["0"\]`)
+	c.Assert(err, tc.ErrorMatches, `unrecognized args: \["0"\]`)
 }

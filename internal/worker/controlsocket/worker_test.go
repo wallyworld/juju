@@ -9,22 +9,24 @@ import (
 	"net/http"
 	"os"
 	"path"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 )
 
 type workerSuite struct {
 	logger *fakeLogger
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.logger = &fakeLogger{}
 }
 
-func (s *workerSuite) TestStartStopWorker(c *gc.C) {
+func (s *workerSuite) TestStartStopWorker(c *tc.C) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
@@ -33,26 +35,26 @@ func (s *workerSuite) TestStartStopWorker(c *gc.C) {
 		Logger:     s.logger,
 		SocketName: socket,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check socket is created with correct permissions
 	fi, err := os.Stat(socket)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fi.Mode(), gc.Equals, fs.ModeSocket|0700)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(fi.Mode(), tc.Equals, fs.ModeSocket|0700)
 
 	// Check server is up
 	cl := client(socket)
 	resp, err := cl.Get("http://a/foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusNotFound)
 
 	worker.Kill()
 	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check server has stopped
 	resp, err = cl.Get("http://a/foo")
-	c.Assert(err, gc.ErrorMatches, ".*connection refused")
+	c.Assert(err, tc.ErrorMatches, ".*connection refused")
 
 	// No warnings/errors should have been logged
 	for _, entry := range s.logger.entries {

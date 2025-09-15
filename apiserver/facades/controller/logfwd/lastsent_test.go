@@ -4,33 +4,36 @@
 package logfwd_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/logfwd"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type LastSentSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub       *testing.Stub
+	stub       *testhelpers.Stub
 	state      *stubState
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&LastSentSuite{})
+func TestLastSentSuite(t *tctesting.T) {
+	tc.Run(t, &LastSentSuite{})
+}
 
-func (s *LastSentSuite) SetUpTest(c *gc.C) {
+func (s *LastSentSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.state = &stubState{stub: s.stub}
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("99"),
@@ -38,31 +41,31 @@ func (s *LastSentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *LastSentSuite) TestAuthRefusesUser(c *gc.C) {
+func (s *LastSentSuite) TestAuthRefusesUser(c *tc.C) {
 	anAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("bob"),
 	}
 
 	_, err := logfwd.NewLogForwardingAPI(s.state, anAuthorizer)
 
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *LastSentSuite) TestAuthRefusesNonController(c *gc.C) {
+func (s *LastSentSuite) TestAuthRefusesNonController(c *tc.C) {
 	anAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("99"),
 	}
 
 	_, err := logfwd.NewLogForwardingAPI(s.state, anAuthorizer)
 
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, tc.ErrorMatches, "permission denied")
 }
 
-func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSentOne(c *tc.C) {
 	tracker := s.state.addTracker()
 	tracker.ReturnGet = 10
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
@@ -73,7 +76,7 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+	c.Check(res, tc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
 			RecordID:        10,
 			RecordTimestamp: 100,
@@ -83,7 +86,7 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
 }
 
-func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSentBulk(c *tc.C) {
 	trackerSpam := s.state.addTracker()
 	trackerSpam.ReturnGet = 10
 	trackerEggs := s.state.addTracker()
@@ -91,7 +94,7 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	s.state.addTracker() // ham
 	s.stub.SetErrors(nil, nil, nil, nil, state.ErrNeverForwarded)
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
@@ -108,7 +111,7 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+	c.Check(res, tc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
 			RecordID:        10,
 			RecordTimestamp: 100,
@@ -132,10 +135,10 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	s.stub.CheckCall(c, 6, "NewLastSentTracker", modelTag, "ham")
 }
 
-func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentOne(c *tc.C) {
 	s.state.addTracker()
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
@@ -150,7 +153,7 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.ErrorResults{
+	c.Check(res, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}},
@@ -160,14 +163,14 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 	s.stub.CheckCall(c, 1, "Set", int64(10), int64(100))
 }
 
-func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentBulk(c *tc.C) {
 	s.state.addTracker() // spam
 	s.state.addTracker() // eggs
 	s.state.addTracker() // ham
 	failure := errors.New("<failed>")
 	s.stub.SetErrors(nil, nil, failure)
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
@@ -196,7 +199,7 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.ErrorResults{
+	c.Check(res, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
@@ -219,7 +222,7 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 }
 
 type stubState struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnNewLastSentTracker []logfwd.LastSentTracker
 }
@@ -241,7 +244,7 @@ func (s *stubState) NewLastSentTracker(tag names.ModelTag, sink string) logfwd.L
 }
 
 type stubTracker struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnGet int64
 }

@@ -4,7 +4,6 @@
 package testing
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,11 +19,9 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -51,6 +48,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/provider/dummy"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -61,8 +61,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	statewatcher "github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -141,18 +139,18 @@ type JujuConnSuite struct {
 
 const AdminSecret = "dummy-secret"
 
-func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
+func (s *JujuConnSuite) SetUpSuite(c *tc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 
-func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
+func (s *JujuConnSuite) TearDownSuite(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *JujuConnSuite) SetUpTest(c *gc.C) {
+func (s *JujuConnSuite) SetUpTest(c *tc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
@@ -174,7 +172,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
 
-func (s *JujuConnSuite) TearDownTest(c *gc.C) {
+func (s *JujuConnSuite) TearDownTest(c *tc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
@@ -183,7 +181,7 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 
 // Reset returns environment state to that which existed at the start of
 // the test.
-func (s *JujuConnSuite) Reset(c *gc.C) {
+func (s *JujuConnSuite) Reset(c *tc.C) {
 	s.tearDownConn(c)
 	s.setUpConn(c)
 }
@@ -241,10 +239,10 @@ func (s *JujuConnSuite) controllerIdleFunc() {
 	}
 }
 
-func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
+func (s *JujuConnSuite) WaitForNextSync(c *tc.C) {
 	select {
 	case <-s.txnSyncNotify:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("no sync event sent, is the watcher dead?")
 	}
 	// It is possible that the previous sync was in progress
@@ -253,12 +251,12 @@ func (s *JujuConnSuite) WaitForNextSync(c *gc.C) {
 	// the txnwatcher.
 	select {
 	case <-s.txnSyncNotify:
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("no sync event sent, is the watcher dead?")
 	}
 }
 
-func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
+func (s *JujuConnSuite) WaitForModelWatchersIdle(c *tc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
@@ -295,7 +293,7 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 		}
 	}()
 
-	timeout := time.After(jujutesting.LongWait)
+	timeout := time.After(testhelpers.LongWait)
 watcher:
 	for {
 		select {
@@ -311,7 +309,7 @@ watcher:
 	select {
 	case <-controllerIdleChan:
 		// done
-	case <-time.After(jujutesting.LongWait):
+	case <-time.After(testhelpers.LongWait):
 		c.Fatal("no controller idle event sent, is the controller dead?")
 	}
 }
@@ -320,7 +318,7 @@ watcher:
 // in the model cache. This is used when tests create models and then
 // want to do things with those models where the actions may touch
 // the model cache.
-func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
+func (s *JujuConnSuite) EnsureCachedModel(c *tc.C, uuid string) {
 	timeout := time.After(testing.LongWait)
 	retry := time.After(0)
 	for {
@@ -340,9 +338,9 @@ func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
 	}
 }
 
-func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
+func (s *JujuConnSuite) AdminUserTag(c *tc.C) names.UserTag {
 	owner, err := s.State.ControllerOwner()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return owner
 }
 
@@ -352,21 +350,21 @@ func (s *JujuConnSuite) MongoInfo() *mongo.MongoInfo {
 	return info
 }
 
-func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
+func (s *JujuConnSuite) APIInfo(c *tc.C) *api.Info {
 	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), s.Environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
 	apiInfo.ControllerUUID = s.ControllerConfig.ControllerUUID()
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo.ModelTag = model.ModelTag()
 	return apiInfo
 }
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
+func (s *JujuConnSuite) openAPIAs(c *tc.C, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = tag
 	apiInfo.Password = password
@@ -375,8 +373,8 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 		apiInfo.ModelTag = names.ModelTag{}
 	}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiState, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(apiState, tc.NotNil)
 	s.apiStates = append(s.apiStates, apiState)
 	return apiState
 }
@@ -384,22 +382,22 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 // OpenAPIAs opens the API using the given identity tag and password for
 // authentication.  The returned api.Connection should not be closed by the caller
 // as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
+func (s *JujuConnSuite) OpenAPIAs(c *tc.C, tag names.Tag, password string) api.Connection {
 	return s.openAPIAs(c, tag, password, "", false)
 }
 
-func (s *JujuConnSuite) OpenControllerAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
+func (s *JujuConnSuite) OpenControllerAPIAs(c *tc.C, tag names.Tag, password string) api.Connection {
 	return s.openAPIAs(c, tag, password, "", true)
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
 // nonce for authentication. The returned api.Connection should not be closed by
 // the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
+func (s *JujuConnSuite) OpenAPIAsMachine(c *tc.C, tag names.Tag, password, nonce string) api.Connection {
 	return s.openAPIAs(c, tag, password, nonce, false)
 }
 
-func (s *JujuConnSuite) OpenControllerAPI(c *gc.C) api.Connection {
+func (s *JujuConnSuite) OpenControllerAPI(c *tc.C) api.Connection {
 	return s.OpenControllerAPIAs(c, s.AdminUserTag(c), AdminSecret)
 }
 
@@ -407,19 +405,19 @@ func (s *JujuConnSuite) OpenControllerAPI(c *gc.C) api.Connection {
 // and then uses that to open the API. The returned api.Connection should not be
 // closed by the caller as a cleanup function has been registered to do that.
 // The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *tc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce", false), machine
 }
 
@@ -470,20 +468,20 @@ type UserHomeParams struct {
 // CreateUserHome creates a home directory and Juju data home for user username.
 // This is used by setUpConn to create the 'ubuntu' user home, after RootDir,
 // and may be used again later for other users.
-func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
+func (s *JujuConnSuite) CreateUserHome(c *tc.C, params *UserHomeParams) {
 	if s.RootDir == "" {
 		c.Fatal("JujuConnSuite.setUpConn required first for RootDir")
 	}
-	c.Assert(params.Username, gc.Not(gc.Equals), "")
+	c.Assert(params.Username, tc.Not(tc.Equals), "")
 	home := filepath.Join(s.RootDir, "home", params.Username)
 	err := os.MkdirAll(home, 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = utils.SetHome(home)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujuHome := filepath.Join(home, ".local", "share")
 	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	previousJujuXDGDataHome := osenv.SetJujuXDGDataHome(jujuHome)
 	if params.SetOldHome {
@@ -491,7 +489,7 @@ func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
 	}
 
 	err = os.MkdirAll(s.DataDir(), 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	jujuModelEnvKey := "JUJU_MODEL"
 	if params.ModelEnvKey != "" {
@@ -502,7 +500,7 @@ func (s *JujuConnSuite) CreateUserHome(c *gc.C, params *UserHomeParams) {
 	s.ControllerStore = jujuclient.NewFileClientStore()
 }
 
-func (s *JujuConnSuite) setUpConn(c *gc.C) {
+func (s *JujuConnSuite) setUpConn(c *tc.C) {
 	if s.RootDir != "" {
 		c.Fatal("JujuConnSuite.setUpConn without teardown")
 	}
@@ -516,7 +514,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.CreateUserHome(c, &userHomeParams)
 
 	cfg, err := config.New(config.UseDefaults, s.sampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
@@ -528,7 +526,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cloudSpec := dummy.SampleCloudSpec()
 	bootstrapEnviron, err := bootstrap.PrepareController(
 		false,
-		modelcmd.BootstrapContext(context.Background(), ctx),
+		modelcmd.BootstrapContext(c.Context(), ctx),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
@@ -538,10 +536,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 			AdminSecret:      AdminSecret,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	environ := bootstrapEnviron.(environs.Environ)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "controller")
+	c.Assert(environ.Config().Name(), tc.Equals, "controller")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -552,7 +550,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorageDir = c.MkDir()
 	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
 	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
@@ -563,8 +561,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
-	s.ProviderCallContext = envcontext.NewCloudCallContext(context.Background())
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(context.Background(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
+	s.ProviderCallContext = envcontext.NewCloudCallContext(c.Context())
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(c.Context(), ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{
@@ -590,7 +588,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		SSHServerHostKey:        testing.SSHServerHostKey,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	getStater := environ.(GetStater)
 	s.BackingState = getStater.GetStateInAPIServer()
@@ -600,16 +598,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.Controller = getStater.GetController()
 
 	s.State, err = s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model, err = s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = AdminSecret
 	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The machine host-ports recorded against the API need to be wrapped in
 	// space host-ports as accepted by state.
@@ -627,16 +625,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	}
 
 	err = s.State.SetAPIHostPorts(sHsPs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Make sure the controller store has the controller api endpoint address set
 	ctrl, err := s.ControllerStore.ControllerByName(ControllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	ctrl.APIEndpoints = []string{strings.TrimPrefix(s.APIState.Addr().String(), "wss://")}
 	err = s.ControllerStore.UpdateController(ControllerName, *ctrl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.ControllerStore.SetCurrentController(ControllerName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.Environ = environ
 
@@ -653,9 +651,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 }
 
 // AddToolsToState adds tools to tools storage.
-func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
+func (s *JujuConnSuite) AddToolsToState(c *tc.C, versions ...version.Binary) {
 	stor, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		_ = stor.Close()
 	}()
@@ -667,13 +665,13 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 			Size:    int64(len(content)),
 			SHA256:  hash,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
 // AddDefaultToolsToState adds tools to tools storage for default juju
 // series and architectures.
-func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
+func (s *JujuConnSuite) AddDefaultToolsToState(c *tc.C) {
 	versions := DefaultVersions(s.Environ.Config())
 	s.AddToolsToState(c, versions...)
 }
@@ -779,7 +777,7 @@ type GetStater interface {
 	GetController() *cache.Controller
 }
 
-func (s *JujuConnSuite) tearDownConn(c *gc.C) {
+func (s *JujuConnSuite) tearDownConn(c *tc.C) {
 	testServer := mgotesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
@@ -787,7 +785,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		}
 	}
 	s.apiStates = nil
@@ -795,15 +793,15 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Check(err, gc.IsNil,
-				gc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
+			c.Check(err, tc.IsNil,
+				tc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
 			)
 		}
 	}
 
 	dummy.Reset(c)
 	err := utils.SetHome(s.oldHome)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""
 	s.RootDir = ""
@@ -830,21 +828,21 @@ func (s *JujuConnSuite) ConfDir() string {
 	return filepath.Join(s.RootDir, "/etc/juju")
 }
 
-func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
+func (s *JujuConnSuite) AddTestingCharm(c *tc.C, name string) *state.Charm {
 	return s.AddTestingCharmForSeries(c, name, "quantal")
 }
 
-func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *state.Charm {
+func (s *JujuConnSuite) AddTestingCharmForSeries(c *tc.C, name, series string) *state.Charm {
 	repo := testcharms.RepoForSeries(series)
 	ch := repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
 	sch, err := PutCharm(s.State, curl, ch)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return sch
 }
 
-func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
+func (s *JujuConnSuite) AddTestingApplication(c *tc.C, name string, ch *state.Charm) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
 	var base corebase.Base
 	appSeries := curl.Series
@@ -853,7 +851,7 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	} else {
 		var err error
 		base, err = corebase.GetBaseFromSeries(appSeries)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: name, Charm: ch,
@@ -864,25 +862,25 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 				Channel: base.Channel.String(),
 			}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch *state.Charm, origin *state.CharmOrigin) *state.Application {
-	c.Assert(origin.Source, gc.Not(gc.Equals), "", gc.Commentf("supplied origin must have a source"))
+func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *tc.C, name string, ch *state.Charm, origin *state.CharmOrigin) *state.Application {
+	c.Assert(origin.Source, tc.Not(tc.Equals), "", tc.Commentf("supplied origin must have a source"))
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        name,
 		Charm:       ch,
 		CharmOrigin: origin,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *state.Charm, arch string) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithArch(c *tc.C, name string, ch *state.Charm, arch string) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -895,14 +893,14 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 			}},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *tc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -914,14 +912,14 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 			}},
 		Storage: storage,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *tc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -933,17 +931,17 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 			}},
 		EndpointBindings: bindings,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
+func (s *JujuConnSuite) AgentConfigForTag(c *tc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defaultPaths := agent.DefaultPaths
 	defaultPaths.DataDir = s.DataDir()
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentConfig, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             defaultPaths,
@@ -956,15 +954,15 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			Controller:        s.State.ControllerTag(),
 			Model:             model.ModelTag(),
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return agentConfig
 }
 
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
-func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
+func (s *JujuConnSuite) AssertConfigParameterUpdated(c *tc.C, key string, value interface{}) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{key: value}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the

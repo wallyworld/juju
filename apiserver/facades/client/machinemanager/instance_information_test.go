@@ -4,11 +4,12 @@
 package machinemanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
@@ -18,8 +19,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 var over9kCPUCores uint64 = 9001
@@ -31,13 +32,15 @@ type instanceTypesSuite struct {
 	api        *machinemanager.MachineManagerAPI
 }
 
-var _ = gc.Suite(&instanceTypesSuite{})
+func TestInstanceTypesSuite(t *tctesting.T) {
+	tc.Run(t, &instanceTypesSuite{})
+}
 
-func (s *instanceTypesSuite) SetUpTest(c *gc.C) {
+func (s *instanceTypesSuite) SetUpTest(c *tc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 }
 
-func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
+func (s *instanceTypesSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
@@ -55,12 +58,12 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.leadership,
 		nil,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }
 
-func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
+func (s *instanceTypesSuite) TestInstanceTypes(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -96,8 +99,8 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	}
 
 	r, err := machinemanager.InstanceTypes(s.api, fakeEnvironGet, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r.Results, tc.HasLen, 3)
 	expected := []params.InstanceTypesResult{
 		{
 			InstanceTypes: []params.InstanceType{
@@ -118,5 +121,5 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(r.Results, gc.DeepEquals, expected)
+	c.Assert(r.Results, tc.DeepEquals, expected)
 }

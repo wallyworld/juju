@@ -4,24 +4,27 @@
 package metricsadder_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testing"
+	jujuFactory "github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujuFactory "github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&metricsAdderSuite{})
+func TestMetricsAdderSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &metricsAdderSuite{})
+}
 
 type metricsAdderSuite struct {
 	jujutesting.JujuConnSuite
@@ -40,7 +43,7 @@ type metricsAdderSuite struct {
 	adder metricsadder.MetricsAdder
 }
 
-func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
+func (s *metricsAdderSuite) SetUpTest(c *tc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.machine0 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
@@ -84,18 +87,18 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	adder, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.adder = adder
 }
 
-func (s *metricsAdderSuite) TestAddMetricsBatchNoOp(c *gc.C) {
+func (s *metricsAdderSuite) TestAddMetricsBatchNoOp(c *tc.C) {
 	metrics := []params.Metric{{
 		Key: "pings", Value: "5", Time: time.Now().UTC(),
 	}, {
@@ -113,6 +116,6 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoOp(c *gc.C) {
 				Metrics:  metrics,
 			}}}},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
 }

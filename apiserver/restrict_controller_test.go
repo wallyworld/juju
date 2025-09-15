@@ -4,13 +4,14 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
 )
 
 type restrictControllerSuite struct {
@@ -18,14 +19,16 @@ type restrictControllerSuite struct {
 	root rpc.Root
 }
 
-var _ = gc.Suite(&restrictControllerSuite{})
+func TestRestrictControllerSuite(t *tctesting.T) {
+	tc.Run(t, &restrictControllerSuite{})
+}
 
-func (s *restrictControllerSuite) SetUpSuite(c *gc.C) {
+func (s *restrictControllerSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingControllerOnlyRoot()
 }
 
-func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
+func (s *restrictControllerSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "AllModelWatcher", 4, "Next")
 	s.assertMethod(c, "AllModelWatcher", 4, "Stop")
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "CreateModel")
@@ -36,15 +39,15 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "ApplicationOffers", 4, "ApplicationOffers")
 }
 
-func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {
+func (s *restrictControllerSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
-	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for controller API connection`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `facade "Client" not supported for controller API connection`)
+	c.Assert(errors.IsNotSupported(err), tc.IsTrue)
+	c.Assert(caller, tc.IsNil)
 }
 
-func (s *restrictControllerSuite) assertMethod(c *gc.C, facadeName string, version int, method string) {
+func (s *restrictControllerSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(caller, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(caller, tc.NotNil)
 }

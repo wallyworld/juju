@@ -4,6 +4,7 @@
 package presence_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -11,32 +12,33 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
-	gc "gopkg.in/check.v1"
 
 	corepresence "github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/pubsub/forwarder"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PresenceSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	hub      *pubsub.StructuredHub
 	clock    *testclock.Clock
 	recorder corepresence.Recorder
 	config   presence.WorkerConfig
 }
 
-var _ = gc.Suite(&PresenceSuite{})
+func TestPresenceSuite(t *tctesting.T) {
+	tc.Run(t, &PresenceSuite{})
+}
 
-func (s *PresenceSuite) SetUpTest(c *gc.C) {
+func (s *PresenceSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.hub = centralhub.New(ourTag, centralhub.PubsubNoOpMetrics{})
 	s.clock = testclock.NewClock(time.Time{})
@@ -51,52 +53,52 @@ func (s *PresenceSuite) SetUpTest(c *gc.C) {
 	loggo.ConfigureLoggers("<root>=trace")
 }
 
-func (s *PresenceSuite) worker(c *gc.C) worker.Worker {
+func (s *PresenceSuite) worker(c *tc.C) worker.Worker {
 	w, err := presence.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
-func (s *PresenceSuite) TestWorkerConfigMissingOrigin(c *gc.C) {
+func (s *PresenceSuite) TestWorkerConfigMissingOrigin(c *tc.C) {
 	s.config.Origin = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing origin not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing origin not valid")
 }
 
-func (s *PresenceSuite) TestWorkerConfigMissingHub(c *gc.C) {
+func (s *PresenceSuite) TestWorkerConfigMissingHub(c *tc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing hub not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing hub not valid")
 }
 
-func (s *PresenceSuite) TestWorkerConfigMissingRecorder(c *gc.C) {
+func (s *PresenceSuite) TestWorkerConfigMissingRecorder(c *tc.C) {
 	s.config.Recorder = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing recorder not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing recorder not valid")
 }
 
-func (s *PresenceSuite) TestWorkerConfigMissingLogger(c *gc.C) {
+func (s *PresenceSuite) TestWorkerConfigMissingLogger(c *tc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing logger not valid")
+	c.Check(err, tc.Satisfies, errors.IsNotValid)
+	c.Check(err, tc.ErrorMatches, "missing logger not valid")
 }
 
-func (s *PresenceSuite) TestNewWorkerValidatesConfig(c *gc.C) {
+func (s *PresenceSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	w, err := presence.NewWorker(presence.WorkerConfig{})
-	c.Check(err, gc.ErrorMatches, "missing origin not valid")
-	c.Check(w, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "missing origin not valid")
+	c.Check(w, tc.IsNil)
 }
 
-func (s *PresenceSuite) TestWorkerDies(c *gc.C) {
+func (s *PresenceSuite) TestWorkerDies(c *tc.C) {
 	w := s.worker(c)
 	workertest.CleanKill(c, w)
 }
 
-func (s *PresenceSuite) TestReport(c *gc.C) {
+func (s *PresenceSuite) TestReport(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -108,15 +110,15 @@ func (s *PresenceSuite) TestReport(c *gc.C) {
 	s.recorder.Connect("machine-2", "model-uuid", "agent", 6, false, "")
 
 	reporter, ok := w.(worker.Reporter)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(reporter.Report(), tc.DeepEquals, map[string]interface{}{
 		"machine-0": 3,
 		"machine-1": 2,
 		"machine-2": 1,
 	})
 }
 
-func (s *PresenceSuite) TestForwarderConnectToOther(c *gc.C) {
+func (s *PresenceSuite) TestForwarderConnectToOther(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -124,23 +126,23 @@ func (s *PresenceSuite) TestForwarderConnectToOther(c *gc.C) {
 
 	unsub, err := s.hub.Subscribe(apiserver.PresenceRequestTopic, func(topic string, data apiserver.OriginTarget, err error) {
 		c.Logf("handler called for %q", topic)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(data.Target, gc.Equals, otherServer)
-		c.Check(data.Origin, gc.Equals, ourServer)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(data.Target, tc.Equals, otherServer)
+		c.Check(data.Origin, tc.Equals, ourServer)
 		close(done)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	// When connections are established from us to them, we ask for their presence info.
 	_, err = s.hub.Publish(
 		forwarder.ConnectedTopic,
 		apiserver.OriginTarget{Origin: ourServer, Target: otherServer})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, done)
 }
 
-func (s *PresenceSuite) TestForwarderConnectFromOther(c *gc.C) {
+func (s *PresenceSuite) TestForwarderConnectFromOther(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -148,23 +150,23 @@ func (s *PresenceSuite) TestForwarderConnectFromOther(c *gc.C) {
 
 	unsub, err := s.hub.Subscribe(apiserver.PresenceRequestTopic, func(topic string, data apiserver.OriginTarget, err error) {
 		c.Logf("handler called for %q", topic)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(data.Target, gc.Equals, otherServer)
-		c.Check(data.Origin, gc.Equals, ourServer)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(data.Target, tc.Equals, otherServer)
+		c.Check(data.Origin, tc.Equals, ourServer)
 		close(done)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	// When connections are established from them to us, we ask for their presence info.
 	_, err = s.hub.Publish(
 		forwarder.ConnectedTopic,
 		apiserver.OriginTarget{Origin: otherServer, Target: ourServer})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, done)
 }
 
-func (s *PresenceSuite) TestForwarderConnectOtherIgnored(c *gc.C) {
+func (s *PresenceSuite) TestForwarderConnectOtherIgnored(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -174,17 +176,17 @@ func (s *PresenceSuite) TestForwarderConnectOtherIgnored(c *gc.C) {
 		c.Logf("handler called for %q", topic)
 		close(called)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	_, err = s.hub.Publish(
 		forwarder.ConnectedTopic,
 		apiserver.OriginTarget{Origin: otherServer, Target: "machine-8"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertNotCalled(c, called)
 }
 
-func (s *PresenceSuite) TestForwarderDisconnectConnectFromOther(c *gc.C) {
+func (s *PresenceSuite) TestForwarderDisconnectConnectFromOther(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -193,12 +195,12 @@ func (s *PresenceSuite) TestForwarderDisconnectConnectFromOther(c *gc.C) {
 	done, err := s.hub.Publish(
 		forwarder.DisconnectedTopic,
 		apiserver.OriginTarget{Origin: ourServer, Target: otherServer})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1), missing(agent2))
 }
 
-func (s *PresenceSuite) TestForwarderDisconnectOthersIgnored(c *gc.C) {
+func (s *PresenceSuite) TestForwarderDisconnectOthersIgnored(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -207,12 +209,12 @@ func (s *PresenceSuite) TestForwarderDisconnectOthersIgnored(c *gc.C) {
 	done, err := s.hub.Publish(
 		forwarder.DisconnectedTopic,
 		apiserver.OriginTarget{Origin: "machine-7", Target: otherServer})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1), alive(agent2))
 }
 
-func (s *PresenceSuite) TestConnectTopic(c *gc.C) {
+func (s *PresenceSuite) TestConnectTopic(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -226,7 +228,7 @@ func (s *PresenceSuite) TestConnectTopic(c *gc.C) {
 			ControllerAgent: true,
 			UserData:        "test",
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, corepresence.Value{
 		Model:           "model-uuid",
@@ -239,7 +241,7 @@ func (s *PresenceSuite) TestConnectTopic(c *gc.C) {
 	})
 }
 
-func (s *PresenceSuite) TestDisconnectTopic(c *gc.C) {
+func (s *PresenceSuite) TestDisconnectTopic(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -251,12 +253,12 @@ func (s *PresenceSuite) TestDisconnectTopic(c *gc.C) {
 			Origin:       agent2.Server,
 			ConnectionID: agent2.ConnectionID,
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, pubsub.Wait(done))
 	s.AssertConnections(c, alive(agent1))
 }
 
-func (s *PresenceSuite) TestPresenceRequest(c *gc.C) {
+func (s *PresenceSuite) TestPresenceRequest(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -265,27 +267,27 @@ func (s *PresenceSuite) TestPresenceRequest(c *gc.C) {
 	done := make(chan struct{})
 	unsub, err := s.hub.Subscribe(apiserver.PresenceResponseTopic, func(topic string, data apiserver.PresenceResponse, err error) {
 		c.Logf("handler called for %q", topic)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(data.Origin, gc.Equals, ourServer)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(data.Origin, tc.Equals, ourServer)
 
-		c.Check(data.Connections, gc.HasLen, 2)
+		c.Check(data.Connections, tc.HasLen, 2)
 		s.CheckConnection(c, data.Connections[0], agent1)
 		s.CheckConnection(c, data.Connections[1], agent3)
 
 		close(done)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	// When asked for our presence, we respond with the agents connected to us.
 	_, err = s.hub.Publish(
 		apiserver.PresenceRequestTopic,
 		apiserver.OriginTarget{Origin: otherServer, Target: ourServer})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, done)
 }
 
-func (s *PresenceSuite) TestPresenceRequestOtherServer(c *gc.C) {
+func (s *PresenceSuite) TestPresenceRequestOtherServer(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -294,18 +296,18 @@ func (s *PresenceSuite) TestPresenceRequestOtherServer(c *gc.C) {
 		c.Logf("handler called for %q", topic)
 		close(called)
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer unsub()
 
 	// When presence requests come in for other servers, we ignore them.
 	_, err = s.hub.Publish(
 		apiserver.PresenceRequestTopic,
 		apiserver.OriginTarget{Origin: otherServer, Target: "another"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertNotCalled(c, called)
 }
 
-func (s *PresenceSuite) TestPresenceResponse(c *gc.C) {
+func (s *PresenceSuite) TestPresenceResponse(c *tc.C) {
 	w := s.worker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -321,13 +323,13 @@ func (s *PresenceSuite) TestPresenceResponse(c *gc.C) {
 				apiConn(agent2), apiConn(agent4),
 			},
 		})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.AssertDone(c, pubsub.Wait(done))
 
 	s.AssertConnections(c, alive(agent1), alive(agent2), alive(agent3), alive(agent4))
 }
 
-func (s *PresenceSuite) AssertDone(c *gc.C, called <-chan struct{}) {
+func (s *PresenceSuite) AssertDone(c *tc.C, called <-chan struct{}) {
 	select {
 	case <-called:
 	case <-time.After(coretesting.LongWait):
@@ -335,7 +337,7 @@ func (s *PresenceSuite) AssertDone(c *gc.C, called <-chan struct{}) {
 	}
 }
 
-func (s *PresenceSuite) AssertNotCalled(c *gc.C, called <-chan struct{}) {
+func (s *PresenceSuite) AssertNotCalled(c *tc.C, called <-chan struct{}) {
 	select {
 	case <-called:
 		c.Fatal("event called unexpectedly")
@@ -343,19 +345,19 @@ func (s *PresenceSuite) AssertNotCalled(c *gc.C, called <-chan struct{}) {
 	}
 }
 
-func (s *PresenceSuite) AssertConnections(c *gc.C, values ...corepresence.Value) {
+func (s *PresenceSuite) AssertConnections(c *tc.C, values ...corepresence.Value) {
 	connections := s.recorder.Connections()
 	c.Log(pretty.Sprint(connections))
-	c.Assert(connections.Values(), jc.SameContents, values)
+	c.Assert(connections.Values(), tc.SameContents, values)
 }
 
-func (s *PresenceSuite) CheckConnection(c *gc.C, conn apiserver.APIConnection, agent corepresence.Value) {
-	c.Check(conn.AgentTag, gc.Equals, agent.Agent)
-	c.Check(conn.ControllerAgent, gc.Equals, agent.ControllerAgent)
-	c.Check(conn.ModelUUID, gc.Equals, agent.Model)
-	c.Check(conn.ConnectionID, gc.Equals, agent.ConnectionID)
-	c.Check(conn.Origin, gc.Equals, agent.Server)
-	c.Check(conn.UserData, gc.Equals, agent.UserData)
+func (s *PresenceSuite) CheckConnection(c *tc.C, conn apiserver.APIConnection, agent corepresence.Value) {
+	c.Check(conn.AgentTag, tc.Equals, agent.Agent)
+	c.Check(conn.ControllerAgent, tc.Equals, agent.ControllerAgent)
+	c.Check(conn.ModelUUID, tc.Equals, agent.Model)
+	c.Check(conn.ConnectionID, tc.Equals, agent.ConnectionID)
+	c.Check(conn.Origin, tc.Equals, agent.Server)
+	c.Check(conn.UserData, tc.Equals, agent.UserData)
 }
 
 func apiConn(value corepresence.Value) apiserver.APIConnection {

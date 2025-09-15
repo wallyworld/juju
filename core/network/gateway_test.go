@@ -8,8 +8,9 @@ import (
 	"net"
 	"os/exec"
 	"runtime"
+	tctesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
 )
@@ -18,9 +19,11 @@ type GatewaySuite struct {
 	network.BaseSuite
 }
 
-var _ = gc.Suite(&GatewaySuite{})
+func TestGatewaySuite(t *tctesting.T) {
+	tc.Run(t, &GatewaySuite{})
+}
 
-func (s *GatewaySuite) TestDefaultRouteOnMachine(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteOnMachine(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("skipping default route on-machine test on non-linux")
 	}
@@ -36,22 +39,22 @@ func (s *GatewaySuite) TestDefaultRouteOnMachine(c *gc.C) {
 	})
 
 	_, _, err := network.GetDefaultRoute()
-	c.Check(err, gc.IsNil)
+	c.Check(err, tc.IsNil)
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxSimple(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxSimple(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static\n" +
 			"10.0.0.0/24 dev wlp2s0 proto kernel scope link src 10.0.0.66 metric 600\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Assert(err, gc.IsNil)
-	c.Check(ip, gc.DeepEquals, net.ParseIP("10.0.0.1"))
-	c.Check(dev, gc.Equals, "wlp2s0")
+	c.Assert(err, tc.IsNil)
+	c.Check(ip, tc.DeepEquals, net.ParseIP("10.0.0.1"))
+	c.Check(dev, tc.Equals, "wlp2s0")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxTwoRoutes(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxTwoRoutes(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static metric 800\n" +
@@ -60,12 +63,12 @@ func (s *GatewaySuite) TestDefaultRouteLinuxTwoRoutes(c *gc.C) {
 			"10.100.1.0/24 dev lxdbr0 proto kernel scope link src 10.100.1.1\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Assert(err, gc.IsNil)
-	c.Check(ip, gc.DeepEquals, net.ParseIP("10.100.1.10"))
-	c.Check(dev, gc.Equals, "lxdbr0")
+	c.Assert(err, tc.IsNil)
+	c.Check(ip, tc.DeepEquals, net.ParseIP("10.100.1.10"))
+	c.Check(dev, tc.Equals, "lxdbr0")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxNoMetric(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxNoMetric(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static metric 800\n" +
@@ -74,12 +77,12 @@ func (s *GatewaySuite) TestDefaultRouteLinuxNoMetric(c *gc.C) {
 			"10.100.1.0/24 dev lxdbr0 proto kernel scope link src 10.100.1.1\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Assert(err, gc.IsNil)
-	c.Check(ip, gc.DeepEquals, net.ParseIP("10.100.1.10"))
-	c.Check(dev, gc.Equals, "lxdbr0")
+	c.Assert(err, tc.IsNil)
+	c.Check(ip, tc.DeepEquals, net.ParseIP("10.100.1.10"))
+	c.Check(dev, tc.Equals, "lxdbr0")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxNoGW(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxNoGW(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static metric 800\n" +
@@ -88,12 +91,12 @@ func (s *GatewaySuite) TestDefaultRouteLinuxNoGW(c *gc.C) {
 			"10.100.1.0/24 dev lxdbr0 proto kernel scope link src 10.100.1.1\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Assert(err, gc.IsNil)
-	c.Check(ip, gc.IsNil)
-	c.Check(dev, gc.Equals, "lxdbr0")
+	c.Assert(err, tc.IsNil)
+	c.Check(ip, tc.IsNil)
+	c.Check(dev, tc.Equals, "lxdbr0")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxNoDev(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxNoDev(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static metric 800\n" +
@@ -102,23 +105,23 @@ func (s *GatewaySuite) TestDefaultRouteLinuxNoDev(c *gc.C) {
 			"10.100.1.0/24 dev lxdbr0 proto kernel scope link src 10.100.1.1\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Assert(err, gc.IsNil)
-	c.Check(ip, gc.DeepEquals, net.ParseIP("10.100.1.10"))
-	c.Check(dev, gc.Equals, "")
+	c.Assert(err, tc.IsNil)
+	c.Check(ip, tc.DeepEquals, net.ParseIP("10.100.1.10"))
+	c.Check(dev, tc.Equals, "")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxError(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxError(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "", fmt.Errorf("no can do")
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Check(ip, gc.IsNil)
-	c.Check(dev, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "no can do")
+	c.Check(ip, tc.IsNil)
+	c.Check(dev, tc.Equals, "")
+	c.Check(err, tc.ErrorMatches, "no can do")
 }
 
-func (s *GatewaySuite) TestDefaultRouteLinuxWrongOutput(c *gc.C) {
+func (s *GatewaySuite) TestDefaultRouteLinuxWrongOutput(c *tc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
 		return "default via 10.0.0.1 dev wlp2s0 proto static metric chewbacca\n" +
@@ -127,7 +130,7 @@ func (s *GatewaySuite) TestDefaultRouteLinuxWrongOutput(c *gc.C) {
 			"10.100.1.0/24 dev lxdbr0 proto kernel scope link src 10.100.1.1\n", nil
 	})
 	ip, dev, err := network.GetDefaultRoute()
-	c.Check(ip, gc.IsNil)
-	c.Check(dev, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, ".*chewbacca.*")
+	c.Check(ip, tc.IsNil)
+	c.Check(dev, tc.Equals, "")
+	c.Check(err, tc.ErrorMatches, ".*chewbacca.*")
 }

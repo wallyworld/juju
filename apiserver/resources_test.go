@@ -11,15 +11,14 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/apiserver"
@@ -27,12 +26,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type ResourcesHandlerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stateAuthErr error
 	backend      *fakeBackend
@@ -42,9 +42,11 @@ type ResourcesHandlerSuite struct {
 	handler      *apiserver.ResourcesHandler
 }
 
-var _ = gc.Suite(&ResourcesHandlerSuite{})
+func TestResourcesHandlerSuite(t *tctesting.T) {
+	tc.Run(t, &ResourcesHandlerSuite{})
+}
 
-func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
+func (s *ResourcesHandlerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stateAuthErr = nil
@@ -55,7 +57,7 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	urlStr := "..."
 	body := strings.NewReader("...")
 	req, err := http.NewRequest(method, urlStr, body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.req = req
 	s.recorder = httptest.NewRecorder()
 	s.handler = &apiserver.ResourcesHandler{
@@ -76,7 +78,7 @@ func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string)
 	return s.backend, ph, tag, nil
 }
 
-func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *tc.C) {
 	expectedTags := set.NewStrings(names.UserTagKind, names.MachineTagKind, names.ControllerAgentTagKind, names.ApplicationTagKind)
 
 	s.handler.StateAuthFunc = func(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error) {
@@ -94,7 +96,7 @@ func (s *ResourcesHandlerSuite) TestExpectedAuthTags(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
 }
 
-func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *tc.C) {
 	failure, expected := apiFailure("<failure>", "")
 	s.stateAuthErr = failure
 
@@ -103,7 +105,7 @@ func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *tc.C) {
 	s.req.Method = "POST"
 
 	s.handler.ServeHTTP(s.recorder, s.req)
@@ -112,13 +114,13 @@ func (s *ResourcesHandlerSuite) TestUnsupportedMethod(c *gc.C) {
 	s.checkResp(c, http.StatusMethodNotAllowed, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestGetSuccess(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestGetSuccess(c *tc.C) {
 	s.req.Method = "GET"
 	s.handler.ServeHTTP(s.recorder, s.req)
 	s.checkResp(c, http.StatusOK, "application/octet-stream", resourceBody)
 }
 
-func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutSuccess(c *tc.C) {
 	uploadContent := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", content)
 	stored, _ := newResource(c, "spam", "", "")
@@ -134,7 +136,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *tc.C) {
 	uploadContent := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", content)
 	stored, _ := newResource(c, "spam", "", "")
@@ -153,7 +155,7 @@ func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
 	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *tc.C) {
 	uploadContent := "<some data>"
 	res := newDockerResource(c, "spam", "a-user", content)
 	stored := newDockerResource(c, "spam", "", "")
@@ -169,7 +171,7 @@ func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *tc.C) {
 	content := "<some data>"
 
 	// newResource returns a resource with a Path = name + ".tgz"
@@ -187,7 +189,7 @@ func (s *ResourcesHandlerSuite) TestPutExtensionMismatch(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutWithPending(c *tc.C) {
 	uploadContent := "<some data>"
 	res, _ := newResource(c, "spam", "a-user", uploadContent)
 	res.PendingID = "some-unique-id"
@@ -206,7 +208,7 @@ func (s *ResourcesHandlerSuite) TestPutWithPending(c *gc.C) {
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
 }
 
-func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
+func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *tc.C) {
 	content := "<some data>"
 	stored, _ := newResource(c, "spam", "", "")
 	s.backend.ReturnGetResource = stored
@@ -218,19 +220,19 @@ func (s *ResourcesHandlerSuite) TestPutSetResourceFailure(c *gc.C) {
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expected)
 }
 
-func (s *ResourcesHandlerSuite) checkResp(c *gc.C, status int, ctype, body string) {
+func (s *ResourcesHandlerSuite) checkResp(c *tc.C, status int, ctype, body string) {
 	checkHTTPResp(c, s.recorder, status, ctype, body)
 }
 
-func checkHTTPResp(c *gc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
-	c.Assert(recorder.Code, gc.Equals, status)
+func checkHTTPResp(c *tc.C, recorder *httptest.ResponseRecorder, status int, ctype, body string) {
+	c.Assert(recorder.Code, tc.Equals, status)
 	hdr := recorder.Header()
-	c.Check(hdr.Get("Content-Type"), gc.Equals, ctype)
-	c.Check(hdr.Get("Content-Length"), gc.Equals, strconv.Itoa(len(body)))
+	c.Check(hdr.Get("Content-Type"), tc.Equals, ctype)
+	c.Check(hdr.Get("Content-Length"), tc.Equals, strconv.Itoa(len(body)))
 
 	actualBody, err := io.ReadAll(recorder.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(string(actualBody), gc.Equals, body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(actualBody), tc.Equals, body)
 }
 
 type fakeBackend struct {
@@ -273,7 +275,7 @@ func (s *fakeBackend) UpdatePendingResource(applicationID, pendingID, userID str
 	return s.ReturnUpdatePendingResource, nil
 }
 
-func newDockerResource(c *gc.C, name, username, data string) resources.Resource {
+func newDockerResource(c *tc.C, name, username, data string) resources.Resource {
 	opened := resourcetesting.NewDockerResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
@@ -283,7 +285,7 @@ func newDockerResource(c *gc.C, name, username, data string) resources.Resource 
 	return res
 }
 
-func newResource(c *gc.C, name, username, data string) (resources.Resource, params.Resource) {
+func newResource(c *tc.C, name, username, data string) (resources.Resource, params.Resource) {
 	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
@@ -311,9 +313,9 @@ func newResource(c *gc.C, name, username, data string) (resources.Resource, para
 	return res, apiRes
 }
 
-func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io.Reader) {
+func newUploadRequest(c *tc.C, name, service, content string) (*http.Request, io.Reader) {
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	method := "PUT"
 	urlStr := "https://api:17017/applications/%s/resources/%s"
@@ -321,7 +323,7 @@ func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io
 	urlStr = fmt.Sprintf(urlStr, service, name, service, name)
 	body := strings.NewReader(content)
 	req, err := http.NewRequest(method, urlStr, body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-Length", fmt.Sprint(len(content)))

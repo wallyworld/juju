@@ -5,6 +5,7 @@ package upgradesteps
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock"
@@ -12,21 +13,20 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -43,20 +43,23 @@ type UpgradeSuite struct {
 	preUpgradeError bool
 }
 
-var _ = gc.Suite(&UpgradeSuite{})
+func TestUpgradeSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &UpgradeSuite{})
+}
 
 const fails = true
 
 const succeeds = false
 
-func (s *UpgradeSuite) SetUpTest(c *gc.C) {
+func (s *UpgradeSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	s.preUpgradeError = false
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
-	coretesting.DumpTestLogsAfter(time.Minute, c, s)
+	// XXXX
+	// DumpTestLogsAfter(time.Minute, c, s)
 
 	s.oldVersion = coretesting.CurrentVersion()
 	s.oldVersion.Major = 1
@@ -72,9 +75,9 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *UpgradeSuite) captureLogs(c *gc.C) {
-	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter), gc.IsNil)
-	s.AddCleanup(func(*gc.C) {
+func (s *UpgradeSuite) captureLogs(c *tc.C) {
+	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter), tc.IsNil)
+	s.AddCleanup(func(*tc.C) {
 		loggo.RemoveWriter("upgrade-tests")
 		s.logWriter.Clear()
 	})
@@ -89,7 +92,7 @@ func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 	return &count
 }
 
-func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *gc.C) {
+func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *tc.C) {
 	// Set the agent's upgradedToVersion to version.Current,
 	// to simulate the upgrade steps having been run already.
 	initialVersion := jujuversion.Current
@@ -98,35 +101,35 @@ func (s *UpgradeSuite) TestNewChannelWhenNoUpgradeRequired(c *gc.C) {
 	lock := NewLock(config)
 
 	// Upgrade steps have already been run.
-	c.Assert(lock.IsUnlocked(), jc.IsTrue)
+	c.Assert(lock.IsUnlocked(), tc.IsTrue)
 }
 
-func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *gc.C) {
+func (s *UpgradeSuite) TestNewChannelWhenUpgradeRequired(c *tc.C) {
 	// Set the agent's upgradedToVersion so that upgrade steps are required.
 	initialVersion := version.MustParse("1.16.0")
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
 
 	lock := NewLock(config)
 
-	c.Assert(lock.IsUnlocked(), jc.IsFalse)
+	c.Assert(lock.IsUnlocked(), tc.IsFalse)
 	// The agent's version should NOT have been updated.
-	c.Assert(config.Version, gc.Equals, initialVersion)
+	c.Assert(config.Version, tc.Equals, initialVersion)
 }
 
-func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
+func (s *UpgradeSuite) TestNoUpgradeNecessary(c *tc.C) {
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 	s.oldVersion.Number = jujuversion.Current // nothing to do
 
 	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 0)
-	c.Check(config.Version, gc.Equals, jujuversion.Current)
-	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+	c.Check(workerErr, tc.IsNil)
+	c.Check(*attemptsP, tc.Equals, 0)
+	c.Check(config.Version, tc.Equals, jujuversion.Current)
+	c.Check(doneLock.IsUnlocked(), tc.IsTrue)
 }
 
-func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
+func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *tc.C) {
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 	s.oldVersion.Number = jujuversion.Current
@@ -134,13 +137,13 @@ func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
 
 	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 0)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number)
-	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+	c.Check(workerErr, tc.IsNil)
+	c.Check(*attemptsP, tc.Equals, 0)
+	c.Check(config.Version, tc.Equals, s.oldVersion.Number)
+	c.Check(doneLock.IsUnlocked(), tc.IsTrue)
 }
 
-func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
+func (s *UpgradeSuite) TestUpgradeStepsFailure(c *tc.C) {
 	// This test checks what happens when every upgrade attempt fails.
 	// A number of retries should be observed and the agent should end
 	// up in a state where it is is still running but is reporting an
@@ -155,18 +158,22 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 
 	// The worker shouldn't return an error so that the worker and
 	// agent keep running.
-	c.Check(workerErr, gc.IsNil)
+	c.Check(workerErr, tc.IsNil)
 
-	c.Check(*attemptsP, gc.Equals, maxUpgradeRetries)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(statusCalls, jc.DeepEquals,
+	c.Check(*attemptsP, tc.Equals, maxUpgradeRetries)
+	c.Check(config.Version, tc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	c.Assert(statusCalls, tc.DeepEquals,
 		s.makeExpectedStatusCalls(maxUpgradeRetries-1, fails, "boom"))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc),
 		s.makeExpectedUpgradeLogs(maxUpgradeRetries-1, "hostMachine", fails, "boom"))
-	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+	c.Assert(doneLock.IsUnlocked(), tc.IsFalse)
 }
 
-func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
+func (s *UpgradeSuite) TestUpgradeStepsRetries(c *tc.C) {
 	// This test checks what happens when the first upgrade attempt
 	// fails but the following on succeeds. The final state should be
 	// the same as a successful upgrade which worked first go.
@@ -186,15 +193,20 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
 
-	c.Check(workerErr, gc.IsNil)
-	c.Check(attempts, gc.Equals, 2)
-	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade finished
-	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(1, succeeds, "boom"))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(1, "hostMachine", succeeds, "boom"))
-	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+	c.Check(workerErr, tc.IsNil)
+	c.Check(attempts, tc.Equals, 2)
+	c.Check(config.Version, tc.Equals, jujuversion.Current) // Upgrade finished
+	c.Assert(statusCalls, tc.DeepEquals, s.makeExpectedStatusCalls(1, succeeds, "boom"))
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc),
+		s.makeExpectedUpgradeLogs(1, "hostMachine", succeeds, "boom"))
+	c.Check(doneLock.IsUnlocked(), tc.IsTrue)
 }
 
-func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
+func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *tc.C) {
 	// This test checks what happens something other than the upgrade
 	// steps themselves fails, ensuring the something is logged and
 	// the agent status is updated.
@@ -206,9 +218,9 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 
 	// Simulate the upgrade-database worker having run successfully.
 	info, err := s.State.EnsureUpgradeInfo(m.Id(), s.oldVersion.Number, jujuversion.Current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = info.SetStatus(state.UpgradeDBComplete)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		// Violate the state-machine rules so that finaliseUpgrade() will fail.
@@ -223,17 +235,22 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
-	c.Check(workerErr, gc.IsNil)
+	c.Check(workerErr, tc.IsNil)
 
-	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade almost finished
+	c.Check(config.Version, tc.Equals, jujuversion.Current) // Upgrade almost finished
 
 	failReason := `upgrade done but failed to synchronise: cannot complete upgrade: upgrade has not yet run`
-	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, fails, failReason))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
-	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+	c.Assert(statusCalls, tc.DeepEquals, s.makeExpectedStatusCalls(0, fails, failReason))
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc),
+		s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
+	c.Assert(doneLock.IsUnlocked(), tc.IsFalse)
 }
 
-func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
+func (s *UpgradeSuite) TestAPIConnectionFailure(c *tc.C) {
 	// This test checks what happens when an upgrade fails because the
 	// connection to mongo has gone away. This will happen when the
 	// mongo master changes. In this case we want the upgrade worker
@@ -246,18 +263,18 @@ func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
 
 	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
-	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
-	c.Check(*attemptsP, gc.Equals, 1)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+	c.Check(workerErr, tc.ErrorMatches, "API connection lost during upgrade: boom")
+	c.Check(*attemptsP, tc.Equals, 1)
+	c.Check(config.Version, tc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	c.Assert(doneLock.IsUnlocked(), tc.IsFalse)
 }
 
-func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) {
+func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *tc.C) {
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 
 	err := s.State.SetModelAgentVersion(jujuversion.Current, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.create3Controllers(c)
 	s.captureLogs(c)
@@ -265,23 +282,27 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 0)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
-	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+	c.Check(workerErr, tc.IsNil)
+	c.Check(*attemptsP, tc.Equals, 0)
+	c.Check(config.Version, tc.Equals, s.oldVersion.Number) // Upgrade didn't happen
+	c.Assert(doneLock.IsUnlocked(), tc.IsFalse)
 
 	// The environment agent-version should still be the new version.
 	// It's up to the master to trigger the rollback.
 	s.assertEnvironAgentVersion(c, jujuversion.Current)
 
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
 	causeMsg := " timed out after 50ms"
-	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "waiting for other controllers to be ready for upgrade"},
-		{loggo.ERROR, "aborted wait for other controllers: timed out after 50ms"},
-		{loggo.ERROR, `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
+		{Level: loggo.INFO, Message: "waiting for other controllers to be ready for upgrade"},
+		{Level: loggo.ERROR, Message: "aborted wait for other controllers: timed out after 50ms"},
+		{Level: loggo.ERROR, Message: `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
 			"aborted wait for other controllers:" + causeMsg},
 	})
-	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
+	c.Assert(statusCalls, tc.DeepEquals, []StatusCall{{
 		status.Error,
 		fmt.Sprintf(
 			"upgrade to %s failed (giving up): aborted wait for other controllers:"+causeMsg,
@@ -289,38 +310,38 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	}})
 }
 
-func (s *UpgradeSuite) TestSuccessLeadingController(c *gc.C) {
+func (s *UpgradeSuite) TestSuccessLeadingController(c *tc.C) {
 	// This test checks what happens when an upgrade works on the first
 	// attempt, on the first controller to set the status to "running".
 	info := s.checkSuccess(c, "databaseMaster", func(i *state.UpgradeInfo) {
 		err := i.SetStatus(state.UpgradeDBComplete)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
-	c.Assert(info.Status(), gc.Equals, state.UpgradeRunning)
+	c.Assert(info.Status(), tc.Equals, state.UpgradeRunning)
 }
 
-func (s *UpgradeSuite) TestSuccessFollowingController(c *gc.C) {
+func (s *UpgradeSuite) TestSuccessFollowingController(c *tc.C) {
 	// This test checks what happens when an upgrade works on the a controller
 	// following a controller having already set the status to "running".
 	s.checkSuccess(c, "controller", func(info *state.UpgradeInfo) {
 		// Indicate that the master is done
 		err := info.SetStatus(state.UpgradeDBComplete)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		err = info.SetStatus(state.UpgradeRunning)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 }
 
-func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
+func (s *UpgradeSuite) checkSuccess(c *tc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
 	_, machineIdB, machineIdC := s.create3Controllers(c)
 
 	// Indicate that machine B and C are ready to upgrade
 	vPrevious := s.oldVersion.Number
 	vNext := jujuversion.Current
 	info, err := s.State.EnsureUpgradeInfo(machineIdB, vPrevious, vNext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	mungeInfo(info)
 
@@ -329,53 +350,62 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
-	c.Check(workerErr, gc.IsNil)
-	c.Check(*attemptsP, gc.Equals, 1)
-	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade finished
-	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, succeeds, ""))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target, succeeds, ""))
-	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+	c.Check(workerErr, tc.IsNil)
+	c.Check(*attemptsP, tc.Equals, 1)
+	c.Check(config.Version, tc.Equals, jujuversion.Current) // Upgrade finished
+	c.Assert(statusCalls, tc.DeepEquals, s.makeExpectedStatusCalls(0, succeeds, ""))
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc),
+		s.makeExpectedUpgradeLogs(0, target, succeeds, ""))
+	c.Check(doneLock.IsUnlocked(), tc.IsTrue)
 
 	err = info.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ControllersDone(), jc.DeepEquals, []string{"0"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.ControllersDone(), tc.DeepEquals, []string{"0"})
 	return info
 }
 
-func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
-	c.Assert(upgradeTargets(false), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
-	c.Assert(upgradeTargets(true), jc.SameContents, []upgrades.Target{upgrades.HostMachine, upgrades.Controller})
+func (s *UpgradeSuite) TestJobsToTargets(c *tc.C) {
+	c.Assert(upgradeTargets(false), tc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
+	c.Assert(upgradeTargets(true), tc.SameContents, []upgrades.Target{upgrades.HostMachine, upgrades.Controller})
 }
 
-func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
+func (s *UpgradeSuite) TestPreUpgradeFail(c *tc.C) {
 	s.preUpgradeError = true
 	s.captureLogs(c)
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
 
-	c.Check(workerErr, jc.ErrorIsNil)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
+	c.Check(workerErr, tc.ErrorIsNil)
+	c.Check(config.Version, tc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	c.Assert(doneLock.IsUnlocked(), tc.IsFalse)
 
 	causeMessage := `machine 0 cannot be upgraded: preupgrade error`
 	failMessage := fmt.Sprintf(
 		`upgrade from %s to %s for "machine-0" failed \(giving up\): %s`,
 		s.oldVersion.Number, jujuversion.Current, causeMessage)
-	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "checking that upgrade can proceed"},
-		{loggo.ERROR, failMessage},
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
+	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
+	mc.AddExpr(`_._`, tc.Ignore)
+	c.Assert(s.logWriter.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{
+		{Level: loggo.INFO, Message: "checking that upgrade can proceed"},
+		{Level: loggo.ERROR, Message: failMessage},
 	})
 
 	statusMessage := fmt.Sprintf(
 		`upgrade to %s failed (giving up): %s`, jujuversion.Current, causeMessage)
-	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
+	c.Assert(statusCalls, tc.DeepEquals, []StatusCall{{
 		status.Error, statusMessage,
 	}})
 }
 
 // Run just the upgradeSteps worker with a fake machine agent and
 // fake agent config.
-func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
+func (s *UpgradeSuite) runUpgradeWorker(c *tc.C, isController bool) (
 	error, *fakeConfigSetter, []StatusCall, gate.Lock,
 ) {
 	config := s.makeFakeConfig()
@@ -398,7 +428,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 		machineStatus,
 		false,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
 
@@ -428,15 +458,15 @@ func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 	return NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
 }
 
-func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
+func (s *UpgradeSuite) create3Controllers(c *tc.C) (machineIdA, machineIdB, machineIdC string) {
 	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	machineIdA = machine0.Id()
 
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(changes.Added), gc.Equals, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(changes.Added), tc.Equals, 2)
 
 	machineIdB = changes.Added[0]
 	s.setMachineProvisioned(c, machineIdB)
@@ -447,11 +477,11 @@ func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, mach
 	return
 }
 
-func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
+func (s *UpgradeSuite) setMachineProvisioned(c *tc.C, id string) {
 	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id(id+"-inst"), "", "nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 const maxUpgradeRetries = 3
@@ -478,20 +508,20 @@ func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, 
 	return calls
 }
 
-func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, expectFail bool, failReason string) []jc.SimpleMessage {
-	outLogs := []jc.SimpleMessage{}
+func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, expectFail bool, failReason string) []loggo.Entry {
+	var outLogs []loggo.Entry
 
 	if target == "databaseMaster" || target == "controller" {
-		outLogs = append(outLogs, jc.SimpleMessage{
+		outLogs = append(outLogs, loggo.Entry{
 			Level: loggo.INFO, Message: "waiting for other controllers to be ready for upgrade",
 		})
-		outLogs = append(outLogs, jc.SimpleMessage{
+		outLogs = append(outLogs, loggo.Entry{
 			Level:   loggo.INFO,
 			Message: "finished waiting - all controllers are ready to run upgrade steps",
 		})
 	}
 
-	outLogs = append(outLogs, jc.SimpleMessage{
+	outLogs = append(outLogs, loggo.Entry{
 		Level: loggo.INFO, Message: fmt.Sprintf(
 			`starting upgrade from %s to %s for "machine-0"`,
 			s.oldVersion.Number, jujuversion.Current),
@@ -502,23 +532,23 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 		s.oldVersion.Number, jujuversion.Current, failReason)
 
 	for i := 0; i < retryCount; i++ {
-		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "will retry")})
+		outLogs = append(outLogs, loggo.Entry{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "will retry")})
 	}
 	if expectFail {
-		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "giving up")})
+		outLogs = append(outLogs, loggo.Entry{Level: loggo.ERROR, Message: fmt.Sprintf(failMessage, "giving up")})
 	} else {
-		outLogs = append(outLogs, jc.SimpleMessage{Level: loggo.INFO,
+		outLogs = append(outLogs, loggo.Entry{Level: loggo.INFO,
 			Message: fmt.Sprintf(`upgrade to %s completed successfully.`, jujuversion.Current)})
 	}
 	return outLogs
 }
 
-func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
+func (s *UpgradeSuite) assertEnvironAgentVersion(c *tc.C, expected version.Number) {
 	envConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, expected)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(agentVersion, tc.Equals, expected)
 }
 
 // NewFakeConfigSetter returns a fakeConfigSetter which implements

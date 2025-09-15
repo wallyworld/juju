@@ -7,13 +7,11 @@ import (
 	"context"
 	"io"
 	"net/http"
+	tctesting "testing"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/testing/filetesting"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -21,58 +19,62 @@ import (
 	api "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
 	"github.com/juju/juju/rpc/params"
 )
 
-var _ = gc.Suite(&ResourcesFacadeClientSuite{})
+func TestResourcesFacadeClientSuite(t *tctesting.T) {
+	tc.Run(t, &ResourcesFacadeClientSuite{})
+}
 
 type ResourcesFacadeClientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub *testing.Stub
+	stub *testhelpers.Stub
 	api  *stubAPI
 }
 
-func (s *ResourcesFacadeClientSuite) SetUpTest(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.api = &stubAPI{Stub: s.stub}
 }
 
-func (s *ResourcesFacadeClientSuite) TestGetResource(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) TestGetResource(c *tc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
 	cl, err := uniter.NewResourcesFacadeClient(s.api, names.NewUnitTag("unit/0"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cl.HTTPDoer = s.api
 
 	info, content, err := cl.GetResource("spam")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do", "GetResourceInfo")
-	c.Check(info, jc.DeepEquals, opened.Resource)
-	c.Check(content, jc.DeepEquals, opened)
+	c.Check(info, tc.DeepEquals, opened.Resource)
+	c.Check(content, tc.DeepEquals, opened)
 }
 
-func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *gc.C) {
+func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *tc.C) {
 	body := filetesting.NewStubFile(s.stub, nil)
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var resp *http.Response
-	doer := uniter.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
+	doer := uniter.NewUnitHTTPClient(c.Context(), s.api, "spam/1")
 
-	err = doer.Do(context.Background(), req, &resp)
-	c.Assert(err, jc.ErrorIsNil)
+	err = doer.Do(c.Context(), req, &resp)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")
 	//s.stub.CheckCall(c, 0, "Do", expected, body, resp)
-	c.Check(req.URL.Path, gc.Equals, "/units/spam/1/resources/eggs")
+	c.Check(req.URL.Path, tc.Equals, "/units/spam/1/resources/eggs")
 }
 
 type stubAPI struct {
 	base.APICaller
-	*testing.Stub
+	*testhelpers.Stub
 
 	ReturnFacadeCall params.UnitResourcesResult
 	ReturnUnit       string

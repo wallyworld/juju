@@ -6,39 +6,41 @@ package syslog_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/rfc/v2/rfc5424"
 	"github.com/juju/rfc/v2/rfc5424/sdelements"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/logfwd/syslog"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ClientSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	sender *stubSender
 }
 
-var _ = gc.Suite(&ClientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	tc.Run(t, &ClientSuite{})
+}
 
-func (s *ClientSuite) SetUpTest(c *gc.C) {
+func (s *ClientSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.sender = &stubSender{stub: s.stub}
 }
 
-func (s *ClientSuite) TestOpen(c *gc.C) {
+func (s *ClientSuite) TestOpen(c *tc.C) {
 	cfg := syslog.RawConfig{
 		Enabled:    true,
 		Host:       "a.b.c:9876",
@@ -52,12 +54,12 @@ func (s *ClientSuite) TestOpen(c *gc.C) {
 	}
 
 	client, err := syslog.OpenForSender(cfg, senderOpener)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "DialFunc", "Open")
 
 	clientCert, err := tls.X509KeyPair([]byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	rootCAs := x509.NewCertPool()
 	rootCAs.AddCert(coretesting.CACertX509)
 	tlsConfig := &tls.Config{
@@ -66,25 +68,25 @@ func (s *ClientSuite) TestOpen(c *gc.C) {
 	}
 
 	call := s.stub.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 2)
-	c.Assert(call.Args[1], gc.Equals, time.Duration(0))
+	c.Assert(call.Args, tc.HasLen, 2)
+	c.Assert(call.Args[1], tc.Equals, time.Duration(0))
 	tlsCfg, ok := call.Args[0].(*tls.Config)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(tlsCfg.Certificates, jc.DeepEquals, tlsConfig.Certificates)
-	c.Assert(call.Args[1], gc.Equals, time.Duration(0))
-	c.Check(client.Sender, gc.Equals, s.sender)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(tlsCfg.Certificates, tc.DeepEquals, tlsConfig.Certificates)
+	c.Assert(call.Args[1], tc.Equals, time.Duration(0))
+	c.Check(client.Sender, tc.Equals, s.sender)
 }
 
-func (s *ClientSuite) TestClose(c *gc.C) {
+func (s *ClientSuite) TestClose(c *tc.C) {
 	client := syslog.Client{Sender: s.sender}
 
 	err := client.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Close")
 }
 
-func (s *ClientSuite) TestSendLogFull(c *gc.C) {
+func (s *ClientSuite) TestSendLogFull(c *tc.C) {
 	tag := names.NewMachineTag("99")
 	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -104,7 +106,7 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	client := syslog.Client{Sender: s.sender}
 
 	err := client.Send([]logfwd.Record{rec})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Send")
 	s.stub.CheckCall(c, 0, "Send", rfc5424.Message{
@@ -154,7 +156,7 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	})
 }
 
-func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
+func (s *ClientSuite) TestSendLogLevels(c *tc.C) {
 	tag := names.NewMachineTag("99")
 	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -185,15 +187,15 @@ func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
 		rec.Level = level
 
 		err := client.Send([]logfwd.Record{rec})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		msg := s.stub.Calls()[0].Args[0].(rfc5424.Message)
-		c.Check(msg.Severity, gc.Equals, expected)
+		c.Check(msg.Severity, tc.Equals, expected)
 	}
 }
 
 type stubSenderOpener struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 
 	ReturnDialFunc rfc5424.DialFunc
 	ReturnOpen     syslog.Sender
@@ -229,7 +231,7 @@ func (s *stubSenderOpener) Open(host string, cfg rfc5424.ClientConfig, dial rfc5
 }
 
 type stubSender struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
 func (s *stubSender) Send(msg rfc5424.Message) error {

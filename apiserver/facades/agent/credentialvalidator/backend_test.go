@@ -4,18 +4,19 @@
 package credentialvalidator_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type BackendSuite struct {
@@ -25,42 +26,44 @@ type BackendSuite struct {
 	backend credentialvalidator.Backend
 }
 
-var _ = gc.Suite(&BackendSuite{})
+func TestBackendSuite(t *tctesting.T) {
+	tc.Run(t, &BackendSuite{})
+}
 
-func (s *BackendSuite) SetUpTest(c *gc.C) {
+func (s *BackendSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.state = newMockState()
 
 	s.backend = credentialvalidator.NewBackend(s.state)
 }
 
-func (s *BackendSuite) TestModelUsesCredential(c *gc.C) {
+func (s *BackendSuite) TestModelUsesCredential(c *tc.C) {
 	uses, err := s.backend.ModelUsesCredential(s.state.aModel.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uses, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uses, tc.IsTrue)
 	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
-func (s *BackendSuite) TestModelUsesCredentialUnset(c *gc.C) {
+func (s *BackendSuite) TestModelUsesCredentialUnset(c *tc.C) {
 	s.state.aModel.credentialSet = false
 	uses, err := s.backend.ModelUsesCredential(s.state.aModel.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uses, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uses, tc.IsFalse)
 	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
-func (s *BackendSuite) TestModelUsesCredentialWrongCredential(c *gc.C) {
+func (s *BackendSuite) TestModelUsesCredentialWrongCredential(c *tc.C) {
 	uses, err := s.backend.ModelUsesCredential(names.NewCloudCredentialTag("foo/bob/two"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uses, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(uses, tc.IsFalse)
 	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
-func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *gc.C) {
+func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *tc.C) {
 	s.state.aModel.credentialSet = false
 	mc, err := s.backend.ModelCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mc, gc.DeepEquals, &credentialvalidator.ModelCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mc, tc.DeepEquals, &credentialvalidator.ModelCredential{
 		Exists:     false,
 		Credential: names.CloudCredentialTag{},
 		Valid:      false,
@@ -68,12 +71,12 @@ func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *gc.C) {
 	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag", "ModelTag", "Cloud", "Cloud")
 }
 
-func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
+func (s *BackendSuite) TestModelCredentialUnsetSupported(c *tc.C) {
 	s.state.aModel.credentialSet = false
 	s.state.aCloud.AuthTypes = cloud.AuthTypes{cloud.EmptyAuthType}
 	mc, err := s.backend.ModelCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mc, gc.DeepEquals, &credentialvalidator.ModelCredential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(mc, tc.DeepEquals, &credentialvalidator.ModelCredential{
 		Exists:     false,
 		Credential: names.CloudCredentialTag{},
 		Valid:      true,
@@ -81,11 +84,11 @@ func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
 	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag", "ModelTag", "Cloud", "Cloud")
 }
 
-func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *gc.C) {
+func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *tc.C) {
 	assertValidity := func(expected bool) {
 		mc, err := s.backend.ModelCredential()
-		c.Assert(err, gc.IsNil)
-		c.Assert(mc, gc.DeepEquals, &credentialvalidator.ModelCredential{
+		c.Assert(err, tc.IsNil)
+		c.Assert(mc, tc.DeepEquals, &credentialvalidator.ModelCredential{
 			Exists:     true,
 			Credential: s.state.aModel.credentialTag,
 			Valid:      expected,
@@ -102,17 +105,17 @@ func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *gc.C)
 	assertValidity(false)
 }
 
-func (s *BackendSuite) TestWatchModelCredentialErr(c *gc.C) {
+func (s *BackendSuite) TestWatchModelCredentialErr(c *tc.C) {
 	s.state.SetErrors(errors.New("no nope niet"))
 	w, err := s.backend.WatchModelCredential()
-	c.Assert(err, gc.ErrorMatches, "no nope niet")
-	c.Assert(w, gc.DeepEquals, nil)
+	c.Assert(err, tc.ErrorMatches, "no nope niet")
+	c.Assert(w, tc.DeepEquals, nil)
 	s.state.CheckCallNames(c, "Model")
 }
 
 func newMockState() *mockState {
 	b := &mockState{
-		Stub:        &testing.Stub{},
+		Stub:        &testhelpers.Stub{},
 		aCredential: statetesting.NewEmptyCredential(),
 		aCloud: cloud.Cloud{
 			Name:      "stratus",
@@ -129,7 +132,7 @@ func newMockState() *mockState {
 }
 
 type mockState struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	aCloud      cloud.Cloud
 	aModel      *mockModel
@@ -171,7 +174,7 @@ func (b *mockState) Cloud(name string) (cloud.Cloud, error) {
 }
 
 type mockModel struct {
-	*testing.Stub
+	*testhelpers.Stub
 
 	modelTag names.ModelTag
 

@@ -6,12 +6,11 @@ package cachetest
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 // TestController wraps a cache controller for testing.
@@ -46,9 +45,9 @@ func NewTestController(matchers ...func(interface{}) bool) *TestController {
 // NOTE: It is recommended to perform this initialisation in the actual test
 // method rather than `SetupSuite` or `SetupTest` as different gc.C references
 // are supplied to each of those methods.
-func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) {
-	tc.events = make(chan interface{})
-	matchers = append(tc.matchers, matchers...)
+func (ctrl *TestController) Init(c *tc.C, matchers ...func(interface{}) bool) {
+	ctrl.events = make(chan interface{})
+	matchers = append(ctrl.matchers, matchers...)
 
 	notify := func(change interface{}) {
 		send := false
@@ -62,24 +61,24 @@ func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) {
 		if send {
 			c.Logf("sending %#v", change)
 			select {
-			case tc.events <- change:
+			case ctrl.events <- change:
 			case <-time.After(testing.LongWait):
 				c.Fatalf("change not processed by test")
 			}
 		}
 	}
 
-	tc.changes = make(chan interface{})
+	ctrl.changes = make(chan interface{})
 	cc, err := cache.NewController(cache.ControllerConfig{
-		Changes: tc.changes,
+		Changes: ctrl.changes,
 		Notify:  notify,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	tc.Controller = cc
+	c.Assert(err, tc.ErrorIsNil)
+	ctrl.Controller = cc
 }
 
 // UpdateModel updates the current model for the input state in the cache.
-func (tc *TestController) UpdateModel(c *gc.C, m *state.Model) {
+func (tc *TestController) UpdateModel(c *tc.C, m *state.Model) {
 	tc.SendChange(ModelChange(c, m))
 }
 
@@ -89,17 +88,17 @@ func (tc *TestController) UpdateCharm(modelUUID string, ch *state.Charm) {
 }
 
 // UpdateApplication updates the input state application in the cache.
-func (tc *TestController) UpdateApplication(c *gc.C, modelUUID string, app *state.Application) {
+func (tc *TestController) UpdateApplication(c *tc.C, modelUUID string, app *state.Application) {
 	tc.SendChange(ApplicationChange(c, modelUUID, app))
 }
 
 // UpdateMachine updates the input state machine in the cache.
-func (tc *TestController) UpdateMachine(c *gc.C, modelUUID string, machine *state.Machine) {
+func (tc *TestController) UpdateMachine(c *tc.C, modelUUID string, machine *state.Machine) {
 	tc.SendChange(MachineChange(c, modelUUID, machine))
 }
 
 // UpdateUnit updates the input state unit in the cache.
-func (tc *TestController) UpdateUnit(c *gc.C, modelUUID string, unit *state.Unit) {
+func (tc *TestController) UpdateUnit(c *tc.C, modelUUID string, unit *state.Unit) {
 	tc.SendChange(UnitChange(c, modelUUID, unit))
 }
 
@@ -109,7 +108,7 @@ func (tc *TestController) SendChange(change interface{}) {
 
 // NextChange returns the next change processed by the cache that satisfies a
 // matcher, or fails the test with a time-out.
-func (tc *TestController) NextChange(c *gc.C) interface{} {
+func (tc *TestController) NextChange(c *tc.C) interface{} {
 	var obtained interface{}
 	select {
 	case obtained = <-tc.events:

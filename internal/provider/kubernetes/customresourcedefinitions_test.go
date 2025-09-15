@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -28,10 +27,10 @@ import (
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8sspecs "github.com/juju/juju/internal/provider/kubernetes/specs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...any) {
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *tc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -42,7 +41,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -128,10 +127,10 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
 		"kubernetes-service-externalname":    "ext-name",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -250,7 +249,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1Upgrade(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1Upgrade(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -381,12 +380,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 		c, crds,
 		s.mockCustomResourceDefinitionV1.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(arg0 context.Context, arg1 *apiextensionsv1.CustomResourceDefinition, arg2 v1.CreateOptions) {
 			// For some reason, gomock can't compare this but jc.DeepEquals has no problem.
-			c.Check(arg1, jc.DeepEquals, crd2)
+			c.Check(arg1, tc.DeepEquals, crd2)
 		}).Return(crd2, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -507,7 +506,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -628,7 +627,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -751,7 +750,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 	)
 }
 
-func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstructured.Unstructured, adjustClock func(), assertCalls ...any) {
+func (s *K8sBrokerSuite) assertCustomerResources(c *tc.C, crs map[string][]unstructured.Unstructured, adjustClock func(), assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -762,7 +761,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	workloadSpec, err := provider.PrepareWorkloadSpec(
 		"app-name", "app-name", basicPodSpec, resources.DockerImageDetails{RegistryPath: "operator/image-path"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	podSpec := provider.Pod(workloadSpec).PodSpec
 
 	numUnits := int32(2)
@@ -859,7 +858,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for EnsureService return")
 	}
@@ -953,7 +952,7 @@ func getCR2() unstructured.Unstructured {
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1079,7 +1078,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1180,10 +1179,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 		c, crs,
 		func() {
 			err := s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			err = s.clock.WaitAdvance(time.Second, testing.LongWait, 1)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 		},
 		// waits CRD stabilised.
 		// 1. CRD not found.
@@ -1237,7 +1236,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
+func (s *K8sBrokerSuite) TestCRDGetter(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1309,8 +1308,8 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		s.mockCustomResourceDefinitionV1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(badCRDNoVersion, nil),
 	)
 	result, err := crdGetter.Get("tfjobs.kubeflow.org")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
+	c.Assert(result, tc.IsNil)
 
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
@@ -1375,8 +1374,8 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		s.mockCustomResourceDefinitionV1.EXPECT().Get(gomock.Any(), "tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(result, tc.IsNil)
 
 	// Test 3: found CRD but CRD is not stablised yet.
 	gomock.InOrder(
@@ -1391,8 +1390,8 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(nil, s.k8sNotFoundError()),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(result, tc.IsNil)
 
 	// Test 4: all good.
 	gomock.InOrder(
@@ -1407,11 +1406,11 @@ func (s *K8sBrokerSuite) TestCRDGetter(c *gc.C) {
 		s.mockResourceClient.EXPECT().List(gomock.Any(), v1.ListOptions{}).Times(1).Return(&unstructured.UnstructuredList{}, nil),
 	)
 	result, err = crdGetter.Get("tfjobs.kubeflow.org")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, crd)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, crd)
 }
 
-func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1535,22 +1534,22 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 	}(s.broker)
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		result := <-resultChan
-		c.Assert(result, gc.DeepEquals, expectedResult)
+		c.Assert(result, tc.DeepEquals, expectedResult)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for GetCRDsForCRs return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
+func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -1580,13 +1579,13 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	}(s.broker)
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, gc.ErrorMatches, `getting custom resources: a non not found error`)
+		c.Assert(err, tc.ErrorMatches, `getting custom resources: a non not found error`)
 		result := <-resultChan
-		c.Assert(result, gc.IsNil)
+		c.Assert(result, tc.IsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for GetCRDsForCRs return")
 	}

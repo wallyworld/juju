@@ -4,22 +4,23 @@
 package peergrouper_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -36,12 +37,14 @@ type ManifoldSuite struct {
 	registerer   *fakeRegisterer
 	stateTracker stubStateTracker
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
@@ -87,39 +90,39 @@ func (s *ManifoldSuite) newWorker(config peergrouper.Config) (worker.Worker, err
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, w) })
 	return w, nil
 }
 
 var expectedInputs = []string{"agent", "clock", "controller-port", "state"}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, peergrouper.Config{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, peergrouper.Config{})
 	config := args[0].(peergrouper.Config)
 
-	c.Assert(config.ControllerId(), gc.Equals, "10")
+	c.Assert(config.ControllerId(), tc.Equals, "10")
 	config.ControllerId = nil
-	c.Assert(config, jc.DeepEquals, peergrouper.Config{
+	c.Assert(config, tc.DeepEquals, peergrouper.Config{
 		State:        peergrouper.StateShim{State: s.State},
 		MongoSession: peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
@@ -134,7 +137,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -144,24 +147,24 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }
 
-func (s *ManifoldSuite) TestNoStateServingInfoClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestNoStateServingInfoClosesState(c *tc.C) {
 	s.agent.conf.info = nil
 
 	_, err := s.manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "state serving info missing from agent config")
+	c.Assert(err, tc.ErrorMatches, "state serving info missing from agent config")
 
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 type stubStateTracker struct {
-	testing.Stub
+	testhelpers.Stub
 	pool *state.StatePool
 }
 

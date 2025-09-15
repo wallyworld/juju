@@ -7,9 +7,9 @@ import (
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/pki"
 )
@@ -19,24 +19,26 @@ type RequestSigner struct {
 	signer crypto.Signer
 }
 
-var _ = gc.Suite(&RequestSigner{})
+func TestRequestSigner(t *tctesting.T) {
+	tc.Run(t, &RequestSigner{})
+}
 
-func (r *RequestSigner) SetUpTest(c *gc.C) {
+func (r *RequestSigner) SetUpTest(c *tc.C) {
 	signer, err := pki.DefaultKeyProfile()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r.signer = signer
 
 	commonName := "juju-test-ca"
 	ca, err := pki.NewCA(commonName, r.signer)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r.ca = ca
 }
 
-func (r *RequestSigner) TestDefaultRequestSigning(c *gc.C) {
+func (r *RequestSigner) TestDefaultRequestSigning(c *tc.C) {
 	requestSigner := pki.NewDefaultRequestSigner(r.ca, []*x509.Certificate{}, r.signer)
 
 	leafSigner, err := pki.DefaultKeyProfile()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	dnsNames := []string{"test.juju.is"}
 	leafCSR := x509.CertificateRequest{
@@ -48,7 +50,7 @@ func (r *RequestSigner) TestDefaultRequestSigning(c *gc.C) {
 	}
 
 	leafCert, _, err := requestSigner.SignCSR(&leafCSR)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leafCert.DNSNames, gc.DeepEquals, dnsNames)
-	c.Assert(leafCert.Subject.CommonName, gc.Equals, "test")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(leafCert.DNSNames, tc.DeepEquals, dnsNames)
+	c.Assert(leafCert.Subject.CommonName, tc.Equals, "test")
 }

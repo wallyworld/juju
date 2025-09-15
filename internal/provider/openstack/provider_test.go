@@ -7,15 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	tctesting "testing"
 
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -25,14 +24,17 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
 type localTests struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&localTests{})
+func TestLocalTests(t *tctesting.T) {
+	tc.Run(t, &localTests{})
+}
 
 // ported from lp:juju/juju/internal/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
@@ -176,7 +178,7 @@ var addressTests = []struct {
 	expected:   "8.8.4.4",
 }}
 
-func (t *localTests) TestGetServerAddresses(c *gc.C) {
+func (t *localTests) TestGetServerAddresses(c *tc.C) {
 	for i, t := range addressTests {
 		c.Logf("#%d. %s -> %s (%v)", i, t.summary, t.expected, t.failure)
 		addresses := make(map[string][]nova.IPAddress)
@@ -195,11 +197,11 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 			}
 		}
 		addr := InstanceAddress(t.floatingIP, addresses)
-		c.Check(addr, gc.Equals, t.expected)
+		c.Check(addr, tc.Equals, t.expected)
 	}
 }
 
-func (*localTests) TestPortsToRuleInfo(c *gc.C) {
+func (*localTests) TestPortsToRuleInfo(c *tc.C) {
 	groupId := "groupid"
 	testCases := []struct {
 		about    string
@@ -337,12 +339,12 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		rules := PortsToRuleInfo(groupId, t.rules)
-		c.Check(len(rules), gc.Equals, len(t.expected))
-		c.Check(rules, jc.SameContents, t.expected)
+		c.Check(len(rules), tc.Equals, len(t.expected))
+		c.Check(rules, tc.SameContents, t.expected)
 	}
 }
 
-func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
+func (*localTests) TestSecGroupMatchesIngressRule(c *tc.C) {
 	proto_tcp := "tcp"
 	proto_udp := "udp"
 	port_80 := 80
@@ -451,39 +453,39 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(SecGroupMatchesIngressRule(t.secGroupRule, t.rule), gc.Equals, t.expected)
+		c.Check(SecGroupMatchesIngressRule(t.secGroupRule, t.rule), tc.Equals, t.expected)
 	}
 }
 
-func (s *localTests) TestDetectRegionsNoRegionName(c *gc.C) {
+func (s *localTests) TestDetectRegionsNoRegionName(c *tc.C) {
 	_, err := s.detectRegions(c)
-	c.Assert(err, gc.ErrorMatches, "OS_REGION_NAME environment variable not set")
+	c.Assert(err, tc.ErrorMatches, "OS_REGION_NAME environment variable not set")
 }
 
-func (s *localTests) TestDetectRegionsNoAuthURL(c *gc.C) {
+func (s *localTests) TestDetectRegionsNoAuthURL(c *tc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "oceania")
 	_, err := s.detectRegions(c)
-	c.Assert(err, gc.ErrorMatches, "OS_AUTH_URL environment variable not set")
+	c.Assert(err, tc.ErrorMatches, "OS_AUTH_URL environment variable not set")
 }
 
-func (s *localTests) TestDetectRegions(c *gc.C) {
+func (s *localTests) TestDetectRegions(c *tc.C) {
 	s.PatchEnvironment("OS_REGION_NAME", "oceania")
 	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
 	regions, err := s.detectRegions(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(regions, tc.DeepEquals, []cloud.Region{
 		{Name: "oceania", Endpoint: "http://keystone.internal"},
 	})
 }
 
-func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
+func (s *localTests) detectRegions(c *tc.C) ([]cloud.Region, error) {
 	provider, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(provider, tc.Implements, new(environs.CloudRegionDetector))
 	return provider.(environs.CloudRegionDetector).DetectRegions()
 }
 
-func (s *localTests) TestSchema(c *gc.C) {
+func (s *localTests) TestSchema(c *tc.C) {
 	y := []byte(`
 auth-types: [userpass, access-key]
 endpoint: http://foo.com/openstack
@@ -495,17 +497,17 @@ regions:
 `[1:])
 	var v interface{}
 	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (localTests) TestPingInvalidHost(c *gc.C) {
+func (localTests) TestPingInvalidHost(c *tc.C) {
 	tests := []string{
 		"foo.com",
 		"http://IHopeNoOneEverBuysThisVerySpecificJujuDomainName.com",
@@ -513,7 +515,7 @@ func (localTests) TestPingInvalidHost(c *gc.C) {
 	}
 
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	callCtx := context.NewEmptyCloudCallContext()
 	for _, t := range tests {
 		err = p.Ping(callCtx, t)
@@ -521,46 +523,46 @@ func (localTests) TestPingInvalidHost(c *gc.C) {
 			c.Errorf("ping %q: expected error, but got nil.", t)
 			continue
 		}
-		c.Check(err, gc.ErrorMatches, "(?m)No Openstack server running at "+t+".*")
+		c.Check(err, tc.ErrorMatches, "(?m)No Openstack server running at "+t+".*")
 	}
 }
-func (localTests) TestPingNoEndpoint(c *gc.C) {
+func (localTests) TestPingNoEndpoint(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
+	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
-func (localTests) TestPingInvalidResponse(c *gc.C) {
+func (localTests) TestPingInvalidResponse(c *tc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hi!")
 	}))
 	defer server.Close()
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
+	c.Assert(err, tc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
-func (localTests) TestPingOKCACertificate(c *gc.C) {
+func (localTests) TestPingOKCACertificate(c *tc.C) {
 	server := httptest.NewTLSServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)
 }
 
-func (localTests) TestPingOK(c *gc.C) {
+func (localTests) TestPingOK(c *tc.C) {
 	server := httptest.NewServer(handlerFunc)
 	defer server.Close()
 	pingOk(c, server)
 }
 
-func pingOk(c *gc.C, server *httptest.Server) {
+func pingOk(c *tc.C, server *httptest.Server) {
 	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -630,22 +632,24 @@ var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 })
 
 type providerUnitTests struct {
-	gitjujutesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&providerUnitTests{})
+func TestProviderUnitTests(t *tctesting.T) {
+	tc.Run(t, &providerUnitTests{})
+}
 
-func checkIdentityClientVersionInvalid(c *gc.C, url string) {
+func checkIdentityClientVersionInvalid(c *tc.C, url string) {
 	_, err := identityClientVersion(url)
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("version part of identity url %s not valid", url))
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf("version part of identity url %s not valid", url))
 }
 
-func checkIdentityClientVersion(c *gc.C, url string, expversion int) {
+func checkIdentityClientVersion(c *tc.C, url string, expversion int) {
 	version, err := identityClientVersion(url)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, expversion)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(version, tc.Equals, expversion)
 }
-func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
+func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *tc.C) {
 	checkIdentityClientVersionInvalid(c, "https://keystone.internal/a")
 	checkIdentityClientVersionInvalid(c, "https://keystone.internal/v")
 	checkIdentityClientVersionInvalid(c, "https://keystone.internal/V")
@@ -656,10 +660,10 @@ func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
 	checkIdentityClientVersionInvalid(c, "https://keystone.internal/identity/2")
 
 	_, err := identityClientVersion("abc123")
-	c.Check(err, gc.ErrorMatches, `url abc123 is malformed`)
+	c.Check(err, tc.ErrorMatches, `url abc123 is malformed`)
 }
 
-func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
+func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *tc.C) {
 	checkIdentityClientVersion(c, "https://keystone.internal/v2.0", 2)
 	checkIdentityClientVersion(c, "https://keystone.internal/v3.0/", 3)
 	checkIdentityClientVersion(c, "https://keystone.internal/v2/", 2)
@@ -671,7 +675,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 	checkIdentityClientVersion(c, "https://keystone.internal/", -1)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "3",
 		"username":    "user",
@@ -687,8 +691,8 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -700,10 +704,10 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion3(c *gc.C) {
 		UserDomain:    "",
 		ProjectDomain: "",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
+	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "abc",
 		"username":    "user",
@@ -719,11 +723,11 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersion(c *gc.C) {
 		Credential: &creds,
 	}
 	_, _, err := newCredentials(clouldSpec)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":    "user",
 		"password":    "secret",
@@ -738,8 +742,8 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -750,10 +754,10 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersion(c *gc.C) {
 		UserDomain:    "",
 		ProjectDomain: "",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPass)
+	c.Check(authmode, tc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainName(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainName(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "abc",
 		"username":            "user",
@@ -770,11 +774,11 @@ func (s *providerUnitTests) TestNewCredentialsWithFaultVersionAndProjectDomainNa
 		Credential: &creds,
 	}
 	_, _, err := newCredentials(clouldSpec)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.NotNil)
+	c.Assert(err, tc.ErrorMatches,
 		"cred.Version is not a valid integer type : strconv.Atoi: parsing \"abc\": invalid syntax")
 }
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":            "user",
 		"password":            "secret",
@@ -790,8 +794,8 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c 
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -802,10 +806,10 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithProjectDomain(c 
 		UserDomain:    "",
 		ProjectDomain: "openstack_projectdomain",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
+	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username":         "user",
 		"password":         "secret",
@@ -821,8 +825,8 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -834,10 +838,10 @@ func (s *providerUnitTests) TestNewCredentialsWithoutVersionWithUserDomain(c *gc
 		UserDomain:    "openstack_userdomain",
 		ProjectDomain: "",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPassV3)
+	c.Check(authmode, tc.Equals, identity.AuthUserPassV3)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":     "2",
 		"username":    "user",
@@ -853,8 +857,8 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -866,10 +870,10 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2(c *gc.C) {
 		UserDomain:    "",
 		ProjectDomain: "",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPass)
+	c.Check(authmode, tc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
+func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *tc.C) {
 	creds := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"version":             "2",
 		"username":            "user",
@@ -886,8 +890,8 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		Credential: &creds,
 	}
 	cred, authmode, err := newCredentials(clouldSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cred, gc.Equals, identity.Credentials{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cred, tc.Equals, identity.Credentials{
 		URL:           "http://endpoint",
 		User:          "user",
 		Secrets:       "secret",
@@ -899,10 +903,10 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		UserDomain:    "",
 		ProjectDomain: "openstack_projectdomain",
 	})
-	c.Check(authmode, gc.Equals, identity.AuthUserPass)
+	c.Check(authmode, tc.Equals, identity.AuthUserPass)
 }
 
-func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstance(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -919,8 +923,8 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,
 			FixedIp:   "",
@@ -929,7 +933,7 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	})
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -947,14 +951,14 @@ func (s *providerUnitTests) TestNetworksForInstanceNoConfigMultiNet(c *gc.C) {
 
 	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{NetworkId: "network-id-foo"},
 		{NetworkId: "network-id-bar"},
 	})
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -972,14 +976,14 @@ func (s *providerUnitTests) TestNetworksForInstanceMultiConfigMultiNet(c *gc.C) 
 
 	result, err := envWithNetworking(mockNetworking, "network-id-foo,network-id-bar").networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{NetworkId: "network-id-foo"},
 		{NetworkId: "network-id-bar"},
 	})
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1017,8 +1021,8 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,
 			PortId:    "port-id",
@@ -1026,7 +1030,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	})
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1090,8 +1094,8 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *gc.
 
 	result, err := envWithNetworking(mockNetworking, "").networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: "network-id-foo",
 			PortId:    "port-id-foo",
@@ -1103,7 +1107,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZNoConfigMultiNet(c *gc.
 	})
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1126,10 +1130,10 @@ func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
 	}
 
 	_, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
-	c.Assert(err, gc.ErrorMatches, "determining subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
+	c.Assert(err, tc.ErrorMatches, "determining subnets in zone \"us-east-az\": subnets in AZ \"us-east-az\" not found")
 }
 
-func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c *gc.C) {
+func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -1172,8 +1176,8 @@ func (s *providerUnitTests) TestNetworksForInstanceNoSubnetAZsStillConsidered(c 
 
 	result, err := envWithNetworking(mockNetworking, netID).networksForInstance(siParams, netCfg)
 
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: netID,
 			PortId:    "port-id",

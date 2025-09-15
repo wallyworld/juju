@@ -5,15 +5,15 @@ package tools
 
 import (
 	"path"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ValidateSuite struct {
@@ -22,9 +22,11 @@ type ValidateSuite struct {
 	dataSource  simplestreams.DataSource
 }
 
-var _ = gc.Suite(&ValidateSuite{})
+func TestValidateSuite(t *tctesting.T) {
+	tc.Run(t, &ValidateSuite{})
+}
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, osType string) {
+func (s *ValidateSuite) makeLocalMetadata(c *tc.C, stream, version, osType string) {
 	tm := []*ToolsMetadata{{
 		Version:  version,
 		Release:  osType,
@@ -36,15 +38,15 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, osType strin
 	}}
 
 	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	streamMetadata := map[string][]*ToolsMetadata{
 		stream: tm,
 	}
 	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ValidateSuite) SetUpTest(c *gc.C) {
+func (s *ValidateSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 	s.dataSource = sstesting.VerifyDefaultCloudDataSource("test", s.toolsURL())
@@ -54,7 +56,7 @@ func (s *ValidateSuite) toolsURL() string {
 	return utils.MakeFileURL(path.Join(s.metadataDir, "tools"))
 }
 
-func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
+func (s *ValidateSuite) TestExactVersionMatch(c *tc.C) {
 	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
@@ -69,9 +71,9 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
-	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
+	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
@@ -79,7 +81,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	})
 }
 
-func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
+func (s *ValidateSuite) TestMajorVersionMatch(c *tc.C) {
 	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
@@ -95,9 +97,9 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
-	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
+	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
@@ -105,7 +107,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 	})
 }
 
-func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
+func (s *ValidateSuite) TestMajorMinorVersionMatch(c *tc.C) {
 	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
@@ -120,9 +122,9 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
-	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(versions, tc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
+	c.Check(resolveInfo, tc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
 		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
@@ -130,7 +132,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	})
 }
 
-func (s *ValidateSuite) TestNoMatch(c *gc.C) {
+func (s *ValidateSuite) TestNoMatch(c *tc.C) {
 	s.makeLocalMetadata(c, "released", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
@@ -144,10 +146,10 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, _, err := ValidateToolsMetadata(ss, params)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 }
 
-func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
+func (s *ValidateSuite) TestStreamsNoMatch(c *tc.C) {
 	s.makeLocalMetadata(c, "proposed", "1.11.2", "ubuntu")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
@@ -161,5 +163,5 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, _, err := ValidateToolsMetadata(ss, params)
-	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err, tc.Not(tc.IsNil))
 }

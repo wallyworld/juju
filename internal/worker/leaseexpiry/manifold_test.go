@@ -4,12 +4,13 @@
 package leaseexpiry_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/testing"
@@ -20,40 +21,42 @@ type manifoldSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&manifoldSuite{})
-
-func (s *manifoldSuite) TestInputs(c *gc.C) {
-	cfg := newManifoldConfig()
-
-	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name"})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &manifoldSuite{})
 }
 
-func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
+	cfg := newManifoldConfig()
+
+	c.Check(leaseexpiry.Manifold(cfg).Inputs, tc.DeepEquals, []string{"clock-name", "db-accessor-name"})
+}
+
+func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	validCfg := newManifoldConfig()
 
 	cfg := validCfg
 	cfg.ClockName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = validCfg
 	cfg.DBAccessorName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
 	cfg = validCfg
 	cfg.NewWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 }
 
-func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
+func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	cfg := newManifoldConfig()
 
 	work, err := leaseexpiry.Manifold(cfg).Start(s.newStubContext())
-	c.Check(work, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(work, tc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // newManifoldConfig creates and returns a new ManifoldConfig instance based on

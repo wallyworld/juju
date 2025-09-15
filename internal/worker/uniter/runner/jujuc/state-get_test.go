@@ -4,10 +4,11 @@
 package jujuc_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -16,7 +17,9 @@ type stateGetSuite struct {
 	stateSuite
 }
 
-var _ = gc.Suite(&stateGetSuite{})
+func TestStateGetSuite(t *tctesting.T) {
+	tc.Run(t, &stateGetSuite{})
+}
 
 type runStateGetCmd struct {
 	description string
@@ -27,7 +30,7 @@ type runStateGetCmd struct {
 	expect      func()
 }
 
-func (s *stateGetSuite) TestStateGet(c *gc.C) {
+func (s *stateGetSuite) TestStateGet(c *tc.C) {
 	runStateGetCmdTests := []runStateGetCmd{
 		{
 			description: "get all values with no args",
@@ -77,12 +80,12 @@ func (s *stateGetSuite) TestStateGet(c *gc.C) {
 		test.expect()
 
 		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-get")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(toolCmd), ctx, test.args)
-		c.Check(code, gc.Equals, test.code)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, test.err)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, test.out)
+		c.Check(code, tc.Equals, test.code)
+		c.Assert(bufferString(ctx.Stderr), tc.Equals, test.err)
+		c.Assert(bufferString(ctx.Stdout), tc.Equals, test.out)
 	}
 }

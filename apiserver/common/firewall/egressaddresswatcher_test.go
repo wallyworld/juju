@@ -4,20 +4,23 @@
 package firewall_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	coretesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&addressWatcherSuite{})
+func TestAddressWatcherSuite(t *tctesting.T) {
+	tc.Run(t, &addressWatcherSuite{})
+}
 
 type addressWatcherSuite struct {
 	coretesting.BaseSuite
@@ -27,11 +30,11 @@ type addressWatcherSuite struct {
 	st         *mockState
 }
 
-func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
+func (s *addressWatcherSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(_ *tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -41,7 +44,7 @@ func (s *addressWatcherSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState(coretesting.ModelTag.Id())
 }
 
-func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation {
+func (s *addressWatcherSuite) setupRelation(c *tc.C, addr string) *mockRelation {
 	rel := newMockRelation(123)
 	rel.ruwApp = "django"
 	// Initial event.
@@ -58,10 +61,10 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 	return rel
 }
 
-func (s *addressWatcherSuite) TestInitial(c *gc.C) {
+func (s *addressWatcherSuite) TestInitial(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
@@ -75,10 +78,10 @@ func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
+func (s *addressWatcherSuite) TestUnitEntersScope(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -104,10 +107,10 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
+func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -132,10 +135,10 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
+func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -166,10 +169,10 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
+func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *tc.C) {
 	rel := s.setupRelation(c, "")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{
@@ -192,11 +195,11 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
+func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *tc.C) {
 	rel := s.setupRelation(c, "")
 	s.st.units["django/0"].assigned = false
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
@@ -220,10 +223,10 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
+func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
@@ -237,10 +240,10 @@ func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
+func (s *addressWatcherSuite) TestUnitLeavesScope(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -272,10 +275,10 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
+func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *tc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -314,10 +317,10 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
+func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *tc.C) {
 	rel := s.setupRelation(c, "55.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
@@ -352,10 +355,10 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
+func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *tc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
@@ -375,10 +378,10 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc.C) {
+func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *tc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	// django/0 is initially in scope
@@ -397,7 +400,7 @@ func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc.C) {
+func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *tc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.NewSpaceAddress("2.3.4.5")
@@ -411,7 +414,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	}
 
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
@@ -428,11 +431,11 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
+func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *tc.C) {
 	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}
@@ -470,12 +473,12 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
+func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *tc.C) {
 	// Set up a model egress-address to ensure it is ignored when a relation one is used.
 	s.st.configAttrs["egress-subnets"] = "10.0.0.1/16"
 	rel := s.setupRelation(c, "54.1.2.3")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	rel.ruw.changes <- watcher.RelationUnitsChange{}

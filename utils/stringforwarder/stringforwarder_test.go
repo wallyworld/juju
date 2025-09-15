@@ -5,21 +5,23 @@ package stringforwarder_test
 
 import (
 	"sync"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/utils/stringforwarder"
 )
 
 type StringForwarderSuite struct{}
 
-var _ = gc.Suite(&StringForwarderSuite{})
+func TestStringForwarderSuite(t *tctesting.T) {
+	tc.Run(t, &StringForwarderSuite{})
+}
 
 // waitFor event to happen, or timeout and fail the test
-func waitFor(c *gc.C, event <-chan struct{}) {
+func waitFor(c *tc.C, event <-chan struct{}) {
 	select {
 	case <-event:
 	case <-time.After(coretesting.LongWait):
@@ -29,7 +31,7 @@ func waitFor(c *gc.C, event <-chan struct{}) {
 
 // sendEvent will send a message on a channel, or timeout if the channel is
 // never available and fail the test.
-func sendEvent(c *gc.C, event chan struct{}) {
+func sendEvent(c *tc.C, event chan struct{}) {
 	select {
 	case event <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -37,7 +39,7 @@ func sendEvent(c *gc.C, event chan struct{}) {
 	}
 }
 
-func (*StringForwarderSuite) TestReceives(c *gc.C) {
+func (*StringForwarderSuite) TestReceives(c *tc.C) {
 	var messages []string
 	received := make(chan struct{}, 10)
 	forwarder := stringforwarder.New(func(msg string) {
@@ -46,20 +48,20 @@ func (*StringForwarderSuite) TestReceives(c *gc.C) {
 	})
 	forwarder.Forward("one")
 	waitFor(c, received)
-	c.Check(forwarder.Stop(), gc.Equals, uint64(0))
-	c.Check(messages, gc.DeepEquals, []string{"one"})
+	c.Check(forwarder.Stop(), tc.Equals, uint64(0))
+	c.Check(messages, tc.DeepEquals, []string{"one"})
 }
 
 func noopCallback(string) {
 }
 
-func (*StringForwarderSuite) TestStopIsReentrant(c *gc.C) {
+func (*StringForwarderSuite) TestStopIsReentrant(c *tc.C) {
 	forwarder := stringforwarder.New(noopCallback)
 	forwarder.Stop()
 	forwarder.Stop()
 }
 
-func (*StringForwarderSuite) TestMessagesDroppedAfterStop(c *gc.C) {
+func (*StringForwarderSuite) TestMessagesDroppedAfterStop(c *tc.C) {
 	var messages []string
 	forwarder := stringforwarder.New(func(msg string) {
 		messages = append(messages, msg)
@@ -68,18 +70,18 @@ func (*StringForwarderSuite) TestMessagesDroppedAfterStop(c *gc.C) {
 	forwarder.Forward("one")
 	forwarder.Forward("two")
 	forwarder.Stop()
-	c.Check(messages, gc.HasLen, 0)
+	c.Check(messages, tc.HasLen, 0)
 }
 
-func (*StringForwarderSuite) TestAllDroppedWithNoCallback(c *gc.C) {
+func (*StringForwarderSuite) TestAllDroppedWithNoCallback(c *tc.C) {
 	forwarder := stringforwarder.New(nil)
 	forwarder.Forward("one")
 	forwarder.Forward("two")
 	forwarder.Forward("three")
-	c.Check(forwarder.Stop(), gc.Equals, uint64(3))
+	c.Check(forwarder.Stop(), tc.Equals, uint64(3))
 }
 
-func (*StringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
+func (*StringForwarderSuite) TestMessagesDroppedWhenBusy(c *tc.C) {
 	var messages []string
 	received := make(chan struct{}, 10)
 	next := make(chan struct{})
@@ -103,11 +105,11 @@ func (*StringForwarderSuite) TestMessagesDroppedWhenBusy(c *gc.C) {
 	sendEvent(c, next)
 	waitFor(c, received)
 	dropCount := forwarder.Stop()
-	c.Check(messages, gc.DeepEquals, []string{"first", "fourth"})
-	c.Check(dropCount, gc.Equals, uint64(3))
+	c.Check(messages, tc.DeepEquals, []string{"first", "fourth"})
+	c.Check(dropCount, tc.Equals, uint64(3))
 }
 
-func (*StringForwarderSuite) TestRace(c *gc.C) {
+func (*StringForwarderSuite) TestRace(c *tc.C) {
 	forwarder := stringforwarder.New(noopCallback)
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
@@ -130,17 +132,17 @@ func (*StringForwarderSuite) TestRace(c *gc.C) {
 	time.Sleep(10 * time.Millisecond)
 	close(stop)
 	count := forwarder.Stop()
-	c.Check(count, jc.GreaterThan, uint64(0))
+	c.Check(count, tc.GreaterThan, uint64(0))
 }
 
-func (*StringForwarderSuite) TestSchedulerSensitivity(c *gc.C) {
+func (*StringForwarderSuite) TestSchedulerSensitivity(c *tc.C) {
 	var wg sync.WaitGroup
 	f := func() {
 		defer wg.Done()
 		forwarder := stringforwarder.New(noopCallback)
 		forwarder.Forward("msg")
 		n := forwarder.Stop()
-		c.Check(n, gc.Equals, uint64(0))
+		c.Check(n, tc.Equals, uint64(0))
 	}
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)

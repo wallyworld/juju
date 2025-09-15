@@ -4,27 +4,21 @@
 package storage_test
 
 import (
-	"testing"
+	"github.com/juju/tc"
 
-	gc "gopkg.in/check.v1"
-
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	jujutesting "github.com/juju/juju/testing"
 )
-
-func TestAll(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type BaseStorageSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
 }
 
-func (s *BaseStorageSuite) SetUpTest(c *gc.C) {
+func (s *BaseStorageSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
-func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
+func (s *BaseStorageSuite) TearDownTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
@@ -33,7 +27,7 @@ type SubStorageSuite struct {
 	store *jujuclient.MemStore
 }
 
-func (s *SubStorageSuite) SetUpTest(c *gc.C) {
+func (s *SubStorageSuite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.store = jujuclient.NewMemStore()

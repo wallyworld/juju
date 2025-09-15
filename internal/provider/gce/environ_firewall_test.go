@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	tctesting "testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
@@ -26,7 +26,9 @@ type environFirewallSuite struct {
 	gce.BaseSuite
 }
 
-var _ = gc.Suite(&environFirewallSuite{})
+func TestEnvironFirewallSuite(t *tctesting.T) {
+	tc.Run(t, &environFirewallSuite{})
+}
 
 func (s *environFirewallSuite) generateMachineID() string {
 	shortSHA := s.ModelUUID[len(s.ModelUUID)-6:]
@@ -34,7 +36,7 @@ func (s *environFirewallSuite) generateMachineID() string {
 	return fmt.Sprintf("juju-%s-%d", shortSHA, n)
 }
 
-func (s *environFirewallSuite) SetUpTest(c *gc.C) {
+func (s *environFirewallSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(gce.FirewallerSuffixFunc, func(sourceCIDRs []string, prefix string, existingNames set.Strings) (string, error) {
 		if len(sourceCIDRs) == 0 || len(sourceCIDRs) == 1 &&
@@ -45,22 +47,22 @@ func (s *environFirewallSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *environFirewallSuite) TestGlobalFirewallName(c *gc.C) {
+func (s *environFirewallSuite) TestGlobalFirewallName(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
 	fwPrefix := gce.GlobalFirewallName(env)
 
-	c.Check(fwPrefix, gc.Equals, "juju-"+s.ModelUUID)
+	c.Check(fwPrefix, tc.Equals, "juju-"+s.ModelUUID)
 }
 
-func (s *environFirewallSuite) TestOpenPortsInvalidCredentialError(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	fwPrefix := "juju-" + s.ModelUUID
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
@@ -69,11 +71,11 @@ func (s *environFirewallSuite) TestOpenPortsInvalidCredentialError(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 	err := env.OpenPorts(s.CallCtx, gce.GlobalFirewallName(env), rules)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPorts(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -104,10 +106,10 @@ func (s *environFirewallSuite) TestOpenPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
+func (s *environFirewallSuite) TestClosePorts(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -129,15 +131,15 @@ func (s *environFirewallSuite) TestClosePorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePortsInvalidCredentialError(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
@@ -146,26 +148,26 @@ func (s *environFirewallSuite) TestClosePortsInvalidCredentialError(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp")),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environFirewallSuite) TestIngressRulesInvalidCredentialError(c *gc.C) {
+func (s *environFirewallSuite) TestIngressRulesInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	fwPrefix := s.generateMachineID()
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
 
 	_, err := env.IngressRules(s.CallCtx, fwPrefix)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
+func (s *environFirewallSuite) TestIngressRules(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -188,9 +190,9 @@ func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
 	}}, nil)
 
 	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(
-		ports, jc.DeepEquals,
+		ports, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
 			firewall.NewIngressRule(network.MustParsePortRange("92/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -200,7 +202,7 @@ func (s *environFirewallSuite) TestIngressRules(c *gc.C) {
 	)
 }
 
-func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
+func (s *environFirewallSuite) TestIngressRulesCollapse(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -230,9 +232,9 @@ func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
 	}}, nil)
 
 	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(
-		ports, jc.DeepEquals,
+		ports, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("80-83/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
 			firewall.NewIngressRule(network.MustParsePortRange("92/tcp"), "10.0.0.0/24", "192.168.1.0/24"),
@@ -240,7 +242,7 @@ func (s *environFirewallSuite) TestIngressRulesCollapse(c *gc.C) {
 	)
 }
 
-func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
+func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -257,9 +259,9 @@ func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
 	}}, nil)
 
 	ports, err := env.IngressRules(s.CallCtx, fwPrefix)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(
-		ports, jc.DeepEquals,
+		ports, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), firewall.AllNetworksIPV4CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("92/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -267,7 +269,7 @@ func (s *environFirewallSuite) TestIngressRulesDefaultCIDR(c *gc.C) {
 	)
 }
 
-func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsAdd(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -319,10 +321,10 @@ func (s *environFirewallSuite) TestOpenPortsAdd(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("67/udp"), "10.0.0.0/24"),
 	}
 	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -353,10 +355,10 @@ func (s *environFirewallSuite) TestOpenPortsUpdateSameCIDR(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("443/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
 	}
 	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -387,10 +389,10 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAddCIDR(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "10.0.0.0/24"),
 	}
 	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
+func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -459,10 +461,10 @@ func (s *environFirewallSuite) TestOpenPortsUpdateAndAdd(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("67/udp"), "172.0.0.0/24"),
 	}
 	err := env.OpenPorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePortsRemove(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsRemove(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -484,10 +486,10 @@ func (s *environFirewallSuite) TestClosePortsRemove(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("443/tcp")),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePortsUpdate(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsUpdate(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -518,10 +520,10 @@ func (s *environFirewallSuite) TestClosePortsUpdate(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("443/tcp")),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -552,10 +554,10 @@ func (s *environFirewallSuite) TestClosePortsCollapseUpdate(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80-82/tcp")),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *gc.C) {
+func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -587,10 +589,10 @@ func (s *environFirewallSuite) TestClosePortsRemoveCIDR(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80-81/tcp"), "192.168.1.0/24"),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestCloseNoMatches(c *gc.C) {
+func (s *environFirewallSuite) TestCloseNoMatches(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -611,10 +613,10 @@ func (s *environFirewallSuite) TestCloseNoMatches(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), "192.168.0.1/24"),
 	}
 	err := env.ClosePorts(s.CallCtx, fwPrefix, rules)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`closing port(s) [100-110/tcp from 192.168.0.1/24] over non-matching rules not supported`))
+	c.Assert(err, tc.ErrorMatches, regexp.QuoteMeta(`closing port(s) [100-110/tcp from 192.168.0.1/24] over non-matching rules not supported`))
 }
 
-func (s *environFirewallSuite) TestOpenModelPorts(c *gc.C) {
+func (s *environFirewallSuite) TestOpenModelPorts(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -641,15 +643,15 @@ func (s *environFirewallSuite) TestOpenModelPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), []string{"192.168.1.0/24"}...),
 	}
 	err := env.OpenModelPorts(s.CallCtx, rules)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestOpenModelPortsInvalidCredentialError(c *gc.C) {
+func (s *environFirewallSuite) TestOpenModelPortsInvalidCredentialError(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
 	env := s.SetupEnv(c, s.MockService)
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
+	c.Assert(s.InvalidatedCredentials, tc.IsFalse)
 
 	fwPrefix := "juju-" + s.ModelUUID
 	s.MockService.EXPECT().Firewalls(gomock.Any(), fwPrefix).Return(nil, gce.InvalidCredentialError)
@@ -658,11 +660,11 @@ func (s *environFirewallSuite) TestOpenModelPortsInvalidCredentialError(c *gc.C)
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp")),
 	}
 	err := env.OpenModelPorts(s.CallCtx, rules)
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+	c.Check(err, tc.NotNil)
+	c.Assert(s.InvalidatedCredentials, tc.IsTrue)
 }
 
-func (s *environFirewallSuite) TestCloseModelPorts(c *gc.C) {
+func (s *environFirewallSuite) TestCloseModelPorts(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -684,10 +686,10 @@ func (s *environFirewallSuite) TestCloseModelPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp")),
 	}
 	err := env.CloseModelPorts(s.CallCtx, rules)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }
 
-func (s *environFirewallSuite) TestModelIngressRules(c *gc.C) {
+func (s *environFirewallSuite) TestModelIngressRules(c *tc.C) {
 	ctrl := s.SetupMocks(c)
 	defer ctrl.Finish()
 
@@ -707,9 +709,9 @@ func (s *environFirewallSuite) TestModelIngressRules(c *gc.C) {
 	}}, nil)
 
 	ports, err := env.ModelIngressRules(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(
-		ports, jc.DeepEquals,
+		ports, tc.DeepEquals,
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), "192.168.1.0/24"),
 		},

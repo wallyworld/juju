@@ -4,24 +4,28 @@
 package kvm
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type containerFactorySuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&containerFactorySuite{})
+func TestContainerFactorySuite(t *tctesting.T) {
+	tc.Run(t, &containerFactorySuite{})
+}
 
-func (containerFactorySuite) TestNewContainerStartedIsNil(c *gc.C) {
+func (containerFactorySuite) TestNewContainerStartedIsNil(c *tc.C) {
 	vm := new(containerFactory).New("some-kvm")
 
 	raw, ok := vm.(*kvmContainer)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 
 	// A new container instantiated in this way must have an "unknown"
 	// started state, which will get queried and set at need.
-	c.Assert(raw.started, gc.IsNil)
+	c.Assert(raw.started, tc.IsNil)
 }

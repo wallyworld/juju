@@ -5,16 +5,15 @@ package migrationtarget_test
 
 import (
 	"fmt"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -33,12 +32,13 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/manual"
+	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type Suite struct {
@@ -51,9 +51,11 @@ type Suite struct {
 	leaders       map[string]string
 }
 
-var _ = gc.Suite(&Suite{})
+func TestSuite(t *tctesting.T) {
+	jujutesting.MgoTestPackage(t, &Suite{})
+}
 
-func (s *Suite) SetUpTest(c *gc.C) {
+func (s *Suite) SetUpTest(c *tc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
@@ -63,7 +65,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+	s.AddCleanup(func(*tc.C) { s.resources.StopAll() })
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -80,52 +82,52 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.leaders = map[string]string{}
 }
 
-func (s *Suite) TestFacadeRegistered(c *gc.C) {
+func (s *Suite) TestFacadeRegistered(c *tc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(api, tc.FitsTypeOf, new(migrationtarget.API))
 }
 
-func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
+func (s *Suite) TestFacadeRegisteredV2(c *tc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(api, tc.FitsTypeOf, new(migrationtarget.APIV2))
 }
 
-func (s *Suite) TestNotUser(c *gc.C) {
+func (s *Suite) TestNotUser(c *tc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
+	c.Assert(errors.Cause(err), tc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *Suite) TestNotControllerAdmin(c *gc.C) {
+func (s *Suite) TestNotControllerAdmin(c *tc.C) {
 	s.authorizer.Tag = names.NewUserTag("jrandomuser")
 	_, err := s.newAPI(nil, nil)
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
+	c.Assert(errors.Is(err, apiservererrors.ErrPerm), tc.IsTrue)
 }
 
-func (s *Suite) TestCACert(c *gc.C) {
+func (s *Suite) TestCACert(c *tc.C) {
 	api := s.mustNewAPI(c)
 	r, err := api.CACert()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(r.Result), tc.Equals, jujutesting.CACert)
 }
 
-func (s *Suite) TestPrechecks(c *gc.C) {
+func (s *Suite) TestPrechecks(c *tc.C) {
 	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
@@ -135,10 +137,10 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
 	err := api.Prechecks(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *Suite) TestPrechecksFail(c *gc.C) {
+func (s *Suite) TestPrechecksFail(c *tc.C) {
 	controllerVersion := s.controllerVersion(c)
 
 	// Set the model version ahead of the controller.
@@ -150,10 +152,10 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 		AgentVersion: modelVersion,
 	}
 	err := api.Prechecks(args)
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, tc.NotNil)
 }
 
-func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
+func (s *Suite) TestPrechecksFacadeVersionsFail(c *tc.C) {
 	controllerVersion := s.controllerVersion(c)
 
 	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
@@ -164,7 +166,7 @@ func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
 		ControllerAgentVersion: controllerVersion,
 	}
 	err := api.Prechecks(args)
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
 with an earlier version of the target controller and try again.
@@ -172,7 +174,7 @@ with an earlier version of the target controller and try again.
 `[1:])
 }
 
-func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
+func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *tc.C) {
 	controllerVersion := s.controllerVersion(c)
 	controllerVersion.Patch++
 
@@ -184,7 +186,7 @@ func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
 		ControllerAgentVersion: controllerVersion,
 	}
 	err := api.Prechecks(args)
-	c.Assert(err, gc.ErrorMatches, `
+	c.Assert(err, tc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
 Upgrade the controller to a newer version of .* or migrate to a controller
 with an earlier version of the target controller and try again.
@@ -192,18 +194,18 @@ with an earlier version of the target controller and try again.
 `[1:])
 }
 
-func (s *Suite) TestImport(c *gc.C) {
+func (s *Suite) TestImport(c *tc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 	// Check the model was imported.
 	model, ph, err := s.StatePool.GetModel(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ph.Release()
-	c.Assert(model.Name(), gc.Equals, "some-model")
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+	c.Assert(model.Name(), tc.Equals, "some-model")
+	c.Assert(model.MigrationMode(), tc.Equals, state.MigrationModeImporting)
 }
 
-func (s *Suite) TestImportLeadership(c *gc.C) {
+func (s *Suite) TestImportLeadership(c *tc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
@@ -221,53 +223,53 @@ func (s *Suite) TestImportLeadership(c *gc.C) {
 	api := s.mustNewAPI(c)
 	s.importModel(c, api)
 
-	c.Assert(claimer.stub.Calls(), gc.HasLen, 1)
+	c.Assert(claimer.stub.Calls(), tc.HasLen, 1)
 	claimer.stub.CheckCall(c, 0, "ClaimLeadership", "wordpress", "wordpress/2", time.Minute)
 }
 
-func (s *Suite) TestAbort(c *gc.C) {
+func (s *Suite) TestAbort(c *tc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
 	err := api.Abort(params.ModelArgs{ModelTag: tag.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The model should no longer exist.
 	exists, err := s.State.ModelExists(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(exists, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }
 
-func (s *Suite) TestAbortNotATag(c *gc.C) {
+func (s *Suite) TestAbortNotATag(c *tc.C) {
 	api := s.mustNewAPI(c)
 	err := api.Abort(params.ModelArgs{ModelTag: "not-a-tag"})
-	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestAbortMissingModel(c *gc.C) {
+func (s *Suite) TestAbortMissingModel(c *tc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Abort(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
+func (s *Suite) TestAbortNotImportingModel(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
 	err = api.Abort(params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
-func (s *Suite) TestActivate(c *gc.C) {
+func (s *Suite) TestActivate(c *tc.C) {
 	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
@@ -279,140 +281,140 @@ func (s *Suite) TestActivate(c *gc.C) {
 		SourceCACert:    jujutesting.CACert,
 		CrossModelUUIDs: []string{sourceModel},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	model, ph, err := s.StatePool.GetModel(tag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer ph.Release()
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
+	c.Assert(model.MigrationMode(), tc.Equals, state.MigrationModeNone)
 
 	ec := state.NewExternalControllers(model.State())
 	info, err := ec.ControllerForModel(sourceModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ControllerInfo(), jc.DeepEquals, crossmodel.ControllerInfo{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info.ControllerInfo(), tc.DeepEquals, crossmodel.ControllerInfo{
 		ControllerTag: jujutesting.ControllerTag,
 		Alias:         "mycontroller",
 		Addrs:         []string{"10.6.6.6:17070"},
 		CACert:        jujutesting.CACert,
 	})
 	app, err := model.State().RemoteApplication("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(app.SourceController(), tc.Equals, jujutesting.ControllerTag.Id())
 }
 
-func (s *Suite) TestActivateNotATag(c *gc.C) {
+func (s *Suite) TestActivateNotATag(c *tc.C) {
 	api := s.mustNewAPI(c)
 	err := api.Activate(params.ActivateModelArgs{ModelTag: "not-a-tag"})
-	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
+	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestActivateMissingModel(c *gc.C) {
+func (s *Suite) TestActivateMissingModel(c *tc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Activate(params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
+func (s *Suite) TestActivateNotImportingModel(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
 	err = api.Activate(params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+	c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
-func (s *Suite) TestLatestLogTime(c *gc.C) {
+func (s *Suite) TestLatestLogTime(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	t := time.Date(2016, 11, 30, 18, 14, 0, 100, time.UTC)
 	tracker := state.NewLastSentLogTracker(st, model.UUID(), "migration-logtransfer")
 	defer tracker.Close()
 	err = tracker.Set(0, t.UnixNano())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
 	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(latest, gc.Equals, t)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.Equals, t)
 }
 
-func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
+func (s *Suite) TestLatestLogTimeNeverSet(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
 	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(latest, gc.Equals, time.Time{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(latest, tc.Equals, time.Time{})
 }
 
-func (s *Suite) TestAdoptIAASResources(c *gc.C) {
+func (s *Suite) TestAdoptIAASResources(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	env := mockEnv{Stub: &testing.Stub{}}
+	env := mockEnv{Stub: &testhelpers.Stub{}}
 	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
+		c.Assert(model.ModelTag().Id(), tc.Equals, st.ModelUUID())
 		return &env, nil
 	}, func(model stateenvirons.Model) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.AdoptResources(params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
+	c.Assert(env.Stub.Calls(), tc.HasLen, 1)
 	aCall := env.Stub.Calls()[0]
-	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
-	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
-	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
+	c.Assert(aCall.FuncName, tc.Equals, "AdoptResources")
+	c.Assert(aCall.Args[1], tc.Equals, st.ControllerUUID())
+	c.Assert(aCall.Args[2], tc.Equals, version.MustParse("3.2.1"))
 }
 
-func (s *Suite) TestAdoptCAASResources(c *gc.C) {
+func (s *Suite) TestAdoptCAASResources(c *tc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	broker := mockBroker{Stub: &testing.Stub{}}
+	broker := mockBroker{Stub: &testhelpers.Stub{}}
 	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
 		return nil, errors.New("should not be called")
 	}, func(model stateenvirons.Model) (caas.Broker, error) {
-		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
+		c.Assert(model.ModelTag().Id(), tc.Equals, st.ModelUUID())
 		return &broker, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = api.AdoptResources(params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(broker.Stub.Calls(), gc.HasLen, 1)
+	c.Assert(broker.Stub.Calls(), tc.HasLen, 1)
 	aCall := broker.Stub.Calls()[0]
-	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
-	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
-	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
+	c.Assert(aCall.FuncName, tc.Equals, "AdoptResources")
+	c.Assert(aCall.Args[1], tc.Equals, st.ControllerUUID())
+	c.Assert(aCall.Args[2], tc.Equals, version.MustParse("3.2.1"))
 }
 
-func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
+func (s *Suite) TestCheckMachinesSuccess(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -423,10 +425,10 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	m := fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "volta",
 	})
-	c.Assert(m.Id(), gc.Equals, "1")
+	c.Assert(m.Id(), tc.Equals, "1")
 
 	mockEnv := mockEnv{
-		Stub: &testing.Stub{},
+		Stub: &testhelpers.Stub{},
 		instances: []*mockInstance{
 			{id: "volta"},
 			{id: "eriatarka"},
@@ -434,14 +436,14 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	}
 	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
+func (s *Suite) TestCheckMachinesHandlesContainers(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -452,19 +454,19 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	fact.MakeMachineNested(c, m.Id(), nil)
 
 	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
+		Stub:      &testhelpers.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
 	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
+func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *tc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -477,20 +479,20 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 	})
 
 	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
+		Stub:      &testhelpers.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
 	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
+func (s *Suite) TestCheckMachinesManualCloud(c *tc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "manual",
@@ -498,13 +500,13 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 		Endpoint:  "10.0.0.1",
 	}, owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
@@ -522,17 +524,17 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	})
 
 	mockEnv := mockEnv{
-		Stub:      &testing.Stub{},
+		Stub:      &testhelpers.Stub{},
 		instances: []*mockInstance{{id: "birds"}, {id: "flibbertigibbert"}},
 	}
 	api := s.mustNewAPIWithModel(c, &mockEnv, &mockBroker{})
 
 	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	results, err := api.CheckMachines(
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
@@ -540,9 +542,9 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 	return api, err
 }
 
-func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
+func (s *Suite) mustNewAPI(c *tc.C) *migrationtarget.API {
 	api, err := s.newAPI(nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
@@ -551,25 +553,25 @@ func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFun
 	return api, err
 }
 
-func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVersions) *migrationtarget.API {
 	api, err := s.newAPIWithFacadeVersions(nil, nil, versions)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithModel(c *tc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
 	api, err := s.newAPI(func(stateenvirons.Model) (environs.Environ, error) {
 		return env, nil
 	}, func(stateenvirons.Model) (caas.Broker, error) {
 		return broker, nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
+func (s *Suite) makeExportedModel(c *tc.C) (string, []byte) {
 	model, err := s.State.Export(s.leaders)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	newUUID := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
@@ -578,28 +580,28 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	})
 
 	bytes, err := description.Serialize(model)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return newUUID, bytes
 }
 
-func (s *Suite) controllerVersion(c *gc.C) version.Number {
+func (s *Suite) controllerVersion(c *tc.C) version.Number {
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	return vers
 }
 
-func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
+func (s *Suite) importModel(c *tc.C, api *migrationtarget.API) names.ModelTag {
 	uuid, bytes := s.makeExportedModel(c)
 	err := api.Import(params.SerializedModel{Bytes: bytes})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return names.NewModelTag(uuid)
 }
 
 type mockEnv struct {
 	environs.Environ
-	*testing.Stub
+	*testhelpers.Stub
 
 	instances []*mockInstance
 }
@@ -620,7 +622,7 @@ func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 
 type mockBroker struct {
 	caas.Broker
-	*testing.Stub
+	*testhelpers.Stub
 }
 
 func (e *mockBroker) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
@@ -639,7 +641,7 @@ func (i *mockInstance) Id() instance.Id {
 
 type fakeClaimer struct {
 	leadership.Claimer
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
 func (c *fakeClaimer) ClaimLeadership(application, unit string, duration time.Duration) error {

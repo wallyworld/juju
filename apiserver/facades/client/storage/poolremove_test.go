@@ -5,9 +5,9 @@ package storage_test
 
 import (
 	"fmt"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -18,19 +18,21 @@ type poolRemoveSuite struct {
 	baseStorageSuite
 }
 
-var _ = gc.Suite(&poolRemoveSuite{})
+func TestPoolRemoveSuite(t *tctesting.T) {
+	tc.Run(t, &poolRemoveSuite{})
+}
 
-func (s *poolRemoveSuite) createPools(c *gc.C, num int) {
+func (s *poolRemoveSuite) createPools(c *tc.C, num int) {
 	var err error
 	for i := 0; i < num; i++ {
 		poolName := fmt.Sprintf("%v%v", tstName, i)
 		s.baseStorageSuite.pools[poolName], err =
 			storage.NewConfig(poolName, provider.LoopProviderType, map[string]interface{}{"zip": "zap"})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
+func (s *poolRemoveSuite) TestRemovePool(c *tc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
@@ -40,16 +42,16 @@ func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 0)
 }
 
-func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveNotExists(c *tc.C) {
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 
 	args := params.StoragePoolDeleteArgs{
@@ -58,16 +60,16 @@ func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 0)
 }
 
-func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveInUse(c *tc.C) {
 	s.createPools(c, 1)
 	poolName := fmt.Sprintf("%v%v", tstName, 0)
 	s.poolsInUse = []string{poolName}
@@ -77,16 +79,16 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
 }
 
-func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
+func (s *poolRemoveSuite) TestRemoveSomeInUse(c *tc.C) {
 	s.createPools(c, 2)
 	poolNameInUse := fmt.Sprintf("%v%v", tstName, 0)
 	poolNameNotInUse := fmt.Sprintf("%v%v", tstName, 1)
@@ -99,12 +101,12 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
 		}},
 	}
 	results, err := s.api.RemovePool(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
-	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))
+	c.Assert(results.Results[1].Error, tc.IsNil)
 
 	pools, err := s.poolManager.List()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pools, tc.HasLen, 1)
 }

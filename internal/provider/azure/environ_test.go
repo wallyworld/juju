@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	tctesting "testing"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -24,11 +25,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
-	gitjujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -52,9 +51,10 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
@@ -126,9 +126,11 @@ type environSuite struct {
 	invalidatedCredential bool
 }
 
-var _ = gc.Suite(&environSuite{})
+func TestEnvironSuite(t *tctesting.T) {
+	tc.Run(t, &environSuite{})
+}
 
-func (s *environSuite) SetUpTest(c *gc.C) {
+func (s *environSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sender = nil
 	s.requests = nil
@@ -291,19 +293,19 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *environSuite) TearDownTest(c *gc.C) {
+func (s *environSuite) TearDownTest(c *tc.C) {
 	s.invalidatedCredential = false
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
+func (s *environSuite) openEnviron(c *tc.C, attrs ...testing.Attrs) environs.Environ {
 	env := openEnviron(c, s.provider, &s.sender, attrs...)
 	s.requests = nil
 	return env
 }
 
 func openEnviron(
-	c *gc.C,
+	c *tc.C,
 	provider environs.EnvironProvider,
 	sender *azuretesting.Senders,
 	attrs ...testing.Attrs,
@@ -319,12 +321,12 @@ func openEnviron(
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env
 }
 
 func prepareForBootstrap(
-	c *gc.C,
+	c *tc.C,
 	ctx environs.BootstrapContext,
 	provider environs.EnvironProvider,
 	sender *azuretesting.Senders,
@@ -336,7 +338,7 @@ func prepareForBootstrap(
 		Config: makeTestModelConfig(c, attrs...),
 		Cloud:  fakeCloudSpec(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	*sender = azuretesting.Senders{
 		discoverAuthSender(),
@@ -347,11 +349,11 @@ func prepareForBootstrap(
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	*sender = azuretesting.Senders{}
 	err = env.PrepareForBootstrap(ctx, "controller-1")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return env
 }
 
@@ -403,7 +405,7 @@ type startInstanceSenderParams struct {
 	hasSpaceConstraints     bool
 }
 
-func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderParams) azuretesting.Senders {
+func (s *environSuite) startInstanceSenders(c *tc.C, args startInstanceSenderParams) azuretesting.Senders {
 	senders := azuretesting.Senders{}
 	if args.existingAvailabilitySet {
 		senders = append(senders, makeSender("/availabilitySets/mysql", &armcompute.AvailabilitySet{}))
@@ -484,7 +486,7 @@ func (s *environSuite) startInstanceSenders(c *gc.C, args startInstanceSenderPar
 			},
 		}
 		rErr, err := json.Marshal(requestError)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		hypervisorGenErr := newAzureResponseError(c, http.StatusBadRequest,
 			"DeploymentFailed", string(rErr),
 		)
@@ -543,7 +545,7 @@ func makeSenderWithStatus(pattern string, statusCode int) *azuretesting.MockSend
 	return &sender
 }
 
-func newAzureResponseError(c *gc.C, code int, status, message string) error {
+func newAzureResponseError(c *tc.C, code int, status, message string) error {
 	header := make(http.Header)
 	header.Set("Content-Type", "application/json")
 	requestError := errorutils.RequestError{
@@ -555,7 +557,7 @@ func newAzureResponseError(c *gc.C, code int, status, message string) error {
 		},
 	}
 	body, err := json.Marshal(requestError)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &azcore.ResponseError{
 		ErrorCode:  status,
 		StatusCode: code,
@@ -577,7 +579,7 @@ func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *a
 	return sender
 }
 
-func makeStartInstanceParams(c *gc.C, controllerUUID string, base corebase.Base) environs.StartInstanceParams {
+func makeStartInstanceParams(c *tc.C, controllerUUID string, base corebase.Base) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:17777"},
@@ -592,7 +594,7 @@ func makeStartInstanceParams(c *gc.C, controllerUUID string, base corebase.Base)
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
 		base, apiInfo,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	icfg.ControllerConfig = controller.Config{}
 	icfg.Tags = map[string]string{
 		tags.JujuModel:      testing.ModelTag.Id(),
@@ -619,21 +621,21 @@ func makeToolsList(osType string) tools.List {
 	}}
 }
 
-func unmarshalRequestBody(c *gc.C, req *http.Request, out interface{}) {
+func unmarshalRequestBody(c *tc.C, req *http.Request, out interface{}) {
 	bytes, err := io.ReadAll(req.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(bytes, out)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
+func assertRequestBody(c *tc.C, req *http.Request, expect interface{}) {
 	unmarshalled := reflect.New(reflect.TypeOf(expect).Elem()).Interface()
 	unmarshalRequestBody(c, req, unmarshalled)
-	c.Assert(unmarshalled, jc.DeepEquals, expect)
+	c.Assert(unmarshalled, tc.DeepEquals, expect)
 }
 
 type mockClock struct {
-	gitjujutesting.Stub
+	testhelpers.Stub
 	*testclock.Clock
 }
 
@@ -643,43 +645,43 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	return c.Clock.After(d)
 }
 
-func (s *environSuite) TestOpen(c *gc.C) {
+func (s *environSuite) TestOpen(c *tc.C) {
 	env := s.openEnviron(c)
-	c.Assert(env, gc.NotNil)
+	c.Assert(env, tc.NotNil)
 }
 
-func (s *environSuite) TestStartInstance(c *gc.C) {
+func (s *environSuite) TestStartInstance(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, true, false, false, false)
 }
 
-func (s *environSuite) TestStartInstancePrivateIP(c *gc.C) {
+func (s *environSuite) TestStartInstancePrivateIP(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, false, false, false, false)
 }
 
-func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *gc.C) {
+func (s *environSuite) TestStartInstanceRootDiskSmallerThanMin(c *tc.C) {
 	wantedRootDisk := 22
 	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false, false)
 }
 
-func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *gc.C) {
+func (s *environSuite) TestStartInstanceRootDiskLargerThanMin(c *tc.C) {
 	wantedRootDisk := 40
 	s.assertStartInstance(c, &wantedRootDisk, nil, true, false, false, false)
 }
 
-func (s *environSuite) TestStartInstanceQuotaRetry(c *gc.C) {
+func (s *environSuite) TestStartInstanceQuotaRetry(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, false, true, false, false)
 }
 
-func (s *environSuite) TestStartInstanceHypervisorGenRetry(c *gc.C) {
+func (s *environSuite) TestStartInstanceHypervisorGenRetry(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, false, false, true, false)
 }
 
-func (s *environSuite) TestStartInstanceConflictRetry(c *gc.C) {
+func (s *environSuite) TestStartInstanceConflictRetry(c *tc.C) {
 	s.assertStartInstance(c, nil, nil, false, false, false, true)
 }
 
 func (s *environSuite) assertStartInstance(
-	c *gc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
+	c *tc.C, wantedRootDisk *int, rootDiskSourceParams map[string]interface{},
 	publicIP, withQuotaRetry, withHypervisorGenRetry, withConflictRetry bool,
 ) {
 	env := s.openEnviron(c)
@@ -764,12 +766,12 @@ func (s *environSuite) assertStartInstance(
 		args.Constraints.AllocatePublicIP = &publicIP
 	}
 	result, err := env.StartInstance(s.callCtx, args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Instance, gc.NotNil)
-	c.Assert(result.NetworkInfo, gc.HasLen, 0)
-	c.Assert(result.Volumes, gc.HasLen, 0)
-	c.Assert(result.VolumeAttachments, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+	c.Assert(result.Instance, tc.NotNil)
+	c.Assert(result.NetworkInfo, tc.HasLen, 0)
+	c.Assert(result.Volumes, tc.HasLen, 0)
+	c.Assert(result.VolumeAttachments, tc.HasLen, 0)
 
 	arch := corearch.DefaultArchitecture
 	mem := uint64(1792)
@@ -777,7 +779,7 @@ func (s *environSuite) assertStartInstance(
 		mem = uint64(3584)
 	}
 	cpuCores := uint64(1)
-	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(result.Hardware, tc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		Mem:      &mem,
 		RootDisk: &expectedRootDisk,
@@ -801,17 +803,17 @@ func (s *environSuite) assertStartInstance(
 	s.assertStartInstanceRequests(c, s.requests, startParams)
 }
 
-func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
+func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *tc.C) {
 	env := s.openEnviron(c)
 	cfg, err := env.Config().Remove([]string{"authorized-keys"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
 	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
 		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
@@ -826,29 +828,29 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 	})
 }
 
-func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
+func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *tc.C) {
 	unauthSender := &azuretesting.MockSender{}
 	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
 	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
-func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
+func (s *environSuite) TestStartInstanceInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c)
 	cfg, err := env.Config().Remove([]string{"authorized-keys"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.createSenderWithUnauthorisedStatusCode(c)
 	s.requests = nil
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 
 	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
-func (s *environSuite) TestStartControllerInstance(c *gc.C) {
+func (s *environSuite) TestStartControllerInstance(c *tc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
@@ -860,10 +862,10 @@ func (s *environSuite) TestStartControllerInstance(c *gc.C) {
 	params.InstanceConfig.Jobs = []model.MachineJob{model.JobManageModel}
 	params.InstanceConfig.ControllerConfig["api-port"] = 17070
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
+func (s *environSuite) TestStartInstanceCentOS(c *tc.C) {
 	// Starting a CentOS VM, we should not expect an image query.
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
 
@@ -872,7 +874,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("centos", "7"))
 	_, err := env.StartInstance(s.callCtx, args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	vmExtensionSettings := map[string]interface{}{
 		"commandToExecute": `bash -c 'base64 -d /var/lib/waagent/CustomData | bash'`,
@@ -893,7 +895,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
+func (s *environSuite) TestStartInstanceCommonDeployment(c *tc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment. If the deployment
 	// is seen to be in a terminal state, the process will stop
@@ -906,13 +908,13 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.requests = nil
 
 	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
 			`"common" resource deployment status is "Failed"`)
 }
 
-func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
+func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *tc.C) {
 	// StartInstance waits for the "common" deployment to complete
 	// successfully before creating the VM deployment.
 	s.commonDeployment.Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
@@ -930,21 +932,21 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.requests = nil
 
 	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
 			`max duration exceeded: deployment incomplete`)
 
-	var expectedCalls []gitjujutesting.StubCall
+	var expectedCalls []testhelpers.StubCall
 	for i := 0; i < failures; i++ {
-		expectedCalls = append(expectedCalls, gitjujutesting.StubCall{
+		expectedCalls = append(expectedCalls, testhelpers.StubCall{
 			"After", []interface{}{5 * time.Second},
 		})
 	}
 	s.retryClock.CheckCalls(c, expectedCalls)
 }
 
-func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
+func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *tc.C) {
 	env := s.openEnviron(c)
 	s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
@@ -953,7 +955,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
 		imageReference:      &jammyImageReferenceGen2,
@@ -964,7 +966,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
+func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *tc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
 	s.requests = nil
@@ -976,7 +978,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	}
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:      &jammyImageReferenceGen2,
 		diskSizeGB:          32,
@@ -988,7 +990,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
+func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *tc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
@@ -996,10 +998,10 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	params.Placement = "foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": unknown placement directive: foo`)
+	c.Assert(err, tc.ErrorMatches, `creating virtual machine "juju-06f00d-0": unknown placement directive: foo`)
 }
 
-func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
+func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *tc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
@@ -1007,10 +1009,10 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	params.Placement = "subnet=foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": subnet "foo" not found`)
+	c.Assert(err, tc.ErrorMatches, `creating virtual machine "juju-06f00d-0": subnet "foo" not found`)
 }
 
-func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C) {
+func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *tc.C) {
 	env := s.openEnviron(c)
 	subnets := []*armnetwork.Subnet{{
 		ID:   to.Ptr("/path/to/subnet1"),
@@ -1034,7 +1036,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 	params.Placement = "subnet=subnet2"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:  &jammyImageReferenceGen2,
 		diskSizeGB:      32,
@@ -1046,7 +1048,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 	})
 }
 
-func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
+func (s *environSuite) TestStartInstanceWithPlacement(c *tc.C) {
 	env := s.openEnviron(c)
 	subnets := []*armnetwork.Subnet{{
 		ID:   to.Ptr("/path/to/subnet1"),
@@ -1075,7 +1077,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 	params.Placement = "subnet=subnet2"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:  &jammyImageReferenceGen2,
 		diskSizeGB:      32,
@@ -1119,7 +1121,7 @@ type assertStartInstanceRequestsParams struct {
 }
 
 func (s *environSuite) assertStartInstanceRequests(
-	c *gc.C,
+	c *tc.C,
 	requests []*http.Request,
 	args assertStartInstanceRequestsParams,
 ) startInstanceRequests {
@@ -1456,87 +1458,87 @@ func (s *environSuite) assertStartInstanceRequests(
 	if args.vmExtension != nil {
 		// It must be Windows or CentOS, so
 		// there should be no image query.
-		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests-1)
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // vmSizes
+		c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // vmSizes
 		startInstanceRequests.vmSizes = requests[0]
 	} else {
 		if bootstrapping {
 			if args.existingNetwork == "" {
-				c.Assert(requests, gc.HasLen, numExpectedBootstrapStartInstanceRequests-1)
+				c.Assert(requests, tc.HasLen, numExpectedBootstrapStartInstanceRequests-1)
 			} else {
-				c.Assert(requests, gc.HasLen, numExpectedBootstrapStartInstanceRequests+1)
+				c.Assert(requests, tc.HasLen, numExpectedBootstrapStartInstanceRequests+1)
 			}
 		} else {
 			if args.diskEncryptionSet != "" && args.vaultName != "" {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+4)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+4)
 			} else if args.hasSpaceConstraints {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests-1)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
 			} else if args.withConflictRetry {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+3)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+3)
 			} else if args.withQuotaRetry {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+5)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+5)
 			} else if args.withHypervisorGenRetry {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests+4)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+4)
 			} else {
-				c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
+				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests)
 			}
 		}
 		if args.needsProviderInit {
 			if args.resourceGroupName != "" {
-				c.Assert(requests[nexti()].Method, gc.Equals, "GET") // resource groups
+				c.Assert(requests[nexti()].Method, tc.Equals, "GET") // resource groups
 			} else {
-				c.Assert(requests[nexti()].Method, gc.Equals, "PUT") // resource groups
+				c.Assert(requests[nexti()].Method, tc.Equals, "PUT") // resource groups
 			}
-			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // skus
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // skus
 			startInstanceRequests.resourceGroups = requests[0]
 			startInstanceRequests.skus = requests[1]
 		} else {
-			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // vmSizes
-			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // skus
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // vmSizes
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // skus
 			startInstanceRequests.vmSizes = requests[0]
 			startInstanceRequests.skus = requests[1]
 		}
 	}
 	if !bootstrapping {
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // wait for common deployment
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // wait for common deployment
 		if len(args.subnets) == 0 {
-			c.Assert(requests[nexti()].Method, gc.Equals, "GET") // subnets
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets
 		}
 	}
 	if args.placementSubnet != "" {
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // get subnets
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // get subnets
 	}
 	if args.vaultName != "" {
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET")  // deleted vaults
-		c.Assert(requests[nexti()].Method, gc.Equals, "PUT")  // create vault
-		c.Assert(requests[nexti()].Method, gc.Equals, "POST") // get token
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET")  // newly created vault
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET")  // deleted vaults
+		c.Assert(requests[nexti()].Method, tc.Equals, "PUT")  // create vault
+		c.Assert(requests[nexti()].Method, tc.Equals, "POST") // get token
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET")  // newly created vault
 	}
 	if bootstrapping && args.existingNetwork != "" {
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // wait for common deployment
-		c.Assert(requests[nexti()].Method, gc.Equals, "GET") // subnets
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // wait for common deployment
+		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets
 	}
 	ideployment := nexti()
-	c.Assert(requests[ideployment].Method, gc.Equals, "PUT") // create deployment
+	c.Assert(requests[ideployment].Method, tc.Equals, "PUT") // create deployment
 	startInstanceRequests.deployment = requests[ideployment]
 
 	// Marshal/unmarshal the deployment we expect, so it's in map form.
 	var expected armresources.Deployment
 	data, err := json.Marshal(&deployment)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal(data, &expected)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we send what we expect. CustomData is non-deterministic,
 	// so don't compare it.
 	// TODO(axw) shouldn't CustomData be deterministic? Look into this.
 	var actual armresources.Deployment
 	unmarshalRequestBody(c, startInstanceRequests.deployment, &actual)
-	c.Assert(actual.Properties, gc.NotNil)
-	c.Assert(actual.Properties.Template, gc.NotNil)
+	c.Assert(actual.Properties, tc.NotNil)
+	c.Assert(actual.Properties.Template, tc.NotNil)
 	resources, ok := actual.Properties.Template.(map[string]interface{})["resources"].([]interface{})
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(resources, gc.HasLen, len(templateResources))
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(resources, tc.HasLen, len(templateResources))
 
 	vmResourceIndex := len(resources) - 1
 	if args.vmExtension != nil {
@@ -1549,7 +1551,7 @@ func (s *environSuite) assertStartInstanceRequests(
 
 	// Fix the round tripping of the vm identities.
 	resources, ok = expected.Properties.Template.(map[string]interface{})["resources"].([]interface{})
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	identity, _ := resources[vmResourceIndex].(map[string]interface{})["identity"]
 	if identity != nil {
 		userAssignedIdentities, _ := identity.(map[string]interface{})["userAssignedIdentities"].(map[string]interface{})
@@ -1558,7 +1560,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		}
 	}
 
-	c.Assert(actual, jc.DeepEquals, expected)
+	c.Assert(actual, tc.DeepEquals, expected)
 
 	return startInstanceRequests
 }
@@ -1572,7 +1574,7 @@ type startInstanceRequests struct {
 
 const resourceGroupName = "juju-testmodel-deadbeef"
 
-func (s *environSuite) TestBootstrap(c *gc.C) {
+func (s *environSuite) TestBootstrap(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1590,11 +1592,11 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1606,7 +1608,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
+func (s *environSuite) TestBootstrapPrivateIP(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1624,11 +1626,11 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1639,7 +1641,7 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
+func (s *environSuite) TestBootstrapCustomNetwork(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1657,12 +1659,12 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
 
 	// 2 extra requests for network setup.
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests+2)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests+2)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1675,7 +1677,7 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
+func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1693,11 +1695,11 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1710,7 +1712,7 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
+func (s *environSuite) TestBootstrapWithInvalidCredential(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1720,7 +1722,7 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:        testing.FakeControllerConfig(),
@@ -1730,14 +1732,14 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 
 	// Successful bootstrap expects 4 but we expect to bail out after getting an authorised error.
-	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests, tc.HasLen, 1)
 }
 
-func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+func (s *environSuite) TestBootstrapInstanceConstraints(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1756,7 +1758,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
-				c.Assert(build, jc.IsFalse)
+				c.Assert(build, tc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
@@ -1778,14 +1780,13 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
-		c.Assert(err, gc.ErrorMatches, wantErr)
-		c.SucceedNow()
+		c.Assert(err, tc.ErrorMatches, wantErr)
 		return
 	}
 	// amd64 should pass the rest of the test.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1798,7 +1799,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
+func (s *environSuite) TestBootstrapCustomResourceGroup(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1817,7 +1818,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
-				c.Assert(build, jc.IsFalse)
+				c.Assert(build, tc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
@@ -1838,14 +1839,13 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			env.Config().Name(),
 			env.Config().Type(),
 			corearch.HostArch())
-		c.Assert(err, gc.ErrorMatches, wantErr)
-		c.SucceedNow()
+		c.Assert(err, tc.ErrorMatches, wantErr)
 		return
 	}
 	// amd64 should pass the rest of the test.
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		availabilitySetName: "juju-controller",
@@ -1859,7 +1859,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
+func (s *environSuite) TestBootstrapWithAutocert(c *tc.C) {
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapTODOContext(c)
@@ -1880,11 +1880,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Arch, tc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), tc.Equals, "ubuntu@22.04")
 
-	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	c.Assert(len(s.requests), tc.Equals, numExpectedBootstrapStartInstanceRequests)
 	s.vmTags[tags.JujuIsController] = "true"
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		autocert:            true,
@@ -1897,7 +1897,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
+func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *tc.C) {
 	env := s.openEnviron(c)
 	sender := &azuretesting.MockSender{}
 	sender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
@@ -1905,10 +1905,10 @@ func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
 	), 2)
 	s.sender = azuretesting.Senders{sender, sender}
 	_, err := env.AllRunningInstances(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
+func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *tc.C) {
 	env := s.openEnviron(c)
 
 	dependencies := []*armresources.Dependency{{
@@ -1928,11 +1928,11 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 	}
 
 	instances, err := env.AllRunningInstances(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 0)
 }
 
-func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
+func (s *environSuite) TestStopInstancesNotFound(c *tc.C) {
 	env := s.openEnviron(c)
 	sender0 := &azuretesting.MockSender{}
 	sender0.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
@@ -1944,20 +1944,20 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	), 2)
 	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances(s.callCtx, "a", "b")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
+func (s *environSuite) TestStopInstancesInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	err := env.StopInstances(s.callCtx, "a")
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
-	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
+	c.Assert(s.requests, tc.HasLen, 1)
 }
 
-func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
+func (s *environSuite) TestStopInstancesNoSecurityGroup(c *tc.C) {
 	env := s.openEnviron(c)
 
 	// Make a NIC with the Juju security group so we can
@@ -1985,10 +1985,10 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent), // DELETE
 	}
 	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestStopInstances(c *gc.C) {
+func (s *environSuite) TestStopInstances(c *tc.C) {
 	env := s.openEnviron(c)
 
 	// Security group has rules for juju-06f00d-0, as well as a rule that doesn't match.
@@ -2020,10 +2020,10 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	}
 
 	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
+func (s *environSuite) TestStopInstancesMultiple(c *tc.C) {
 	env := s.openEnviron(c)
 
 	vmDeleteSender0 := s.makeErrorSender(".*/virtualMachines/juju-06f00d-[01]", errors.New("blargh"), 2)
@@ -2042,10 +2042,10 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 		vmDeleteSender1,
 	}
 	err := env.StopInstances(s.callCtx, "juju-06f00d-0", "juju-06f00d-1")
-	c.Assert(err, gc.ErrorMatches, `deleting instance "juju-06f00d-[01]":.*blargh`)
+	c.Assert(err, tc.ErrorMatches, `deleting instance "juju-06f00d-[01]":.*blargh`)
 }
 
-func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
+func (s *environSuite) TestStopInstancesDeploymentNotFound(c *tc.C) {
 	env := s.openEnviron(c)
 
 	cancelSender := &azuretesting.MockSender{}
@@ -2054,79 +2054,79 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 	), 2)
 	s.sender = azuretesting.Senders{cancelSender}
 	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	unsupported, err := validator.Validate(constraints.MustParse(
 		"arch=amd64 tags=foo cpu-power=100 virt-type=kvm",
 	))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"tags", "cpu-power", "virt-type"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(unsupported, tc.SameContents, []string{"tags", "cpu-power", "virt-type"})
 }
 
-func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
+func (s *environSuite) TestConstraintsValidatorVocabulary(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"invalid constraint value: arch=s390x\nvalid values are: amd64 arm64",
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		"invalid constraint value: instance-type=t1.micro\nvalid values are: A1 D1 D2 D8ps_v5 Standard_A1 Standard_D1 Standard_D2 Standard_D8ps_v5",
 	)
 }
 
-func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
+func (s *environSuite) TestConstraintsValidatorMerge(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	cons, err := validator.Merge(
 		constraints.MustParse("mem=3G arch=amd64"),
 		constraints.MustParse("instance-type=D1"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons.String(), gc.Equals, "instance-type=D1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.String(), tc.Equals, "instance-type=D1")
 }
 
-func (s *environSuite) TestConstraintsConflict(c *gc.C) {
+func (s *environSuite) TestConstraintsConflict(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=amd64 instance-type=Standard_D1"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("arch=arm64 instance-type=Standard_D1"))
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_D1" expected arch="amd64" not "arm64"`)
+	c.Assert(err, tc.ErrorMatches, `ambiguous constraints: "arch" overlaps with "instance-type": instance-type="Standard_D1" expected arch="amd64" not "arm64"`)
 }
 
-func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
+func (s *environSuite) constraintsValidator(c *tc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSKUsSender()}
 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return validator
 }
 
-func (s *environSuite) TestHasRegion(c *gc.C) {
+func (s *environSuite) TestHasRegion(c *tc.C) {
 	env := s.openEnviron(c)
-	c.Assert(env, gc.Implements, new(simplestreams.HasRegion))
+	c.Assert(env, tc.Implements, new(simplestreams.HasRegion))
 	cloudSpec, err := env.(simplestreams.HasRegion).Region()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudSpec, gc.Equals, simplestreams.CloudSpec{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloudSpec, tc.Equals, simplestreams.CloudSpec{
 		Region:   "westus",
 		Endpoint: "https://api.azurestack.local",
 	})
 }
 
-func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
+func (s *environSuite) TestDestroyHostedModel(c *tc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourcegroups/juju-testmodel-"+testing.ModelTag.Id()[:8], nil), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.requests, tc.HasLen, 1)
+	c.Assert(s.requests[0].Method, tc.Equals, "DELETE")
 }
 
-func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
+func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *tc.C) {
 	env := s.openEnviron(c,
 		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
 	res := []*armresources.GenericResourceExpanded{{
@@ -2167,32 +2167,32 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		makeSender(".*/vaults/secret-0", nil),                                                                            // DELETE
 	}
 	err := env.Destroy(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.requests, gc.HasLen, 12)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.requests, tc.HasLen, 12)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), tc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-model-uuid' and tagValue eq '%s'",
 		testing.ModelTag.Id(),
 	))
-	c.Assert(s.requests[7].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[8].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[9].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[10].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[11].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[7].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[8].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[9].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[10].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[11].Method, tc.Equals, "DELETE")
 }
 
-func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
+func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
 	s.createSenderWithUnauthorisedStatusCode(c)
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	err := env.Destroy(s.callCtx)
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
-	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
+	c.Assert(s.requests, tc.HasLen, 1)
+	c.Assert(s.requests[0].Method, tc.Equals, "DELETE")
 }
 
-func (s *environSuite) TestDestroyController(c *gc.C) {
+func (s *environSuite) TestDestroyController(c *tc.C) {
 	groups := []*armresources.ResourceGroup{{
 		Name: to.Ptr("group1"),
 	}, {
@@ -2210,48 +2210,48 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE
 	}
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.requests, gc.HasLen, 6)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+	c.Assert(s.requests, tc.HasLen, 6)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), tc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
 		testing.ControllerTag.Id(),
 	))
-	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[1].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[2].Method, tc.Equals, "DELETE")
 
 	// Groups are deleted concurrently, so there's no known order.
 	groupsDeleted := []string{
 		path.Base(s.requests[1].URL.Path),
 		path.Base(s.requests[2].URL.Path),
 	}
-	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+	c.Assert(groupsDeleted, tc.SameContents, []string{"group1", "group2"})
 
-	c.Assert(s.requests[3].Method, gc.Equals, "GET")
-	c.Assert(s.requests[4].Method, gc.Equals, "GET")
-	c.Assert(s.requests[5].Method, gc.Equals, "DELETE")
-	c.Assert(path.Base(s.requests[5].URL.Path), gc.Equals, "juju-controller-"+testing.ControllerTag.Id())
+	c.Assert(s.requests[3].Method, tc.Equals, "GET")
+	c.Assert(s.requests[4].Method, tc.Equals, "GET")
+	c.Assert(s.requests[5].Method, tc.Equals, "DELETE")
+	c.Assert(path.Base(s.requests[5].URL.Path), tc.Equals, "juju-controller-"+testing.ControllerTag.Id())
 }
 
-func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
+func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	err := env.DestroyController(s.callCtx, s.controllerUUID)
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 
-	c.Assert(s.requests, gc.HasLen, 1)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+	c.Assert(s.requests, tc.HasLen, 1)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), tc.Equals, fmt.Sprintf(
 		"tagName eq 'juju-controller-uuid' and tagValue eq '%s'",
 		testing.ControllerTag.Id(),
 	))
 }
 
-func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
+func (s *environSuite) TestDestroyControllerErrors(c *tc.C) {
 	groups := []*armresources.ResourceGroup{
 		{Name: to.Ptr("group1")},
 		{Name: to.Ptr("group2")},
@@ -2273,48 +2273,48 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	destroyErr := env.DestroyController(s.callCtx, s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
-	c.Assert(s.requests, gc.HasLen, 3)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET")
-	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
-	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests, tc.HasLen, 3)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	c.Assert(s.requests[1].Method, tc.Equals, "DELETE")
+	c.Assert(s.requests[2].Method, tc.Equals, "DELETE")
 
 	// Groups are deleted concurrently, so there's no known order.
 	groupsDeleted := []string{
 		path.Base(s.requests[1].URL.Path),
 		path.Base(s.requests[2].URL.Path),
 	}
-	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+	c.Assert(groupsDeleted, tc.SameContents, []string{"group1", "group2"})
 
-	c.Check(destroyErr, gc.ErrorMatches,
+	c.Check(destroyErr, tc.ErrorMatches,
 		`deleting resource group "group1":.*; `+
 			`deleting resource group "group2":.*`)
-	c.Check(destroyErr, gc.ErrorMatches, ".*(foo|bar).*")
+	c.Check(destroyErr, tc.ErrorMatches, ".*(foo|bar).*")
 }
 
-func (s *environSuite) TestInstanceInformation(c *gc.C) {
+func (s *environSuite) TestInstanceInformation(c *tc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 6)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, tc.HasLen, 6)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(s.callCtx, cons)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 4)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, tc.HasLen, 4)
 }
 
-func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *gc.C) {
+func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	_, err := env.InstanceTypes(s.callCtx, constraints.Value{})
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
-func (s *environSuite) TestAdoptResources(c *gc.C) {
+func (s *environSuite) TestAdoptResources(c *tc.C) {
 	providersResult := makeProvidersResult()
 	resourcesResult := makeResourcesResult()
 
@@ -2344,14 +2344,14 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that properties and tags are preserved and the correct
 	// API version is sent.
 	checkAPIVersion := func(ix uint, expectedMethod, expectedVersion string) {
 		req := s.requests[ix]
-		c.Check(req.Method, gc.Equals, expectedMethod)
-		c.Check(req.URL.Query().Get("api-version"), gc.Equals, expectedVersion)
+		c.Check(req.Method, tc.Equals, expectedMethod)
+		c.Check(req.URL.Query().Get("api-version"), tc.Equals, expectedVersion)
 	}
 	// Resource group get and update.
 	checkAPIVersion(0, "GET", "2021-04-01")
@@ -2366,16 +2366,16 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		req := s.requests[ix]
 		data := make([]byte, req.ContentLength)
 		_, err := req.Body.Read(data)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		var resource armresources.GenericResource
 		err = json.Unmarshal(data, &resource)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
 		rTags := resource.Tags
-		c.Check(toValue(rTags["something else"]), gc.Equals, "good")
-		c.Check(toValue(rTags[tags.JujuController]), gc.Equals, "new-controller")
-		c.Check(resource.Properties, gc.DeepEquals, map[string]interface{}{"has-properties": true})
+		c.Check(toValue(rTags["something else"]), tc.Equals, "good")
+		c.Check(toValue(rTags[tags.JujuController]), tc.Equals, "new-controller")
+		c.Check(resource.Properties, tc.DeepEquals, map[string]interface{}{"has-properties": true})
 	}
 	checkTagsAndProperties(5)
 	checkTagsAndProperties(7)
@@ -2384,18 +2384,18 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	req := s.requests[1] // the resource group update.
 	data := make([]byte, req.ContentLength)
 	_, err = req.Body.Read(data)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	var group armresources.ResourceGroup
 	err = json.Unmarshal(data, &group)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the provisioning state wasn't sent back.
-	c.Check((*group.Properties).ProvisioningState, gc.IsNil)
+	c.Check((*group.Properties).ProvisioningState, tc.IsNil)
 
 	gTags := group.Tags
-	c.Check(toValue(gTags["something else"]), gc.Equals, "good")
-	c.Check(toValue(gTags[tags.JujuController]), gc.Equals, "new-controller")
-	c.Check(toValue(gTags[tags.JujuModel]), gc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(toValue(gTags["something else"]), tc.Equals, "good")
+	c.Check(toValue(gTags[tags.JujuController]), tc.Equals, "new-controller")
+	c.Check(toValue(gTags[tags.JujuModel]), tc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func makeProvidersResult() armresources.ProviderListResult {
@@ -2459,7 +2459,7 @@ func makeResourceGroupResult() *armresources.ResourceGroup {
 	}
 }
 
-func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *tc.C) {
 	env := s.openEnviron(c)
 	sender := s.makeErrorSender(
 		".*/resourcegroups/juju-testmodel-.*",
@@ -2468,11 +2468,11 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	s.sender = azuretesting.Senders{sender}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
-	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, tc.HasLen, 1)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *tc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
 		".*/resourcegroups/juju-testmodel-.*",
@@ -2484,11 +2484,11 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
-	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, tc.HasLen, 2)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *tc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
 		".*/providers",
@@ -2501,11 +2501,11 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
-	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(err, tc.ErrorMatches, ".*uhoh$")
+	c.Assert(s.requests, tc.HasLen, 3)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorListingResources(c *tc.C) {
 	env := s.openEnviron(c)
 	errorSender := s.makeErrorSender(
 		".*/resourceGroups/juju-testmodel-.*/resources",
@@ -2519,21 +2519,21 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
-	c.Assert(s.requests, gc.HasLen, 4)
+	c.Assert(err, tc.ErrorMatches, ".*ouch!$")
+	c.Assert(s.requests, tc.HasLen, 4)
 }
 
-func (s *environSuite) TestAdoptResourcesWithInvalidCredential(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesWithInvalidCredential(c *tc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
 
-	c.Assert(s.invalidatedCredential, jc.IsFalse)
+	c.Assert(s.invalidatedCredential, tc.IsFalse)
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
-	c.Assert(err, gc.NotNil)
-	c.Assert(s.invalidatedCredential, jc.IsTrue)
+	c.Assert(err, tc.NotNil)
+	c.Assert(s.invalidatedCredential, tc.IsTrue)
 }
 
-func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *tc.C) {
 	providersResult := makeProvidersResult()
 	resourcesResult := makeResourcesResult()
 
@@ -2556,11 +2556,11 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.requests, gc.HasLen, 6)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.requests, tc.HasLen, 6)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *tc.C) {
 	providersResult := makeProvidersResult()
 	resourcesResult := makeResourcesResult()
 
@@ -2587,11 +2587,11 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
-	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 7)
+	c.Check(err, tc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
+	c.Check(s.requests, tc.HasLen, 7)
 }
 
-func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
+func (s *environSuite) TestAdoptResourcesErrorUpdating(c *tc.C) {
 	providersResult := makeProvidersResult()
 	resourcesResult := makeResourcesResult()
 
@@ -2620,11 +2620,11 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 	}
 
 	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
-	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
-	c.Check(s.requests, gc.HasLen, 8)
+	c.Check(err, tc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
+	c.Check(s.requests, tc.HasLen, 8)
 }
 
-func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *gc.C) {
+func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *tc.C) {
 	rootDiskParams := map[string]interface{}{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
@@ -2632,7 +2632,7 @@ func (s *environSuite) TestStartInstanceEncryptedRootDiskExistingDES(c *gc.C) {
 	s.assertStartInstance(c, nil, rootDiskParams, true, false, false, false)
 }
 
-func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
+func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *tc.C) {
 	rootDiskParams := map[string]interface{}{
 		"encrypted":                "true",
 		"disk-encryption-set-name": "my-disk-encryption-set",
@@ -2642,36 +2642,36 @@ func (s *environSuite) TestStartInstanceEncryptedRootDisk(c *gc.C) {
 	s.assertStartInstance(c, nil, rootDiskParams, true, false, false, false)
 }
 
-func (s *environSuite) TestGetArchFromResourceSKUARM64(c *gc.C) {
+func (s *environSuite) TestGetArchFromResourceSKUARM64(c *tc.C) {
 	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("standardDPSv5Family"),
 	})
-	c.Assert(arch, gc.Equals, corearch.ARM64)
+	c.Assert(arch, tc.Equals, corearch.ARM64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("standardDPLSv5Family"),
 	})
-	c.Assert(arch, gc.Equals, corearch.ARM64)
+	c.Assert(arch, tc.Equals, corearch.ARM64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("standardEPSv5Family"),
 	})
-	c.Assert(arch, gc.Equals, corearch.ARM64)
+	c.Assert(arch, tc.Equals, corearch.ARM64)
 }
 
-func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *gc.C) {
+func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *tc.C) {
 	arch := azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr(""),
 	})
-	c.Assert(arch, gc.Equals, corearch.AMD64)
+	c.Assert(arch, tc.Equals, corearch.AMD64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("StandardNCadsH100v5Family"),
 	})
-	c.Assert(arch, gc.Equals, corearch.AMD64)
+	c.Assert(arch, tc.Equals, corearch.AMD64)
 
 	arch = azure.GetArchFromResourceSKU(&armcompute.ResourceSKU{
 		Family: to.Ptr("StandardNCADSA100v4Family"),
 	})
-	c.Assert(arch, gc.Equals, corearch.AMD64)
+	c.Assert(arch, tc.Equals, corearch.AMD64)
 }

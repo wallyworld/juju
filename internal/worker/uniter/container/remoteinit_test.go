@@ -4,10 +4,10 @@
 package container_test
 
 import (
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/worker/uniter/container"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -17,27 +17,29 @@ import (
 
 type containerSuite struct{}
 
-var _ = gc.Suite(&containerSuite{})
+func TestContainerSuite(t *tctesting.T) {
+	tc.Run(t, &containerSuite{})
+}
 
-func (s *containerSuite) TestNoRemoteInitRequired(c *gc.C) {
+func (s *containerSuite) TestNoRemoteInitRequired(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{}
 	remoteState := remotestate.Snapshot{}
 	_, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(err, tc.DeepEquals, resolver.ErrNoOperation)
 }
 
-func (s *containerSuite) TestRunningStatusNil(c *gc.C) {
+func (s *containerSuite) TestRunningStatusNil(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		OutdatedRemoteCharm: true,
 	}
 	remoteState := remotestate.Snapshot{}
 	_, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(err, tc.DeepEquals, resolver.ErrNoOperation)
 }
 
-func (s *containerSuite) TestRemoteInitRequiredContinue(c *gc.C) {
+func (s *containerSuite) TestRemoteInitRequiredContinue(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -54,11 +56,11 @@ func (s *containerSuite) TestRemoteInitRequiredContinue(c *gc.C) {
 		},
 	}
 	op, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "remote init")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.String(), tc.Equals, "remote init")
 }
 
-func (s *containerSuite) TestRemoteInitRequiredRunHookPending(c *gc.C) {
+func (s *containerSuite) TestRemoteInitRequiredRunHookPending(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -76,11 +78,11 @@ func (s *containerSuite) TestRemoteInitRequiredRunHookPending(c *gc.C) {
 		},
 	}
 	op, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "remote init")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.String(), tc.Equals, "remote init")
 }
 
-func (s *containerSuite) TestRemoteInitRequiredRunHookNotPending(c *gc.C) {
+func (s *containerSuite) TestRemoteInitRequiredRunHookNotPending(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -98,10 +100,10 @@ func (s *containerSuite) TestRemoteInitRequiredRunHookNotPending(c *gc.C) {
 		},
 	}
 	_, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(err, tc.DeepEquals, resolver.ErrNoOperation)
 }
 
-func (s *containerSuite) TestRemoteInitRequiredAndPending(c *gc.C) {
+func (s *containerSuite) TestRemoteInitRequiredAndPending(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -119,11 +121,11 @@ func (s *containerSuite) TestRemoteInitRequiredAndPending(c *gc.C) {
 		},
 	}
 	op, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "remote init")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.String(), tc.Equals, "remote init")
 }
 
-func (s *containerSuite) TestRemoteInitRequiredAndDone(c *gc.C) {
+func (s *containerSuite) TestRemoteInitRequiredAndDone(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -141,11 +143,11 @@ func (s *containerSuite) TestRemoteInitRequiredAndDone(c *gc.C) {
 		},
 	}
 	op, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "skip remote init")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.String(), tc.Equals, "skip remote init")
 }
 
-func (s *containerSuite) TestReinit(c *gc.C) {
+func (s *containerSuite) TestReinit(c *tc.C) {
 	containerResolver := container.NewRemoteContainerInitResolver()
 	t := time.Now()
 	localState := resolver.LocalState{
@@ -168,6 +170,6 @@ func (s *containerSuite) TestReinit(c *gc.C) {
 		},
 	}
 	op, err := containerResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "remote init")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(op.String(), tc.Equals, "remote init")
 }

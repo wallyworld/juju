@@ -6,13 +6,13 @@ package backups_test
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/testing"
 )
 
 type dumpSuite struct {
@@ -24,9 +24,11 @@ type dumpSuite struct {
 	ranCommand bool
 }
 
-var _ = gc.Suite(&dumpSuite{}) // Register the suite.
+func TestDumpSuite(t *tctesting.T) {
+	tc.Run(t, &dumpSuite{})
+} // Register the suite.
 
-func (s *dumpSuite) SetUpTest(c *gc.C) {
+func (s *dumpSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	targets := set.NewStrings("juju", "admin")
@@ -38,7 +40,7 @@ func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.dumpDir = c.MkDir()
 }
 
-func (s *dumpSuite) patch(c *gc.C) {
+func (s *dumpSuite) patch(c *tc.C) {
 	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
 		return "bogusmongodump", nil
 	})
@@ -49,16 +51,16 @@ func (s *dumpSuite) patch(c *gc.C) {
 	})
 }
 
-func (s *dumpSuite) prepDB(c *gc.C, name string) string {
+func (s *dumpSuite) prepDB(c *tc.C, name string) string {
 	dirName := filepath.Join(s.dumpDir, name)
 	err := os.Mkdir(dirName, 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return dirName
 }
 
-func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) backups.DBDumper {
+func (s *dumpSuite) prep(c *tc.C, targetDBs ...string) backups.DBDumper {
 	dumper, err := backups.NewDBDumper(s.dbInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Prep each of the target databases.
 	for _, dbName := range targetDBs {
@@ -68,42 +70,42 @@ func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) backups.DBDumper {
 	return dumper
 }
 
-func (s *dumpSuite) checkDBs(c *gc.C, dbNames ...string) {
+func (s *dumpSuite) checkDBs(c *tc.C, dbNames ...string) {
 	for _, dbName := range dbNames {
 		_, err := os.Stat(filepath.Join(s.dumpDir, dbName))
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 }
 
-func (s *dumpSuite) checkStripped(c *gc.C, dbName string) {
+func (s *dumpSuite) checkStripped(c *tc.C, dbName string) {
 	dirName := filepath.Join(s.dumpDir, dbName)
 	_, err := os.Stat(dirName)
-	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Check(err, tc.Satisfies, os.IsNotExist)
 }
 
-func (s *dumpSuite) TestDumpRanCommand(c *gc.C) {
+func (s *dumpSuite) TestDumpRanCommand(c *tc.C) {
 	s.patch(c)
 	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.ranCommand, jc.IsTrue)
+	c.Check(s.ranCommand, tc.IsTrue)
 }
 
-func (s *dumpSuite) TestDumpStripped(c *gc.C) {
+func (s *dumpSuite) TestDumpStripped(c *tc.C) {
 	s.patch(c)
 	dumper := s.prep(c, "juju", "admin")
 	s.prepDB(c, "backups") // ignored
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 	s.checkStripped(c, "backups")
 }
 
-func (s *dumpSuite) TestDumpStrippedAdmin(c *gc.C) {
+func (s *dumpSuite) TestDumpStrippedAdmin(c *tc.C) {
 	s.dbInfo.Targets = set.NewStrings("juju")
 	s.patch(c)
 	dumper := s.prep(c, "juju")
@@ -111,21 +113,21 @@ func (s *dumpSuite) TestDumpStrippedAdmin(c *gc.C) {
 	s.prepDB(c, "admin")   // ignored
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkDBs(c, "juju")
 	s.checkStripped(c, "backups")
 	s.checkStripped(c, "admin")
 }
 
-func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
+func (s *dumpSuite) TestDumpStrippedMultiple(c *tc.C) {
 	s.patch(c)
 	dumper := s.prep(c, "juju", "admin")
 	s.prepDB(c, "backups")  // ignored
 	s.prepDB(c, "presence") // ignored
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 	// Only "backups" is actually ignored when dumping.  Restore takes
@@ -134,12 +136,12 @@ func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
 	s.checkStripped(c, "backups")
 }
 
-func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
+func (s *dumpSuite) TestDumpNothingIgnored(c *tc.C) {
 	s.patch(c)
 	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 }

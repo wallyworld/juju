@@ -4,16 +4,20 @@
 package status_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
 )
 
 type UnitCloudStatusSuite struct{}
 
-var _ = gc.Suite(&UnitCloudStatusSuite{})
+func TestUnitCloudStatusSuite(t *tctesting.T) {
+	tc.Run(t, &UnitCloudStatusSuite{})
+}
 
-func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
+func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *tc.C) {
 
 	var checks = []struct {
 		cloudContainerStatus status.StatusInfo
@@ -175,11 +179,11 @@ func (s *UnitCloudStatusSuite) TestContainerOrUnitStatusChoice(c *gc.C) {
 
 	for i, check := range checks {
 		c.Logf("Check %d", i)
-		c.Assert(status.UnitDisplayStatus(check.unitStatus, check.cloudContainerStatus, check.expectWorkload).Message, gc.Equals, check.messageCheck)
+		c.Assert(status.UnitDisplayStatus(check.unitStatus, check.cloudContainerStatus, check.expectWorkload).Message, tc.Equals, check.messageCheck)
 	}
 }
 
-func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
+func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *tc.C) {
 
 	var checks = []struct {
 		operatorStatus status.StatusInfo
@@ -323,6 +327,6 @@ func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
 
 	for i, check := range checks {
 		c.Logf("Check %d", i)
-		c.Assert(status.ApplicationDisplayStatus(check.appStatus, check.operatorStatus, check.expectWorkload).Message, gc.Equals, check.messageCheck)
+		c.Assert(status.ApplicationDisplayStatus(check.appStatus, check.operatorStatus, check.expectWorkload).Message, tc.Equals, check.messageCheck)
 	}
 }

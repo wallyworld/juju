@@ -9,19 +9,19 @@ import (
 	"io"
 	"strings"
 	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
 	"github.com/juju/version/v2"
-	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 )
 
 const current = "2.0.42-ubuntu-amd64"
@@ -38,19 +38,21 @@ type binaryStorageSuite struct {
 	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
 
-	cleanUps []func(*gc.C)
+	cleanUps []func(*tc.C)
 }
 
-var _ = gc.Suite(&binaryStorageSuite{})
+func TestBinaryStorageSuite(t *tctesting.T) {
+	tc.Run(t, &binaryStorageSuite{})
+}
 
-func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
+func (s *binaryStorageSuite) SetUpTest(c *tc.C) {
 	s.IsolatedMgoSuite.SetUpTest(c)
 
 	catalogue := s.Session.DB("catalogue")
 	rs := blobstore.NewGridFS("blobstore", "blobstore", catalogue.Session)
 	var closer func()
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
-	s.addCleanup(func(*gc.C) { closer() })
+	s.addCleanup(func(*tc.C) { closer() })
 	s.managedStorage = blobstore.NewManagedStorage(s.metadataCollection.Writeable().Underlying().Database, rs)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  catalogue,
@@ -62,11 +64,11 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
-func (s *binaryStorageSuite) addCleanup(f func(*gc.C)) {
+func (s *binaryStorageSuite) addCleanup(f func(*tc.C)) {
 	s.cleanUps = append(s.cleanUps, f)
 }
 
-func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
+func (s *binaryStorageSuite) TearDownTest(c *tc.C) {
 	for _, f := range s.cleanUps {
 		// Ensure to close sessions before IsolatedMgoSuite.TearDownTest here.
 		f(c)
@@ -79,16 +81,16 @@ func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
 	s.IsolatedMgoSuite.TearDownTest(c)
 }
 
-func (s *binaryStorageSuite) TestAdd(c *gc.C) {
+func (s *binaryStorageSuite) TestAdd(c *tc.C) {
 	s.testAdd(c, "some-binary")
 }
 
-func (s *binaryStorageSuite) TestAddReplaces(c *gc.C) {
+func (s *binaryStorageSuite) TestAddReplaces(c *tc.C) {
 	s.testAdd(c, "abc")
 	s.testAdd(c, "def")
 }
 
-func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
+func (s *binaryStorageSuite) testAdd(c *tc.C, content string) {
 	r := bytes.NewReader([]byte(content))
 	addedMetadata := binarystorage.Metadata{
 		Version: current,
@@ -96,17 +98,17 @@ func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
 		SHA256:  "hash(" + content + ")",
 	}
 	err := s.storage.Add(r, addedMetadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, rc, err := s.storage.Open(current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(r, tc.NotNil)
 	defer rc.Close()
-	c.Assert(metadata, gc.Equals, addedMetadata)
+	c.Assert(metadata, tc.Equals, addedMetadata)
 
 	data, err := io.ReadAll(rc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, content)
 }
 
 func bumpVersion(v string) string {
@@ -115,83 +117,83 @@ func bumpVersion(v string) string {
 	return vers.String()
 }
 
-func (s *binaryStorageSuite) TestAllMetadata(c *gc.C) {
+func (s *binaryStorageSuite) TestAllMetadata(c *tc.C) {
 	metadata, err := s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadata, tc.HasLen, 0)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	metadata, err = s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadata, tc.HasLen, 1)
 	expected := []binarystorage.Metadata{{
 		Version: current,
 		Size:    3,
 		SHA256:  "hash(abc)",
 	}}
-	c.Assert(metadata, jc.SameContents, expected)
+	c.Assert(metadata, tc.SameContents, expected)
 
 	alias := bumpVersion(current)
 	s.addMetadataDoc(c, alias, 3, "hash(abc)", "path")
 
 	metadata, err = s.storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadata, tc.HasLen, 2)
 	expected = append(expected, binarystorage.Metadata{
 		Version: alias,
 		Size:    3,
 		SHA256:  "hash(abc)",
 	})
-	c.Assert(metadata, jc.SameContents, expected)
+	c.Assert(metadata, tc.SameContents, expected)
 }
 
-func (s *binaryStorageSuite) TestMetadata(c *gc.C) {
+func (s *binaryStorageSuite) TestMetadata(c *tc.C) {
 	_, err := s.storage.Metadata(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	metadata, err := s.storage.Metadata(current)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.Equals, binarystorage.Metadata{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metadata, tc.Equals, binarystorage.Metadata{
 		Version: current,
 		Size:    3,
 		SHA256:  "hash(abc)",
 	})
 }
 
-func (s *binaryStorageSuite) TestOpen(c *gc.C) {
+func (s *binaryStorageSuite) TestOpen(c *tc.C) {
 	_, _, err := s.storage.Open(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `.* binary metadata not found`)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, `.* binary metadata not found`)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	_, _, err = s.storage.Open(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
 	err = s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	metadata, r, err := s.storage.Open(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer r.Close()
-	c.Assert(metadata, gc.Equals, binarystorage.Metadata{
+	c.Assert(metadata, tc.Equals, binarystorage.Metadata{
 		Version: current,
 		Size:    3,
 		SHA256:  "hash(abc)",
 	})
 
 	data, err := io.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "blah")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, "blah")
 }
 
-func (s *binaryStorageSuite) TestAddRemovesExisting(c *gc.C) {
+func (s *binaryStorageSuite) TestAddRemovesExisting(c *tc.C) {
 	// Add a metadata doc and a blob at a known path, then
 	// call Add and ensure the original blob is removed.
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	err := s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	addedMetadata := binarystorage.Metadata{
 		Version: current,
@@ -199,23 +201,23 @@ func (s *binaryStorageSuite) TestAddRemovesExisting(c *gc.C) {
 		SHA256:  "hash(xyzzzz)",
 	}
 	err = s.storage.Add(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// old blob should be gone
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", "path")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	s.assertMetadataAndContent(c, addedMetadata, "xyzzzz")
 }
 
-func (s *binaryStorageSuite) TestAddRemovesExistingRemoveFails(c *gc.C) {
+func (s *binaryStorageSuite) TestAddRemovesExistingRemoveFails(c *tc.C) {
 	// Add a metadata doc and a blob at a known path, then
 	// call Add and ensure that Add attempts to remove
 	// the original blob, but does not return an error if it
 	// fails.
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	err := s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	storage := binarystorage.New(
 		"my-uuid",
@@ -229,17 +231,17 @@ func (s *binaryStorageSuite) TestAddRemovesExistingRemoveFails(c *gc.C) {
 		SHA256:  "hash(xyzzzz)",
 	}
 	err = storage.Add(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// old blob should still be there
 	r, _, err := s.managedStorage.GetForBucket("my-uuid", "path")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r.Close()
 
 	s.assertMetadataAndContent(c, addedMetadata, "xyzzzz")
 }
 
-func (s *binaryStorageSuite) TestAddRemovesBlobOnFailure(c *gc.C) {
+func (s *binaryStorageSuite) TestAddRemovesBlobOnFailure(c *tc.C) {
 	storage := binarystorage.New(
 		"my-uuid",
 		s.managedStorage,
@@ -252,14 +254,14 @@ func (s *binaryStorageSuite) TestAddRemovesBlobOnFailure(c *gc.C) {
 		SHA256:  "hash",
 	}
 	err := storage.Add(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, gc.ErrorMatches, "cannot store binary metadata: Run fails")
+	c.Assert(err, tc.ErrorMatches, "cannot store binary metadata: Run fails")
 
 	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *binaryStorageSuite) TestAddRemovesBlobOnFailureRemoveFails(c *gc.C) {
+func (s *binaryStorageSuite) TestAddRemovesBlobOnFailureRemoveFails(c *tc.C) {
 	storage := binarystorage.New(
 		"my-uuid",
 		removeFailsManagedStorage{s.managedStorage},
@@ -272,48 +274,48 @@ func (s *binaryStorageSuite) TestAddRemovesBlobOnFailureRemoveFails(c *gc.C) {
 		SHA256:  "hash",
 	}
 	err := storage.Add(strings.NewReader("xyzzzz"), addedMetadata)
-	c.Assert(err, gc.ErrorMatches, "cannot store binary metadata: Run fails")
+	c.Assert(err, tc.ErrorMatches, "cannot store binary metadata: Run fails")
 
 	// blob should still be there, because the removal failed.
 	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
 	r, _, err := s.managedStorage.GetForBucket("my-uuid", path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	r.Close()
 }
 
-func (s *binaryStorageSuite) TestAddSame(c *gc.C) {
+func (s *binaryStorageSuite) TestAddSame(c *tc.C) {
 	metadata := binarystorage.Metadata{Version: current, Size: 1, SHA256: "0"}
 	for i := 0; i < 2; i++ {
 		err := s.storage.Add(strings.NewReader("0"), metadata)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		s.assertMetadataAndContent(c, metadata, "0")
 	}
 }
 
-func (s *binaryStorageSuite) TestAddConcurrent(c *gc.C) {
+func (s *binaryStorageSuite) TestAddConcurrent(c *tc.C) {
 	metadata0 := binarystorage.Metadata{Version: current, Size: 1, SHA256: "0"}
 	metadata1 := binarystorage.Metadata{Version: current, Size: 1, SHA256: "1"}
 
 	addMetadata := func() {
 		err := s.storage.Add(strings.NewReader("0"), metadata0)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		r, _, err := s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		r.Close()
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata).Check()
 
 	err := s.storage.Add(strings.NewReader("1"), metadata1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Blob added in before-hook should be removed.
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	s.assertMetadataAndContent(c, metadata1, "1")
 }
 
-func (s *binaryStorageSuite) TestAddExcessiveContention(c *gc.C) {
+func (s *binaryStorageSuite) TestAddExcessiveContention(c *tc.C) {
 	metadata := []binarystorage.Metadata{
 		{Version: current, Size: 1, SHA256: "0"},
 		{Version: current, Size: 1, SHA256: "1"},
@@ -324,25 +326,25 @@ func (s *binaryStorageSuite) TestAddExcessiveContention(c *gc.C) {
 	i := 1
 	addMetadata := func() {
 		err := s.storage.Add(strings.NewReader(metadata[i].SHA256), metadata[i])
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		i++
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata, addMetadata, addMetadata).Check()
 
 	err := s.storage.Add(strings.NewReader(metadata[0].SHA256), metadata[0])
-	c.Assert(err, gc.ErrorMatches, "cannot store binary metadata: state changing too quickly; try again soon")
+	c.Assert(err, tc.ErrorMatches, "cannot store binary metadata: state changing too quickly; try again soon")
 
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
 		path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
 		_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	}
 
 	s.assertMetadataAndContent(c, metadata[3], "3")
 }
 
-func (s *binaryStorageSuite) addMetadataDoc(c *gc.C, v string, size int64, hash, path string) {
+func (s *binaryStorageSuite) addMetadataDoc(c *tc.C, v string, size int64, hash, path string) {
 	doc := struct {
 		Id      string `bson:"_id"`
 		Version string `bson:"version"`
@@ -357,18 +359,18 @@ func (s *binaryStorageSuite) addMetadataDoc(c *gc.C, v string, size int64, hash,
 		Path:    path,
 	}
 	err := s.metadataCollection.Writeable().Insert(&doc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *binaryStorageSuite) assertMetadataAndContent(c *gc.C, expected binarystorage.Metadata, content string) {
+func (s *binaryStorageSuite) assertMetadataAndContent(c *tc.C, expected binarystorage.Metadata, content string) {
 	metadata, r, err := s.storage.Open(expected.Version)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer r.Close()
-	c.Assert(metadata, gc.Equals, expected)
+	c.Assert(metadata, tc.Equals, expected)
 
 	data, err := io.ReadAll(r)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Equals, content)
 }
 
 type removeFailsManagedStorage struct {

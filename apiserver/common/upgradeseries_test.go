@@ -4,19 +4,20 @@
 package common_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type upgradeSeriesSuite struct {
@@ -27,16 +28,18 @@ type upgradeSeriesSuite struct {
 	unitTag2    names.UnitTag
 }
 
-var _ = gc.Suite(&upgradeSeriesSuite{})
+func TestUpgradeSeriesSuite(t *tctesting.T) {
+	tc.Run(t, &upgradeSeriesSuite{})
+}
 
-func (s *upgradeSeriesSuite) SetUpTest(c *gc.C) {
+func (s *upgradeSeriesSuite) SetUpTest(c *tc.C) {
 	s.machineTag1 = names.NewMachineTag("1")
 	s.unitTag1 = names.NewUnitTag("mysql/1")
 	s.unitTag2 = names.NewUnitTag("redis/1")
 }
 
 func (s *upgradeSeriesSuite) assertBackendApi(
-	c *gc.C, tag names.Tag,
+	c *tc.C, tag names.Tag,
 ) (*common.UpgradeSeriesAPI, *gomock.Controller, *mocks.MockUpgradeSeriesBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -63,7 +66,7 @@ func (s *upgradeSeriesSuite) assertBackendApi(
 	return api, ctrl, mockBackend
 }
 
-func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *gc.C) {
+func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -85,8 +88,8 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *gc.C)
 		{Tag: s.unitTag1.String()},
 	}}
 	watches, err := api.WatchUpgradeSeriesNotifications(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{NotifyWatcherId: "1", Error: nil},
@@ -94,7 +97,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *gc.C)
 	})
 }
 
-func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *gc.C) {
+func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.machineTag1)
 	defer ctrl.Finish()
 
@@ -116,8 +119,8 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *gc
 			},
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
 			{NotifyWatcherId: "", Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -125,7 +128,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *gc
 	})
 }
 
-func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -148,8 +151,8 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 	watches, err := api.SetUpgradeSeriesUnitStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -157,7 +160,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	})
 }
 
-func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -175,15 +178,15 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(
 		},
 	}
 	watches, err := api.SetUpgradeSeriesUnitStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: "upgrade series status \"prepare completed\"", Code: "bad request"}},
 		},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithSameStatus(c *gc.C) {
+func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithSameStatus(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -201,13 +204,13 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithSameStatus(c *
 		},
 	}
 	watches, err := api.SetUpgradeSeriesUnitStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(watches, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
 }
 
-func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
+func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *tc.C) {
 	api, ctrl, mockBackend := s.assertBackendApi(c, s.unitTag1)
 	defer ctrl.Finish()
 
@@ -224,8 +227,8 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	}
 
 	results, err := api.UpgradeSeriesUnitStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{
 			{
 				Status: model.UpgradeSeriesPrepareCompleted,

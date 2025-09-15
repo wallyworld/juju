@@ -4,12 +4,13 @@
 package state_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type MachineStatusSuite struct {
@@ -17,27 +18,29 @@ type MachineStatusSuite struct {
 	machine *state.Machine
 }
 
-var _ = gc.Suite(&MachineStatusSuite{})
+func TestMachineStatusSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &MachineStatusSuite{})
+}
 
-func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
+func (s *MachineStatusSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.machine = s.Factory.MakeMachine(c, nil)
 }
 
-func (s *MachineStatusSuite) TestInitialStatus(c *gc.C) {
+func (s *MachineStatusSuite) TestInitialStatus(c *tc.C) {
 	s.checkInitialStatus(c)
 }
 
-func (s *MachineStatusSuite) checkInitialStatus(c *gc.C) {
+func (s *MachineStatusSuite) checkInitialStatus(c *tc.C) {
 	statusInfo, err := s.machine.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Pending)
-	c.Check(statusInfo.Message, gc.Equals, "")
-	c.Check(statusInfo.Data, gc.HasLen, 0)
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Pending)
+	c.Check(statusInfo.Message, tc.Equals, "")
+	c.Check(statusInfo.Data, tc.HasLen, 0)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
+func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
@@ -45,12 +48,12 @@ func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
+func (s *MachineStatusSuite) TestSetDownStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Down,
@@ -58,12 +61,12 @@ func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "down"`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "down"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
+func (s *MachineStatusSuite) TestSetUnknownStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
@@ -71,12 +74,12 @@ func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
+	c.Assert(err, tc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *MachineStatusSuite) TestSetOverwritesData(c *gc.C) {
+func (s *MachineStatusSuite) TestSetOverwritesData(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
@@ -87,16 +90,16 @@ func (s *MachineStatusSuite) TestSetOverwritesData(c *gc.C) {
 		Since: &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *MachineStatusSuite) TestGetSetStatusAlive(c *gc.C) {
+func (s *MachineStatusSuite) TestGetSetStatusAlive(c *tc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
+func (s *MachineStatusSuite) checkGetSetStatus(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
@@ -109,33 +112,33 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 		Since: &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	machine, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	statusInfo, err := machine.Status()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.Started)
-	c.Check(statusInfo.Message, gc.Equals, "blah")
-	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(statusInfo.Status, tc.Equals, status.Started)
+	c.Check(statusInfo.Message, tc.Equals, "blah")
+	c.Check(statusInfo.Data, tc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
 			"pew.pew": "zap",
 		},
 	})
-	c.Check(statusInfo.Since, gc.NotNil)
+	c.Check(statusInfo.Since, tc.NotNil)
 }
 
-func (s *MachineStatusSuite) TestGetSetStatusDying(c *gc.C) {
+func (s *MachineStatusSuite) TestGetSetStatusDying(c *tc.C) {
 	err := s.machine.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
+func (s *MachineStatusSuite) TestGetSetStatusDead(c *tc.C) {
 	err := s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
@@ -143,11 +146,11 @@ func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
+func (s *MachineStatusSuite) TestGetSetStatusGone(c *tc.C) {
 	err := s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -156,14 +159,14 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.machine.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: machine not found`)
+	c.Check(err, tc.ErrorMatches, `cannot set status: machine not found`)
 
 	statusInfo, err := s.machine.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: machine not found`)
-	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
+	c.Check(err, tc.ErrorMatches, `cannot get status: machine not found`)
+	c.Check(statusInfo, tc.DeepEquals, status.StatusInfo{})
 }
 
-func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
+func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *tc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -171,12 +174,12 @@ func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err := s.machine.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
+	c.Check(err, tc.ErrorMatches, `cannot set status "pending"`)
 }
 
-func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
+func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *tc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
@@ -184,5 +187,5 @@ func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 		Since:   &now,
 	}
 	err = machine.SetStatus(sInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 }

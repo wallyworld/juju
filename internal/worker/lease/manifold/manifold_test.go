@@ -5,25 +5,26 @@ package manifold_test
 
 import (
 	"io"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	coredatabase "github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
 	leasemanager "github.com/juju/juju/internal/worker/lease/manifold"
 	statetesting "github.com/juju/juju/state/testing"
@@ -46,12 +47,14 @@ type manifoldSuite struct {
 	trackedDB coredatabase.TrackedDB
 	store     *lease.Store
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&manifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &manifoldSuite{})
+}
 
-func (s *manifoldSuite) SetUpTest(c *gc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -116,50 +119,50 @@ var expectedInputs = []string{
 	"agent", "clock", "db-accessor",
 }
 
-func (s *manifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *manifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *manifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		ctx := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(ctx)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *manifoldSuite) TestStart(c *gc.C) {
+func (s *manifoldSuite) TestStart(c *tc.C) {
 	_, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "NewStore", "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, lease.StoreConfig{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, lease.StoreConfig{})
 
 	storeConfig := args[0].(lease.StoreConfig)
 
-	c.Assert(storeConfig, gc.DeepEquals, lease.StoreConfig{
+	c.Assert(storeConfig, tc.DeepEquals, lease.StoreConfig{
 		TrackedDB: s.trackedDB,
 		Logger:    &s.logger,
 	})
 
 	args = s.stub.Calls()[1].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, lease.ManagerConfig{})
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.FitsTypeOf, lease.ManagerConfig{})
 	config := args[0].(lease.ManagerConfig)
 
 	secretary, err := config.Secretary(corelease.SingularControllerNamespace)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Check that this secretary knows the controller uuid.
 	err = secretary.CheckLease(corelease.Key{Lease: "controller-uuid"})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	config.Secretary = nil
 
-	c.Assert(config, jc.DeepEquals, lease.ManagerConfig{
+	c.Assert(config, tc.DeepEquals, lease.ManagerConfig{
 		Store:                s.store,
 		Clock:                s.clock,
 		Logger:               &s.logger,
@@ -169,19 +172,19 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *manifoldSuite) TestOutput(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *tc.C) {
 	s.worker = &lease.Manager{}
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var manager corelease.Manager
 	err = s.manifold.Output(w, &manager)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manager, gc.Equals, s.worker)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(manager, tc.Equals, s.worker)
 
 	var other io.Writer
 	err = s.manifold.Output(w, &other)
-	c.Assert(err, gc.ErrorMatches, `expected output of type \*core/lease.Manager, got \*io.Writer`)
+	c.Assert(err, tc.ErrorMatches, `expected output of type \*core/lease.Manager, got \*io.Writer`)
 }
 
 type mockAgent struct {

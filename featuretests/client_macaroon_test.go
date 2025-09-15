@@ -6,10 +6,10 @@ package featuretests
 import (
 	"fmt"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/charms"
 	apitesting "github.com/juju/juju/api/testing"
@@ -18,7 +18,9 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&clientMacaroonSuite{})
+func TestClientMacaroonSuite(t *tctesting.T) {
+	tc.Run(t, &clientMacaroonSuite{})
+}
 
 // clientMacaroonSuite tests that Client endpoints that are
 // independent of the RPC-based API work with
@@ -27,7 +29,7 @@ type clientMacaroonSuite struct {
 	apitesting.MacaroonSuite
 }
 
-func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.LocalCharmClient {
+func (s *clientMacaroonSuite) createTestClient(c *tc.C) *charms.LocalCharmClient {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
@@ -35,7 +37,7 @@ func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.LocalCharmClient
 	s.DischargerLogin = func() string { return username }
 	api := s.OpenAPI(c, nil, cookieJar)
 	charmClient, err := charms.NewLocalCharmClient(api)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
@@ -44,7 +46,7 @@ func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.LocalCharmClient
 	return charmClient
 }
 
-func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
+func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *tc.C) {
 	charmClient := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -52,13 +54,13 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
-	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(savedURL, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(savedURL, tc.IsNil)
 }
 
-func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
+func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *tc.C) {
 	charmClient, err := charms.NewLocalCharmClient(s.APIState)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
@@ -76,6 +78,6 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 			c.Skip("intermittent charmstore upload issue")
 		}
 	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(savedURL.String(), gc.Equals, curl.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(savedURL.String(), tc.Equals, curl.String())
 }

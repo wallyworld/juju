@@ -4,8 +4,9 @@
 package database
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/database/testing"
 )
@@ -14,9 +15,11 @@ type migrationSuite struct {
 	testing.DBSuite
 }
 
-var _ = gc.Suite(&migrationSuite{})
+func TestMigrationSuite(t *tctesting.T) {
+	tc.Run(t, &migrationSuite{})
+}
 
-func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
+func (s *migrationSuite) TestMigrationSuccess(c *tc.C) {
 	delta := []string{
 		"CREATE TABLE band(name TEXT PRIMARY KEY);",
 		"INSERT INTO band VALUES ('Blood Incantation');",
@@ -24,14 +27,14 @@ func (s *migrationSuite) TestMigrationSuccess(c *gc.C) {
 
 	db := s.DB()
 	m := NewDBMigration(db, stubLogger{}, delta)
-	c.Assert(m.Apply(), jc.ErrorIsNil)
+	c.Assert(m.Apply(), tc.ErrorIsNil)
 
 	rows, err := db.Query("SELECT * from band;")
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { _ = rows.Close() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) { _ = rows.Close() })
 
 	var band string
-	c.Assert(rows.Next(), jc.IsTrue)
-	c.Assert(rows.Scan(&band), jc.ErrorIsNil)
-	c.Check(band, gc.Equals, "Blood Incantation")
+	c.Assert(rows.Next(), tc.IsTrue)
+	c.Assert(rows.Scan(&band), tc.ErrorIsNil)
+	c.Check(band, tc.Equals, "Blood Incantation")
 }

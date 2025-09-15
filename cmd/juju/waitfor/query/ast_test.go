@@ -4,14 +4,18 @@
 package query
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 )
 
 type astSuite struct{}
 
-var _ = gc.Suite(&astSuite{})
+func TestAstSuite(t *tctesting.T) {
+	tc.Run(t, &astSuite{})
+}
 
-func (p *astSuite) TestQueryExpressionString(c *gc.C) {
+func (p *astSuite) TestQueryExpressionString(c *tc.C) {
 	exp := &QueryExpression{
 		Expressions: []Expression{
 			&ExpressionStatement{
@@ -30,10 +34,10 @@ func (p *astSuite) TestQueryExpressionString(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "abc;efg;")
+	c.Assert(exp.String(), tc.DeepEquals, "abc;efg;")
 }
 
-func (p *astSuite) TestExpressionStatementEmptyString(c *gc.C) {
+func (p *astSuite) TestExpressionStatementEmptyString(c *tc.C) {
 	exp := &ExpressionStatement{
 		Expression: &Identifier{
 			Token: Token{
@@ -41,10 +45,10 @@ func (p *astSuite) TestExpressionStatementEmptyString(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, ";")
+	c.Assert(exp.String(), tc.DeepEquals, ";")
 }
 
-func (p *astSuite) TestExpressionStatementString(c *gc.C) {
+func (p *astSuite) TestExpressionStatementString(c *tc.C) {
 	exp := &ExpressionStatement{
 		Expression: &Identifier{
 			Token: Token{
@@ -52,10 +56,10 @@ func (p *astSuite) TestExpressionStatementString(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "abc;")
+	c.Assert(exp.String(), tc.DeepEquals, "abc;")
 }
 
-func (p *astSuite) TestInfixExpressionString(c *gc.C) {
+func (p *astSuite) TestInfixExpressionString(c *tc.C) {
 	exp := &InfixExpression{
 		Left: &Identifier{
 			Token: Token{
@@ -69,50 +73,50 @@ func (p *astSuite) TestInfixExpressionString(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "(abc && efg)")
+	c.Assert(exp.String(), tc.DeepEquals, "(abc && efg)")
 }
 
-func (p *astSuite) TestIdentifierString(c *gc.C) {
+func (p *astSuite) TestIdentifierString(c *tc.C) {
 	exp := &Identifier{
 		Token: Token{
 			Literal: "abc",
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "abc")
+	c.Assert(exp.String(), tc.DeepEquals, "abc")
 }
 
-func (p *astSuite) TestEmptyString(c *gc.C) {
+func (p *astSuite) TestEmptyString(c *tc.C) {
 	exp := &Empty{
 		Token: Token{
 			Literal: "abc",
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "()")
+	c.Assert(exp.String(), tc.DeepEquals, "()")
 }
 
-func (p *astSuite) TestIntegerString(c *gc.C) {
+func (p *astSuite) TestIntegerString(c *tc.C) {
 	exp := &Integer{
 		Token: Token{
 			Literal: "1",
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "1")
+	c.Assert(exp.String(), tc.DeepEquals, "1")
 }
 
-func (p *astSuite) TestFloatString(c *gc.C) {
+func (p *astSuite) TestFloatString(c *tc.C) {
 	exp := &Float{
 		Token: Token{
 			Literal: "1.123",
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "1.123")
+	c.Assert(exp.String(), tc.DeepEquals, "1.123")
 }
 
-func (p *astSuite) TestBoolString(c *gc.C) {
+func (p *astSuite) TestBoolString(c *tc.C) {
 	exp := &Bool{
 		Token: Token{
 			Literal: "true",
 		},
 	}
-	c.Assert(exp.String(), gc.DeepEquals, "true")
+	c.Assert(exp.String(), tc.DeepEquals, "true")
 }

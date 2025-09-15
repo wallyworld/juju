@@ -5,29 +5,25 @@ package params_test
 
 import (
 	"encoding/json"
-	stdtesting "testing"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type MarshalSuite struct{}
 
-var _ = gc.Suite(&MarshalSuite{})
+func TestMarshalSuite(t *tctesting.T) {
+	tc.Run(t, &MarshalSuite{})
+}
 
 var marshalTestCases = []struct {
 	about string
@@ -183,54 +179,56 @@ var marshalTestCases = []struct {
 	json: `["relation","remove",{"model-uuid": "uuid", "key":"Benji", "id": 0, "endpoints": null}]`,
 }}
 
-func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
+func (s *MarshalSuite) TestDeltaMarshalJSON(c *tc.C) {
 	for _, t := range marshalTestCases {
 		c.Log(t.about)
 		output, err := t.value.MarshalJSON()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		// We check unmarshalled output both to reduce the fragility of the
 		// tests (because ordering in the maps can change) and to verify that
 		// the output is well-formed.
 		var unmarshalledOutput interface{}
 		err = json.Unmarshal(output, &unmarshalledOutput)
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(unmarshalledOutput, jc.DeepEquals, expected)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(unmarshalledOutput, tc.DeepEquals, expected)
 	}
 }
 
-func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
+func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *tc.C) {
 	for i, t := range marshalTestCases {
 		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(unmarshalled, jc.DeepEquals, t.value)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(unmarshalled, tc.DeepEquals, t.value)
 	}
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *gc.C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *tc.C) {
 	err := json.Unmarshal([]byte(`[1,2]`), new(params.Delta))
-	c.Check(err, gc.ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
+	c.Check(err, tc.ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *tc.C) {
 	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta))
-	c.Check(err, gc.ErrorMatches, `Unexpected operation "masticate"`)
+	c.Check(err, tc.ErrorMatches, `Unexpected operation "masticate"`)
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *tc.C) {
 	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
-	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
+	c.Check(err, tc.ErrorMatches, `Unexpected entity name "qwan"`)
 }
 
 type ErrorResultsSuite struct{}
 
-var _ = gc.Suite(&ErrorResultsSuite{})
+func TestErrorResultsSuite(t *tctesting.T) {
+	tc.Run(t, &ErrorResultsSuite{})
+}
 
-func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
+func (s *ErrorResultsSuite) TestOneError(c *tc.C) {
 	for i, test := range []struct {
 		results  params.ErrorResults
 		errMatch string
@@ -258,14 +256,14 @@ func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
 		c.Logf("test %d", i)
 		err := test.results.OneError()
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.errMatch)
+			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
 
-func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
+func (s *ErrorResultsSuite) TestCombine(c *tc.C) {
 	for i, test := range []struct {
 		msg      string
 		results  params.ErrorResults
@@ -306,20 +304,22 @@ func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
 		c.Logf("test %d: %s", i, test.msg)
 		err := test.results.Combine()
 		if test.errMatch == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, tc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, test.errMatch)
+			c.Check(err, tc.ErrorMatches, test.errMatch)
 		}
 	}
 }
 
 type importSuite struct{}
 
-var _ = gc.Suite(&importSuite{})
+func TestImportSuite(t *tctesting.T) {
+	tc.Run(t, &importSuite{})
+}
 
-func (*importSuite) TestParamsDoesNotDependOnState(c *gc.C) {
+func (*importSuite) TestParamsDoesNotDependOnState(c *tc.C) {
 	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/rpc/params")
 	for _, i := range imports {
-		c.Assert(i, gc.Not(gc.Equals), "state")
+		c.Assert(i, tc.Not(tc.Equals), "state")
 	}
 }

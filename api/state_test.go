@@ -4,11 +4,12 @@
 package api_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -16,36 +17,40 @@ import (
 	"github.com/juju/juju/api/client/usermanager"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	proxytest "github.com/juju/juju/proxy/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type stateSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+func TestStateSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &stateSuite{})
+}
 
 type slideSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&slideSuite{})
+func TestSlideSuite(t *tctesting.T) {
+	tc.Run(t, &slideSuite{})
+}
 
-func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
-	c.Assert(s.APIState.Close(), gc.IsNil)
-	c.Assert(s.APIState.Close(), gc.IsNil)
-	c.Assert(s.APIState.Close(), gc.IsNil)
+func (s *stateSuite) TestCloseMultipleOk(c *tc.C) {
+	c.Assert(s.APIState.Close(), tc.IsNil)
+	c.Assert(s.APIState.Close(), tc.IsNil)
+	c.Assert(s.APIState.Close(), tc.IsNil)
 }
 
 // OpenAPIWithoutLogin connects to the API and returns an api.State without
 // actually calling st.Login already. The returned strings are the "tag" and
 // "password" that we would have used to login.
-func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, string) {
+func (s *stateSuite) OpenAPIWithoutLogin(c *tc.C) (api.Connection, names.Tag, string) {
 	info := s.APIInfo(c)
 	tag := info.Tag
 	password := info.Password
@@ -54,15 +59,15 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, st
 	info.Macaroons = nil
 	info.SkipLogin = true
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return apistate, tag, password
 }
 
-func (s *stateSuite) TestAPIHostPortsIncludesTheConnection(c *gc.C) {
+func (s *stateSuite) TestAPIHostPortsIncludesTheConnection(c *tc.C) {
 	hostportslist := s.APIState.APIHostPorts()
-	c.Check(hostportslist, gc.HasLen, 1)
+	c.Check(hostportslist, tc.HasLen, 1)
 	serverhostports := hostportslist[0]
-	c.Check(serverhostports, gc.HasLen, 1)
+	c.Check(serverhostports, tc.HasLen, 1)
 
 	info := s.APIInfo(c)
 
@@ -70,24 +75,24 @@ func (s *stateSuite) TestAPIHostPortsIncludesTheConnection(c *gc.C) {
 	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
 	badServers[0].Scope = network.ScopeMachineLocal
 	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{badServers})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apistate.Close() }()
 
 	hp, err := network.ParseMachineHostPort(badServers[0].String())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	hp.Scope = badServers[0].Scope
 
 	hostports := apistate.APIHostPorts()
-	c.Check(hostports, gc.DeepEquals, []network.MachineHostPorts{
+	c.Check(hostports, tc.DeepEquals, []network.MachineHostPorts{
 		serverhostports,
 		{*hp},
 	})
 }
 
-func (s *stateSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
+func (s *stateSuite) TestAPIHostPortsExcludesAddressesWithPath(c *tc.C) {
 	info := s.APIInfo(c)
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
@@ -116,16 +121,16 @@ func (s *stateSuite) TestAPIHostPortsExcludesAddressesWithPath(c *gc.C) {
 		Closed:        make(chan struct{}),
 	})
 	err := testState.Login(info.Tag, info.Password, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := testState.APIHostPorts()
-	c.Assert(len(hostPortList), gc.Equals, 1)
-	c.Assert(len(hostPortList[0]), gc.Equals, 1)
-	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+	c.Assert(len(hostPortList), tc.Equals, 1)
+	c.Assert(len(hostPortList[0]), tc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, tc.Equals, "fe80:abcd::1")
 }
 
-func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
+func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *tc.C) {
 	info := s.APIInfo(c)
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
@@ -155,54 +160,54 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 		Proxier:       proxytest.NewMockTunnelProxier(),
 	})
 	err := testState.Login(info.Tag, info.Password, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	hostPortList := testState.APIHostPorts()
-	c.Assert(len(hostPortList), gc.Equals, 1)
-	c.Assert(len(hostPortList[0]), gc.Equals, 1)
-	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
-	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
+	c.Assert(len(hostPortList), tc.Equals, 1)
+	c.Assert(len(hostPortList[0]), tc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, tc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, tc.Equals, "fe80:abcd::1")
 }
 
-func (s *stateSuite) TestTags(c *gc.C) {
+func (s *stateSuite) TestTags(c *tc.C) {
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	// Even though we haven't called Login, the model tag should
 	// still be set.
 	modelTag, ok := apistate.ModelTag()
-	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, model.ModelTag())
+	c.Check(ok, tc.IsTrue)
+	c.Check(modelTag, tc.Equals, model.ModelTag())
 	err = apistate.Login(tag, password, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
 	modelTag, ok = apistate.ModelTag()
-	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, model.ModelTag())
+	c.Check(ok, tc.IsTrue)
+	c.Check(modelTag, tc.Equals, model.ModelTag())
 	controllerTag := apistate.ControllerTag()
-	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
+	c.Check(controllerTag, tc.Equals, coretesting.ControllerTag)
 }
 
-func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
+func (s *stateSuite) TestLoginSetsControllerAccess(c *tc.C) {
 	// The default user has admin access.
-	c.Assert(s.APIState.ControllerAccess(), gc.Equals, "superuser")
+	c.Assert(s.APIState.ControllerAccess(), tc.Equals, "superuser")
 
 	manager := usermanager.NewClient(s.OpenControllerAPI(c))
 	defer manager.Close()
 	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer mmanager.Close()
 	modeltag, ok := s.APIState.ModelTag()
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	err = mmanager.GrantModel(usertag.Id(), "read", modeltag.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	conn := s.OpenAPIAs(c, usertag, "ro-password")
-	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
+	c.Assert(conn.ControllerAccess(), tc.Equals, "login")
 }
 
-func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
+func (s *stateSuite) TestLoginToMigratedModel(c *tc.C) {
 	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "secret",
 	})
@@ -211,7 +216,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	controllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
@@ -226,12 +231,12 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 			Password:      "secret",
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+		c.Assert(mig.SetPhase(phase), tc.ErrorIsNil)
 	}
-	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), tc.ErrorIsNil)
+	c.Assert(modelState.RemoveDyingModel(), tc.ErrorIsNil)
 
 	// Attempt to open an API connection to the migrated model as a user
 	// that had access to the model before it got migrated.
@@ -242,33 +247,33 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	_, err = api.Open(info, api.DialOpts{})
 
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, tc.Equals, true)
 
 	nhp := network.NewMachineHostPorts(5555, "1.2.3.4")
-	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
-	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
-	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
-	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
+	c.Assert(redirErr.Servers, tc.DeepEquals, []network.MachineHostPorts{nhp})
+	c.Assert(redirErr.CACert, tc.Equals, coretesting.CACert)
+	c.Assert(redirErr.FollowRedirect, tc.Equals, false)
+	c.Assert(redirErr.ControllerTag, tc.Equals, controllerTag)
 }
 
-func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
+func (s *stateSuite) TestLoginMacaroonInvalidId(c *tc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
+	c.Assert(err, tc.ErrorMatches, "interaction required but not possible")
 }
 
-func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
-	c.Check(s.APIState.BestFacadeVersion("Client"), gc.Equals, 8)
+func (s *stateSuite) TestBestFacadeVersion(c *tc.C) {
+	c.Check(s.APIState.BestFacadeVersion("Client"), tc.Equals, 8)
 }
 
-func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
+func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *tc.C) {
 	hostPortsList := s.APIState.APIHostPorts()
-	c.Check(hostPortsList, gc.HasLen, 1)
+	c.Check(hostPortsList, tc.HasLen, 1)
 	serverHostPorts := hostPortsList[0]
-	c.Check(serverHostPorts, gc.HasLen, 1)
+	c.Check(serverHostPorts, tc.HasLen, 1)
 	goodAddress := serverHostPorts[0]
 
 	info := s.APIInfo(c)
@@ -312,10 +317,10 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		},
 	}
 	err := s.State.SetAPIHostPorts(current)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
 	hostPorts := apiState.APIHostPorts()
@@ -325,7 +330,7 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		goodAddress, extraAddress, extraAddress2,
 	}
 	expected := []network.MachineHostPorts{sortedServer, badServer}
-	c.Check(hostPorts, gc.DeepEquals, expected)
+	c.Check(hostPorts, tc.DeepEquals, expected)
 }
 
 var exampleHostPorts = []network.MachineHostPort{
@@ -335,7 +340,7 @@ var exampleHostPorts = []network.MachineHostPort{
 	{MachineAddress: network.NewMachineAddress("0.1.9.1"), NetPort: 8888},
 }
 
-func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontNoOp(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1]},
@@ -346,10 +351,10 @@ func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
 		{exampleHostPorts[1]},
 	}
 	api.SlideAddressToFront(servers, 0, 0)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontAddress(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1], exampleHostPorts[2]},
 		{exampleHostPorts[3]},
@@ -360,10 +365,10 @@ func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 0, 1)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontServer(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1]},
 		{exampleHostPorts[2]},
@@ -376,10 +381,10 @@ func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 1, 0)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }
 
-func (s *slideSuite) TestSlideToFrontBoth(c *gc.C) {
+func (s *slideSuite) TestSlideToFrontBoth(c *tc.C) {
 	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1], exampleHostPorts[2]},
@@ -392,5 +397,5 @@ func (s *slideSuite) TestSlideToFrontBoth(c *gc.C) {
 		{exampleHostPorts[3]},
 	}
 	api.SlideAddressToFront(servers, 1, 1)
-	c.Check(servers, gc.DeepEquals, expected)
+	c.Check(servers, tc.DeepEquals, expected)
 }

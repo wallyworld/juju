@@ -7,20 +7,19 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type Stopper interface {
 	Stop() error
 }
 
-func AssertStop(c *gc.C, stopper Stopper) {
-	c.Assert(stopper.Stop(), gc.IsNil)
+func AssertStop(c *tc.C, stopper Stopper) {
+	c.Assert(stopper.Stop(), tc.IsNil)
 }
 
 type KillWaiter interface {
@@ -28,9 +27,9 @@ type KillWaiter interface {
 	Wait() error
 }
 
-func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
+func AssertKillAndWait(c *tc.C, killWaiter KillWaiter) {
 	killWaiter.Kill()
-	c.Assert(killWaiter.Wait(), jc.ErrorIsNil)
+	c.Assert(killWaiter.Wait(), tc.ErrorIsNil)
 }
 
 // AssertCanStopWhenSending ensures even when there are changes
@@ -38,14 +37,14 @@ func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
 // cleanly. This is necessary to check for deadlocks in case the
 // watcher's inner loop is blocked trying to send and its tomb is
 // already dying.
-func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
+func AssertCanStopWhenSending(c *tc.C, stopper Stopper) {
 	// Leave some time for the event to be delivered and the watcher
 	// to block on sending it.
 	<-time.After(testing.ShortWait)
 	stopped := make(chan bool)
 	// Stop() blocks, so we need to call it in a separate goroutine.
 	go func() {
-		c.Check(stopper.Stop(), gc.IsNil)
+		c.Check(stopper.Stop(), tc.IsNil)
 		stopped <- true
 	}()
 	select {
@@ -65,13 +64,13 @@ type NotifyWatcher interface {
 // NotifyWatcherC embeds a gocheck.C and adds methods to help verify
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher NotifyWatcher
 }
 
 // NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
 // event coalescence.
-func NewNotifyWatcherC(c *gc.C, w NotifyWatcher) NotifyWatcherC {
+func NewNotifyWatcherC(c *tc.C, w NotifyWatcher) NotifyWatcherC {
 	return NotifyWatcherC{
 		C:       c,
 		Watcher: w,
@@ -97,7 +96,7 @@ loop:
 		select {
 		case _, ok := <-c.Watcher.Changes():
 			c.C.Logf("got change")
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			break loop
 		case <-longTimeout:
 			c.Fatalf("watcher did not send change")
@@ -114,7 +113,7 @@ loop:
 		select {
 		case _, ok := <-c.Watcher.Changes():
 			c.C.Logf("got change")
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			break loop
 		case <-longTimeout:
 			c.Fatalf("watcher did not send change")
@@ -132,7 +131,7 @@ loop:
 		select {
 		case _, ok := <-c.Watcher.Changes():
 			c.C.Logf("got change")
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			got++
 		case <-longTimeout:
 			c.Fatalf("watcher did not %d send change(s)", n-got)
@@ -145,7 +144,7 @@ loop:
 func (c NotifyWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -154,13 +153,13 @@ func (c NotifyWatcherC) AssertClosed() {
 // StringsWatcherC embeds a gocheck.C and adds methods to help verify
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher StringsWatcher
 }
 
 // NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
 // event coalescence.
-func NewStringsWatcherC(c *gc.C, w StringsWatcher) StringsWatcherC {
+func NewStringsWatcherC(c *tc.C, w StringsWatcher) StringsWatcherC {
 	return StringsWatcherC{
 		C:       c,
 		Watcher: w,
@@ -205,12 +204,12 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 	actual := c.collectChanges(true, maxCount)
 
 	if maxCount == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
 		actualCount := len(actual)
-		c.Assert(actualCount <= maxCount, jc.IsTrue, gc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		c.Assert(actualCount <= maxCount, tc.IsTrue, tc.Commentf("expected at most %d, got %d", maxCount, actualCount))
 		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
-		c.Assert(unexpected.Values(), gc.HasLen, 0)
+		c.Assert(unexpected.Values(), tc.HasLen, 0)
 	}
 }
 
@@ -219,9 +218,9 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	actual := c.collectChanges(single, len(expect))
 	if len(expect) == 0 {
-		c.Assert(actual, gc.HasLen, 0)
+		c.Assert(actual, tc.HasLen, 0)
 	} else {
-		c.Assert(actual, jc.SameContents, expect)
+		c.Assert(actual, tc.SameContents, expect)
 	}
 }
 
@@ -235,7 +234,7 @@ loop:
 	for {
 		select {
 		case changes, ok := <-c.Watcher.Changes():
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			gotOneChange = true
 			actual = append(actual, changes...)
 			if single || len(actual) >= max {
@@ -255,7 +254,7 @@ loop:
 func (c StringsWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -265,7 +264,7 @@ func (c StringsWatcherC) AssertClosed() {
 // verify the behaviour of any watcher that uses a <-chan
 // params.RelationUnitsChange.
 type RelationUnitsWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher RelationUnitsWatcher
 	// settingsVersions keeps track of the settings version of each
 	// changed unit since the last received changes to ensure version
@@ -276,7 +275,7 @@ type RelationUnitsWatcherC struct {
 
 // NewRelationUnitsWatcherC returns a RelationUnitsWatcherC that
 // checks for aggressive event coalescence.
-func NewRelationUnitsWatcherC(c *gc.C, w RelationUnitsWatcher) RelationUnitsWatcherC {
+func NewRelationUnitsWatcherC(c *tc.C, w RelationUnitsWatcher) RelationUnitsWatcherC {
 	return RelationUnitsWatcherC{
 		C:                   c,
 		Watcher:             w,
@@ -308,13 +307,13 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Logf("Watcher.Changes() => %# v", actual)
-		c.Assert(ok, jc.IsTrue)
-		c.Check(actual.Changed, gc.HasLen, len(changed))
-		c.Check(actual.AppChanged, gc.HasLen, len(appChanged))
+		c.Assert(ok, tc.IsTrue)
+		c.Check(actual.Changed, tc.HasLen, len(changed))
+		c.Check(actual.AppChanged, tc.HasLen, len(appChanged))
 		// Because the versions can change, we only need to make sure
 		// the keys match, not the contents (UnitSettings == txnRevno).
 		for k, settings := range actual.Changed {
-			c.Check(changedNames.Contains(k), jc.IsTrue)
+			c.Check(changedNames.Contains(k), tc.IsTrue)
 			oldVer, ok := c.settingsVersions[k]
 			if !ok {
 				// TODO(jam): 2019-10-22 shouldn't we update this *every* time we see it?
@@ -323,23 +322,23 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 				c.settingsVersions[k] = settings.Version
 			} else {
 				// Already seen; make sure the version increased.
-				c.Assert(settings.Version, jc.GreaterThan, oldVer,
-					gc.Commentf("expected unit settings to increase got %d had %d",
+				c.Assert(settings.Version, tc.GreaterThan, oldVer,
+					tc.Commentf("expected unit settings to increase got %d had %d",
 						settings.Version, oldVer))
 			}
 		}
 		for k, version := range actual.AppChanged {
-			c.Check(appChangedNames.Contains(k), jc.IsTrue)
+			c.Check(appChangedNames.Contains(k), tc.IsTrue)
 			oldVer, ok := c.appSettingsVersions[k]
 			if ok {
 				// Make sure if we've seen this setting before, it has been updated
-				c.Assert(version, jc.GreaterThan, oldVer,
-					gc.Commentf("expected app settings to increase got %d had %d",
+				c.Assert(version, tc.GreaterThan, oldVer,
+					tc.Commentf("expected app settings to increase got %d had %d",
 						version, oldVer))
 			}
 			c.appSettingsVersions[k] = version
 		}
-		c.Check(actual.Departed, jc.SameContents, departed)
+		c.Check(actual.Departed, tc.SameContents, departed)
 	case <-timeout:
 		c.Fatalf("watcher did not send change")
 	}
@@ -348,7 +347,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 func (c RelationUnitsWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -358,13 +357,13 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 // verify the behaviour of any watcher that uses a
 // <-chan []SecretTriggerChange
 type SecretsTriggerWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher SecretsTriggerWatcher
 }
 
 // NewSecretsTriggerWatcherC returns a SecretsTriggerWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretsTriggerWatcherC(c *gc.C, w SecretsTriggerWatcher) SecretsTriggerWatcherC {
+func NewSecretsTriggerWatcherC(c *tc.C, w SecretsTriggerWatcher) SecretsTriggerWatcherC {
 	return SecretsTriggerWatcherC{
 		C:       c,
 		Watcher: w,
@@ -393,11 +392,11 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 		select {
 		case actual, ok := <-c.Watcher.Changes():
 			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
 				c.Assert(received, mc, expect)
 				return
 			}
@@ -410,7 +409,7 @@ func (c SecretsTriggerWatcherC) AssertChange(expect ...watcher.SecretTriggerChan
 func (c SecretsTriggerWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}
@@ -420,13 +419,13 @@ func (c SecretsTriggerWatcherC) AssertClosed() {
 // verify the behaviour of any watcher that uses a
 // <-chan []SecretBackendRotateChange
 type SecretBackendRotateWatcherC struct {
-	*gc.C
+	*tc.C
 	Watcher SecretBackendRotateWatcher
 }
 
 // NewSecretBackendRotateWatcherC returns a SecretBackendRotateWatcherC that
 // checks for aggressive event coalescence.
-func NewSecretBackendRotateWatcherC(c *gc.C, w SecretBackendRotateWatcher) SecretBackendRotateWatcherC {
+func NewSecretBackendRotateWatcherC(c *tc.C, w SecretBackendRotateWatcher) SecretBackendRotateWatcherC {
 	return SecretBackendRotateWatcherC{
 		C:       c,
 		Watcher: w,
@@ -455,11 +454,11 @@ func (c SecretBackendRotateWatcherC) AssertChange(expect ...watcher.SecretBacken
 		select {
 		case actual, ok := <-c.Watcher.Changes():
 			c.Logf("Secrets Trigger Watcher.Changes() => %# v", actual)
-			c.Assert(ok, jc.IsTrue)
+			c.Assert(ok, tc.IsTrue)
 			received = append(received, actual...)
 			if len(received) >= len(expect) {
-				mc := jc.NewMultiChecker()
-				mc.AddExpr(`_[_].NextTriggerTime`, jc.Almost, jc.ExpectedValue)
+				mc := tc.NewMultiChecker()
+				mc.AddExpr(`_[_].NextTriggerTime`, tc.Almost, tc.ExpectedValue)
 				c.Assert(received, mc, expect)
 				return
 			}
@@ -472,7 +471,7 @@ func (c SecretBackendRotateWatcherC) AssertChange(expect ...watcher.SecretBacken
 func (c SecretBackendRotateWatcherC) AssertClosed() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, tc.IsFalse)
 	default:
 		c.Fatalf("watcher not closed")
 	}

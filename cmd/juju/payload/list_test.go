@@ -6,31 +6,33 @@ package payload_test
 import (
 	"bytes"
 	"strings"
+	tctesting "testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/payload"
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&listSuite{})
+func TestListSuite(t *tctesting.T) {
+	tc.Run(t, &listSuite{})
+}
 
 type listSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
-	stub   *testing.Stub
+	stub   *testhelpers.Stub
 	client *stubClient
 }
 
-func (s *listSuite) SetUpTest(c *gc.C) {
+func (s *listSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
+	s.stub = &testhelpers.Stub{}
 	s.client = &stubClient{stub: s.stub}
 }
 
@@ -38,11 +40,11 @@ func (s *listSuite) newAPIClient() (payload.ListAPI, error) {
 	return s.client, nil
 }
 
-func (s *listSuite) TestInfo(c *gc.C) {
+func (s *listSuite) TestInfo(c *tc.C) {
 	var command payload.ListCommand
 	info := command.Info()
 
-	c.Check(info, jc.DeepEquals, &cmd.Info{
+	c.Check(info, tc.DeepEquals, &cmd.Info{
 		Name:    "payloads",
 		Args:    "[pattern ...]",
 		Purpose: "Display status information about known payloads.",
@@ -67,7 +69,7 @@ will be checked against the following info in Juju:
 	})
 }
 
-func (s *listSuite) TestList(c *gc.C) {
+func (s *listSuite) TestList(c *tc.C) {
 	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
 	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
@@ -75,27 +77,27 @@ func (s *listSuite) TestList(c *gc.C) {
 
 	command := payload.NewListCommandForTest(s.newAPIClient)
 	code, stdout, stderr := runList(c, command)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 [Unit Payloads]
 Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs         
 `[1:])
-	c.Check(stderr, gc.Equals, "")
+	c.Check(stderr, tc.Equals, "")
 }
 
-func (s *listSuite) TestNoPayloads(c *gc.C) {
+func (s *listSuite) TestNoPayloads(c *tc.C) {
 	command := payload.NewListCommandForTest(s.newAPIClient)
 	code, stdout, stderr := runList(c, command)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 
-	c.Check(stderr, gc.Equals, "No payloads to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, tc.Equals, "No payloads to display.\n")
+	c.Check(stdout, tc.Equals, "")
 }
 
-func (s *listSuite) TestPatternsOkay(c *gc.C) {
+func (s *listSuite) TestPatternsOkay(c *tc.C) {
 	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
 	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
@@ -109,16 +111,16 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 		"some-application/1",
 	}
 	code, stdout, stderr := runList(c, command, args...)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, tc.Equals, 0)
 
-	c.Check(stdout, gc.Equals, `
+	c.Check(stdout, tc.Equals, `
 [Unit Payloads]
 Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs  a-tag  
 `[1:])
-	c.Check(stderr, gc.Equals, "")
-	s.stub.CheckCalls(c, []testing.StubCall{{
+	c.Check(stderr, tc.Equals, "")
+	s.stub.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "List",
 		Args: []interface{}{
 			[]string{
@@ -132,7 +134,7 @@ another-application/1  2        eggs           running  docker  ideggs  a-tag
 	}})
 }
 
-func (s *listSuite) TestOutputFormats(c *gc.C) {
+func (s *listSuite) TestOutputFormats(c *tc.C) {
 	p1 := payload.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
 	p2 := payload.NewPayload("eggs", "another-application", 2, 1)
@@ -191,14 +193,14 @@ another-application/1  2        eggs           running  docker  ideggs
 			"--format", format,
 		}
 		code, stdout, stderr := runList(c, command, args...)
-		c.Assert(code, gc.Equals, 0)
+		c.Assert(code, tc.Equals, 0)
 
-		c.Check(stdout, gc.Equals, expected)
-		c.Check(stderr, gc.Equals, "")
+		c.Check(stdout, tc.Equals, expected)
+		c.Check(stderr, tc.Equals, "")
 	}
 }
 
-func runList(c *gc.C, command *payload.ListCommand, args ...string) (int, string, string) {
+func runList(c *tc.C, command *payload.ListCommand, args ...string) (int, string, string) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(command, ctx, args)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
@@ -207,7 +209,7 @@ func runList(c *gc.C, command *payload.ListCommand, args ...string) (int, string
 }
 
 type stubClient struct {
-	stub     *testing.Stub
+	stub     *testhelpers.Stub
 	payloads []corepayloads.FullPayloadInfo
 }
 

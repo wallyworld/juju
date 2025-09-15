@@ -5,22 +5,24 @@ package dbaccessor
 
 import (
 	"bytes"
-	time "time"
+	tctesting "testing"
+	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type metricsSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&metricsSuite{})
+func TestMetricsSuite(t *tctesting.T) {
+	tc.Run(t, &metricsSuite{})
+}
 
-func (s *metricsSuite) TestMetricsAreCollected(c *gc.C) {
+func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {
 	collector := NewMetricsCollector()
 
 	done := make(chan struct{})
@@ -68,7 +70,7 @@ juju_db_txn_requests_total{namespace="foo"} 1
 		"juju_db_duration_seconds",
 		"juju_db_txn_requests_total",
 	)
-	if !c.Check(err, jc.ErrorIsNil) {
+	if !c.Check(err, tc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)
 	}
 }

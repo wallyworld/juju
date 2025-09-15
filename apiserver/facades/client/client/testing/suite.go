@@ -11,8 +11,7 @@ package testing
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -28,33 +27,33 @@ type CharmSuite struct {
 	charms map[string]*state.Charm
 }
 
-func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
+func (s *CharmSuite) SetUpSuite(c *tc.C, jcSuite *jujutesting.JujuConnSuite) {
 	s.jcSuite = jcSuite
 }
 
-func (s *CharmSuite) SetUpTest(c *gc.C) {
+func (s *CharmSuite) SetUpTest(c *tc.C) {
 	s.charms = make(map[string]*state.Charm)
 }
 
 // AddMachine adds a new machine to state.
-func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
+func (s *CharmSuite) AddMachine(c *tc.C, machineId string, job state.MachineJob) {
 	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{job},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, machineId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(m.Id(), tc.Equals, machineId)
 	cons, err := m.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	controllerCfg, err := s.jcSuite.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, s.jcSuite.ProviderCallContext, controllerCfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "", "fake_nonce", hc)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // AddCharmhubCharmWithRevision adds a charmhub charm with the specified revision to state.
-func (s *CharmSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
+func (s *CharmSuite) AddCharmhubCharmWithRevision(c *tc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev)
@@ -65,15 +64,15 @@ func (s *CharmSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev
 		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
 	}
 	dummy, err := s.jcSuite.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.charms[name] = dummy
 	return dummy
 }
 
 // AddApplication adds an application for the specified charm to state.
-func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) {
+func (s *CharmSuite) AddApplication(c *tc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, tc.IsTrue)
 	revision := ch.Revision()
 	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{
 		Name:  applicationName,
@@ -94,35 +93,35 @@ func (s *CharmSuite) AddApplication(c *gc.C, charmName, applicationName string) 
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // AddUnit adds a new unit for application to the specified machine.
-func (s *CharmSuite) AddUnit(c *gc.C, appName, machineId string) {
+func (s *CharmSuite) AddUnit(c *tc.C, appName, machineId string) {
 	svc, err := s.jcSuite.State.Application(appName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	u, err := svc.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := s.jcSuite.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SetUnitRevision sets the unit's charm to the specified revision.
-func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
+func (s *CharmSuite) SetUnitRevision(c *tc.C, unitName string, rev int) {
 	u, err := s.jcSuite.State.Unit(unitName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	svc, err := u.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev)
 	err = u.SetCharmURL(curl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // SetupScenario adds some machines and applications to state.
 // It assumes a controller machine has already been created.
-func (s *CharmSuite) SetupScenario(c *gc.C) {
+func (s *CharmSuite) SetupScenario(c *tc.C) {
 	s.AddMachine(c, "1", state.JobHostUnits)
 	s.AddMachine(c, "2", state.JobHostUnits)
 	s.AddMachine(c, "3", state.JobHostUnits)

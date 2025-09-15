@@ -7,27 +7,21 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/charmhub/path"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub HTTPClient,RESTClient,FileSystem,Logger
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
-
-func MustParseURL(c *gc.C, path string) *url.URL {
+func MustParseURL(c *tc.C, path string) *url.URL {
 	u, err := url.Parse(path)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return u
 }
 
-func MustMakePath(c *gc.C, p string) path.Path {
+func MustMakePath(c *tc.C, p string) path.Path {
 	u := MustParseURL(c, p)
 	return path.MakePath(u)
 }
@@ -50,9 +44,9 @@ func MakeContentTypeHeader(name string) http.Header {
 	return h
 }
 
-func MustNewRequest(c *gc.C, path string) *http.Request {
+func MustNewRequest(c *tc.C, path string) *http.Request {
 	req, err := http.NewRequest("GET", path, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return req
 }

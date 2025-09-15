@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -17,26 +18,27 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	jujutesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasoperatorprovisioner"
-	coretesting "github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&CAASProvisionerSuite{})
+func TestCAASProvisionerSuite(t *tctesting.T) {
+	tc.Run(t, &CAASProvisionerSuite{})
+}
 
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
-	stub *jujutesting.Stub
+	stub *testhelpers.Stub
 
 	provisionerFacade *mockProvisionerFacade
 	caasClient        *mockBroker
@@ -45,10 +47,10 @@ type CAASProvisionerSuite struct {
 	modelTag          names.ModelTag
 }
 
-func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *CAASProvisionerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.stub = new(jujutesting.Stub)
+	s.stub = new(testhelpers.Stub)
 	s.provisionerFacade = newMockProvisionerFacade(s.stub)
 	s.caasClient = &mockBroker{}
 	s.agentConfig = &mockAgentConfig{}
@@ -56,12 +58,12 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 }
 
-func (s *CAASProvisionerSuite) waitForWorkerStubCalls(c *gc.C, expected []jujutesting.StubCall) {
+func (s *CAASProvisionerSuite) waitForWorkerStubCalls(c *tc.C, expected []testhelpers.StubCall) {
 	waitForStubCalls(c, s.stub, expected)
 }
 
-func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.StubCall) {
-	var calls []jujutesting.StubCall
+func waitForStubCalls(c *tc.C, stub *testhelpers.Stub, expected []testhelpers.StubCall) {
+	var calls []testhelpers.StubCall
 	retryCallArgs := coretesting.LongRetryStrategy
 	retryCallArgs.Func = func() error {
 		calls = stub.Calls()
@@ -76,7 +78,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 	}
 }
 
-func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
+func (s *CAASProvisionerSuite) assertWorker(c *tc.C) worker.Worker {
 	w, err := caasoperatorprovisioner.NewProvisionerWorker(caasoperatorprovisioner.Config{
 		Facade:          s.provisionerFacade,
 		OperatorManager: s.caasClient,
@@ -85,8 +87,8 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 		Clock:           s.clock,
 		Logger:          loggo.GetLogger("test"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	expected := []jujutesting.StubCall{
+	c.Assert(err, tc.ErrorIsNil)
+	expected := []testhelpers.StubCall{
 		{"WatchApplications", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
@@ -94,12 +96,12 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
+func (s *CAASProvisionerSuite) TestWorkerStarts(c *tc.C) {
 	w := s.assertWorker(c)
 	workertest.CleanKill(c, w)
 }
 
-func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCerts bool) {
+func (s *CAASProvisionerSuite) assertOperatorCreated(c *tc.C, exists, updateCerts bool) {
 	s.provisionerFacade.life = "alive"
 	s.sendApplicationChanges(c, "myapp")
 
@@ -118,57 +120,57 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 		return errors.Errorf("Not enough calls yet")
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	callNames := []string{"OperatorExists", "Operator", "EnsureOperator"}
 	s.caasClient.CheckCallNames(c, callNames...)
-	c.Assert(s.caasClient.Calls(), gc.HasLen, expectedCalls)
+	c.Assert(s.caasClient.Calls(), tc.HasLen, expectedCalls)
 
 	args := s.caasClient.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.Equals, "myapp")
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0], tc.Equals, "myapp")
 
 	ensureIndex := 2
 	args = s.caasClient.Calls()[ensureIndex].Args
-	c.Assert(args, gc.HasLen, 3)
-	c.Assert(args[0], gc.Equals, "myapp")
-	c.Assert(args[1], gc.Equals, "/var/lib/juju")
-	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
+	c.Assert(args, tc.HasLen, 3)
+	c.Assert(args[0], tc.Equals, "myapp")
+	c.Assert(args[1], tc.Equals, "/var/lib/juju")
+	c.Assert(args[2], tc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
-	c.Assert(config.ImageDetails.RegistryPath, gc.Equals, "juju-operator-image")
-	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
-	c.Assert(config.ResourceTags, jc.DeepEquals, map[string]string{"fred": "mary"})
+	c.Assert(config.ImageDetails.RegistryPath, tc.Equals, "juju-operator-image")
+	c.Assert(config.Version, tc.Equals, version.MustParse("2.99.0"))
+	c.Assert(config.ResourceTags, tc.DeepEquals, map[string]string{"fred": "mary"})
 	if s.provisionerFacade.withStorage {
-		c.Assert(config.CharmStorage, jc.DeepEquals, &caas.CharmStorageParams{
+		c.Assert(config.CharmStorage, tc.DeepEquals, &caas.CharmStorageParams{
 			Provider:     "kubernetes",
 			Size:         uint64(1024),
 			ResourceTags: map[string]string{"foo": "bar"},
 			Attributes:   map[string]interface{}{"key": "value"},
 		})
 	} else {
-		c.Assert(config.CharmStorage, gc.IsNil)
+		c.Assert(config.CharmStorage, tc.IsNil)
 	}
 	if updateCerts {
-		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(1))
+		c.Assert(config.ConfigMapGeneration, tc.Equals, int64(1))
 	} else {
-		c.Assert(config.ConfigMapGeneration, gc.Equals, int64(0))
+		c.Assert(config.ConfigMapGeneration, tc.Equals, int64(0))
 	}
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err = os.WriteFile(agentFile, config.AgentConf, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cfg, err := agent.ReadConfig(agentFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.CACert(), tc.Equals, coretesting.CACert)
 	addr, err := cfg.APIAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
 
 	operatorInfo, err := caas.UnmarshalOperatorInfo(config.OperatorInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(operatorInfo.CACert, gc.Equals, coretesting.CACert)
-	c.Assert(operatorInfo.Cert, gc.Equals, coretesting.ServerCert)
-	c.Assert(operatorInfo.PrivateKey, gc.Equals, coretesting.ServerKey)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(operatorInfo.CACert, tc.Equals, coretesting.CACert)
+	c.Assert(operatorInfo.Cert, tc.Equals, coretesting.ServerCert)
+	c.Assert(operatorInfo.PrivateKey, tc.Equals, coretesting.ServerKey)
 
 	retryCallArgs.Func = func() error {
 		if len(s.provisionerFacade.stub.Calls()) > 0 {
@@ -177,7 +179,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 		return errors.Errorf("Not enough calls yet")
 	}
 	err = retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	if exists {
 		callNames := []string{"ApplicationCharmInfo", "Life", "OperatorProvisioningInfo"}
@@ -185,28 +187,28 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, updateCert
 			callNames = append(callNames, "IssueOperatorCertificate")
 		}
 		s.provisionerFacade.stub.CheckCallNames(c, callNames...)
-		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
-		c.Assert(s.provisionerFacade.stub.Calls()[1].Args[0], gc.Equals, "myapp")
+		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], tc.Equals, "myapp")
+		c.Assert(s.provisionerFacade.stub.Calls()[1].Args[0], tc.Equals, "myapp")
 		return
 	}
 
 	s.provisionerFacade.stub.CheckCallNames(c, "ApplicationCharmInfo", "Life", "OperatorProvisioningInfo", "IssueOperatorCertificate", "SetPasswords")
-	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
+	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], tc.Equals, "myapp")
 	passwords := s.provisionerFacade.stub.Calls()[4].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
-	c.Assert(passwords, gc.HasLen, 1)
-	c.Assert(passwords[0].Name, gc.Equals, "myapp")
-	c.Assert(passwords[0].Password, gc.Not(gc.Equals), "")
+	c.Assert(passwords, tc.HasLen, 1)
+	c.Assert(passwords[0].Name, tc.Equals, "myapp")
+	c.Assert(passwords[0].Password, tc.Not(tc.Equals), "")
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *tc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	s.assertOperatorCreated(c, false, false)
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *tc.C) {
 	s.provisionerFacade.withStorage = false
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -214,7 +216,7 @@ func (s *CAASProvisionerSuite) TestNewApplicationNoStorage(c *gc.C) {
 	s.assertOperatorCreated(c, false, false)
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *tc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
 		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
@@ -249,7 +251,7 @@ values: {}
 	s.assertOperatorCreated(c, true, false)
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAgentConfAPIAddresses(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAgentConfAPIAddresses(c *tc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
 		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
@@ -284,7 +286,7 @@ mongoversion: "0.0"
 	s.assertOperatorCreated(c, true, false)
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *tc.C) {
 	s.caasClient.operatorExists = true
 	s.caasClient.config = &caas.OperatorConfig{
 		ImageDetails: resources.DockerImageDetails{RegistryPath: "juju-operator-image"},
@@ -312,7 +314,7 @@ values: {}
 	s.assertOperatorCreated(c, true, true)
 }
 
-func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *tc.C) {
 	s.caasClient.operatorExists = true
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -353,7 +355,7 @@ func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C
 	}
 }
 
-func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
+func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *tc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -370,12 +372,12 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 		return errors.Errorf("Not enough calls yet")
 	}
 	err := retry.Call(retryCallArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
-	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
+	c.Assert(s.caasClient.Calls()[0].Args[0], tc.Equals, "myapp")
 }
 
-func (s *CAASProvisionerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
+func (s *CAASProvisionerSuite) TestV2CharmSkipsProcessing(c *tc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -385,7 +387,7 @@ func (s *CAASProvisionerSuite) TestV2CharmSkipsProcessing(c *gc.C) {
 	workertest.CheckAlive(c, w)
 }
 
-func (s *CAASProvisionerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNotFoundCharmSkipsProcessing(c *tc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
@@ -395,7 +397,7 @@ func (s *CAASProvisionerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 	workertest.CheckAlive(c, w)
 }
 
-func (s *CAASProvisionerSuite) sendApplicationChanges(c *gc.C, appNames ...string) {
+func (s *CAASProvisionerSuite) sendApplicationChanges(c *tc.C, appNames ...string) {
 	select {
 	case s.provisionerFacade.applicationsWatcher.changes <- appNames:
 	case <-time.After(coretesting.LongWait):

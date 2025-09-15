@@ -4,11 +4,12 @@
 package machinemanager_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type machineConfigSuite struct {
@@ -27,9 +28,11 @@ type machineConfigSuite struct {
 	model  *mocks.MockModel
 }
 
-var _ = gc.Suite(&machineConfigSuite{})
+func TestMachineConfigSuite(t *tctesting.T) {
+	tc.Run(t, &machineConfigSuite{})
+}
 
-func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
+func (s *machineConfigSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
@@ -42,7 +45,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
+func (s *machineConfigSuite) TestMachineConfig(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
@@ -76,9 +79,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	icfg, err := machinemanager.InstanceConfig(s.ctrlSt, s.st, "0", "nonce", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
-	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(icfg.APIInfo.Addrs, tc.DeepEquals, []string{"1.2.3.4:1"})
+	c.Assert(icfg.ToolsList().URLs(), tc.DeepEquals, map[version.Binary][]string{
 		icfg.AgentVersion(): {"https://1.2.3.4:1/model/uuid/tools/2.6.6-ubuntu-amd64"},
 	})
 }

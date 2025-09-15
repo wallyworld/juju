@@ -4,28 +4,28 @@
 package secrets_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type secretsDrainSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	authorizer *facademocks.MockAuthorizer
 	resources  *facademocks.MockResources
@@ -43,15 +43,17 @@ type secretsDrainSuite struct {
 	facade *secrets.SecretsDrainAPI
 }
 
-var _ = gc.Suite(&secretsDrainSuite{})
+func TestSecretsDrainSuite(t *tctesting.T) {
+	tc.Run(t, &secretsDrainSuite{})
+}
 
-func (s *secretsDrainSuite) SetUpTest(c *gc.C) {
+func (s *secretsDrainSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authTag = names.NewUnitTag("mariadb/0")
 }
 
-func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
+func (s *secretsDrainSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -78,7 +80,7 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 		s.secretsMetaState,
 		s.secretsConsumer,
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
@@ -104,7 +106,7 @@ func (s *secretsDrainSuite) expectSecretAccessQuery(n int) {
 }
 
 func (s *secretsDrainSuite) assertGetSecretsToDrain(
-	c *gc.C, modelType state.ModelType, secretBackend string,
+	c *tc.C, modelType state.ModelType, secretBackend string,
 	expectedRevions ...params.SecretRevision,
 ) {
 	defer s.setup(c).Finish()
@@ -119,7 +121,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 		"secret-backend": secretBackend,
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().ModelConfig().Return(cfg, nil)
 	s.model.EXPECT().Type().Return(modelType)
 
@@ -164,8 +166,8 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 	}, nil)
 
 	results, err := s.facade.GetSecretsToDrain()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
 			URI:              uri.String(),
 			OwnerTag:         "application-mariadb",
@@ -179,7 +181,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 	})
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainAutoIAAS(c *gc.C) {
+func (s *secretsDrainSuite) TestGetSecretsToDrainAutoIAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "auto",
 		// External backend.
 		params.SecretRevision{
@@ -200,7 +202,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainAutoIAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainAutoCAAS(c *gc.C) {
+func (s *secretsDrainSuite) TestGetSecretsToDrainAutoCAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, state.ModelTypeCAAS, "auto",
 		// External backend.
 		params.SecretRevision{
@@ -217,7 +219,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainAutoCAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainInternal(c *gc.C) {
+func (s *secretsDrainSuite) TestGetSecretsToDrainInternal(c *tc.C) {
 	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, provider.Internal,
 		// External backend.
 		params.SecretRevision{
@@ -238,7 +240,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainInternal(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainExternalIAAS(c *gc.C) {
+func (s *secretsDrainSuite) TestGetSecretsToDrainExternalIAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
 		// Internal backend.
 		params.SecretRevision{
@@ -255,7 +257,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainExternalIAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestGetSecretsToDrainExternalCAAS(c *gc.C) {
+func (s *secretsDrainSuite) TestGetSecretsToDrainExternalCAAS(c *tc.C) {
 	s.assertGetSecretsToDrain(c, state.ModelTypeIAAS, "backend-id",
 		// Internal backend.
 		params.SecretRevision{
@@ -272,7 +274,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainExternalCAAS(c *gc.C) {
 	)
 }
 
-func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
+func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectSecretAccessQuery(4)
@@ -323,13 +325,13 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ErrorResults{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}, {Error: nil}},
 	})
 }
 
-func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
+func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	done := make(chan struct{})
@@ -349,14 +351,14 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 		"secret-backend": "backend-id",
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.model.EXPECT().ModelConfig().Return(cfg, nil).Times(2)
 
 	s.resources.EXPECT().Register(gomock.Any()).Return("11")
 
 	result, err := s.facade.WatchSecretBackendChanged()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",
 	})
 

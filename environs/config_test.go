@@ -4,23 +4,26 @@
 package environs_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/manual"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type suite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&suite{})
+func TestSuite(t *tctesting.T) {
+	tc.Run(t, &suite{})
+}
 
-func (s *suite) SetUpTest(c *gc.C) {
+func (s *suite) SetUpTest(c *tc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.AddCleanup(dummy.Reset)
 }
@@ -39,7 +42,7 @@ type dummyProvider struct {
 	environs.CloudEnvironProvider
 }
 
-func (s *suite) TestRegisterProvider(c *gc.C) {
+func (s *suite) TestRegisterProvider(c *tc.C) {
 	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
 	s.PatchValue(environs.ProviderAliases, make(map[string]string))
 	type step struct {
@@ -93,13 +96,13 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		registered := &dummyProvider{}
 		environs.RegisterProvider(name, registered, aliases...)
 		p, err := environs.Provider(name)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(p, gc.Equals, registered)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(p, tc.Equals, registered)
 		for _, alias := range aliases {
 			p, err := environs.Provider(alias)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(p, gc.Equals, registered)
-			c.Assert(p, gc.Equals, registered)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(p, tc.Equals, registered)
+			c.Assert(p, tc.Equals, registered)
 		}
 		return nil
 	}
@@ -114,24 +117,24 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		for _, step := range test {
 			err := registerProvider(step.name, step.aliases)
 			if step.err == "" {
-				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(err, tc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, step.err)
+				c.Assert(err, tc.ErrorMatches, step.err)
 			}
 		}
 	}
 }
 
-func (s *suite) TestUnregisterProvider(c *gc.C) {
+func (s *suite) TestUnregisterProvider(c *tc.C) {
 	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
 	s.PatchValue(environs.ProviderAliases, make(map[string]string))
 	registered := &dummyProvider{}
 	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
 	unreg()
 	_, err := environs.Provider("test")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	_, err = environs.Provider("alias1")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	_, err = environs.Provider("alias2")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }

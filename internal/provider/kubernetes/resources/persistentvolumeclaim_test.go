@@ -6,10 +6,10 @@ package resources_test
 import (
 	"context"
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,9 +21,11 @@ type persistentVolumeClaimSuite struct {
 	resourceSuite
 }
 
-var _ = gc.Suite(&persistentVolumeClaimSuite{})
+func TestPersistentVolumeClaimSuite(t *tctesting.T) {
+	tc.Run(t, &persistentVolumeClaimSuite{})
+}
 
-func (s *persistentVolumeClaimSuite) TestApply(c *gc.C) {
+func (s *persistentVolumeClaimSuite) TestApply(c *tc.C) {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pvc1",
@@ -32,24 +34,24 @@ func (s *persistentVolumeClaimSuite) TestApply(c *gc.C) {
 	}
 	// Create.
 	pvcResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(pvc.Namespace), "test", "pvc1", pvc)
-	c.Assert(pvcResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(pvcResource.Apply(context.TODO()), tc.ErrorIsNil)
 	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "pvc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(result.GetAnnotations()), tc.Equals, 0)
 
 	// Update.
 	pvc.SetAnnotations(map[string]string{"a": "b"})
 	pvcResource = resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(pvc.Namespace), "test", "pvc1", pvc)
-	c.Assert(pvcResource.Apply(context.TODO()), jc.ErrorIsNil)
+	c.Assert(pvcResource.Apply(context.TODO()), tc.ErrorIsNil)
 
 	result, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "pvc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `pvc1`)
-	c.Assert(result.GetNamespace(), gc.Equals, `test`)
-	c.Assert(result.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `pvc1`)
+	c.Assert(result.GetNamespace(), tc.Equals, `test`)
+	c.Assert(result.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *persistentVolumeClaimSuite) TestGet(c *gc.C) {
+func (s *persistentVolumeClaimSuite) TestGet(c *tc.C) {
 	template := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pvc1",
@@ -59,18 +61,18 @@ func (s *persistentVolumeClaimSuite) TestGet(c *gc.C) {
 	pvc1 := template
 	pvc1.SetAnnotations(map[string]string{"a": "b"})
 	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.TODO(), &pvc1, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	pvcResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(pvc1.Namespace), "test", "pvc1", &template)
-	c.Assert(len(pvcResource.GetAnnotations()), gc.Equals, 0)
+	c.Assert(len(pvcResource.GetAnnotations()), tc.Equals, 0)
 	err = pvcResource.Get(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pvcResource.GetName(), gc.Equals, `pvc1`)
-	c.Assert(pvcResource.GetNamespace(), gc.Equals, `test`)
-	c.Assert(pvcResource.GetAnnotations(), gc.DeepEquals, map[string]string{"a": "b"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pvcResource.GetName(), tc.Equals, `pvc1`)
+	c.Assert(pvcResource.GetNamespace(), tc.Equals, `test`)
+	c.Assert(pvcResource.GetAnnotations(), tc.DeepEquals, map[string]string{"a": "b"})
 }
 
-func (s *persistentVolumeClaimSuite) TestDelete(c *gc.C) {
+func (s *persistentVolumeClaimSuite) TestDelete(c *tc.C) {
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pvc1",
@@ -78,27 +80,27 @@ func (s *persistentVolumeClaimSuite) TestDelete(c *gc.C) {
 		},
 	}
 	_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.TODO(), &pvc, metav1.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	result, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "pvc1", metav1.GetOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.GetName(), gc.Equals, `pvc1`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.GetName(), tc.Equals, `pvc1`)
 
 	pvcResource := resources.NewPersistentVolumeClaim(s.client.CoreV1().PersistentVolumeClaims(pvc.Namespace), "test", "pvc1", &pvc)
 	err = pvcResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = pvcResource.Delete(context.TODO())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 
 	err = pvcResource.Get(context.TODO())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	_, err = s.client.CoreV1().PersistentVolumeClaims("test").Get(context.TODO(), "pvc1", metav1.GetOptions{})
-	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
+	c.Assert(err, tc.Satisfies, k8serrors.IsNotFound)
 }
 
-func (s *persistentVolumeClaimSuite) TestList(c *gc.C) {
+func (s *persistentVolumeClaimSuite) TestList(c *tc.C) {
 	// Unfortunately with the K8s fake/testing API there doesn't seem to be a
 	// way to call List multiple times with "Continue" set.
 
@@ -113,20 +115,20 @@ func (s *persistentVolumeClaimSuite) TestList(c *gc.C) {
 		if i%3 == 0 {
 			pvc.ObjectMeta.Labels = map[string]string{"modulo": "three"}
 		}
-		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(context.Background(), &pvc, metav1.CreateOptions{})
-		c.Assert(err, jc.ErrorIsNil)
+		_, err := s.client.CoreV1().PersistentVolumeClaims("test").Create(c.Context(), &pvc, metav1.CreateOptions{})
+		c.Assert(err, tc.ErrorIsNil)
 	}
 
 	// List PVCs filtered by the label
-	listed, err := resources.ListPersistentVolumeClaims(context.Background(), s.client, "test", metav1.ListOptions{
+	listed, err := resources.ListPersistentVolumeClaims(c.Context(), s.client, "test", metav1.ListOptions{
 		LabelSelector: "modulo == three",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that we fetch the right ones
-	c.Assert(len(listed), gc.Equals, 3)
+	c.Assert(len(listed), tc.Equals, 3)
 	for i, pvc := range listed {
-		c.Assert(pvc.Name, gc.Equals, fmt.Sprintf("pvc%d", i*3))
-		c.Assert(pvc.Labels, gc.DeepEquals, map[string]string{"modulo": "three"})
+		c.Assert(pvc.Name, tc.Equals, fmt.Sprintf("pvc%d", i*3))
+		c.Assert(pvc.Labels, tc.DeepEquals, map[string]string{"modulo": "three"})
 	}
 }

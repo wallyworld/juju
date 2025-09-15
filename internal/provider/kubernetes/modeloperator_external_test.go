@@ -4,14 +4,14 @@
 package kubernetes_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,26 +20,28 @@ import (
 	provider "github.com/juju/juju/internal/provider/kubernetes"
 	"github.com/juju/juju/internal/provider/kubernetes/mocks"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ModelOperatorExternalSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&ModelOperatorExternalSuite{})
+func TestModelOperatorExternalSuite(t *tctesting.T) {
+	tc.Run(t, &ModelOperatorExternalSuite{})
+}
 
-func (m *ModelOperatorExternalSuite) SetUpTest(c *gc.C) {
+func (m *ModelOperatorExternalSuite) SetUpTest(c *tc.C) {
 	m.BaseSuite.SetUpTest(c)
 }
 
-func (m *ModelOperatorExternalSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (m *ModelOperatorExternalSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	m.BaseSuite.mockDeployments = mocks.NewMockDeploymentInterface(ctrl)
 	return ctrl
 }
 
-func (m *ModelOperatorExternalSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (m *ModelOperatorExternalSuite) setupBroker(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	m.clock = testclock.NewClock(time.Time{})
 
@@ -60,11 +62,11 @@ func (m *ModelOperatorExternalSuite) setupBroker(c *gc.C) *gomock.Controller {
 	m.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), m.k8sRestConfig, m.cfg, "", newK8sClientFunc, newK8sRestFunc,
 		watcherFn, stringsWatcherFn, randomPrefixFunc, m.clock)
 
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return ctrl
 }
 
-func (m *ModelOperatorExternalSuite) TestGetModelOperatorDeploymentImage(c *gc.C) {
+func (m *ModelOperatorExternalSuite) TestGetModelOperatorDeploymentImage(c *tc.C) {
 	defer m.setupMocks(c).Finish()
 	defer m.setupBroker(c).Finish()
 
@@ -88,6 +90,6 @@ func (m *ModelOperatorExternalSuite) TestGetModelOperatorDeploymentImage(c *gc.C
 
 	m.BaseSuite.mockDeployments.EXPECT().Get(gomock.Any(), modelOperatorName, metav1.GetOptions{}).Return(deployment, nil)
 	deploymentImage, err := m.BaseSuite.broker.GetModelOperatorDeploymentImage()
-	c.Assert(err, gc.IsNil)
-	c.Assert(deploymentImage, gc.Equals, imageName)
+	c.Assert(err, tc.IsNil)
+	c.Assert(deploymentImage, tc.Equals, imageName)
 }

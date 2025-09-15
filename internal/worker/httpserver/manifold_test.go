@@ -5,6 +5,7 @@ package httpserver_test
 
 import (
 	"crypto/tls"
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -12,16 +13,15 @@ import (
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/httpserver"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
@@ -30,7 +30,7 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	statetesting.StateSuite
 
 	authority            pki.Authority
@@ -45,16 +45,18 @@ type ManifoldSuite struct {
 	tlsConfig            *tls.Config
 	controllerConfig     controller.Config
 
-	stub testing.Stub
+	stub testhelpers.Stub
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authority = authority
 
 	s.mux = &apiserverhttp.Mux{}
@@ -93,23 +95,23 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
+func (s *ManifoldSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	mgotesting.MgoServer.EnableReplicaSet = true
 	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
+	c.Assert(err, tc.ErrorIsNil)
+	s.IsolationSuite.AddCleanup(func(*tc.C) { mgotesting.MgoServer.Destroy() })
 
 	s.StateSuite.SetUpSuite(c)
 }
 
-func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
+func (s *ManifoldSuite) TearDownSuite(c *tc.C) {
 	s.StateSuite.TearDownSuite(c)
 	s.IsolationSuite.TearDownSuite(c)
 }
 
-func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+func (s *ManifoldSuite) TearDownTest(c *tc.C) {
 	s.StateSuite.TearDownTest(c)
 	s.IsolationSuite.TearDownTest(c)
 }
@@ -165,31 +167,31 @@ var expectedInputs = []string{
 	"api-server",
 }
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
+	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
 }
 
-func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+func (s *ManifoldSuite) TestMissingInputs(c *tc.C) {
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 	}
 }
 
-func (s *ManifoldSuite) TestStart(c *gc.C) {
+func (s *ManifoldSuite) TestStart(c *tc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewTLSConfig", "GetControllerConfig", "NewWorker")
 	newWorkerArgs := s.stub.Calls()[2].Args
-	c.Assert(newWorkerArgs, gc.HasLen, 1)
-	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})
+	c.Assert(newWorkerArgs, tc.HasLen, 1)
+	c.Assert(newWorkerArgs[0], tc.FitsTypeOf, httpserver.Config{})
 	config := newWorkerArgs[0].(httpserver.Config)
 
-	c.Assert(config, jc.DeepEquals, httpserver.Config{
+	c.Assert(config, tc.DeepEquals, httpserver.Config{
 		AgentName:            "machine-42",
 		Clock:                s.clock,
 		PrometheusRegisterer: &s.prometheusRegisterer,
@@ -205,7 +207,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) TestValidate(c *gc.C) {
+func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	type test struct {
 		f      func(*httpserver.ManifoldConfig)
 		expect string
@@ -251,11 +253,11 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		manifold := httpserver.Manifold(config)
 		w, err := manifold.Start(s.context)
 		workertest.CheckNilOrKill(c, w)
-		c.Check(err, gc.ErrorMatches, test.expect)
+		c.Check(err, tc.ErrorMatches, test.expect)
 	}
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
+func (s *ManifoldSuite) TestStopWorkerClosesState(c *tc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
@@ -265,9 +267,9 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	s.state.CheckCallNames(c, "Use", "Done")
 }
 
-func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
 }

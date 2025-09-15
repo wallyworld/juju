@@ -6,18 +6,18 @@ package clientconfig_test
 import (
 	"fmt"
 	"reflect"
+	tctesting "testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type k8sRawClientSuite struct {
@@ -28,9 +28,11 @@ type k8sRawClientSuite struct {
 	labels map[string]string
 }
 
-var _ = gc.Suite(&k8sRawClientSuite{})
+func TestK8sRawClientSuite(t *tctesting.T) {
+	tc.Run(t, &k8sRawClientSuite{})
+}
 
-func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
+func (s *k8sRawClientSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.namespace = "kube-system"
 	s.UID = "9baa5e46"
@@ -38,7 +40,7 @@ func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
 	s.labels = map[string]string{"juju-credential": s.UID}
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -163,25 +165,25 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 	}()
 
 	err := s.clock.WaitAdvance(1*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = s.clock.WaitAdvance(1*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		cfgOut := <-cfgOutChan
 		authName := cfg.Contexts[contextName].AuthInfo
 		updatedAuthInfo := cfgOut.AuthInfos[authName]
-		c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-		c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+		c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+		c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
 
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -277,14 +279,14 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 			Return(&sa, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
-	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+	c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+	c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -384,14 +386,14 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccount2ndUpdate(c *gc.C) 
 			Return(nil, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, s.UID, cfg, contextName, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
-	c.Assert(updatedAuthInfo.AuthProvider, gc.IsNil)
-	c.Assert(updatedAuthInfo.Token, gc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
+	c.Assert(updatedAuthInfo.AuthProvider, tc.IsNil)
+	c.Assert(updatedAuthInfo.Token, tc.Equals, string(secretTokenReady.Data[core.ServiceAccountTokenKey]))
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -421,21 +423,21 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
 			Return(cr, nil),
 	)
 	crOut, cleanUps, err := clientconfig.GetOrCreateClusterRole(cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(crOut, jc.DeepEquals, cr)
-	c.Assert(len(cleanUps), jc.DeepEquals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(crOut, tc.DeepEquals, cr)
+	c.Assert(len(cleanUps), tc.DeepEquals, 1)
 
 	gomock.InOrder(
 		s.mockClusterRoles.EXPECT().Get(gomock.Any(), cr.Name, metav1.GetOptions{}).Times(1).
 			Return(cr, nil),
 	)
 	crOut, cleanUps, err = clientconfig.GetOrCreateClusterRole(cr.ObjectMeta, s.k8sClient.RbacV1().ClusterRoles())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(crOut, jc.DeepEquals, cr)
-	c.Assert(len(cleanUps), jc.DeepEquals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(crOut, tc.DeepEquals, cr)
+	c.Assert(len(cleanUps), tc.DeepEquals, 0)
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -456,21 +458,21 @@ func (s *k8sRawClientSuite) TestGetOrCreateServiceAccount(c *gc.C) {
 			Return(sa, nil),
 	)
 	saOut, cleanUps, err := clientconfig.GetOrCreateServiceAccount(sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saOut, jc.DeepEquals, sa)
-	c.Assert(len(cleanUps), jc.DeepEquals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(saOut, tc.DeepEquals, sa)
+	c.Assert(len(cleanUps), tc.DeepEquals, 1)
 
 	gomock.InOrder(
 		s.mockServiceAccounts.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
 			Return(sa, nil),
 	)
 	saOut, cleanUps, err = clientconfig.GetOrCreateServiceAccount(sa.ObjectMeta, s.k8sClient.CoreV1().ServiceAccounts(s.namespace))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(saOut, jc.DeepEquals, sa)
-	c.Assert(len(cleanUps), jc.DeepEquals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(saOut, tc.DeepEquals, sa)
+	c.Assert(len(cleanUps), tc.DeepEquals, 0)
 }
 
-func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
+func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -526,9 +528,9 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
 	clusterRoleBindingOut, cleanUps, err := clientconfig.GetOrCreateClusterRoleBinding(
 		clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clusterRoleBindingOut, jc.DeepEquals, clusterRoleBinding)
-	c.Assert(len(cleanUps), jc.DeepEquals, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRoleBindingOut, tc.DeepEquals, clusterRoleBinding)
+	c.Assert(len(cleanUps), tc.DeepEquals, 0)
 
 	gomock.InOrder(
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), s.name, metav1.GetOptions{}).Times(1).
@@ -539,12 +541,12 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRoleBinding(c *gc.C) {
 	clusterRoleBindingOut, cleanUps, err = clientconfig.GetOrCreateClusterRoleBinding(
 		clusterRoleBinding.ObjectMeta, sa, cr, s.k8sClient.RbacV1().ClusterRoleBindings(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(clusterRoleBindingOut, jc.DeepEquals, clusterRoleBinding)
-	c.Assert(len(cleanUps), jc.DeepEquals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(clusterRoleBindingOut, tc.DeepEquals, clusterRoleBinding)
+	c.Assert(len(cleanUps), tc.DeepEquals, 1)
 }
 
-func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *tc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -565,7 +567,7 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
 	)
 
 	err := clientconfig.RemoveJujuAdminServiceAccount(s.k8sClient, s.UID)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *k8sRawClientSuite) deleteOptions(policy metav1.DeletionPropagation) metav1.DeleteOptions {

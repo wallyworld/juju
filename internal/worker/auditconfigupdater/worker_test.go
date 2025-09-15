@@ -6,32 +6,34 @@ package auditconfigupdater_test
 import (
 	"reflect"
 	"sync"
+	tctesting "testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher/watchertest"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type updaterSuite struct {
 	jujutesting.BaseSuite
 }
 
-var _ = gc.Suite(&updaterSuite{})
+func TestUpdaterSuite(t *tctesting.T) {
+	tc.Run(t, &updaterSuite{})
+}
 
 var ding = struct{}{}
 
-func (s *updaterSuite) TestWorker(c *gc.C) {
+func (s *updaterSuite) TestWorker(c *tc.C) {
 	configChanged := make(chan struct{}, 1)
 	initial := auditlog.Config{
 		Enabled: false,
@@ -49,7 +51,7 @@ func (s *updaterSuite) TestWorker(c *gc.C) {
 	}
 
 	w, err := auditconfigupdater.New(&source, initial, factory)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false))
@@ -59,14 +61,14 @@ func (s *updaterSuite) TestWorker(c *gc.C) {
 		return cfg.Enabled
 	})
 
-	c.Assert(newConfig.Enabled, gc.Equals, true)
-	c.Assert(newConfig.CaptureAPIArgs, gc.Equals, false)
-	c.Assert(newConfig.ExcludeMethods, gc.DeepEquals, set.NewStrings())
-	c.Assert(newConfig.Target, gc.Equals, auditlog.AuditLog(&fakeTarget))
-	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(newConfig.Enabled, tc.Equals, true)
+	c.Assert(newConfig.CaptureAPIArgs, tc.Equals, false)
+	c.Assert(newConfig.ExcludeMethods, tc.DeepEquals, set.NewStrings())
+	c.Assert(newConfig.Target, tc.Equals, auditlog.AuditLog(&fakeTarget))
+	c.Assert(calls, tc.HasLen, 1)
 }
 
-func waitForConfig(c *gc.C, w worker.Worker, predicate func(auditlog.Config) bool) auditlog.Config {
+func waitForConfig(c *tc.C, w worker.Worker, predicate func(auditlog.Config) bool) auditlog.Config {
 	for a := jujutesting.LongAttempt.Start(); a.Next(); {
 		config := getWorkerConfig(c, w)
 		if predicate(config) {
@@ -77,7 +79,7 @@ func waitForConfig(c *gc.C, w worker.Worker, predicate func(auditlog.Config) boo
 	return auditlog.Config{}
 }
 
-func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
+func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *tc.C) {
 	configChanged := make(chan struct{}, 1)
 	initial := auditlog.Config{
 		Enabled: true,
@@ -91,7 +93,7 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 	// Passing a nil factory means we can be sure it didn't try to
 	// create a new logfile.
 	w, err := auditconfigupdater.New(&source, initial, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(false, false))
@@ -101,11 +103,11 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 		return !cfg.Enabled
 	})
 
-	c.Assert(newConfig.Enabled, gc.Equals, false)
-	c.Assert(newConfig.Target, gc.Equals, initial.Target)
+	c.Assert(newConfig.Enabled, tc.Equals, false)
+	c.Assert(newConfig.Target, tc.Equals, initial.Target)
 }
 
-func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
+func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *tc.C) {
 	configChanged := make(chan struct{}, 1)
 	initial := auditlog.Config{
 		Enabled: false,
@@ -119,7 +121,7 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 	// Passing a nil factory means we can be sure it didn't try to
 	// create a new logfile.
 	w, err := auditconfigupdater.New(&source, initial, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false))
@@ -129,11 +131,11 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 		return cfg.Enabled
 	})
 
-	c.Assert(newConfig.Enabled, gc.Equals, true)
-	c.Assert(newConfig.Target, gc.Equals, initial.Target)
+	c.Assert(newConfig.Enabled, tc.Equals, true)
+	c.Assert(newConfig.Target, tc.Equals, initial.Target)
 }
 
-func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
+func (s *updaterSuite) TestChangingExcludeMethod(c *tc.C) {
 	configChanged := make(chan struct{}, 1)
 	initial := auditlog.Config{
 		Enabled:        true,
@@ -146,7 +148,7 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 	}
 
 	w, err := auditconfigupdater.New(&source, initial, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false, "Pink.Floyd", "Led.Zeppelin"))
@@ -164,7 +166,7 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 	})
 }
 
-func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
+func (s *updaterSuite) TestChangingCaptureArgs(c *tc.C) {
 	configChanged := make(chan struct{}, 1)
 	initial := auditlog.Config{
 		Enabled:        true,
@@ -177,7 +179,7 @@ func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 	}
 
 	w, err := auditconfigupdater.New(&source, initial, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, true))
@@ -198,7 +200,7 @@ func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interf
 	return result
 }
 
-func getWorkerConfig(c *gc.C, w worker.Worker) auditlog.Config {
+func getWorkerConfig(c *tc.C, w worker.Worker) auditlog.Config {
 	getter, ok := w.(interface {
 		CurrentConfig() auditlog.Config
 	})
@@ -210,7 +212,7 @@ func getWorkerConfig(c *gc.C, w worker.Worker) auditlog.Config {
 
 type configSource struct {
 	mu      sync.Mutex
-	stub    testing.Stub
+	stub    testhelpers.Stub
 	watcher *watchertest.NotifyWatcher
 	cfg     controller.Config
 }

@@ -4,34 +4,37 @@
 package caasoperator_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/collections/set"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ManifoldsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ManifoldsSuite{})
+func TestManifoldsSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
 
-func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := caasoperator.Manifolds(caasoperator.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
 
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+		c.Check(manifold.Start, tc.NotNil)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	config := caasoperator.ManifoldsConfig{}
 	manifolds := caasoperator.Manifolds(config)
 	expectedKeys := []string{
@@ -65,10 +68,10 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
-	c.Assert(keys, jc.SameContents, expectedKeys)
+	c.Assert(keys, tc.SameContents, expectedKeys)
 }
 
-func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
+func (*ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 	exempt := set.NewStrings(
 		"agent",
 		"clock",
@@ -98,7 +101,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		caasoperator.Manifolds(caasoperator.ManifoldsConfig{
 			Agent: fakeAgent{},
@@ -107,7 +110,7 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
 	)
 }
 
-func checkContains(c *gc.C, names []string, seek string) {
+func checkContains(c *tc.C, names []string, seek string) {
 	for _, name := range names {
 		if name == seek {
 			return

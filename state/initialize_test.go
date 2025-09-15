@@ -4,11 +4,12 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/clock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -17,12 +18,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/testing"
 )
 
 type InitializeSuite struct {
@@ -33,51 +34,53 @@ type InitializeSuite struct {
 	Model *state.Model
 }
 
-var _ = gc.Suite(&InitializeSuite{})
+func TestInitializeSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &InitializeSuite{})
+}
 
-func (s *InitializeSuite) SetUpSuite(c *gc.C) {
+func (s *InitializeSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
-func (s *InitializeSuite) TearDownSuite(c *gc.C) {
+func (s *InitializeSuite) TearDownSuite(c *tc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
-func (s *InitializeSuite) SetUpTest(c *gc.C) {
+func (s *InitializeSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 }
 
-func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
+func (s *InitializeSuite) openState(c *tc.C, modelTag names.ModelTag) {
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       s.Session,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	st, err := pool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Pool = pool
 	s.State = st
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.Model = m
 }
 
-func (s *InitializeSuite) TearDownTest(c *gc.C) {
+func (s *InitializeSuite) TearDownTest(c *tc.C) {
 	if s.Pool != nil {
 		err := s.Pool.Close()
-		c.Check(err, jc.ErrorIsNil)
+		c.Check(err, tc.ErrorIsNil)
 	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *InitializeSuite) TestInitialize(c *gc.C) {
+func (s *InitializeSuite) TestInitialize(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	owner := names.NewLocalUserTag("initialize-admin")
@@ -147,115 +150,115 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		MongoSession:     s.Session,
 		AdminPassword:    "dummy-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	st, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
 	cfg, err = s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expected := cfg.AllAttrs()
 	for k, v := range config.ConfigDefaults() {
 		if _, ok := expected[k]; !ok {
 			expected[k] = v
 		}
 	}
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+	c.Assert(cfg.AllAttrs(), tc.DeepEquals, expected)
 	// Check that the model has been created.
 	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Tag(), gc.Equals, modelTag)
-	c.Assert(model.CloudRegion(), gc.Equals, "dummy-region")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(model.Tag(), tc.Equals, modelTag)
+	c.Assert(model.CloudRegion(), tc.Equals, "dummy-region")
 	// Check that the owner has been created.
-	c.Assert(model.Owner(), gc.Equals, owner)
+	c.Assert(model.Owner(), tc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
 	entity, err := s.State.FindEntity(model.Owner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity.Tag(), gc.Equals, owner)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity.Tag(), tc.Equals, owner)
 	// Check that the owner has an ModelUser created for the bootstrapped model.
 	modelUser, err := s.State.UserAccess(model.Owner(), model.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserTag, gc.Equals, owner)
-	c.Assert(modelUser.Object, gc.Equals, model.Tag())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(modelUser.UserTag, tc.Equals, owner)
+	c.Assert(modelUser.Object, tc.Equals, model.Tag())
 
 	// Check that the model can be found through the tag.
 	entity, err = s.State.FindEntity(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	cons, err := s.State.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(&cons, tc.Satisfies, constraints.IsEmpty)
 
 	addrs, err := s.State.APIHostPortsForClients()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.HasLen, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addrs, tc.HasLen, 0)
 
 	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag, CloudName: "dummy"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag, CloudName: "dummy"})
 
 	// Check that the model's cloud and credential names are as
 	// expected, and the owner's cloud credentials are initialised.
-	c.Assert(model.CloudName(), gc.Equals, "dummy")
+	c.Assert(model.CloudName(), tc.Equals, "dummy")
 	credentialTag, ok := model.CloudCredentialTag()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(credentialTag, tc.Equals, userPassCredentialTag)
 	cred, credentialSet, err := model.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentialSet, tc.IsTrue)
 	stateCred, err := s.State.CloudCredential(credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, jc.DeepEquals, stateCred)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cred, tc.DeepEquals, stateCred)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudCredentials, jc.DeepEquals, map[string]state.Credential{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cloudCredentials, tc.DeepEquals, map[string]state.Credential{
 		"dummy/initialize-admin/some-credential":  expectedUserpassCredential,
 		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
 	})
 
 	// Check that the cloud owner has admin access.
 	access, err := s.State.GetCloudAccess("dummy", owner)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.AdminAccess)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.Equals, permission.AdminAccess)
 
 	// Check that the cloud's model count is initially 1.
 	cl, err := s.State.Cloud("dummy")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	refCount, err := state.CloudModelRefCount(s.State, cl.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(refCount, gc.Equals, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(refCount, tc.Equals, 1)
 
 	// Check that the alpha space is created.
 	_, err = s.State.SpaceByName(network.AlphaSpaceName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check that the bakery config is created.
 	bakeryConfig := s.State.NewBakeryConfig()
 	_, err = bakeryConfig.GetLocalUsersKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = bakeryConfig.GetLocalUsersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = bakeryConfig.GetExternalUsersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	_, err = bakeryConfig.GetOffersThirdPartyKey()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Check ssh server hostkey was inserted.
 	key, err := s.State.SSHServerHostKey()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(key, gc.Equals, testing.SSHServerHostKey)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(key, tc.Equals, testing.SSHServerHostKey)
 }
 
-func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *tc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
@@ -284,12 +287,12 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	})
-	c.Assert(err, gc.ErrorMatches,
+	c.Assert(err, tc.ErrorMatches,
 		`validating initialization args: validating credential "dummy/initialize-admin/borken" for cloud "dummy": supported auth-types \["access-key" "oauth1"\], "userpass" not supported`,
 	)
 }
 
-func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
@@ -319,23 +322,23 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 		MongoSession:              s.Session,
 		AdminPassword:             "dummy-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	st, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
 	controllerInheritedConfig, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(controllerInheritedConfig.Map(), tc.DeepEquals, controllerInheritedConfigIn)
 
 	expected := cfg.AllAttrs()
 	for k, v := range config.ConfigDefaults() {
@@ -346,11 +349,11 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	// Config as read from state has resources tags coerced to a map.
 	expected["resource-tags"] = map[string]string{}
 	cfg, err = s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs(), tc.DeepEquals, expected)
 }
 
-func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
+func (s *InitializeSuite) TestDoubleInitializeConfig(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
 
@@ -376,39 +379,39 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		AdminPassword: "dummy-secret",
 	}
 	ctlr, err := state.Initialize(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = ctlr.Close()
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(err, tc.ErrorIsNil)
 
 	ctlr, err = state.Initialize(args)
-	c.Check(err, gc.ErrorMatches, "already initialized")
-	c.Check(ctlr, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "already initialized")
+	c.Check(ctlr, tc.IsNil)
 }
 
-func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
+func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *tc.C) {
 	update := map[string]interface{}{"admin-secret": "foo"}
 	remove := []string{}
 	s.testBadModelConfig(c, update, remove, "admin-secret should never be written to the state")
 }
 
-func (s *InitializeSuite) TestModelConfigWithCAPrivateKey(c *gc.C) {
+func (s *InitializeSuite) TestModelConfigWithCAPrivateKey(c *tc.C) {
 	update := map[string]interface{}{"ca-private-key": "foo"}
 	remove := []string{}
 	s.testBadModelConfig(c, update, remove, "ca-private-key should never be written to the state")
 }
 
-func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
+func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *tc.C) {
 	update := map[string]interface{}{}
 	remove := []string{"agent-version"}
 	s.testBadModelConfig(c, update, remove, "agent-version must always be set in state")
 }
 
-func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interface{}, remove []string, expect string) {
+func (s *InitializeSuite) testBadModelConfig(c *tc.C, update map[string]interface{}, remove []string, expect string) {
 	good := testing.CustomModelConfig(c, testing.Attrs{"uuid": testing.ModelTag.Id()})
 	bad, err := good.Apply(update)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	bad, err = bad.Remove(remove)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
@@ -435,32 +438,32 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		AdminPassword: "dummy-secret",
 	}
 	_, err = state.Initialize(args)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
 	ctlr, err := state.Initialize(args)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	sysState, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelUUID := sysState.ModelUUID()
 	ctlr.Close()
 
 	s.openState(c, names.NewModelTag(modelUUID))
 	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = m.UpdateModelConfig(update, remove)
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, tc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
 	cfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	goodWithDefaults, err := config.New(config.UseDefaults, good.AllAttrs())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodWithDefaults.AllAttrs())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs(), tc.DeepEquals, goodWithDefaults.AllAttrs())
 }
 
-func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
+func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *tc.C) {
 	badAttrNames := []string{
 		"admin-secret",
 		"ca-private-key",
@@ -496,11 +499,11 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
 		args.ControllerInheritedConfig = badAttrs
 		_, err := state.Initialize(args)
-		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
+		c.Assert(err, tc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }
 
-func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 
@@ -536,17 +539,17 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	st, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
@@ -555,15 +558,15 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 		regionInheritedConfig, err := s.State.ReadSettings(
 			state.GlobalSettingsC,
 			"dummy#"+k)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(
 			cloud.Attrs(regionInheritedConfig.Map()),
-			jc.DeepEquals,
+			tc.DeepEquals,
 			regionInheritedConfigIn[k])
 	}
 }
 
-func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	controllerInheritedConfigIn := map[string]interface{}{
@@ -602,28 +605,28 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 		MongoSession:              s.Session,
 		AdminPassword:             "dummy-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	sysState, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := sysState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
 	var attrs map[string]interface{}
 	rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: "c-region"}
 	got, err := s.State.ComposeNewModelConfig(attrs, rspec)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got["no-proxy"], gc.Equals, "local")
+	c.Check(err, tc.ErrorIsNil)
+	c.Assert(got["no-proxy"], tc.Equals, "local")
 }
 
-func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 
@@ -663,17 +666,17 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 		MongoSession:              s.Session,
 		AdminPassword:             "dummy-secret",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	sysState, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := sysState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
@@ -681,12 +684,12 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	for r := range regionInheritedConfigIn {
 		rspec := &environscloudspec.CloudRegionSpec{Cloud: "dummy", Region: r}
 		got, err := s.State.ComposeNewModelConfig(attrs, rspec)
-		c.Check(err, jc.ErrorIsNil)
-		c.Assert(got["no-proxy"], gc.Equals, regionInheritedConfigIn[r]["no-proxy"])
+		c.Check(err, tc.ErrorIsNil)
+		c.Assert(got["no-proxy"], tc.Equals, regionInheritedConfigIn[r]["no-proxy"])
 	}
 }
 
-func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithStoragePool(c *tc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 
@@ -730,24 +733,24 @@ func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctlr, tc.NotNil)
 	sysState, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	m, err := sysState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(modelTag.Id(), tc.Equals, uuid)
 
 	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.openState(c, modelTag)
 
 	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
 	storageCfg, err := pm.Get("spool")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	expectedCfg, err := storage.NewConfig("spool", "dummy", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCfg, jc.DeepEquals, expectedCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(storageCfg, tc.DeepEquals, expectedCfg)
 }

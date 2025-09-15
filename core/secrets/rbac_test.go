@@ -4,27 +4,30 @@
 package secrets_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/secrets"
 )
 
 type RoleSuite struct{}
 
-var _ = gc.Suite(&RoleSuite{})
+func TestRoleSuite(t *tctesting.T) {
+	tc.Run(t, &RoleSuite{})
+}
 
-func (s *SecretValueSuite) TestAllowed(c *gc.C) {
-	c.Assert(secrets.RoleNone.Allowed(secrets.RoleView), jc.IsFalse)
-	c.Assert(secrets.RoleNone.Allowed(secrets.RoleRotate), jc.IsFalse)
-	c.Assert(secrets.RoleNone.Allowed(secrets.RoleManage), jc.IsFalse)
-	c.Assert(secrets.RoleView.Allowed(secrets.RoleView), jc.IsTrue)
-	c.Assert(secrets.RoleView.Allowed(secrets.RoleRotate), jc.IsFalse)
-	c.Assert(secrets.RoleView.Allowed(secrets.RoleManage), jc.IsFalse)
-	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleView), jc.IsTrue)
-	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleRotate), jc.IsTrue)
-	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleManage), jc.IsFalse)
-	c.Assert(secrets.RoleManage.Allowed(secrets.RoleView), jc.IsTrue)
-	c.Assert(secrets.RoleManage.Allowed(secrets.RoleRotate), jc.IsTrue)
-	c.Assert(secrets.RoleManage.Allowed(secrets.RoleManage), jc.IsTrue)
+func (s *SecretValueSuite) TestAllowed(c *tc.C) {
+	c.Assert(secrets.RoleNone.Allowed(secrets.RoleView), tc.IsFalse)
+	c.Assert(secrets.RoleNone.Allowed(secrets.RoleRotate), tc.IsFalse)
+	c.Assert(secrets.RoleNone.Allowed(secrets.RoleManage), tc.IsFalse)
+	c.Assert(secrets.RoleView.Allowed(secrets.RoleView), tc.IsTrue)
+	c.Assert(secrets.RoleView.Allowed(secrets.RoleRotate), tc.IsFalse)
+	c.Assert(secrets.RoleView.Allowed(secrets.RoleManage), tc.IsFalse)
+	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleView), tc.IsTrue)
+	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleRotate), tc.IsTrue)
+	c.Assert(secrets.RoleRotate.Allowed(secrets.RoleManage), tc.IsFalse)
+	c.Assert(secrets.RoleManage.Allowed(secrets.RoleView), tc.IsTrue)
+	c.Assert(secrets.RoleManage.Allowed(secrets.RoleRotate), tc.IsTrue)
+	c.Assert(secrets.RoleManage.Allowed(secrets.RoleManage), tc.IsTrue)
 }

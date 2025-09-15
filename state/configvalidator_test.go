@@ -4,13 +4,14 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigValidatorSuite struct {
@@ -18,7 +19,9 @@ type ConfigValidatorSuite struct {
 	configValidator mockConfigValidator
 }
 
-var _ = gc.Suite(&ConfigValidatorSuite{})
+func TestConfigValidatorSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &ConfigValidatorSuite{})
+}
 
 type mockConfigValidator struct {
 	validateError error
@@ -50,7 +53,7 @@ func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.C
 	return p.validateValid, p.validateError
 }
 
-func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
+func (s *ConfigValidatorSuite) SetUpTest(c *tc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.configValidator = mockConfigValidator{}
 	s.policy.GetConfigValidator = func() (config.Validator, error) {
@@ -58,7 +61,7 @@ func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ConfigValidatorSuite) updateModelConfig(c *gc.C) error {
+func (s *ConfigValidatorSuite) updateModelConfig(c *tc.C) error {
 	updateAttrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
@@ -66,12 +69,12 @@ func (s *ConfigValidatorSuite) updateModelConfig(c *gc.C) error {
 	return s.Model.UpdateModelConfig(updateAttrs, nil)
 }
 
-func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
+func (s *ConfigValidatorSuite) TestConfigValidate(c *tc.C) {
 	err := s.updateModelConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c *gc.C) {
+func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c *tc.C) {
 	var configValidatorErr error
 	s.policy.GetConfigValidator = func() (config.Validator, error) {
 		configValidatorErr = errors.NotFoundf("")
@@ -79,32 +82,32 @@ func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c
 	}
 
 	err := s.updateModelConfig(c)
-	c.Assert(err, gc.ErrorMatches, " not found")
+	c.Assert(err, tc.ErrorMatches, " not found")
 }
 
-func (s *ConfigValidatorSuite) TestUpdateModelConfigUpdatesState(c *gc.C) {
+func (s *ConfigValidatorSuite) TestUpdateModelConfigUpdatesState(c *tc.C) {
 	s.updateModelConfig(c)
 	stateCfg, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	newValidCfg, err := mockValidCfg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateCfg.AllAttrs()["arbitrary-key"], gc.Equals, newValidCfg.AllAttrs()["arbitrary-key"])
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(stateCfg.AllAttrs()["arbitrary-key"], tc.Equals, newValidCfg.AllAttrs()["arbitrary-key"])
 }
 
-func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
+func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *tc.C) {
 	var configValidatorErr error
 	s.policy.GetConfigValidator = func() (config.Validator, error) {
 		return nil, configValidatorErr
 	}
 
 	err := s.updateModelConfig(c)
-	c.Assert(err, gc.ErrorMatches, "policy returned nil configValidator without an error")
+	c.Assert(err, tc.ErrorMatches, "policy returned nil configValidator without an error")
 	configValidatorErr = errors.NotImplementedf("Validator")
 	err = s.updateModelConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
+func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *tc.C) {
 	s.policy.GetConfigValidator = func() (config.Validator, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
@@ -112,5 +115,5 @@ func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
 
 	state.SetPolicy(s.State, nil)
 	err := s.updateModelConfig(c)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

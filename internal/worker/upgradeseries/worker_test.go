@@ -4,24 +4,24 @@
 package upgradeseries_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/testing"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
 	"github.com/juju/juju/internal/worker/upgradeseries"
 	. "github.com/juju/juju/internal/worker/upgradeseries/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type fakeWatcher struct {
@@ -47,9 +47,11 @@ type workerSuite struct {
 	done chan struct{}
 }
 
-var _ = gc.Suite(&workerSuite{})
+func TestWorkerSuite(t *tctesting.T) {
+	tc.Run(t, &workerSuite{})
+}
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
+func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logger = loggo.GetLogger("test.upgradeseries")
 	s.done = make(chan struct{})
@@ -58,7 +60,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole upgrade-series scenario, from start
 // to finish.
-func (s *workerSuite) TestFullWorkflow(c *gc.C) {
+func (s *workerSuite) TestFullWorkflow(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(7)
@@ -77,10 +79,10 @@ func (s *workerSuite) TestFullWorkflow(c *gc.C) {
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesNotStarted,
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
+func (s *workerSuite) TestLockNotFoundNoAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(1)
@@ -91,7 +93,7 @@ func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesNotStarted,
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectLockNotFoundNoAction() {
@@ -100,7 +102,7 @@ func (s *workerSuite) expectLockNotFoundNoAction() {
 	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 }
 
-func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
+func (s *workerSuite) TestCompleteNoAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the workflow is completed, no further processing occurs.
@@ -113,10 +115,10 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesPrepareCompleted,
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *gc.C) {
+func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(1)
@@ -130,7 +132,7 @@ func (s *workerSuite) TestMachinePrepareStartedUnitsNotPrepareCompleteNoAction(c
 		"machine status": model.UpgradeSeriesPrepareStarted,
 		"prepared units": []string{"wordpress/0"},
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectUnitDiscovery() {
@@ -156,7 +158,7 @@ func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction
 	s.expectUnitsPrepared("wordpress/0")
 }
 
-func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete(c *gc.C) {
+func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(1)
@@ -170,7 +172,7 @@ func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareCo
 		"machine status": model.UpgradeSeriesPrepareStarted,
 		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete() {
@@ -187,7 +189,7 @@ func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepare
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareCompleted, "waiting for completion command")
 }
 
-func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(c *gc.C) {
+func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(1)
@@ -200,7 +202,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 		"machine status": model.UpgradeSeriesCompleteStarted,
 		"prepared units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
@@ -210,7 +212,7 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStart
 	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
 }
 
-func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
+func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No units for this test.
@@ -234,10 +236,10 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesCompleteStarted,
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *gc.C) {
+func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.notify(1)
 	s.expectUnitDiscovery()
@@ -249,7 +251,7 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 		"machine status":  model.UpgradeSeriesCompleteStarted,
 		"completed units": []string{"wordpress/0", "mysql/0"},
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete() {
@@ -268,7 +270,7 @@ func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete(
 	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 }
 
-func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
+func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.notify(1)
@@ -280,7 +282,7 @@ func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
 	expected := map[string]interface{}{
 		"machine status": model.UpgradeSeriesCompleted,
 	}
-	c.Check(w.(worker.Reporter).Report(), gc.DeepEquals, expected)
+	c.Check(w.(worker.Reporter).Report(), tc.DeepEquals, expected)
 }
 
 func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
@@ -299,7 +301,7 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	}, nil)
 }
 
-func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facade = NewMockFacade(ctrl)
@@ -313,7 +315,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 // newWorker creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed,
 // then a new worker is started and returned.
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	cfg := upgradeseries.Config{
 		Logger:          s.logger,
 		Facade:          s.facade,
@@ -322,7 +324,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	}
 
 	w, err := upgradeseries.NewWorker(cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return w
 }
 
@@ -354,7 +356,7 @@ func (s *workerSuite) expectSetInstanceStatus(sts model.UpgradeSeriesStatus, msg
 
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
-func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
+func (s *workerSuite) cleanKill(c *tc.C, w worker.Worker) {
 	select {
 	case <-s.done:
 	case <-time.After(testing.LongWait):

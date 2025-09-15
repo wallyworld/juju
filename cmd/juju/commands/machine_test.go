@@ -4,11 +4,13 @@
 package commands
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -21,9 +23,11 @@ type MachineSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&MachineSuite{})
+func TestMachineSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &MachineSuite{})
+}
 
-func (s *MachineSuite) RunCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *MachineSuite) RunCommand(c *tc.C, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
 	juju := NewJujuCommand(context, "")
 	if err := cmdtesting.InitCommand(juju, args); err != nil {
@@ -32,29 +36,29 @@ func (s *MachineSuite) RunCommand(c *gc.C, args ...string) (*cmd.Context, error)
 	return context, juju.Run(context)
 }
 
-func (s *MachineSuite) TestMachineAdd(c *gc.C) {
+func (s *MachineSuite) TestMachineAdd(c *tc.C) {
 	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	count := len(machines)
 
 	ctx, err := s.RunCommand(c, "add-machine")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `created machine`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), tc.Contains, `created machine`)
 
 	machines, err = s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, count+1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(machines, tc.HasLen, count+1)
 }
 
-func (s *MachineSuite) TestMachineRemove(c *gc.C) {
+func (s *MachineSuite) TestMachineRemove(c *tc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 
 	ctx, err := s.RunCommand(c, "remove-machine", "--no-prompt", machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `will remove machine`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), tc.Contains, `will remove machine`)
 
 	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(machine.Life(), gc.Equals, state.Dying)
+	c.Assert(machine.Life(), tc.Equals, state.Dying)
 }

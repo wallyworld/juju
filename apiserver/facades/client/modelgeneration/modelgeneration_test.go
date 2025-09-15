@@ -4,11 +4,12 @@
 package modelgeneration_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
@@ -32,41 +33,43 @@ type modelGenerationSuite struct {
 	mockModelCache *mocks.MockModelCache
 }
 
-var _ = gc.Suite(&modelGenerationSuite{})
+func TestModelGenerationSuite(t *tctesting.T) {
+	tc.Run(t, &modelGenerationSuite{})
+}
 
-func (s *modelGenerationSuite) SetUpSuite(c *gc.C) {
+func (s *modelGenerationSuite) SetUpSuite(c *tc.C) {
 	s.modelUUID = "deadbeef-abcd-4fd2-967d-db9663db7bea"
 	s.newBranchName = "new-branch"
 	s.apiUser = "test-user"
 }
 
-func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
+func (s *modelGenerationSuite) TearDownTest(c *tc.C) {
 	s.api = nil
 }
 
 // TODO (hml) 17-jan-2019
 // Add more explicit permissions tests once that requirement is ironed out.
 
-func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
+func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 
 	arg := params.BranchArg{BranchName: model.GenerationMaster}
 	result, err := s.api.AddBranch(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.NotNil)
-	c.Check(result.Error.Message, gc.Matches, ".* not valid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, ".* not valid")
 }
 
-func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
+func (s *modelGenerationSuite) TestAddBranchSuccess(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectAddBranch()
 
 	result, err := s.api.AddBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
 }
 
-func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
+func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
@@ -81,15 +84,15 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 		},
 	}
 	result, err := s.api.TrackBranch(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 		{Error: &params.Error{Message: "expected names.UnitTag or names.ApplicationTag, got names.MachineTag"}},
 	})
 }
 
-func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
+func (s *modelGenerationSuite) TestTrackBranchSuccess(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
@@ -103,14 +106,14 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 		},
 	}
 	result, err := s.api.TrackBranch(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Results, tc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
 	})
 }
 
-func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
+func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 
 	arg := params.BranchTrackArg{
@@ -122,59 +125,59 @@ func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
 		NumUnits: 1,
 	}
 	result, err := s.api.TrackBranch(arg)
-	c.Assert(err, gc.ErrorMatches, "number of units and unit IDs can not be specified at the same time")
-	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult(nil))
+	c.Assert(err, tc.ErrorMatches, "number of units and unit IDs can not be specified at the same time")
+	c.Check(result.Results, tc.DeepEquals, []params.ErrorResult(nil))
 }
 
-func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
+func (s *modelGenerationSuite) TestCommitBranchSuccess(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectCommit()
 	s.expectBranch()
 
 	result, err := s.api.CommitBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.IntResult{Result: 3, Error: nil})
 }
 
-func (s *modelGenerationSuite) TestAbortBranchSuccess(c *gc.C) {
+func (s *modelGenerationSuite) TestAbortBranchSuccess(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectAbort()
 	s.expectBranch()
 
 	result, err := s.api.AbortBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{Error: nil})
 }
 
-func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
+func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectHasActiveBranch(nil)
 
 	result, err := s.api.HasActiveBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.Result, tc.IsTrue)
 }
 
-func (s *modelGenerationSuite) TestHasActiveBranchFalse(c *gc.C) {
+func (s *modelGenerationSuite) TestHasActiveBranchFalse(c *tc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectHasActiveBranch(errors.NotFoundf(s.newBranchName))
 
 	result, err := s.api.HasActiveBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result, jc.IsFalse)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.Result, tc.IsFalse)
 }
 
-func (s *modelGenerationSuite) TestBranchInfoDetailed(c *gc.C) {
+func (s *modelGenerationSuite) TestBranchInfoDetailed(c *tc.C) {
 	s.testBranchInfo(c, nil, true)
 }
 
-func (s *modelGenerationSuite) TestBranchInfoSummary(c *gc.C) {
+func (s *modelGenerationSuite) TestBranchInfoSummary(c *tc.C) {
 	s.testBranchInfo(c, []string{s.newBranchName}, false)
 }
 
-func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, detailed bool) {
+func (s *modelGenerationSuite) testBranchInfo(c *tc.C, branchNames []string, detailed bool) {
 	ctrl := s.setupModelGenerationAPI(c)
 	defer ctrl.Finish()
 
@@ -200,20 +203,20 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, det
 		BranchNames: branchNames,
 		Detailed:    detailed,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Generations, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Generations, tc.HasLen, 1)
 
 	gen := result.Generations[0]
-	c.Assert(gen.BranchName, gc.Equals, s.newBranchName)
-	c.Assert(gen.Created, gc.Equals, int64(666))
-	c.Assert(gen.CreatedBy, gc.Equals, s.apiUser)
-	c.Assert(gen.Applications, gc.HasLen, 1)
+	c.Assert(gen.BranchName, tc.Equals, s.newBranchName)
+	c.Assert(gen.Created, tc.Equals, int64(666))
+	c.Assert(gen.CreatedBy, tc.Equals, s.apiUser)
+	c.Assert(gen.Applications, tc.HasLen, 1)
 
 	genApp := gen.Applications[0]
-	c.Check(genApp.ApplicationName, gc.Equals, "redis")
-	c.Check(genApp.UnitProgress, gc.Equals, "2/3")
-	c.Check(genApp.ConfigChanges, gc.DeepEquals, map[string]interface{}{
+	c.Check(genApp.ApplicationName, tc.Equals, "redis")
+	c.Check(genApp.UnitProgress, tc.Equals, "2/3")
+	c.Check(genApp.ConfigChanges, tc.DeepEquals, map[string]interface{}{
 		"password":  "added-pass",
 		"databases": 16,
 		"port":      8000,
@@ -221,15 +224,15 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, det
 
 	// Unit lists are only populated when detailed is true.
 	if detailed {
-		c.Check(genApp.UnitsTracking, jc.SameContents, units[:2])
-		c.Check(genApp.UnitsPending, jc.SameContents, units[2:])
+		c.Check(genApp.UnitsTracking, tc.SameContents, units[:2])
+		c.Check(genApp.UnitsPending, tc.SameContents, units[2:])
 	} else {
-		c.Check(genApp.UnitsTracking, gc.IsNil)
-		c.Check(genApp.UnitsPending, gc.IsNil)
+		c.Check(genApp.UnitsTracking, tc.IsNil)
+		c.Check(genApp.UnitsPending, tc.IsNil)
 	}
 }
 
-func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controller {
+func (s *modelGenerationSuite) setupModelGenerationAPI(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.mockGen = mocks.NewMockGeneration(ctrl)
@@ -249,7 +252,7 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 
 	var err error
 	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }

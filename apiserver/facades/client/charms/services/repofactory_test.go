@@ -4,30 +4,33 @@
 package services_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&repoFactoryTestSuite{})
+func TestRepoFactoryTestSuite(t *tctesting.T) {
+	tc.Run(t, &repoFactoryTestSuite{})
+}
 
 type repoFactoryTestSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	stateBackend *mocks.MockStateBackend
 	modelBackend *mocks.MockModelBackend
 	repoFactory  corecharm.RepositoryFactory
 }
 
-func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
+func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelCfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -35,16 +38,16 @@ func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
 		config.TypeKey: "IAAS",
 		config.UUIDKey: "d0d2dad4-b899-405d-b8f7-52d0f9bbe24d",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
 
 	repo, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(repo, tc.FitsTypeOf, new(repository.CharmHubRepository), tc.Commentf("expected to get a CharmHubRepository instance"))
 }
 
-func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
+func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelCfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -52,23 +55,23 @@ func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
 		config.TypeKey: "IAAS",
 		config.UUIDKey: "d0d2dad4-b899-405d-b8f7-52d0f9bbe24d",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
 
 	repo1, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo1, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(repo1, tc.FitsTypeOf, new(repository.CharmHubRepository), tc.Commentf("expected to get a CharmHubRepository instance"))
 
 	repo2, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo2, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(repo2, tc.FitsTypeOf, new(repository.CharmHubRepository), tc.Commentf("expected to get a CharmHubRepository instance"))
 
 	// Note: we are comparing pointer values here hence the use of gc.Equals.
-	c.Assert(repo1, gc.Equals, repo2, gc.Commentf("expected to get memoized instance for CharmHub repository"))
+	c.Assert(repo1, tc.Equals, repo2, tc.Commentf("expected to get memoized instance for CharmHub repository"))
 }
 
-func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *repoFactoryTestSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateBackend = mocks.NewMockStateBackend(ctrl)
 	s.modelBackend = mocks.NewMockModelBackend(ctrl)

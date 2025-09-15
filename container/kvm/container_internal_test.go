@@ -4,22 +4,26 @@
 package kvm
 
 import (
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type containerInternalSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&containerInternalSuite{})
+func TestContainerInternalSuite(t *tctesting.T) {
+	tc.Run(t, &containerInternalSuite{})
+}
 
-func (containerInternalSuite) TestInterfaceInfo(c *gc.C) {
+func (containerInternalSuite) TestInterfaceInfo(c *tc.C) {
 	i := interfaceInfo{config: corenetwork.InterfaceInfo{
 		MACAddress: "mac", ParentInterfaceName: "piname", InterfaceName: "iname"}}
-	c.Check(i.InterfaceName(), gc.Equals, "iname")
-	c.Check(i.ParentInterfaceName(), gc.Equals, "piname")
-	c.Assert(i.MACAddress(), gc.Equals, "mac")
+	c.Check(i.InterfaceName(), tc.Equals, "iname")
+	c.Check(i.ParentInterfaceName(), tc.Equals, "piname")
+	c.Assert(i.MACAddress(), tc.Equals, "mac")
 }

@@ -10,22 +10,21 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/singular"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type fixture struct {
-	testing.Stub
+	testhelpers.Stub
 }
 
-func newFixture(c *gc.C, errs ...error) *fixture {
+func newFixture(c *tc.C, errs ...error) *fixture {
 	fix := &fixture{}
 	fix.Stub.SetErrors(errs...)
 	return fix
@@ -33,7 +32,7 @@ func newFixture(c *gc.C, errs ...error) *fixture {
 
 type testFunc func(*singular.FlagWorker, *testclock.Clock, func())
 
-func (fix *fixture) Run(c *gc.C, test testFunc) {
+func (fix *fixture) Run(c *tc.C, test testFunc) {
 	facade := newStubFacade(&fix.Stub)
 	clock := testclock.NewClock(time.Now())
 	flagWorker, err := singular.NewFlagWorker(singular.FlagConfig{
@@ -41,7 +40,7 @@ func (fix *fixture) Run(c *gc.C, test testFunc) {
 		Clock:    clock,
 		Duration: time.Minute,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	done := make(chan struct{})
 	go func() {
@@ -57,8 +56,8 @@ func (fix *fixture) Run(c *gc.C, test testFunc) {
 	}
 }
 
-func (fix *fixture) CheckClaimWait(c *gc.C) {
-	fix.CheckCalls(c, []testing.StubCall{{
+func (fix *fixture) CheckClaimWait(c *tc.C) {
+	fix.CheckCalls(c, []testhelpers.StubCall{{
 		FuncName: "Claim",
 		Args:     []interface{}{time.Minute},
 	}, {
@@ -66,10 +65,10 @@ func (fix *fixture) CheckClaimWait(c *gc.C) {
 	}})
 }
 
-func (fix *fixture) CheckClaims(c *gc.C, count int) {
-	expect := make([]testing.StubCall, count)
+func (fix *fixture) CheckClaims(c *tc.C, count int) {
+	expect := make([]testhelpers.StubCall, count)
 	for i := 0; i < count; i++ {
-		expect[i] = testing.StubCall{
+		expect[i] = testhelpers.StubCall{
 			FuncName: "Claim",
 			Args:     []interface{}{time.Minute},
 		}
@@ -78,12 +77,12 @@ func (fix *fixture) CheckClaims(c *gc.C, count int) {
 }
 
 type stubFacade struct {
-	stub  *testing.Stub
+	stub  *testhelpers.Stub
 	mu    sync.Mutex
 	block chan struct{}
 }
 
-func newStubFacade(stub *testing.Stub) *stubFacade {
+func newStubFacade(stub *testhelpers.Stub) *stubFacade {
 	return &stubFacade{
 		stub:  stub,
 		block: make(chan struct{}),
@@ -112,10 +111,10 @@ func (facade *stubFacade) Wait() error {
 }
 
 type stubWorker struct {
-	stub *testing.Stub
+	stub *testhelpers.Stub
 }
 
-func newStubWorker(stub *testing.Stub) *stubWorker {
+func newStubWorker(stub *testhelpers.Stub) *stubWorker {
 	return &stubWorker{
 		stub: stub,
 	}

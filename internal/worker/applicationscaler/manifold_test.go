@@ -4,37 +4,40 @@
 package applicationscaler_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/applicationscaler"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&ManifoldSuite{})
+func TestManifoldSuite(t *tctesting.T) {
+	tc.Run(t, &ManifoldSuite{})
+}
 
-func (s *ManifoldSuite) TestInputs(c *gc.C) {
+func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "washington the terrible",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"washington the terrible"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"washington the terrible"})
 }
 
-func (s *ManifoldSuite) TestOutput(c *gc.C) {
+func (s *ManifoldSuite) TestOutput(c *tc.C) {
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{})
-	c.Check(manifold.Output, gc.IsNil)
+	c.Check(manifold.Output, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAPICaller(c *tc.C) {
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
@@ -43,16 +46,16 @@ func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
+	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartFacadeError(c *gc.C) {
+func (s *ManifoldSuite) TestStartFacadeError(c *tc.C) {
 	expectCaller := &fakeCaller{}
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "api-caller",
 		NewFacade: func(apiCaller base.APICaller) (applicationscaler.Facade, error) {
-			c.Check(apiCaller, gc.Equals, expectCaller)
+			c.Check(apiCaller, tc.Equals, expectCaller)
 			return nil, errors.New("blort")
 		},
 	})
@@ -61,11 +64,11 @@ func (s *ManifoldSuite) TestStartFacadeError(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, gc.ErrorMatches, "blort")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "blort")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
+func (s *ManifoldSuite) TestStartWorkerError(c *tc.C) {
 	expectFacade := &fakeFacade{}
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "api-caller",
@@ -73,8 +76,8 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 			return expectFacade, nil
 		},
 		NewWorker: func(config applicationscaler.Config) (worker.Worker, error) {
-			c.Check(config.Validate(), jc.ErrorIsNil)
-			c.Check(config.Facade, gc.Equals, expectFacade)
+			c.Check(config.Validate(), tc.ErrorIsNil)
+			c.Check(config.Facade, tc.Equals, expectFacade)
 			return nil, errors.New("splot")
 		},
 	})
@@ -83,11 +86,11 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, gc.ErrorMatches, "splot")
-	c.Check(worker, gc.IsNil)
+	c.Check(err, tc.ErrorMatches, "splot")
+	c.Check(worker, tc.IsNil)
 }
 
-func (s *ManifoldSuite) TestSuccess(c *gc.C) {
+func (s *ManifoldSuite) TestSuccess(c *tc.C) {
 	expectWorker := &fakeWorker{}
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "api-caller",
@@ -103,8 +106,8 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 	})
 
 	worker, err := manifold.Start(context)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expectWorker)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(worker, tc.Equals, expectWorker)
 }
 
 type fakeCaller struct {

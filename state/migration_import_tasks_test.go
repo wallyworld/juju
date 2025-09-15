@@ -5,15 +5,15 @@ package state
 
 import (
 	"fmt"
+	tctesting "testing"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
@@ -21,16 +21,18 @@ import (
 
 type MigrationImportTasksSuite struct{}
 
-var _ = gc.Suite(&MigrationImportTasksSuite{})
+func TestMigrationImportTasksSuite(t *tctesting.T) {
+	tc.Run(t, &MigrationImportTasksSuite{})
+}
 
-func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	offerUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	offerUUID2, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	runner := ImportApplicationOfferRunner{
 		OfferUUID: offerUUID.String(),
@@ -75,15 +77,15 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
 	runner.Add(runner.transaction([]applicationOfferDoc{offerDoc, secondOfferDoc}, []txn.Op{permissionOp, permissionOp2}, refOp))
 
 	err = runner.Run(ctrl)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailure(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailure(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	offerUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	runner := ImportApplicationOfferRunner{
 		OfferUUID: offerUUID.String(),
@@ -116,7 +118,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailur
 	runner.Add(runner.transactionWithError(errors.New("fail")))
 
 	err = runner.Run(ctrl)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 type ImportApplicationOfferRunner struct {
@@ -194,7 +196,7 @@ func (s *ImportApplicationOfferRunner) transactionWithError(err error) func(ctrl
 	}
 }
 
-func (s *MigrationImportTasksSuite) TestImportRemoteApplications(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRemoteApplications(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -248,12 +250,12 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplications(c *gc.C) {
 
 	m := ImportRemoteApplications{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // A Remote Application with a missing status field is a valid remote
 // application and should be correctly imported.
-func (s *MigrationImportTasksSuite) TestImportRemoteApplicationsWithMissingStatusField(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRemoteApplicationsWithMissingStatusField(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -301,7 +303,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplicationsWithMissingStatu
 
 	m := ImportRemoteApplications{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *MigrationImportTasksSuite) remoteApplication(ctrl *gomock.Controller, status description.Status) description.RemoteApplication {
@@ -315,7 +317,7 @@ func (s *MigrationImportTasksSuite) status(ctrl *gomock.Controller) description.
 	return entity
 }
 
-func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -358,10 +360,10 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 
 	m := ImportRemoteEntities{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -375,10 +377,10 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc
 
 	m := ImportRemoteEntities{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunnerReturnsError(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunnerReturnsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -408,7 +410,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 
 	m := ImportRemoteEntities{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *MigrationImportTasksSuite) remoteEntity(ctrl *gomock.Controller, id, token string) *MockRemoteEntity {
@@ -418,7 +420,7 @@ func (s *MigrationImportTasksSuite) remoteEntity(ctrl *gomock.Controller, id, to
 	return entity
 }
 
-func (s *MigrationImportTasksSuite) TestImportRelationNetworks(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRelationNetworks(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -461,10 +463,10 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworks(c *gc.C) {
 
 	m := ImportRelationNetworks{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithNoEntities(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithNoEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -478,10 +480,10 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithNoEntities(c *
 
 	m := ImportRelationNetworks{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithTransactionRunnerReturnsError(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithTransactionRunnerReturnsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -511,7 +513,7 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithTransactionRun
 
 	m := ImportRelationNetworks{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *MigrationImportTasksSuite) relationNetwork(ctrl *gomock.Controller, id, key string, cidrs []string) *MockRelationNetwork {
@@ -522,7 +524,7 @@ func (s *MigrationImportTasksSuite) relationNetwork(ctrl *gomock.Controller, id,
 	return entity
 }
 
-func (s *MigrationImportTasksSuite) TestImportExternalControllers(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportExternalControllers(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -577,10 +579,10 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllers(c *gc.C) {
 
 	m := ImportExternalControllers{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportExternalControllersWithNoEntities(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportExternalControllersWithNoEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -594,10 +596,10 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithNoEntities(
 
 	m := ImportExternalControllers{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransactionRunnerReturnsError(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransactionRunnerReturnsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -646,7 +648,7 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransaction
 
 	m := ImportExternalControllers{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, id, alias, caCert string, addrs, models []string) *MockExternalController {
@@ -659,7 +661,7 @@ func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, 
 	return entity
 }
 
-func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -684,10 +686,10 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
 
 	m := ImportFirewallRules{}
 	err := m.Execute(modelIn, modelOut)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportFirewallRulesEmptyJujuApplicationOffer(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesEmptyJujuApplicationOffer(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -704,10 +706,10 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesEmptyJujuApplicationO
 
 	m := ImportFirewallRules{}
 	err := m.Execute(model, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithNoEntities(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithNoEntities(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -720,10 +722,10 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithNoEntities(c *gc.
 
 	m := ImportFirewallRules{}
 	err := m.Execute(model, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunnerReturnsError(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunnerReturnsError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -743,7 +745,7 @@ func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunner
 
 	m := ImportFirewallRules{}
 	err := m.Execute(modelIn, modelOut)
-	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(err, tc.ErrorMatches, "fail")
 }
 
 func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, id, service string, whitelist []string) *MockFirewallRule {
@@ -760,7 +762,7 @@ func (s *MigrationImportTasksSuite) virtualHostKey(ctrl *gomock.Controller, id s
 	return entity
 }
 
-func (s *MigrationImportTasksSuite) TestImportVirtualHostKeys(c *gc.C) {
+func (s *MigrationImportTasksSuite) TestImportVirtualHostKeys(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -801,5 +803,5 @@ func (s *MigrationImportTasksSuite) TestImportVirtualHostKeys(c *gc.C) {
 
 	m := ImportVirtualHostKeys{}
 	err := m.Execute(model, runner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }

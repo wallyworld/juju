@@ -6,18 +6,18 @@ package reboot_test
 import (
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/cmd/jujud/reboot/mocks"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/testhelpers/filetesting"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type NewRebootSuite struct {
@@ -29,9 +29,11 @@ type NewRebootSuite struct {
 	service          *mocks.MockService
 }
 
-var _ = gc.Suite(&NewRebootSuite{})
+func TestNewRebootSuite(t *tctesting.T) {
+	tc.Run(t, &NewRebootSuite{})
+}
 
-func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
+func (s *NewRebootSuite) TestExecuteReboot(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(false, false)
 	s.expectListServices()
@@ -39,10 +41,10 @@ func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
 	s.expectScheduleAction()
 
 	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
+func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectManagerIsInitialized(true, false)
 	s.expectManagerIsInitialized(true, false)
@@ -52,14 +54,14 @@ func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
 	s.expectScheduleAction()
 
 	err := s.newRebootWaiter().ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *NewRebootSuite) newRebootWaiter() *reboot.Reboot {
 	return reboot.NewRebootForTest(s.agentConfig, s.rebootWaiter)
 }
 
-func (s *NewRebootSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *NewRebootSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agentConfig = mocks.NewMockAgentConfig(ctrl)
 	s.containerManager = mocks.NewMockManager(ctrl)
@@ -123,11 +125,13 @@ type NixRebootSuite struct {
 	rebootScriptName string
 }
 
-var _ = gc.Suite(&NixRebootSuite{})
+func TestNixRebootSuite(t *tctesting.T) {
+	tc.Run(t, &NixRebootSuite{})
+}
 
-func (s *NixRebootSuite) SetUpTest(c *gc.C) {
+func (s *NixRebootSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
+	testhelpers.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.tmpDir = c.MkDir()
 	s.rebootScriptName = "juju-reboot-script"
 	s.PatchValue(reboot.TmpFile, func() (*os.File, error) {
@@ -136,21 +140,21 @@ func (s *NixRebootSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *NixRebootSuite) TestReboot(c *gc.C) {
+func (s *NixRebootSuite) TestReboot(c *tc.C) {
 	expectedParams := s.commandParams()
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
-	c.Assert(err, jc.ErrorIsNil)
-	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
-	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
+	c.Assert(err, tc.ErrorIsNil)
+	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
+	filetesting.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
 }
 
-func (s *NixRebootSuite) TestShutdownNoContainers(c *gc.C) {
+func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
 	expectedParams := s.commandParams()
 
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)
-	c.Assert(err, jc.ErrorIsNil)
-	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
-	ft.File{s.rebootScriptName, expectedShutdownScript, 0755}.Check(c, s.tmpDir)
+	c.Assert(err, tc.ErrorIsNil)
+	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
+	filetesting.File{s.rebootScriptName, expectedShutdownScript, 0755}.Check(c, s.tmpDir)
 }
 
 func (s *NixRebootSuite) rebootScript() string {

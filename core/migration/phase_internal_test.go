@@ -4,19 +4,23 @@
 package migration
 
 import (
-	"github.com/juju/collections/set"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/collections/set"
+	"github.com/juju/tc"
+
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type PhaseInternalSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(new(PhaseInternalSuite))
+func TestPhaseInternalSuite(t *tctesting.T) {
+	tc.Run(t, &PhaseInternalSuite{})
+}
 
-func (s *PhaseInternalSuite) TestForUnused(c *gc.C) {
+func (s *PhaseInternalSuite) TestForUnused(c *tc.C) {
 	usedPhases := set.NewStrings()
 	for source, targets := range validTransitions {
 		usedPhases.Add(source.String())
@@ -30,13 +34,13 @@ func (s *PhaseInternalSuite) TestForUnused(c *gc.C) {
 		NONE.String(),
 	)
 	allValidPhases := set.NewStrings(phaseNames...).Difference(specialPhases)
-	c.Check(allValidPhases.Difference(usedPhases), gc.HasLen, 0)
+	c.Check(allValidPhases.Difference(usedPhases), tc.HasLen, 0)
 
 	// The special phases shouldn't appear in the transition map.
-	c.Check(usedPhases.Intersection(specialPhases), gc.HasLen, 0)
+	c.Check(usedPhases.Intersection(specialPhases), tc.HasLen, 0)
 }
 
-func (s *PhaseInternalSuite) TestForUnreachable(c *gc.C) {
+func (s *PhaseInternalSuite) TestForUnreachable(c *tc.C) {
 	const initialPhase = QUIESCE
 	allSources := set.NewStrings()
 	allTargets := set.NewStrings()
@@ -50,5 +54,5 @@ func (s *PhaseInternalSuite) TestForUnreachable(c *gc.C) {
 	}
 
 	// Each source must be referred to at least once.
-	c.Check(allSources.Difference(allTargets), gc.HasLen, 0)
+	c.Check(allSources.Difference(allTargets), tc.HasLen, 0)
 }

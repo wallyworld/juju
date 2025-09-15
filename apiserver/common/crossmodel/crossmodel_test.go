@@ -4,26 +4,29 @@
 package crossmodel_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type crossmodelSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&crossmodelSuite{})
+func TestCrossmodelSuite(t *tctesting.T) {
+	tc.Run(t, &crossmodelSuite{})
+}
 
-func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
+func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *tc.C) {
 	// Other aspects of ExpandChange are tested in the
 	// crossmodelrelations and remoterelations facade tests.
 	change := params.RelationUnitsChange{
@@ -37,64 +40,64 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 	}
 	result, err := crossmodel.ExpandChange(
 		&mockBackend{}, "some-relation", "some-app", change)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RemoteRelationChangeEvent{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.RemoteRelationChangeEvent{
 		RelationToken:    "some-relation",
 		ApplicationToken: "some-app",
 		DepartedUnits:    []int{2, 3},
 	})
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *tc.C) {
 	st := &mockBackend{}
 	ch, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Terminated, Info: "offer has been removed"},
 	})
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *tc.C) {
 	st := &mockBackend{
 		migrating: true,
 	}
 
 	_, err := crossmodel.GetOfferStatusChange(st, "uuid", "mysql")
-	c.Assert(err, gc.ErrorMatches, "model is being migrated")
+	c.Assert(err, tc.ErrorMatches, "model is being migrated")
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c *tc.C) {
 	st := &mockBackend{}
 	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Terminated, Info: "application has been removed"},
 	})
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *tc.C) {
 	st := &mockBackend{
 		migrating: true,
 	}
 
 	_, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
-	c.Assert(err, gc.ErrorMatches, "model is being migrated")
+	c.Assert(err, tc.ErrorMatches, "model is being migrated")
 }
 
-func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
+func (s *crossmodelSuite) TestGetOfferStatusChange(c *tc.C) {
 	st := &mockBackend{appName: "mysql", appStatus: status.StatusInfo{Status: status.Active}}
 	ch, err := crossmodel.GetOfferStatusChange(st, "deadbeef", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ch, tc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
 		Status:    params.EntityStatus{Status: status.Active},
 	})
 }
 
 type mockBackend struct {
-	testing.Stub
+	testhelpers.Stub
 	crossmodel.Backend
 
 	appName        string

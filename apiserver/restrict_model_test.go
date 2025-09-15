@@ -4,13 +4,14 @@
 package apiserver_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testing"
 )
 
 type restrictModelSuite struct {
@@ -18,28 +19,30 @@ type restrictModelSuite struct {
 	root rpc.Root
 }
 
-var _ = gc.Suite(&restrictModelSuite{})
+func TestRestrictModelSuite(t *tctesting.T) {
+	tc.Run(t, &restrictModelSuite{})
+}
 
-func (s *restrictModelSuite) SetUpSuite(c *gc.C) {
+func (s *restrictModelSuite) SetUpSuite(c *tc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingModelOnlyRoot()
 }
 
-func (s *restrictModelSuite) TestAllowed(c *gc.C) {
+func (s *restrictModelSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "Client", clientFacadeVersion, "FullStatus")
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
 	s.assertMethod(c, "HighAvailability", highAvailabilityFacadeVersion, "EnableHA")
 }
 
-func (s *restrictModelSuite) TestBlocked(c *gc.C) {
+func (s *restrictModelSuite) TestBlocked(c *tc.C) {
 	caller, err := s.root.FindMethod("ModelManager", modelManagerFacadeVersion, "ListModels")
-	c.Assert(err, gc.ErrorMatches, `facade "ModelManager" not supported for model API connection`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
-	c.Assert(caller, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `facade "ModelManager" not supported for model API connection`)
+	c.Assert(errors.IsNotSupported(err), tc.IsTrue)
+	c.Assert(caller, tc.IsNil)
 }
 
-func (s *restrictModelSuite) assertMethod(c *gc.C, facadeName string, version int, method string) {
+func (s *restrictModelSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(caller, gc.NotNil)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(caller, tc.NotNil)
 }

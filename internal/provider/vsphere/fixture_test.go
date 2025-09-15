@@ -10,29 +10,28 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ProviderFixture struct {
-	testing.IsolationSuite
-	dialStub testing.Stub
+	testhelpers.IsolationSuite
+	dialStub testhelpers.Stub
 	client   *mockClient
 	provider environs.CloudEnvironProvider
 	callCtx  context.ProviderCallContext
 }
 
-func (s *ProviderFixture) SetUpTest(c *gc.C) {
+func (s *ProviderFixture) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()
 	s.client = &mockClient{}
@@ -50,12 +49,12 @@ type EnvironFixture struct {
 	callCtx             context.ProviderCallContext
 }
 
-func (s *EnvironFixture) SetUpTest(c *gc.C) {
+func (s *EnvironFixture) SetUpTest(c *tc.C) {
 	s.ProviderFixture.SetUpTest(c)
 
 	s.imageServerRequests = nil
 	s.imageServer = serveImageMetadata(&s.imageServerRequests)
-	s.AddCleanup(func(*gc.C) {
+	s.AddCleanup(func(*tc.C) {
 		s.imageServer.Close()
 	})
 
@@ -65,7 +64,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 			"image-metadata-url": s.imageServer.URL,
 		}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.env = env
 
 	// Make sure we don't fall back to the public image sources.
@@ -130,7 +129,7 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
-func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.ProviderCallContext) error) {
+func AssertInvalidatesCredential(c *tc.C, client *mockClient, f func(context.ProviderCallContext) error) {
 	client.SetErrors(soap.WrapSoapFault(&soap.Fault{
 		Code:   "ServerFaultCode",
 		String: "No way José",
@@ -146,6 +145,6 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.Pro
 		},
 	}
 	err := f(ctx)
-	c.Assert(err, gc.ErrorMatches, ".*ServerFaultCode: No way José$")
-	c.Assert(called, gc.Equals, true)
+	c.Assert(err, tc.ErrorMatches, ".*ServerFaultCode: No way José$")
+	c.Assert(called, tc.Equals, true)
 }

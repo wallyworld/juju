@@ -4,18 +4,21 @@
 package payloads_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&filterSuite{})
+func TestFilterSuite(t *tctesting.T) {
+	tc.Run(t, &filterSuite{})
+}
 
 type filterSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
 func (s *filterSuite) newPayload(name string) payloads.FullPayloadInfo {
@@ -34,7 +37,7 @@ func (s *filterSuite) newPayload(name string) payloads.FullPayloadInfo {
 	}
 }
 
-func (s *filterSuite) TestFilterOkay(c *gc.C) {
+func (s *filterSuite) TestFilterOkay(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 	}
@@ -43,10 +46,10 @@ func (s *filterSuite) TestFilterOkay(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predicate)
 
-	c.Check(matched, jc.DeepEquals, payloadInfo)
+	c.Check(matched, tc.DeepEquals, payloadInfo)
 }
 
-func (s *filterSuite) TestFilterMatchAll(c *gc.C) {
+func (s *filterSuite) TestFilterMatchAll(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
@@ -56,10 +59,10 @@ func (s *filterSuite) TestFilterMatchAll(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predicate)
 
-	c.Check(matched, jc.DeepEquals, payloadInfo)
+	c.Check(matched, tc.DeepEquals, payloadInfo)
 }
 
-func (s *filterSuite) TestFilterMatchNone(c *gc.C) {
+func (s *filterSuite) TestFilterMatchNone(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 	}
@@ -68,19 +71,19 @@ func (s *filterSuite) TestFilterMatchNone(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predicate)
 
-	c.Check(matched, gc.HasLen, 0)
+	c.Check(matched, tc.HasLen, 0)
 }
 
-func (s *filterSuite) TestFilterNoPayloads(c *gc.C) {
+func (s *filterSuite) TestFilterNoPayloads(c *tc.C) {
 	predicate := func(payloads.FullPayloadInfo) bool {
 		return true
 	}
 	matched := payloads.Filter(nil, predicate)
 
-	c.Check(matched, gc.HasLen, 0)
+	c.Check(matched, tc.HasLen, 0)
 }
 
-func (s *filterSuite) TestFilterMatchPartial(c *gc.C) {
+func (s *filterSuite) TestFilterMatchPartial(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
@@ -90,10 +93,10 @@ func (s *filterSuite) TestFilterMatchPartial(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predicate)
 
-	c.Check(matched, jc.DeepEquals, payloadInfo[:1])
+	c.Check(matched, tc.DeepEquals, payloadInfo[:1])
 }
 
-func (s *filterSuite) TestFilterMultiMatch(c *gc.C) {
+func (s *filterSuite) TestFilterMultiMatch(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
@@ -106,10 +109,10 @@ func (s *filterSuite) TestFilterMultiMatch(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predA, predB)
 
-	c.Check(matched, jc.DeepEquals, payloadInfo)
+	c.Check(matched, tc.DeepEquals, payloadInfo)
 }
 
-func (s *filterSuite) TestFilterMultiMatchPartial(c *gc.C) {
+func (s *filterSuite) TestFilterMultiMatchPartial(c *tc.C) {
 	payloadInfo := []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
@@ -123,13 +126,13 @@ func (s *filterSuite) TestFilterMultiMatchPartial(c *gc.C) {
 	}
 	matched := payloads.Filter(payloadInfo, predA, predB)
 
-	c.Check(matched, jc.DeepEquals, []payloads.FullPayloadInfo{
+	c.Check(matched, tc.DeepEquals, []payloads.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("ham"),
 	})
 }
 
-func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
+func (s *filterSuite) TestBuildPredicatesForOkay(c *tc.C) {
 	pl := payloads.FullPayloadInfo{
 		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -160,11 +163,11 @@ func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
 		predicates, err := payloads.BuildPredicatesFor([]string{
 			pattern,
 		})
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 
-		c.Check(predicates, gc.HasLen, 1)
+		c.Check(predicates, tc.HasLen, 1)
 		matched := predicates[0](pl)
-		c.Check(matched, jc.IsTrue)
+		c.Check(matched, tc.IsTrue)
 	}
 
 	// Check a non-matching pattern.
@@ -172,14 +175,14 @@ func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
 	predicates, err := payloads.BuildPredicatesFor([]string{
 		"tagC",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(predicates, gc.HasLen, 1)
+	c.Check(predicates, tc.HasLen, 1)
 	matched := predicates[0](pl)
-	c.Check(matched, jc.IsFalse)
+	c.Check(matched, tc.IsFalse)
 }
 
-func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
+func (s *filterSuite) TestBuildPredicatesForMulti(c *tc.C) {
 	predicates, err := payloads.BuildPredicatesFor([]string{
 		"tagC",
 		"spam",
@@ -187,16 +190,16 @@ func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
 		"2",
 		"idspam",
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(predicates, gc.HasLen, 5)
+	c.Check(predicates, tc.HasLen, 5)
 	pl := s.newPayload("spam")
 	var matches []bool
 	for _, pred := range predicates {
 		matched := pred(pl)
 		matches = append(matches, matched)
 	}
-	c.Check(matches, jc.DeepEquals, []bool{
+	c.Check(matches, tc.DeepEquals, []bool{
 		false,
 		true,
 		true,
@@ -205,7 +208,7 @@ func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
 	})
 }
 
-func (s *filterSuite) TestMatch(c *gc.C) {
+func (s *filterSuite) TestMatch(c *tc.C) {
 	pl := payloads.FullPayloadInfo{
 		Payload: payloads.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -233,7 +236,7 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 	} {
 		c.Logf("check %q", pattern)
 		matched := payloads.Match(pl, pattern)
-		c.Check(matched, jc.IsTrue)
+		c.Check(matched, tc.IsTrue)
 	}
 
 	// no match
@@ -243,6 +246,6 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 	} {
 		c.Logf("check %q", pattern)
 		matched := payloads.Match(pl, pattern)
-		c.Check(matched, jc.IsFalse)
+		c.Check(matched, tc.IsFalse)
 	}
 }

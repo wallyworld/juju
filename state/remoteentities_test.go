@@ -4,136 +4,139 @@
 package state_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 )
 
 type RemoteEntitiesSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&RemoteEntitiesSuite{})
+func TestRemoteEntitiesSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &RemoteEntitiesSuite{})
+}
 
-func (s *RemoteEntitiesSuite) assertExportLocalEntity(c *gc.C, entity names.Tag) string {
+func (s *RemoteEntitiesSuite) assertExportLocalEntity(c *tc.C, entity names.Tag) string {
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(entity)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(token, gc.Not(gc.Equals), "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(token, tc.Not(tc.Equals), "")
 	return token
 }
 
-func (s *RemoteEntitiesSuite) TestAllRemoteEntities(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestAllRemoteEntities(c *tc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
 	expected, err := s.State.AllRemoteEntities()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(expected, gc.HasLen, 1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(expected, tc.HasLen, 1)
 
 	remoteEntity := expected[0]
-	c.Assert(entity.String(), gc.Equals, remoteEntity.ID())
-	c.Assert(token, gc.Equals, remoteEntity.Token())
+	c.Assert(entity.String(), tc.Equals, remoteEntity.ID())
+	c.Assert(token, tc.Equals, remoteEntity.Token())
 }
 
-func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *tc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
 	expected, err := re.GetToken(entity)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(token, gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(token, tc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestExportLocalEntityTwice(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestExportLocalEntityTwice(c *tc.C) {
 	entity := names.NewApplicationTag("mysql")
 	expected := s.assertExportLocalEntity(c, entity)
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(entity)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-	c.Assert(token, gc.Equals, expected)
+	c.Assert(err, tc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(token, tc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *tc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
 	expected, err := re.GetRemoteEntity(token)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity, tc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestMacaroon(c *tc.C) {
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
 	mac, err := newMacaroon("id")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = re.SaveMacaroon(names.NewApplicationTag("foo"), mac)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 
 	err = re.SaveMacaroon(entity, mac)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	re = s.State.RemoteEntities()
 	expected, err := re.GetMacaroon(entity)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	assertMacaroonEquals(c, mac, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *tc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
 	err := re.RemoveRemoteEntity(entity)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *tc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
 	token := utils.MustNewUUID().String()
 	err := re.ImportRemoteEntity(entity, token)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	re = s.State.RemoteEntities()
 	expected, err := re.GetRemoteEntity(token)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity, tc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *tc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
 	token := utils.MustNewUUID().String()
 	err := re.ImportRemoteEntity(entity, token)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	anotherToken := utils.MustNewUUID().String()
 	err = re.ImportRemoteEntity(entity, anotherToken)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 	expected, err := re.GetRemoteEntity(anotherToken)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.Equals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(entity, tc.Equals, expected)
 }
 
-func (s *RemoteEntitiesSuite) TestImportRemoteEntityEmptyToken(c *gc.C) {
+func (s *RemoteEntitiesSuite) TestImportRemoteEntityEmptyToken(c *tc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
 	err := re.ImportRemoteEntity(entity, "")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, tc.Satisfies, errors.IsNotValid)
 }

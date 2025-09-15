@@ -4,34 +4,37 @@
 package lxd
 
 import (
-	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/errors"
+	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testing"
 )
 
 type ErrorSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ErrorSuite{})
-
-func (s *ErrorSuite) TestIsUnauthorisedError(c *gc.C) {
-	err := errors.New("not authorized")
-	c.Assert(IsAuthorisationFailure(err), jc.IsTrue)
-	c.Assert(IsAuthorisationFailure(errors.Cause(err)), jc.IsTrue)
-
-	traced := errors.Trace(err)
-	c.Assert(IsAuthorisationFailure(traced), jc.IsTrue)
-
-	annotated := errors.Annotate(err, "testing is great")
-	c.Assert(IsAuthorisationFailure(annotated), jc.IsTrue)
+func TestErrorSuite(t *tctesting.T) {
+	tc.Run(t, &ErrorSuite{})
 }
 
-func (s *ErrorSuite) TestNotUnauthorisedError(c *gc.C) {
-	err := errors.New("everything is fine")
-	c.Assert(IsAuthorisationFailure(err), jc.IsFalse)
+func (s *ErrorSuite) TestIsUnauthorisedError(c *tc.C) {
+	err := errors.New("not authorized")
+	c.Assert(IsAuthorisationFailure(err), tc.IsTrue)
+	c.Assert(IsAuthorisationFailure(errors.Cause(err)), tc.IsTrue)
 
-	c.Assert(IsAuthorisationFailure(nil), jc.IsFalse)
+	traced := errors.Trace(err)
+	c.Assert(IsAuthorisationFailure(traced), tc.IsTrue)
+
+	annotated := errors.Annotate(err, "testing is great")
+	c.Assert(IsAuthorisationFailure(annotated), tc.IsTrue)
+}
+
+func (s *ErrorSuite) TestNotUnauthorisedError(c *tc.C) {
+	err := errors.New("everything is fine")
+	c.Assert(IsAuthorisationFailure(err), tc.IsFalse)
+
+	c.Assert(IsAuthorisationFailure(nil), tc.IsFalse)
 }

@@ -4,23 +4,26 @@
 package waitfor
 
 import (
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
 type modelScopeSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&modelScopeSuite{})
+func TestModelScopeSuite(t *tctesting.T) {
+	tc.Run(t, &modelScopeSuite{})
+}
 
-func (s *modelScopeSuite) TestGetIdentValue(c *gc.C) {
+func (s *modelScopeSuite) TestGetIdentValue(c *tc.C) {
 	tests := []struct {
 		Field     string
 		ModelInfo *params.ModelUpdate
@@ -51,17 +54,17 @@ func (s *modelScopeSuite) TestGetIdentValue(c *gc.C) {
 			ModelInfo: test.ModelInfo,
 		}
 		result, err := scope.GetIdentValue(test.Field)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.DeepEquals, test.Expected)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(result, tc.DeepEquals, test.Expected)
 	}
 }
 
-func (s *modelScopeSuite) TestGetIdentValueError(c *gc.C) {
+func (s *modelScopeSuite) TestGetIdentValueError(c *tc.C) {
 	scope := ModelScope{
 		ctx:       MakeScopeContext(),
 		ModelInfo: &params.ModelUpdate{},
 	}
 	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `.*"bad" on ModelInfo.*`)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, tc.ErrorMatches, `.*"bad" on ModelInfo.*`)
+	c.Assert(result, tc.IsNil)
 }

@@ -4,37 +4,40 @@
 package storagecommon_test
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
 )
 
 type volumesSuite struct{}
 
-var _ = gc.Suite(&volumesSuite{})
+func TestVolumesSuite(t *tctesting.T) {
+	tc.Run(t, &volumesSuite{})
+}
 
-func (s *volumesSuite) TestVolumeParams(c *gc.C) {
+func (s *volumesSuite) TestVolumeParams(c *tc.C) {
 	s.testVolumeParams(c, &state.VolumeParams{
 		Pool: "loop",
 		Size: 1024,
 	}, nil)
 }
 
-func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
+func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *tc.C) {
 	s.testVolumeParams(c, nil, &state.VolumeInfo{
 		Pool: "loop",
 		Size: 1024,
 	})
 }
 
-func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams, info *state.VolumeInfo) {
+func (*volumesSuite) testVolumeParams(c *tc.C, volumeParams *state.VolumeParams, info *state.VolumeInfo) {
 	tag := names.NewVolumeTag("100")
 	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
@@ -47,8 +50,8 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 		&fakePoolManager{},
 		provider.CommonStorageProviders(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, jc.DeepEquals, params.VolumeParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p, tc.DeepEquals, params.VolumeParams{
 		VolumeTag: "volume-100",
 		Provider:  "loop",
 		Size:      1024,
@@ -61,7 +64,7 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 	})
 }
 
-func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
+func (*volumesSuite) TestVolumeParamsStorageTags(c *tc.C) {
 	volumeTag := names.NewVolumeTag("100")
 	storageTag := names.NewStorageTag("mystore/0")
 	unitTag := names.NewUnitTag("mysql/123")
@@ -76,8 +79,8 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		&fakePoolManager{},
 		provider.CommonStorageProviders(),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, jc.DeepEquals, params.VolumeParams{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(p, tc.DeepEquals, params.VolumeParams{
 		VolumeTag: "volume-100",
 		Provider:  "loop",
 		Size:      1024,

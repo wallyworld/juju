@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	tctesting "testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -21,11 +22,10 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/modelcache"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -49,7 +50,6 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 const (
@@ -70,11 +70,11 @@ type apiserverConfigFixture struct {
 	config        apiserver.ServerConfig
 }
 
-func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
+func (s *apiserverConfigFixture) SetUpTest(c *tc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator = authenticator
 	s.mux = apiserverhttp.NewMux()
 
@@ -87,17 +87,17 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*testing.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               loggo.GetLogger("test"),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	machineTag := names.NewMachineTag("0")
 	hub := centralhub.New(machineTag, centralhub.PubsubNoOpMetrics{})
@@ -112,8 +112,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) { workertest.CleanKill(c, modelCache) })
 
 	select {
 	case <-initialized.Unlocked():
@@ -123,7 +123,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 
 	var controller *cache.Controller
 	err = modelcache.ExtractCacheController(modelCache, &controller)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.config = apiserver.ServerConfig{
 		StatePool:                  s.StatePool,
@@ -196,30 +196,30 @@ type apiserverBaseSuite struct {
 	baseURL   *url.URL
 }
 
-func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
+func (s *apiserverBaseSuite) SetUpTest(c *tc.C) {
 	s.apiserverConfigFixture.SetUpTest(c)
 
 	s.server = httptest.NewUnstartedServer(s.mux)
 	s.server.TLS = s.tlsConfig
 	s.server.StartTLS()
-	s.AddCleanup(func(c *gc.C) { s.server.Close() })
+	s.AddCleanup(func(c *tc.C) { s.server.Close() })
 	baseURL, err := url.Parse(s.server.URL)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	s.baseURL = baseURL
 	c.Logf("started HTTP server listening on %q", s.server.Listener.Addr())
 
 	server, err := apiserver.NewServer(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, server)
 	})
 	s.apiServer = server
 
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	u, err := s.State.User(s.Owner)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // URL returns a URL for this server with the given path and
@@ -233,35 +233,35 @@ func (s *apiserverBaseSuite) URL(path string, queryParams url.Values) *url.URL {
 
 // sendHTTPRequest sends an HTTP request with an appropriate
 // username and password.
-func (s *apiserverBaseSuite) sendHTTPRequest(c *gc.C, p apitesting.HTTPRequestParams) *http.Response {
+func (s *apiserverBaseSuite) sendHTTPRequest(c *tc.C, p apitesting.HTTPRequestParams) *http.Response {
 	p.Tag = s.Owner.String()
 	p.Password = ownerPassword
 	return apitesting.SendHTTPRequest(c, p)
 }
 
-func (s *apiserverBaseSuite) newServerNoCleanup(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
+func (s *apiserverBaseSuite) newServerNoCleanup(c *tc.C, config apiserver.ServerConfig) *apiserver.Server {
 	// To ensure we don't get two servers using the same mux (in which
 	// case the original api server always handles requests), ensure
 	// the original one is stopped.
 	s.apiServer.Kill()
 	err := s.apiServer.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	srv, err := apiserver.NewServer(config)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return srv
 }
 
-func (s *apiserverBaseSuite) newServer(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
+func (s *apiserverBaseSuite) newServer(c *tc.C, config apiserver.ServerConfig) *apiserver.Server {
 	srv := s.newServerNoCleanup(c, config)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.CleanKill(c, srv)
 	})
 	return srv
 }
 
-func (s *apiserverBaseSuite) newServerDirtyKill(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
+func (s *apiserverBaseSuite) newServerDirtyKill(c *tc.C, config apiserver.ServerConfig) *apiserver.Server {
 	srv := s.newServerNoCleanup(c, config)
-	s.AddCleanup(func(c *gc.C) {
+	s.AddCleanup(func(c *tc.C) {
 		workertest.DirtyKill(c, srv)
 	})
 	return srv
@@ -277,7 +277,7 @@ func (s *apiserverBaseSuite) APIInfo(server *apiserver.Server) *api.Info {
 	}
 }
 
-func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
+func (s *apiserverBaseSuite) openAPIAs(c *tc.C, srv *apiserver.Server, tag names.Tag, password, nonce string, controllerOnly bool) api.Connection {
 	apiInfo := s.APIInfo(srv)
 	apiInfo.Tag = tag
 	apiInfo.Password = password
@@ -286,9 +286,9 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 		apiInfo.ModelTag = s.Model.ModelTag()
 	}
 	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.NotNil)
+	s.AddCleanup(func(c *tc.C) {
 		conn.Close()
 	})
 	return conn
@@ -297,7 +297,7 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 // OpenAPIAsNewMachine creates a new client connection logging in as the
 // controller owner. The returned api.Connection should not be closed by the
 // caller as a cleanup function has been registered to do that.
-func (s *apiserverBaseSuite) OpenAPIAsAdmin(c *gc.C, srv *apiserver.Server) api.Connection {
+func (s *apiserverBaseSuite) OpenAPIAsAdmin(c *tc.C, srv *apiserver.Server) api.Connection {
 	return s.openAPIAs(c, srv, s.Owner, ownerPassword, "", false)
 }
 
@@ -305,28 +305,28 @@ func (s *apiserverBaseSuite) OpenAPIAsAdmin(c *gc.C, srv *apiserver.Server) api.
 // and then uses that to open the API. The returned api.Connection should not be
 // closed by the caller as a cleanup function has been registered to do that.
 // The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *gc.C, srv *apiserver.Server, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
+func (s *apiserverBaseSuite) OpenAPIAsNewMachine(c *tc.C, srv *apiserver.Server, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return s.openAPIAs(c, srv, machine.Tag(), password, "fake_nonce", false), machine
 }
 
-func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
+func dialWebsocketFromURL(c *tc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {
 		header = http.Header{}
 	}
 	caCerts := x509.NewCertPool()
-	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), tc.IsTrue)
 	tlsConfig := jujuhttp.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "juju-apiserver"
@@ -341,40 +341,42 @@ type apiserverSuite struct {
 	apiserverBaseSuite
 }
 
-var _ = gc.Suite(&apiserverSuite{})
+func TestApiserverSuite(t *tctesting.T) {
+	testing.MgoTestPackage(t, &apiserverSuite{})
+}
 
-func (s *apiserverSuite) TestCleanStop(c *gc.C) {
+func (s *apiserverSuite) TestCleanStop(c *tc.C) {
 	workertest.CleanKill(c, s.apiServer)
 }
 
-func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
+func (s *apiserverSuite) TestRestartMessage(c *tc.C) {
 	_, err := s.config.Hub.Publish(psapiserver.RestartTopic, psapiserver.Restart{
 		LocalOnly: true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, s.apiServer)
-	c.Assert(err, gc.Equals, dependency.ErrBounce)
+	c.Assert(err, tc.Equals, dependency.ErrBounce)
 }
 
-func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
+func (s *apiserverSuite) getHealth(c *tc.C) (string, int) {
 	uri := s.server.URL + "/health"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	body, err := io.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result := string(body)
 	// Ensure that the last value is a carriage return.
-	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
+	c.Assert(strings.HasSuffix(result, "\n"), tc.IsTrue)
 	return strings.TrimSuffix(result, "\n"), resp.StatusCode
 }
 
-func (s *apiserverSuite) TestHealthRunning(c *gc.C) {
+func (s *apiserverSuite) TestHealthRunning(c *tc.C) {
 	health, statusCode := s.getHealth(c)
-	c.Assert(health, gc.Equals, "running")
-	c.Assert(statusCode, gc.Equals, http.StatusOK)
+	c.Assert(health, tc.Equals, "running")
+	c.Assert(statusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
+func (s *apiserverSuite) TestHealthStopping(c *tc.C) {
 	wg := apiserver.ServerWaitGroup(s.apiServer)
 	wg.Add(1)
 
@@ -386,7 +388,7 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 		health, statusCode := s.getHealth(c)
 		if health == "stopping" {
 			// Expected, we're done.
-			c.Assert(statusCode, gc.Equals, http.StatusServiceUnavailable)
+			c.Assert(statusCode, tc.Equals, http.StatusServiceUnavailable)
 			wg.Done()
 			return
 		}
@@ -399,7 +401,7 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 	}
 }
 
-func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
+func (s *apiserverSuite) TestEmbeddedCommand(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"status --color"},
@@ -407,7 +409,7 @@ func (s *apiserverSuite) TestEmbeddedCommand(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, "fred@interactive:test-admin/testmodel -> status --color", nil)
 }
 
-func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
+func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"bootstrap aws"},
@@ -415,14 +417,14 @@ func (s *apiserverSuite) TestEmbeddedCommandNotAllowed(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, `"bootstrap" not allowed`, nil)
 }
 
-func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *gc.C) {
+func (s *apiserverSuite) TestEmbeddedCommandMissingUser(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		Commands: []string{"status --color"},
 	}
 	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `CLI command for anonymous user not supported`, Code: "not supported"})
 }
 
-func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
+func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "123@",
 		Commands: []string{"status --color"},
@@ -430,7 +432,7 @@ func (s *apiserverSuite) TestEmbeddedCommandInvalidUser(c *gc.C) {
 	s.assertEmbeddedCommand(c, cmdArgs, "", &params.Error{Message: `user name "123@" not valid`, Code: params.CodeNotValid})
 }
 
-func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
+func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *tc.C) {
 	cmdArgs := params.CLICommands{
 		User:     "fred",
 		Commands: []string{"status macaroon error"},
@@ -440,7 +442,7 @@ func (s *apiserverSuite) TestEmbeddedCommandInvalidMacaroon(c *gc.C) {
 		Message: `macaroon discharge required: cannot get discharge from https://controller`})
 }
 
-func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
+func (s *apiserverSuite) assertEmbeddedCommand(c *tc.C, cmdArgs params.CLICommands, expected string, resultErr *params.Error) {
 	address := s.server.Listener.Addr().String()
 	path := fmt.Sprintf("/model/%s/commands", s.State.ModelUUID())
 	commandURL := &url.URL{
@@ -449,7 +451,7 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 		Path:   path,
 	}
 	conn, _, err := dialWebsocketFromURL(c, commandURL.String(), http.Header{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer conn.Close()
 
 	// Read back the nil error, indicating that all is well.
@@ -461,7 +463,7 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 		for {
 			var update params.CLICommandStatus
 			err := conn.ReadJSON(&update)
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, tc.ErrorIsNil)
 
 			result.Output = append(result.Output, update.Output...)
 			result.Done = update.Done
@@ -474,7 +476,7 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 	}()
 
 	err = conn.WriteJSON(cmdArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
@@ -484,13 +486,13 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 
 	// Close connection.
 	err = conn.Close()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	var expectedOutput []string
 	if expected != "" {
 		expectedOutput = []string{expected}
 	}
-	c.Assert(result, jc.DeepEquals, params.CLICommandStatus{
+	c.Assert(result, tc.DeepEquals, params.CLICommandStatus{
 		Output: expectedOutput,
 		Done:   true,
 		Error:  resultErr,
@@ -500,9 +502,9 @@ func (s *apiserverSuite) assertEmbeddedCommand(c *gc.C, cmdArgs params.CLIComman
 // TestModelRemoveClosesRPC tests that when an RPC connection is opened
 // to a model that is being removed, the connection is closed
 // gracefully.
-func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
+func (s *apiserverSuite) TestModelRemoveClosesRPC(c *tc.C) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	modelConfig := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),
@@ -516,8 +518,8 @@ func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
 		Owner:                   s.Owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		st.Close()
 	})
 
@@ -528,18 +530,18 @@ func (s *apiserverSuite) TestModelRemoveClosesRPC(c *gc.C) {
 	apiInfo.ModelTag = model.ModelTag()
 
 	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn, gc.NotNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conn, tc.NotNil)
+	s.AddCleanup(func(c *tc.C) {
 		conn.Close()
 	})
 
 	removed, err := s.StatePool.Remove(model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsTrue)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(removed, tc.IsTrue)
 
 	time.Sleep(testing.ShortWait)
 
 	err = conn.APICall("Pinger", 1, "", "Ping", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `connection is shut down`)
+	c.Assert(err, tc.ErrorMatches, `connection is shut down`)
 }

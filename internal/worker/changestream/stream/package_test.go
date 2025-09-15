@@ -4,11 +4,11 @@
 package stream
 
 import (
-	"testing"
-	time "time"
+	"time"
 
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/tc"
 
 	dbtesting "github.com/juju/juju/database/testing"
 )
@@ -16,10 +16,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestream/stream FileNotifier
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination logger_mock_test.go github.com/juju/juju/internal/worker/changestream/stream Logger
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type baseSuite struct {
 	dbtesting.ControllerSuite
@@ -30,7 +26,7 @@ type baseSuite struct {
 	FileNotifier *MockFileNotifier
 }
 
-func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)

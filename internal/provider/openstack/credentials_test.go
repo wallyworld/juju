@@ -7,38 +7,40 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	tctesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type credentialsSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	provider environs.EnvironProvider
 }
 
-var _ = gc.Suite(&credentialsSuite{})
+func TestCredentialsSuite(t *tctesting.T) {
+	tc.Run(t, &credentialsSuite{})
+}
 
-func (s *credentialsSuite) SetUpTest(c *gc.C) {
+func (s *credentialsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	var err error
 	s.provider, err = environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
+func (s *credentialsSuite) TestCredentialSchemas(c *tc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider, "access-key", "userpass")
 }
 
-func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *gc.C) {
+func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *tc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "access-key", map[string]string{
 		"access-key":  "key",
 		"secret-key":  "secret",
@@ -46,11 +48,11 @@ func (s *credentialsSuite) TestAccessKeyCredentialsValid(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *gc.C) {
+func (s *credentialsSuite) TestAccessKeyHiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "access-key", "secret-key")
 }
 
-func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
+func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
 		"username":    "bob",
 		"password":    "dobbs",
@@ -58,17 +60,17 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestUserPassHiddenAttributes(c *gc.C) {
+func (s *credentialsSuite) TestUserPassHiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsNotFound(c *tc.C) {
 	// No environment variables set, so no credentials should be found.
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, tc.Satisfies, errors.IsNotFound)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c *tc.C) {
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("OS_AUTH_VERSION", "2")
 	s.PatchEnvironment("OS_TENANT_NAME", "gary")
@@ -78,8 +80,8 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	s.PatchEnvironment("OS_REGION_NAME", "east")
 
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "east")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "east")
 	expected := cloud.NewCredential(
 		cloud.AccessKeyAuthType, map[string]string{
 			"version":     "2",
@@ -90,10 +92,10 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 		},
 	)
 	expected.Label = `openstack region "east" project "gary" user "fred"`
-	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["fred"], tc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *tc.C) {
 	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
@@ -104,8 +106,8 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "user-domain")
 
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "west")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
 			"version":             "3",
@@ -119,10 +121,10 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
-	c.Assert(credentials.AuthCredentials["bob"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
 	s.PatchEnvironment("OS_AUTH_VERSION", "3")
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
@@ -132,8 +134,8 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
 	s.PatchEnvironment("OS_DEFAULT_DOMAIN_NAME", "default-domain")
 
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "west")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "west")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
 			"version":             "3",
@@ -147,20 +149,20 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *gc.C) {
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
-	c.Assert(credentials.AuthCredentials["bob"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
+func (s *credentialsSuite) TestDetectCredentialsNovarc(c *tc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip("not running linux")
 	}
 	home := utils.Home()
 	dir := c.MkDir()
 	err := utils.SetHome(dir)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
 		err := utils.SetHome(home)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	})
 
 	content := `
@@ -175,10 +177,10 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
 	err = os.WriteFile(novarc, []byte(content), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	credentials, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "region")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
 			"version":             "3",
@@ -192,5 +194,5 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 		},
 	)
 	expected.Label = `openstack region "region" project "gary" user "bob"`
-	c.Assert(credentials.AuthCredentials["bob"], jc.DeepEquals, expected)
+	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
 }

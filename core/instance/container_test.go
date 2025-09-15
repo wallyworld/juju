@@ -4,59 +4,56 @@
 package instance_test
 
 import (
-	"testing"
+	tctesting "testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
 type InstanceSuite struct{}
 
-var _ = gc.Suite(&InstanceSuite{})
-
-func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
-	ctype, err := instance.ParseContainerType("lxd")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.LXD)
-
-	ctype, err = instance.ParseContainerType("lxd")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.LXD)
-
-	ctype, err = instance.ParseContainerType("kvm")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.KVM)
-
-	_, err = instance.ParseContainerType("none")
-	c.Assert(err, gc.ErrorMatches, `invalid container type "none"`)
-
-	_, err = instance.ParseContainerType("omg")
-	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
+func TestInstanceSuite(t *tctesting.T) {
+	tc.Run(t, &InstanceSuite{})
 }
 
-func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
+func (s *InstanceSuite) TestParseContainerType(c *tc.C) {
+	ctype, err := instance.ParseContainerType("lxd")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.LXD)
+
+	ctype, err = instance.ParseContainerType("lxd")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.LXD)
+
+	ctype, err = instance.ParseContainerType("kvm")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.KVM)
+
+	_, err = instance.ParseContainerType("none")
+	c.Assert(err, tc.ErrorMatches, `invalid container type "none"`)
+
+	_, err = instance.ParseContainerType("omg")
+	c.Assert(err, tc.ErrorMatches, `invalid container type "omg"`)
+}
+
+func (s *InstanceSuite) TestParseContainerTypeOrNone(c *tc.C) {
 	ctype, err := instance.ParseContainerTypeOrNone("lxd")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.LXD)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerTypeOrNone("lxd")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.LXD)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerTypeOrNone("kvm")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.KVM)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.KVM)
 
 	ctype, err = instance.ParseContainerTypeOrNone("none")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctype, gc.Equals, instance.NONE)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(ctype, tc.Equals, instance.NONE)
 
 	_, err = instance.ParseContainerTypeOrNone("omg")
-	c.Assert(err, gc.ErrorMatches, `invalid container type "omg"`)
+	c.Assert(err, tc.ErrorMatches, `invalid container type "omg"`)
 }

@@ -4,21 +4,26 @@
 package fanconfigurer
 
 import (
+	tctesting "testing"
+
 	"github.com/juju/errors"
-	"github.com/juju/testing"
+	"github.com/juju/tc"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type fanConfigurerSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 
 	facade *MockFanConfigurerFacade
 }
 
-var _ = gc.Suite(&fanConfigurerSuite{})
+func TestFanConfigurerSuite(t *tctesting.T) {
+	tc.Run(t, &fanConfigurerSuite{})
+}
 
-func (s *fanConfigurerSuite) TestProcessNewConfigNotImplemented(c *gc.C) {
+func (s *fanConfigurerSuite) TestProcessNewConfigNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().FanConfig().Return(nil, errors.NotImplemented)
@@ -30,10 +35,10 @@ func (s *fanConfigurerSuite) TestProcessNewConfigNotImplemented(c *gc.C) {
 	}
 
 	err := fc.processNewConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *fanConfigurerSuite) TestProcessLoopNotImplemented(c *gc.C) {
+func (s *fanConfigurerSuite) TestProcessLoopNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().WatchForFanConfigChanges().Return(nil, errors.NotImplemented)
@@ -45,10 +50,10 @@ func (s *fanConfigurerSuite) TestProcessLoopNotImplemented(c *gc.C) {
 	}
 
 	err := fc.loop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, tc.IsNil)
 }
 
-func (s *fanConfigurerSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *fanConfigurerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facade = NewMockFanConfigurerFacade(ctrl)

@@ -9,27 +9,31 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	tctesting "testing"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/core/charm/downloader/mocks"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-var _ = gc.Suite(&downloaderSuite{})
-var _ = gc.Suite(&downloadedCharmVerificationSuite{})
-
-type downloadedCharmVerificationSuite struct {
-	testing.IsolationSuite
+func TestDownloaderSuite(t *tctesting.T) {
+	tc.Run(t, &downloaderSuite{})
+}
+func TestDownloadedCharmVerificationSuite(t *tctesting.T) {
+	tc.Run(t, &downloadedCharmVerificationSuite{})
 }
 
-func (s *downloadedCharmVerificationSuite) TestVersionMismatch(c *gc.C) {
+type downloadedCharmVerificationSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func (s *downloadedCharmVerificationSuite) TestVersionMismatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -43,13 +47,13 @@ func (s *downloadedCharmVerificationSuite) TestVersionMismatch(c *gc.C) {
 	}
 
 	err := dc.Verify(corecharm.Origin{}, false)
-	c.Assert(err, gc.ErrorMatches, ".*min version.*is higher.*")
+	c.Assert(err, tc.ErrorMatches, ".*min version.*is higher.*")
 }
 
 // TestSHA256CheckSkipping ensures that SHA256 checks are skipped when
 // downloading charms from charmstore which does not return an expected SHA256
 // hash to check against.
-func (s *downloadedCharmVerificationSuite) TestSHA256CheckSkipping(c *gc.C) {
+func (s *downloadedCharmVerificationSuite) TestSHA256CheckSkipping(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -64,10 +68,10 @@ func (s *downloadedCharmVerificationSuite) TestSHA256CheckSkipping(c *gc.C) {
 	}
 
 	err := dc.Verify(corecharm.Origin{}, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *downloadedCharmVerificationSuite) TestSHA256Mismatch(c *gc.C) {
+func (s *downloadedCharmVerificationSuite) TestSHA256Mismatch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -82,10 +86,10 @@ func (s *downloadedCharmVerificationSuite) TestSHA256Mismatch(c *gc.C) {
 	}
 
 	err := dc.Verify(corecharm.Origin{Hash: "the-real-hash"}, false)
-	c.Assert(err, gc.ErrorMatches, "detected SHA256 hash mismatch")
+	c.Assert(err, tc.ErrorMatches, "detected SHA256 hash mismatch")
 }
 
-func (s *downloadedCharmVerificationSuite) TestLXDProfileValidationError(c *gc.C) {
+func (s *downloadedCharmVerificationSuite) TestLXDProfileValidationError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -105,11 +109,11 @@ func (s *downloadedCharmVerificationSuite) TestLXDProfileValidationError(c *gc.C
 	}
 
 	err := dc.Verify(corecharm.Origin{Hash: "sha256"}, false)
-	c.Assert(err, gc.ErrorMatches, ".*cannot verify charm-provided LXD profile.*")
+	c.Assert(err, tc.ErrorMatches, ".*cannot verify charm-provided LXD profile.*")
 }
 
 type downloaderSuite struct {
-	testing.IsolationSuite
+	testhelpers.IsolationSuite
 	charmArchive *mocks.MockCharmArchive
 	repoGetter   *mocks.MockRepositoryGetter
 	repo         *mocks.MockCharmRepository
@@ -117,11 +121,11 @@ type downloaderSuite struct {
 	logger       *mocks.MockLogger
 }
 
-func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
+func (s *downloaderSuite) TestDownloadAndHash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tmpFile := filepath.Join(c.MkDir(), "ubuntu-lite.zip")
-	c.Assert(os.WriteFile(tmpFile, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
+	c.Assert(os.WriteFile(tmpFile, []byte("meshuggah\n"), 0644), tc.ErrorIsNil)
 
 	name := "ch:ubuntu-lite"
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
@@ -133,13 +137,13 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 
 	dl := s.newDownloader()
 	dc, gotOrigin, err := dl.DownloadAndHash(name, requestedOrigin, repoAdapter{s.repo}, tmpFile)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
-	c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
-	c.Assert(dc.Size, gc.Equals, int64(10))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotOrigin, tc.DeepEquals, resolvedOrigin, tc.Commentf("expected to get back the resolved origin"))
+	c.Assert(dc.SHA256, tc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
+	c.Assert(dc.Size, tc.Equals, int64(10))
 }
 
-func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
+func (s downloaderSuite) TestCharmAlreadyStored(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := charm.MustParseURL("ch:redis-0")
@@ -155,11 +159,11 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
-	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotOrigin, tc.DeepEquals, knownOrigin, tc.Commentf("expected to get back the known origin for the existing charm"))
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
+func (s downloaderSuite) TestPrepareToStoreCharmError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := charm.MustParseURL("ch:redis-0")
@@ -171,11 +175,11 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
-	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
-	c.Assert(err, gc.ErrorMatches, "something went wrong")
+	c.Assert(gotOrigin, tc.DeepEquals, corecharm.Origin{}, tc.Commentf("expected a blank origin when encountering errors"))
+	c.Assert(err, tc.ErrorMatches, "something went wrong")
 }
 
-func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
+func (s downloaderSuite) TestNormalizePlatform(c *tc.C) {
 	name := "ubuntu-lite"
 	requestedPlatform := corecharm.Platform{
 		Channel: "20.04",
@@ -183,15 +187,15 @@ func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
 	}
 
 	gotPlatform, err := s.newDownloader().NormalizePlatform(name, requestedPlatform)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotPlatform, gc.DeepEquals, corecharm.Platform{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotPlatform, tc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		Channel:      "20.04",
 		OS:           "ubuntu", // notice lower case
 	})
 }
 
-func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
+func (s downloaderSuite) TestDownloadAndStore(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	curl := charm.MustParseURL("ch:ubuntu-lite")
@@ -216,13 +220,13 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(nil)
 	s.storage.EXPECT().Store(curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
 		func(_ string, dc downloader.DownloadedCharm) error {
-			c.Assert(dc.Size, gc.Equals, int64(10))
+			c.Assert(dc.Size, tc.Equals, int64(10))
 
 			contents, err := io.ReadAll(dc.CharmData)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(string(contents), gc.DeepEquals, "meshuggah\n", gc.Commentf("read charm contents do not match the data written to disk"))
-			c.Assert(dc.CharmVersion, gc.Equals, "the-version")
-			c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(string(contents), tc.DeepEquals, "meshuggah\n", tc.Commentf("read charm contents do not match the data written to disk"))
+			c.Assert(dc.CharmVersion, tc.Equals, "the-version")
+			c.Assert(dc.SHA256, tc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
 
 			return nil
 		},
@@ -230,7 +234,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(curl.Name, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
 		func(_ string, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
-			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
+			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), tc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, nil
 		},
 	)
@@ -242,11 +246,11 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
-	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotOrigin, tc.DeepEquals, resolvedOrigin, tc.Commentf("expected to get back the resolved origin"))
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *downloaderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)
 	s.repo = mocks.NewMockCharmRepository(ctrl)
@@ -263,9 +267,9 @@ func (s *downloaderSuite) newDownloader() *downloader.Downloader {
 	return downloader.NewDownloader(s.logger, s.storage, s.repoGetter)
 }
 
-func mustParseChannel(c *gc.C, channel string) *charm.Channel {
+func mustParseChannel(c *tc.C, channel string) *charm.Channel {
 	ch, err := charm.ParseChannel(channel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return &ch
 }
 

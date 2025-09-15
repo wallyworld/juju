@@ -4,16 +4,15 @@
 package client_test
 
 import (
+	tctesting "testing"
 	"time"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	jtesting "github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/tc"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	apiclient "github.com/juju/juju/api/client/client"
@@ -40,12 +39,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 )
 
@@ -55,9 +56,11 @@ type serverSuite struct {
 	newEnviron func() (environs.BootstrapEnviron, error)
 }
 
-var _ = gc.Suite(&serverSuite{})
+func TestServerSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &serverSuite{})
+}
 
-func (s *serverSuite) SetUpTest(c *gc.C) {
+func (s *serverSuite) SetUpTest(c *tc.C) {
 	s.ConfigAttrs = map[string]interface{}{
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
@@ -65,7 +68,7 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 	s.client = s.clientForState(c, s.State)
 }
 
-func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
+func (s *serverSuite) authClientForState(c *tc.C, st *state.State, auth facade.Authorizer) *client.Client {
 	context := &facadetest.Context{
 		Controller_: s.Controller,
 		State_:      st,
@@ -74,10 +77,10 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 		Resources_:  common.NewResources(),
 	}
 	apiserverClient, err := client.NewFacade(context)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.newEnviron = func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{Model: m}, environs.New)
@@ -85,14 +88,14 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	return apiserverClient
 }
 
-func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
+func (s *serverSuite) clientForState(c *tc.C, st *state.State) *client.Client {
 	return s.authClientForState(c, st, testing.FakeAuthorizer{
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	})
 }
 
-func (s *serverSuite) TestNewFacadeWaitsForCachedModel(c *gc.C) {
+func (s *serverSuite) TestNewFacadeWaitsForCachedModel(c *tc.C) {
 	setGenerationsControllerConfig(c, s.State)
 	state := s.Factory.MakeModel(c, nil)
 	defer state.Close()
@@ -108,18 +111,20 @@ type clientSuite struct {
 	mgmtSpace *state.Space
 }
 
-func (s *clientSuite) SetUpTest(c *gc.C) {
+func (s *clientSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	var err error
 	s.mgmtSpace, err = s.State.AddSpace("mgmt01", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-var _ = gc.Suite(&clientSuite{})
+func TestClientSuite(t *tctesting.T) {
+	coretesting.MgoTestPackage(t, &clientSuite{})
+}
 
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
@@ -196,47 +201,47 @@ func clearContollerTimestamp(status *params.FullStatus) {
 	status.ControllerTimestamp = nil
 }
 
-func (s *clientSuite) TestClientStatus(c *gc.C) {
+func (s *clientSuite) TestClientStatus(c *tc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c)).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, jc.DeepEquals, scenarioStatus)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status, tc.DeepEquals, scenarioStatus)
 }
 
-func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
+func (s *clientSuite) TestClientStatusControllerTimestamp(c *tc.C) {
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c)).Status(nil)
 	clearSinceTimes(status)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status.ControllerTimestamp, gc.NotNil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(status.ControllerTimestamp, tc.NotNil)
 }
 
-func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
+func (s *clientSuite) TestClientWatchAllReadPermission(c *tc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "ro-password",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"), coretesting.NoopLogger{})
+	c.Assert(err, tc.ErrorIsNil)
+	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"), loggertesting.WrapCheckLog(c))
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	deltasCh := make(chan []params.Delta)
@@ -251,7 +256,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	}()
 
 	machineReady := func(got *params.MachineInfo) bool {
-		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+		equal, _ := tc.DeepEqual(got, &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
@@ -301,15 +306,15 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
+func (s *clientSuite) TestClientWatchAllAdminPermission(c *tc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	// Include a remote app that needs admin access to see.
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -326,13 +331,13 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).WatchAll()
-	c.Assert(err, jc.ErrorIsNil)
+	watcher, err := apiclient.NewClient(s.APIState, loggertesting.WrapCheckLog(c)).WatchAll()
+	c.Assert(err, tc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, tc.ErrorIsNil)
 	}()
 
 	deltasCh := make(chan []params.Delta)
@@ -347,7 +352,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}()
 
 	machineReady := func(got *params.MachineInfo) bool {
-		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
+		equal, _ := tc.DeepEqual(got, &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
@@ -369,7 +374,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}
 
 	appReady := func(got *params.RemoteApplicationUpdate) bool {
-		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
+		equal, _ := tc.DeepEqual(got, &params.RemoteApplicationUpdate{
 			Name:      "remote-db2",
 			ModelUUID: s.State.ModelUUID(),
 			OfferURL:  "admin/prod.db2",
@@ -419,21 +424,23 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+func (s *clientSuite) AssertBlocked(c *tc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), tc.IsTrue, tc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), tc.DeepEquals, &rpc.RequestError{
 		Message: msg,
 		Code:    "operation is blocked",
 	})
 }
 
 type findToolsSuite struct {
-	jtesting.IsolationSuite
+	testhelpers.IsolationSuite
 }
 
-var _ = gc.Suite(&findToolsSuite{})
+func TestFindToolsSuite(t *tctesting.T) {
+	tc.Run(t, &findToolsSuite{})
+}
 
-func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsIAAS(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -474,32 +481,32 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 			return registryProvider, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.FindToolsResult{List: simpleStreams})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.FindToolsResult{List: simpleStreams})
 }
 
-func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Config {
+func (s *findToolsSuite) getModelConfig(c *tc.C, agentVersion string) *config.Config {
 	// Validate version string.
 	ver, err := version.Parse(agentVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	mCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.AgentVersionKey: ver.String(),
 	}))
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	return mCfg
 }
 
-func (s *findToolsSuite) TestFindToolsCAASReleasedDefault(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsCAASReleasedDefault(c *tc.C) {
 	s.assertFindToolsCAASReleased(c, "", "amd64")
 }
 
-func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsCAASReleased(c *tc.C) {
 	s.assertFindToolsCAASReleased(c, "arm64", "arm64")
 }
 
-func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectArch string) {
+func (s *findToolsSuite) assertFindToolsCAASReleased(c *tc.C, wantArch, expectArch string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -566,7 +573,7 @@ func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectAr
 		nil,
 		nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
-			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
+			c.Assert(repo, tc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
 				ServerAddress: "quay.io",
 				BasicAuthConfig: docker.BasicAuthConfig{
@@ -576,10 +583,10 @@ func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectAr
 			return registryProvider, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, Arch: wantArch})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{
 			{Version: version.MustParseBinary("2.9.10-ubuntu-" + expectArch)},
 			{Version: version.MustParseBinary("2.9.11-ubuntu-" + expectArch)},
@@ -587,7 +594,7 @@ func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectAr
 	})
 }
 
-func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
+func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -655,7 +662,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		nil,
 		nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
-			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
+			c.Assert(repo, tc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
 				ServerAddress: "quay.io",
 				BasicAuthConfig: docker.BasicAuthConfig{
@@ -665,10 +672,10 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			return registryProvider, nil
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil)
 	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{
 			{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
 			{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},

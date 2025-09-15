@@ -4,7 +4,9 @@
 package migration_test
 
 import (
-	gc "gopkg.in/check.v1"
+	tctesting "testing"
+
+	"github.com/juju/tc"
 
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
@@ -12,16 +14,18 @@ import (
 
 type DialOpsSuite struct{}
 
-var _ = gc.Suite(&DialOpsSuite{})
+func TestDialOpsSuite(t *tctesting.T) {
+	tc.Run(t, &DialOpsSuite{})
+}
 
-func (d *DialOpsSuite) TestNewLoginProvider(c *gc.C) {
+func (d *DialOpsSuite) TestNewLoginProvider(c *tc.C) {
 	targetInfo := coremigration.TargetInfo{
 		Token: "test-session",
 	}
 	sessionTokenloginProvider := migration.NewLoginProvider(targetInfo)
-	c.Assert(sessionTokenloginProvider, gc.NotNil)
+	c.Assert(sessionTokenloginProvider, tc.NotNil)
 
 	targetInfo.Token = ""
 	nilProvider := migration.NewLoginProvider(targetInfo)
-	c.Assert(nilProvider, gc.IsNil)
+	c.Assert(nilProvider, tc.IsNil)
 }
