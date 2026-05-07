@@ -304,6 +304,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_sitemap",
     'sphinxext.rediraffe',
+    'sphinx_sitemap',
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
